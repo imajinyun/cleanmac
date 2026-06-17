@@ -2760,7 +2760,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("make open-source-smoke", contributing)
         self.assertIn("path traversal", security.lower())
         self.assertIn("github/codeql-action/init@v3", codeql)
-        uses_lines = []
+        uses_lines: list[str] = []
         for workflow in (PROJECT_ROOT / ".github/workflows").glob("*.yml"):
             uses_lines.extend(
                 line.strip()
