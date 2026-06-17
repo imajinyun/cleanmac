@@ -702,6 +702,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     plan_cmd.add_argument("--name-regex")
     plan_cmd.add_argument("--max-items", type=int)
     plan_cmd.add_argument("--older-than-days", type=float)
+    plan_cmd.add_argument(
+        "--ai-origin",
+        action="store_true",
+        help="Mark the generated plan as AI-originated so later execution requires conservative safeguards.",
+    )
 
     validate_plan = subparsers.add_parser("validate-plan", help="Validate a cleanup plan/audit JSON file.")
     validate_plan.add_argument("--plan-file", required=True)
@@ -953,6 +958,7 @@ def load_clean_plan(plan_file: str) -> dict[str, Any]:
         "max_items": plan.get("max_items") if isinstance(plan.get("max_items"), int) else None,
         "root": str(plan.get("root")) if isinstance(plan.get("root"), str) else None,
         "home": str(plan.get("home")) if isinstance(plan.get("home"), str) else None,
+        "ai_origin": plan.get("ai_origin") is True,
     }
 
 
@@ -1247,6 +1253,12 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "confirmation_token_flag": "clean --confirmation-token",
             "require_confirmation_token_flag": "clean --require-confirmation-token",
             "recommended_confirmation_phrase": ai_schema.CONFIRMATION_PHRASE,
+            "ai_originated_plan_requires": [
+                "--delete-mode trash",
+                "--operation-log",
+                "--require-confirmation-token",
+                "--require-plan-context",
+            ],
         },
     }
 
@@ -1270,7 +1282,15 @@ def render_ai_recommended_workflow() -> list[dict[str, Any]]:
         },
         {
             "step": "plan",
-            "command_template": ["cleanmac", "--json", "clean", "plan", "--categories", "{categories}"],
+            "command_template": [
+                "cleanmac",
+                "--json",
+                "clean",
+                "plan",
+                "--categories",
+                "{categories}",
+                "--ai-origin",
+            ],
             "auto_call_allowed": True,
         },
         {
@@ -1287,6 +1307,7 @@ def render_ai_recommended_workflow() -> list[dict[str, Any]]:
                 "run",
                 "--plan-file",
                 "{plan_file}",
+                "--require-plan-context",
                 "--delete-mode",
                 "trash",
             ],
@@ -1308,12 +1329,16 @@ def render_ai_recommended_workflow() -> list[dict[str, Any]]:
                 "run",
                 "--plan-file",
                 "{plan_file}",
+                "--require-plan-context",
                 "--delete-mode",
                 "trash",
                 "--execute",
                 "--yes",
                 "--operation-log",
                 ai_schema.DEFAULT_OPERATION_LOG,
+                "--require-confirmation-token",
+                "--confirmation-token",
+                "{confirmation_token}",
             ],
             "auto_call_allowed": False,
             "requires_user_confirmation": True,
@@ -3868,6 +3893,7 @@ def render_clean_plan(
     min_size_mb: int = 0,
     name_regex: str | None = None,
     max_items: int | None = None,
+    ai_origin: bool = False,
 ) -> dict[str, Any]:
     category_keys = [category.key for category in categories]
     pre_report = render_pre_clean_report(
@@ -3896,6 +3922,7 @@ def render_clean_plan(
         "schema": "cleanmac.plan.v1",
         "destructive": False,
         "dry_run": True,
+        "ai_origin": ai_origin,
         "ai_summary": ai_summary,
         "categories": category_keys,
         "selected_category_keys": category_keys,
@@ -4662,6 +4689,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             min_size_mb=args.min_size_mb,
             name_regex=args.name_regex,
             max_items=args.max_items,
+            ai_origin=args.ai_origin,
         )
         emit_report(report, args=args, command="plan", root=root, home=home, argv=actual_argv)
         return 0
@@ -4714,6 +4742,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "clean":
         if args.require_plan_context and not plan_metadata:
             raise SystemExit("--require-plan-context requires --plan-file.")
+        if args.execute and plan_metadata and plan_metadata.get("ai_origin"):
+            if args.delete_mode != "trash":
+                raise SystemExit("AI-originated plan requires --delete-mode trash before execution.")
+            if "--operation-log" not in original_argv:
+                raise SystemExit("AI-originated plan requires --operation-log before execution.")
+            if not args.require_confirmation_token:
+                raise SystemExit("AI-originated plan requires --require-confirmation-token before execution.")
+            if not args.require_plan_context:
+                raise SystemExit("AI-originated plan requires --require-plan-context before execution.")
         if args.require_plan_context and plan_metadata:
             if plan_metadata.get("root") and not same_context_path(str(plan_metadata["root"]), root):
                 raise SystemExit(f"Plan root mismatch: expected {plan_metadata['root']} actual {display_path(root)}")
