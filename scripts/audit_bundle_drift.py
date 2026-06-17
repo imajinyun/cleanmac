@@ -22,17 +22,36 @@ from cleancli.protection_data import (  # noqa: E402
     SYSTEM_CRITICAL_BUNDLE_PATTERNS,
 )
 
-SYSTEM_SCAN_ROOTS = (Path("/System/Applications"), Path("/System/Library/CoreServices"))
+SYSTEM_SCAN_ROOTS = (
+    Path("/System/Applications"),
+    Path("/System/Library/CoreServices"),
+    Path("/System/Library/CoreServices/Applications"),
+    Path("/System/Library/PreferencePanes"),
+    Path("/Library/Apple/System/Library/CoreServices"),
+    Path("/System/iOSSupport/System/Library/CoreServices"),
+)
 INFORMATIONAL_SCAN_ROOTS = (Path("/Applications"),)
+BUNDLE_SUFFIXES = (".app", ".appex", ".bundle", ".plugin", ".prefPane")
 
 
-def iter_app_bundles(root: Path) -> list[Path]:
-    """Return app bundles under root, including root itself when it is an .app."""
+def iter_bundles(root: Path) -> list[Path]:
+    """Return supported macOS bundles under root, including root itself when it is a bundle."""
     if not root.exists():
         return []
-    if root.is_dir() and root.suffix == ".app":
+    if root.is_dir() and root.suffix in BUNDLE_SUFFIXES:
         return [root]
-    return sorted(path for path in root.rglob("*.app") if path.is_dir())
+    return sorted(path for path in root.rglob("*") if path.is_dir() and path.suffix in BUNDLE_SUFFIXES)
+
+
+def bundle_type(path: Path) -> str:
+    return path.suffix.removeprefix(".") or "unknown"
+
+
+def relative_to_root(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return path.name
 
 
 def coverage_reason(bundle_id: str | None) -> str | None:
@@ -52,16 +71,29 @@ def coverage_reason(bundle_id: str | None) -> str | None:
 
 def scan_root(root: Path, *, source: str) -> list[dict[str, Any]]:
     rows = []
-    for app_path in iter_app_bundles(root):
-        bundle_id = bundle_id_for_app(app_path)
+    for bundle_path in iter_bundles(root):
+        bundle_id = bundle_id_for_app(bundle_path)
         reason = coverage_reason(bundle_id)
         rows.append(
             {
                 "source": source,
-                "path": str(app_path),
+                "source_root": str(root),
+                "relative_path": relative_to_root(bundle_path, root),
+                "path": str(bundle_path),
+                "bundle_type": bundle_type(bundle_path),
                 "bundle_id": bundle_id,
                 "coverage": reason or "uncovered",
+                "coverage_reason": reason,
                 "covered": reason is not None,
+                "policy_action": (
+                    "covered"
+                    if reason is not None
+                    else "unreadable"
+                    if bundle_id is None
+                    else "uncovered-system"
+                    if source == "system"
+                    else "informational-only"
+                ),
             }
         )
     return rows
@@ -81,6 +113,7 @@ def audit_bundle_drift(
         "destructive": False,
         "system_roots": [str(root) for root in system_roots],
         "informational_roots": [str(root) for root in informational_roots],
+        "bundle_suffixes": list(BUNDLE_SUFFIXES),
         "summary": {
             "system_bundle_count": len(system_rows),
             "informational_bundle_count": len(informational_rows),

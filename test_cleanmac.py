@@ -269,6 +269,12 @@ class CleanMacCLITests(unittest.TestCase):
             report["safety_guardrails"]["bundle_drift_audit"]["command"],
             "python3 scripts/audit_bundle_drift.py --json --fail-on-drift",
         )
+        distribution_governance = report["safety_guardrails"]["distribution_governance"]
+        self.assertEqual(distribution_governance["schema"], "cleanmac.distribution-governance.v1")
+        self.assertIn("standalone-zipapp", distribution_governance["supported_artifacts"])
+        self.assertEqual(distribution_governance["release_manifest"], "release-assets/ARTIFACT-MANIFEST.json")
+        self.assertEqual(distribution_governance["homebrew_formula_policy"]["status"], "preflight-only")
+        self.assertFalse(distribution_governance["homebrew_formula_policy"]["publish_automatically"])
         self.assertEqual(
             report["safety_guardrails"]["privileged_command_ownership"]["scan_command"],
             "python3 scripts/security_scan.py",
@@ -2075,6 +2081,7 @@ class CleanMacCLITests(unittest.TestCase):
         report = json.loads(result.stdout)
         inventory = report["script_inventory"]
         validation = report["template_validation"]
+        migration = report["template_migration"]
         terminal = report["categories"][0]
         imessage = report["categories"][1]
 
@@ -2085,6 +2092,12 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertGreater(validation["template_count"], 0)
         self.assertGreater(validation["destructive_template_count"], 0)
         self.assertGreater(validation["safe_to_auto_execute_template_count"], 0)
+        self.assertEqual(migration["schema"], "cleanmac.command-template-migration.v1")
+        self.assertEqual(migration["raw_rm_rf_template_count"], 0)
+        self.assertEqual(migration["deprecated_template_count"], 0)
+        self.assertEqual(migration["replacement_template_count"], 0)
+        self.assertGreater(migration["recommended_delete_template_count"], 0)
+        self.assertTrue(migration["all_recommended_delete_templates_use_cleanmac_cli"])
         self.assertEqual(inventory["shell_execution"]["launch_path"], "/bin/sh")
         self.assertEqual(inventory["schema"], "cleanmac.script-groups.v1")
         self.assertEqual(
@@ -2193,6 +2206,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(validation["destructive_template_count"], 1)
         self.assertIn("destructive-auto-execute", violation_codes)
         self.assertIn("destructive-without-review", violation_codes)
+        self.assertIn("destructive-not-cleanmac-cli", violation_codes)
         self.assertIn("raw-rm-forbidden", violation_codes)
 
     def test_script_group_commands_follow_cli_global_flag_order_and_parse(self) -> None:
@@ -2492,6 +2506,10 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("governance-smoke:", makefile)
         self.assertIn("open-source-smoke:", makefile)
         self.assertIn("distribution-smoke:", makefile)
+        self.assertIn("zipapp", makefile)
+        self.assertIn("cleanmac.pyz", makefile)
+        self.assertIn("class Cleanmac < Formula", makefile)
+        self.assertIn("homebrew_formula", makefile)
         self.assertIn("release-artifacts-smoke:", makefile)
         self.assertIn("no-cache-check:", makefile)
         self.assertIn("docker-test", makefile)
@@ -2690,6 +2708,12 @@ class CleanMacCLITests(unittest.TestCase):
             "shutil.rmtree must stay in cleancli/delete_ops.py", (PROJECT_ROOT / "scripts/security_scan.py").read_text()
         )
         self.assertIn("subprocess must not directly invoke rm", (PROJECT_ROOT / "scripts/security_scan.py").read_text())
+        self.assertIn(
+            "shell must not invoke privileged command", (PROJECT_ROOT / "scripts/security_scan.py").read_text()
+        )
+        self.assertIn(
+            "workflow must not invoke privileged command", (PROJECT_ROOT / "scripts/security_scan.py").read_text()
+        )
         self.assertIn("Scan for secrets (gitleaks)", ci)
         self.assertIn("gitleaks/gitleaks-action", ci)
         self.assertIn("No-cache dependency install", ci)
@@ -2708,6 +2732,22 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("SBOM.json", release)
         self.assertIn("release-assets/SHA256SUMS", release)
         self.assertIn("release-assets/SBOM.json", release)
+        self.assertIn("ARTIFACT-MANIFEST.json", release)
+        self.assertIn("cleanmac.release-artifact-manifest.v1", release)
+        self.assertIn("homebrew_formula", release)
+        self.assertIn("publish_after_cross_platform_verification", release)
+        self.assertIn("Build release artifacts", release)
+        self.assertIn("Verify release artifacts (${{ matrix.os }})", release)
+        self.assertIn("os: [ubuntu-latest, macos-14, macos-15]", release)
+        self.assertIn("needs: build", release)
+        self.assertIn("needs: verify-release-artifacts", release)
+        self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", release)
+        self.assertIn("actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131", release)
+        self.assertIn("name: cleanmac-dist", release)
+        self.assertIn("name: cleanmac-release-assets", release)
+        self.assertIn("Verify wheel install and release checksums", release)
+        self.assertIn("Run real macOS smoke against release candidate", release)
+        self.assertIn("make real-macos-smoke", release)
         self.assertIn("actions/attest-build-provenance@v2", release)
         self.assertIn("actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45", release)
         self.assertIn("pypa/gh-action-pypi-publish@release/v1", release)

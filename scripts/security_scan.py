@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import shlex
 from pathlib import Path
 
 IGNORED_DIRS = {
@@ -55,6 +56,9 @@ ALLOWED_RMTREE_FRAGMENTS = (
 PRIVILEGED_COMMANDS = {"sudo", "osascript", "launchctl"}
 PRIVILEGED_BOUNDARY_MODULES = {Path("cleancli/delete_ops.py")}
 PRIVILEGED_TEST_ALLOWLIST = {"test_cleanmac.py", "tests/test_sudo_guard.py", "tests/test_delete_ops.py"}
+SHELL_ALLOWLIST = {Path("scripts/test.sh")}
+SHELL_SUFFIXES = {".sh", ".bash", ".zsh"}
+WORKFLOW_PARTS = (".github", "workflows")
 
 
 def iter_repo_files(root: Path) -> list[Path]:
@@ -85,11 +89,100 @@ def scan_text_file(root: Path, path: Path) -> list[str]:
     return violations
 
 
+def normalized_command_name(command: str) -> str:
+    return Path(command).name
+
+
+def shell_tokens(line: str) -> list[str]:
+    try:
+        return shlex.split(line, comments=True, posix=True)
+    except ValueError:
+        return []
+
+
+def is_shell_command_separator(token: str) -> bool:
+    return token in {"&&", "||", ";", "|"}
+
+
+def shell_command_names(line: str) -> set[str]:
+    names: set[str] = set()
+    expecting_command = True
+    for token in shell_tokens(line):
+        if is_shell_command_separator(token):
+            expecting_command = True
+            continue
+        if "=" in token and not token.startswith(("/", "./", "../")) and token.split("=", 1)[0].isidentifier():
+            continue
+        if expecting_command:
+            names.add(normalized_command_name(token))
+            expecting_command = False
+        elif normalized_command_name(token) in PRIVILEGED_COMMANDS:
+            names.add(normalized_command_name(token))
+    return names
+
+
+def is_workflow_file(relative: Path) -> bool:
+    return len(relative.parts) >= 3 and relative.parts[:2] == WORKFLOW_PARTS and relative.suffix in {".yml", ".yaml"}
+
+
+def scan_shell_file(root: Path, path: Path) -> list[str]:
+    relative = path.relative_to(root)
+    if relative in SHELL_ALLOWLIST:
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    violations: list[str] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        for command in sorted(shell_command_names(line) & PRIVILEGED_COMMANDS):
+            violations.append(f"{relative}:{line_number}: shell must not invoke privileged command '{command}'")
+    return violations
+
+
+def scan_workflow_file(root: Path, path: Path) -> list[str]:
+    relative = path.relative_to(root)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    violations: list[str] = []
+    in_run_block = False
+    run_indent = 0
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if in_run_block and indent <= run_indent:
+            in_run_block = False
+        step_line = stripped[2:].lstrip() if stripped.startswith("- ") else stripped
+        if step_line.startswith("run: |") or step_line.startswith("run: >"):
+            in_run_block = True
+            run_indent = indent
+            continue
+        command_line = (
+            step_line.removeprefix("run: ") if step_line.startswith("run: ") else stripped if in_run_block else ""
+        )
+        if not command_line:
+            continue
+        for command in sorted(shell_command_names(command_line) & PRIVILEGED_COMMANDS):
+            violations.append(f"{relative}:{line_number}: workflow must not invoke privileged command '{command}'")
+    return violations
+
+
 def literal_command_name(node: ast.AST) -> str | None:
     if isinstance(node, ast.List | ast.Tuple) and node.elts:
         first = node.elts[0]
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            return first.value
+            return normalized_command_name(first.value)
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        for command in shell_command_names(node.value):
+            if command in PRIVILEGED_COMMANDS or command == "rm":
+                return command
     return None
 
 
@@ -139,7 +232,12 @@ def scan_python_ast(root: Path, path: Path) -> list[str]:
 def scan_repo(root: Path) -> list[str]:
     violations: list[str] = []
     for path in iter_repo_files(root):
+        relative = path.relative_to(root)
         violations.extend(scan_text_file(root, path))
+        if path.suffix in SHELL_SUFFIXES:
+            violations.extend(scan_shell_file(root, path))
+        if is_workflow_file(relative):
+            violations.extend(scan_workflow_file(root, path))
         if path.suffix == ".py":
             violations.extend(scan_python_ast(root, path))
     return violations

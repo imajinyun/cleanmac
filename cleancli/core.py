@@ -1244,9 +1244,29 @@ def render_capabilities() -> dict[str, Any]:
             "bundle_drift_audit": {
                 "schema": "cleanmac.bundle-drift-audit.v1",
                 "command": "python3 scripts/audit_bundle_drift.py --json --fail-on-drift",
-                "system_roots": ["/System/Applications", "/System/Library/CoreServices"],
+                "system_roots": [
+                    "/System/Applications",
+                    "/System/Library/CoreServices",
+                    "/System/Library/CoreServices/Applications",
+                    "/System/Library/PreferencePanes",
+                    "/Library/Apple/System/Library/CoreServices",
+                    "/System/iOSSupport/System/Library/CoreServices",
+                ],
                 "informational_roots": ["/Applications"],
+                "bundle_suffixes": [".app", ".appex", ".bundle", ".plugin", ".prefPane"],
                 "scheduled_workflow": ".github/workflows/bundle_audit.yml",
+            },
+            "distribution_governance": {
+                "schema": "cleanmac.distribution-governance.v1",
+                "supported_artifacts": ["wheel", "sdist", "standalone-zipapp"],
+                "release_manifest": "release-assets/ARTIFACT-MANIFEST.json",
+                "homebrew_formula_policy": {
+                    "status": "preflight-only",
+                    "publish_automatically": False,
+                    "recommended_install_method": "pipx or Homebrew formula generated from release checksums",
+                    "formula_checks": ["class_name", "url", "sha256", "license", "test do"],
+                },
+                "standalone_smoke_command": "python cleanmac.pyz --json capabilities",
             },
             "privileged_command_ownership": render_boundary_governance()["privileged_command_ownership"],
             "log_rotation": {
@@ -1950,6 +1970,12 @@ def log_path_for_context(path: str, *, root: Path, home: Path) -> Path:
     return Path(path).expanduser().resolve(strict=False)
 
 
+def operation_log_path_for_context(path: str, *, root: Path, home: Path) -> Path:
+    if path.startswith("~/") or path == "~":
+        return Path(remap_path(path, root=root, home=home)).expanduser()
+    return Path(path).expanduser()
+
+
 def rotate_log_once(path: Path, *, max_bytes: int) -> bool:
     if max_bytes <= 0 or not path.exists() or path.stat().st_size <= max_bytes:
         return False
@@ -1959,10 +1985,45 @@ def rotate_log_once(path: Path, *, max_bytes: int) -> bool:
     return True
 
 
-def append_operation_log(path: str, entries: Sequence[dict[str, Any]], *, root: Path, home: Path) -> str:
-    log_path = log_path_for_context(path, root=root, home=home)
+def preflight_operation_log(path: str, *, root: Path, home: Path) -> dict[str, Any]:
+    log_path = operation_log_path_for_context(path, root=root, home=home)
+    try:
+        if log_path.parent.exists() and log_path.parent.is_symlink():
+            raise RuntimeError(f"Refusing to use symlinked operation log directory: {log_path.parent}")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        if log_path.parent.is_symlink():
+            raise RuntimeError(f"Refusing to use symlinked operation log directory: {log_path.parent}")
+        if log_path.exists() and log_path.is_symlink():
+            raise RuntimeError(f"Refusing to use symlinked operation log file: {log_path}")
+        if log_path.exists() and log_path.is_dir():
+            raise RuntimeError(f"Refusing to use directory as operation log file: {log_path}")
+        rotated = rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
+        with log_path.open("a", encoding="utf-8"):
+            pass
+    except Exception as exc:
+        return {
+            "schema": "cleanmac.operation-log-status.v1",
+            "status": "failed",
+            "path": display_path(log_path),
+            "rotated": False,
+            "error": str(exc),
+        }
+    return {
+        "schema": "cleanmac.operation-log-status.v1",
+        "status": "ready",
+        "path": display_path(log_path),
+        "rotated": rotated,
+        "error": None,
+    }
+
+
+def append_operation_log(
+    path: str, entries: Sequence[dict[str, Any]], *, root: Path, home: Path, rotate: bool = True
+) -> str:
+    log_path = operation_log_path_for_context(path, root=root, home=home)
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
+    if rotate:
+        rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
     with log_path.open("a", encoding="utf-8") as handle:
         for entry in entries:
             handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
@@ -2537,8 +2598,69 @@ def command_template_contract() -> dict[str, Any]:
         "required_fields": COMMAND_TEMPLATE_REQUIRED_FIELDS,
         "kind_values": ["argv", "shell"],
         "destructive_rule": "destructive templates must set safe_to_auto_execute=false and manual_review_required=true",
+        "destructive_delete_rule": "destructive cleanup/delete templates must be argv-only cleanmac CLI invocations using clean run, --delete-mode trash, --execute, and --yes",
         "placeholder_rule": "templates with placeholders must be substituted before execution",
     }
+
+
+def is_cleanmac_clean_run_argv(argv: object) -> bool:
+    if not isinstance(argv, list):
+        return False
+    parts = [str(part) for part in argv]
+    try:
+        clean_index = parts.index("clean")
+    except ValueError:
+        return False
+    return clean_index > 0 and clean_index + 1 < len(parts) and parts[clean_index + 1] == "run"
+
+
+def validate_destructive_cleanmac_template(location: str, template: dict[str, Any], add_violation: Any) -> None:
+    argv = template["argv"]
+    kind = template["kind"]
+    uses_shell = bool(template["uses_shell"])
+    if kind != "argv" or uses_shell:
+        add_violation(
+            location,
+            template,
+            "destructive-shell-template",
+            "destructive cleanup templates must be argv-only and must not invoke a shell",
+        )
+    if not is_cleanmac_clean_run_argv(argv):
+        add_violation(
+            location,
+            template,
+            "destructive-not-cleanmac-cli",
+            "destructive cleanup templates must invoke cleanmac clean run",
+        )
+        return
+    parts = [str(part) for part in argv]
+    if "--delete-mode" not in parts or parts[parts.index("--delete-mode") + 1 : parts.index("--delete-mode") + 2] != [
+        "trash"
+    ]:
+        add_violation(
+            location,
+            template,
+            "destructive-without-trash-mode",
+            "destructive cleanup templates must route deletes through --delete-mode trash",
+        )
+    if "--execute" not in parts:
+        add_violation(
+            location, template, "destructive-without-execute", "destructive cleanup templates must be explicit"
+        )
+    if "--yes" not in parts:
+        add_violation(
+            location,
+            template,
+            "destructive-without-review-ack",
+            "destructive cleanup templates must include --yes after manual review",
+        )
+    if "--categories" not in parts and "--plan-file" not in parts:
+        add_violation(
+            location,
+            template,
+            "destructive-without-scope",
+            "destructive cleanup templates must be scoped by --categories or --plan-file",
+        )
 
 
 def validate_command_templates(groups: dict[str, Any], categories: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -2622,6 +2744,7 @@ def validate_command_templates(groups: dict[str, Any], categories: Sequence[dict
                 add_violation(
                     location, template, "destructive-without-review", "destructive templates must require manual review"
                 )
+            validate_destructive_cleanmac_template(location, template, add_violation)
         if isinstance(command, str) and "rm -rf" in command:
             deprecated = bool(template.get("deprecated"))
             replacement = template.get("replacement_template_id")
@@ -2663,6 +2786,46 @@ def validate_command_templates(groups: dict[str, Any], categories: Sequence[dict
         "safe_to_auto_execute_template_count": safe_to_auto_execute_count,
         "violation_count": len(violations),
         "violations": violations,
+    }
+
+
+def command_template_migration_report(groups: dict[str, Any], categories: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    templates: list[dict[str, Any]] = []
+
+    for group in groups.values():
+        if isinstance(group, dict):
+            templates.extend(template for template in group.get("command_templates", []) if isinstance(template, dict))
+    for category in categories:
+        category_templates = category.get("command_templates", {})
+        if isinstance(category_templates, dict):
+            for bucket in ("analyze", "delete"):
+                templates.extend(
+                    template for template in category_templates.get(bucket, []) if isinstance(template, dict)
+                )
+
+    raw_remove_pattern = "rm " + "-rf"
+    raw_rm_rf_templates = [template for template in templates if raw_remove_pattern in str(template.get("command", ""))]
+    deprecated_templates = [template for template in templates if template.get("deprecated")]
+    replacement_templates = [template for template in templates if template.get("replacement_template_id")]
+    recommended_delete_templates = [
+        template
+        for category in categories
+        for template in category.get("command_templates", {}).get("delete", [])
+        if isinstance(template, dict)
+    ]
+    return {
+        "schema": "cleanmac.command-template-migration.v1",
+        "raw_rm_rf_template_count": len(raw_rm_rf_templates),
+        "deprecated_template_count": len(deprecated_templates),
+        "replacement_template_count": len(replacement_templates),
+        "recommended_delete_template_count": len(recommended_delete_templates),
+        "all_recommended_delete_templates_use_cleanmac_cli": all(
+            is_cleanmac_clean_run_argv(template.get("argv"))
+            and not template.get("uses_shell")
+            and "--delete-mode" in [str(part) for part in template.get("argv", [])]
+            and "trash" in [str(part) for part in template.get("argv", [])]
+            for template in recommended_delete_templates
+        ),
     }
 
 
@@ -2768,6 +2931,7 @@ def render_scripts(categories: list[Category], *, root: Path, home: Path, group:
     }
     selected_groups = script_groups if group == "all" else {group: script_groups[group]}
     template_validation = validate_command_templates(selected_groups, rows)
+    template_migration = command_template_migration_report(selected_groups, rows)
     return {
         "schema": "cleanmac.scripts.v1",
         "destructive": False,
@@ -2793,6 +2957,7 @@ def render_scripts(categories: list[Category], *, root: Path, home: Path, group:
         "groups": selected_groups,
         "categories": rows,
         "template_validation": template_validation,
+        "template_migration": template_migration,
     }
 
 
@@ -3075,6 +3240,19 @@ def clean(
         raise SystemExit(
             f"Refusing to execute cleanup because candidate bytes exceed --max-delete-mb budget. Candidates: {human_size(candidate_bytes)}; budget: {human_size(max_delete_bytes)}"
         )
+    operation_log_status = {
+        "schema": "cleanmac.operation-log-status.v1",
+        "status": "disabled" if not operation_log else "not-needed",
+        "path": None,
+        "rotated": False,
+        "error": None,
+    }
+    if execute and operation_log and (operation_log_entries or rows):
+        operation_log_status = preflight_operation_log(operation_log, root=root, home=home)
+        if operation_log_status["status"] != "ready":
+            raise SystemExit(
+                f"Refusing to execute cleanup because operation log preflight failed: {operation_log_status['error']}"
+            )
     if execute:
         for row in rows:
             path = Path(str(row["path"]))
@@ -3133,7 +3311,7 @@ def clean(
             )
     elapsed_ms = debug_timer_end("clean", timer_start, root=root, home=home)
     operation_log_path = (
-        append_operation_log(operation_log, operation_log_entries, root=root, home=home)
+        append_operation_log(operation_log, operation_log_entries, root=root, home=home, rotate=False)
         if operation_log_entries and operation_log
         else None
     )
@@ -3169,6 +3347,10 @@ def clean(
         "bundle_blocklist": list(bundle_blocklist),
         "delete_mode": delete_mode,
         "operation_log": operation_log_path,
+        "operation_log_status": operation_log_status["status"],
+        "operation_log_error": operation_log_status["error"],
+        "operation_log_rotated": operation_log_status["rotated"],
+        "operation_log_preflight": operation_log_status,
         "operation_log_entry_count": len(operation_log_entries),
         "operation_session_id": session_id,
         "debug_elapsed_ms": elapsed_ms,

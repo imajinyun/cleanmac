@@ -1,4 +1,4 @@
-.PHONY: format lint type-check coverage quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke open-source-smoke distribution-smoke release-artifacts-smoke no-cache-check docker-test no-cache-docker-test release-check no-cache-release-check
+.PHONY: format lint type-check coverage quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke real-macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke open-source-smoke distribution-smoke release-artifacts-smoke no-cache-check docker-test no-cache-docker-test release-check no-cache-release-check
 
 DOCKER_IMAGE ?= debian:bookworm-slim
 SANDBOX_MOUNT ?= $(abspath ..)
@@ -65,6 +65,9 @@ macos-smoke:
 		test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink \
 		tests.test_bundle_audit tests.test_sudo_guard -v
 
+real-macos-smoke:
+	$(PYTHON) -m unittest tests.test_macos_real_smoke -v
+
 security-smoke:
 	$(PYTHON) scripts/security_scan.py
 
@@ -99,7 +102,15 @@ distribution-smoke:
 	"$$tmpdir/sdist-venv/bin/python" -m pip install "$$tmpdir"/dist/cleanmac-*.tar.gz; \
 	"$$tmpdir/sdist-venv/bin/python" -c 'import cleanmac, cleancli, cleancli.core, cleancli.delete_ops, cleancli.protection, cleancli.protection_data, cleancli.workflow; assert callable(cleanmac.main); assert cleanmac.main is cleancli.main'; \
 	"$$tmpdir/sdist-venv/bin/cleanmac" --json capabilities >"$$tmpdir/sdist-capabilities.json"; \
-	"$$tmpdir/sdist-venv/bin/python" -m json.tool "$$tmpdir/sdist-capabilities.json" >/dev/null
+	"$$tmpdir/sdist-venv/bin/python" -m json.tool "$$tmpdir/sdist-capabilities.json" >/dev/null; \
+	mkdir -p "$$tmpdir/zipapp/cleancli"; \
+	cp cleanmac.py "$$tmpdir/zipapp/cleanmac.py"; \
+	cp cleancli/*.py "$$tmpdir/zipapp/cleancli/"; \
+	$(PYTHON) -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).write_text("from cleanmac import main\nraise SystemExit(main())\n", encoding="utf-8")' "$$tmpdir/zipapp/__main__.py"; \
+	$(PYTHON) -m zipapp "$$tmpdir/zipapp" --python "/usr/bin/env python3" --output "$$tmpdir/cleanmac.pyz"; \
+	$(PYTHON) "$$tmpdir/cleanmac.pyz" --json capabilities >"$$tmpdir/zipapp-capabilities.json"; \
+	$(PYTHON) -m json.tool "$$tmpdir/zipapp-capabilities.json" >/dev/null; \
+	$(PYTHON) -c 'import pathlib, sys; formula=pathlib.Path(sys.argv[1]); formula.write_text("class Cleanmac < Formula\n  desc \"macOS cleanup CLI with dry-run and safety guardrails\"\n  homepage \"https://github.com/cleanmac/cleanmac\"\n  url \"https://github.com/cleanmac/cleanmac/archive/refs/tags/v0.1.0.tar.gz\"\n  sha256 \"" + "0" * 64 + "\"\n  license \"MIT\"\n\n  def install\n    bin.install \"cleanmac.py\" => \"cleanmac\"\n  end\n\n  test do\n    system bin/\"cleanmac\", \"--json\", \"capabilities\"\n  end\nend\n", encoding="utf-8"); text=formula.read_text(encoding="utf-8"); required=("class Cleanmac < Formula", "url ", "sha256 ", "license \"MIT\"", "test do", "system bin/\"cleanmac\", \"--json\", \"capabilities\""); [(_ for _ in ()).throw(AssertionError(token)) for token in required if token not in text]' "$$tmpdir/cleanmac.rb"
 
 release-artifacts-smoke:
 	tmpdir=$$(mktemp -d); \
@@ -110,8 +121,8 @@ release-artifacts-smoke:
 	"$$tmpdir/build-venv/bin/python" -m build --wheel --sdist --outdir "$$tmpdir/dist" "$$tmpdir/src"; \
 	mkdir -p "$$tmpdir/release-assets"; \
 	$(PYTHON) "$$tmpdir/src/scripts/generate_sbom.py" --output "$$tmpdir/release-assets/SBOM.json"; \
-	$(PYTHON) -c 'import hashlib, pathlib, sys; dist=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); checksums=assets / "SHA256SUMS"; paths=[path for path in sorted(dist.iterdir()) if path.is_file()] + [assets / "SBOM.json"]; lines=[f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" for path in paths]; checksums.write_text("\n".join(lines) + "\n", encoding="utf-8"); assert any(line.endswith("SBOM.json") for line in lines)' "$$tmpdir/dist" "$$tmpdir/release-assets"; \
-	$(PYTHON) -c 'import hashlib, pathlib, sys; dist=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); checksums=assets / "SHA256SUMS"; lines=checksums.read_text(encoding="utf-8").splitlines(); assert lines; [(_ for _ in ()).throw(AssertionError(name)) for line in lines for digest, name in [line.split(None, 1)] for base in [assets if name.strip() == "SBOM.json" else dist] if hashlib.sha256((base / name.strip()).read_bytes()).hexdigest() != digest]' "$$tmpdir/dist" "$$tmpdir/release-assets"; \
+	$(PYTHON) -c 'import hashlib, json, pathlib, platform, sys; dist=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); checksums=assets / "SHA256SUMS"; paths=[path for path in sorted(dist.iterdir()) if path.is_file()] + [assets / "SBOM.json"]; lines=[]; artifacts=[]; [artifacts.append({"name": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "kind": "sbom" if path.name == "SBOM.json" else path.suffix.lstrip(".")}) or lines.append("{}  {}".format(artifacts[-1]["sha256"], path.name)) for path in paths]; checksums.write_text("\n".join(lines) + "\n", encoding="utf-8"); manifest={"schema":"cleanmac.release-artifact-manifest.v1","python_version":platform.python_version(),"platform":platform.platform(),"artifacts":artifacts,"distribution_policy":{"homebrew_formula":"preflight-only","standalone_zipapp":"smoke-tested outside release upload","publish_after_cross_platform_verification":True}}; (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"); assert any(line.endswith("SBOM.json") for line in lines)' "$$tmpdir/dist" "$$tmpdir/release-assets"; \
+	$(PYTHON) -c 'import hashlib, json, pathlib, sys; dist=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); checksums=assets / "SHA256SUMS"; lines=checksums.read_text(encoding="utf-8").splitlines(); assert lines; [(_ for _ in ()).throw(AssertionError(name)) for line in lines for digest, name in [line.split(None, 1)] for base in [assets if name.strip() == "SBOM.json" else dist] if hashlib.sha256((base / name.strip()).read_bytes()).hexdigest() != digest]; manifest=json.loads((assets / "ARTIFACT-MANIFEST.json").read_text(encoding="utf-8")); assert manifest["schema"] == "cleanmac.release-artifact-manifest.v1"; assert manifest["distribution_policy"]["homebrew_formula"] == "preflight-only"; assert any(row["name"] == "SBOM.json" for row in manifest["artifacts"])' "$$tmpdir/dist" "$$tmpdir/release-assets"; \
 	$(PYTHON) -m venv "$$tmpdir/install-venv"; \
 	"$$tmpdir/install-venv/bin/python" -m pip install "$$tmpdir"/dist/cleanmac-*.whl; \
 	"$$tmpdir/install-venv/bin/cleanmac" --json capabilities >"$$tmpdir/install-capabilities.json"; \

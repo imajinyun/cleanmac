@@ -28,6 +28,16 @@ def write_app(root: Path, name: str, bundle_id: str | None) -> Path:
     return app
 
 
+def write_bundle(root: Path, name: str, bundle_id: str | None) -> Path:
+    bundle = root / name
+    contents = bundle / "Contents"
+    contents.mkdir(parents=True)
+    if bundle_id is not None:
+        with (contents / "Info.plist").open("wb") as handle:
+            plistlib.dump({"CFBundleIdentifier": bundle_id}, handle)
+    return bundle
+
+
 class BundleDriftAuditTests(unittest.TestCase):
     def test_bundle_drift_audit_reports_uncovered_system_bundles_only(self) -> None:
         audit = load_audit_module()
@@ -37,6 +47,8 @@ class BundleDriftAuditTests(unittest.TestCase):
             applications_root = root / "Applications"
             write_app(system_root, "Finder.app", "com.apple.finder")
             write_app(system_root, "NewSystemTool.app", "org.example.system-tool")
+            write_bundle(system_root, "NewExtension.appex", "org.example.system-extension")
+            write_bundle(system_root, "ApplePreference.prefPane", "com.apple.preference.sound")
             write_app(system_root, "Broken.app", None)
             write_app(applications_root, "ThirdParty.app", "org.example.third-party")
 
@@ -44,14 +56,24 @@ class BundleDriftAuditTests(unittest.TestCase):
 
         self.assertEqual(report["schema"], "cleanmac.bundle-drift-audit.v1")
         self.assertTrue(report["summary"]["drift_detected"])
-        self.assertEqual(report["summary"]["system_bundle_count"], 3)
+        self.assertEqual(report["summary"]["system_bundle_count"], 5)
         self.assertEqual(report["summary"]["informational_bundle_count"], 1)
         self.assertEqual(
             [row["bundle_id"] for row in report["uncovered_system_bundles"]],
-            ["org.example.system-tool"],
+            ["org.example.system-extension", "org.example.system-tool"],
         )
+        extension = next(row for row in report["system_bundles"] if row["bundle_id"] == "org.example.system-extension")
+        self.assertEqual(extension["bundle_type"], "appex")
+        self.assertEqual(extension["policy_action"], "uncovered-system")
+        self.assertEqual(extension["source_root"], str(system_root))
+        self.assertEqual(extension["relative_path"], "NewExtension.appex")
+        preference = next(row for row in report["system_bundles"] if row["bundle_type"] == "prefPane")
+        self.assertEqual(preference["coverage"], "protected-bundle-prefix")
+        self.assertEqual(preference["policy_action"], "covered")
         self.assertEqual([row["path"].endswith("Broken.app") for row in report["unreadable_system_bundles"]], [True])
         self.assertEqual(report["informational_bundles"][0]["bundle_id"], "org.example.third-party")
+        self.assertEqual(report["informational_bundles"][0]["policy_action"], "informational-only")
+        self.assertIn(".appex", report["bundle_suffixes"])
 
     def test_bundle_drift_cli_exits_nonzero_when_fail_on_drift_is_requested(self) -> None:
         audit = load_audit_module()
