@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cleanmac"
+version = "0.1.0"
+description = "A macOS cleanup CLI with dry-run and sandbox path remapping."
+requires-python = ">=3.10"
+dependencies = []
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["macos", "cleanup", "cli", "dry-run", "safety"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/cleanmac/cleanmac"
+Repository = "https://github.com/cleanmac/cleanmac"
+Issues = "https://github.com/cleanmac/cleanmac/issues"
+Security = "https://github.com/cleanmac/cleanmac/security/policy"
+
+[project.optional-dependencies]
+build = [
+    "build>=1.2",
+    "twine>=5.0",
+    "wheel>=0.43",
+]
+dev = [
+    "coverage[toml]>=7.6",
+    "mypy>=1.13",
+    "pip-audit>=2.7",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+lint = [
+    "mypy>=1.13",
+    "ruff>=0.8",
+]
+test = [
+    "coverage[toml]>=7.6",
+    "pytest>=8.3",
+]
+
+[project.scripts]
+cleanmac = "cleanmac:main"
+
+[tool.setuptools]
+py-modules = ["cleanmac"]
+
+[tool.setuptools.packages.find]
+include = ["cleancli*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4"]
+ignore = [
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_cleanmac.py" = ["B018"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["cleanmac.py", "cleancli", "test_cleanmac.py"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+no_implicit_optional = true
+pretty = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["test_cleanmac.py", "tests"]
+addopts = "--strict-config --strict-markers"
+markers = [
+    "integration: tests that exercise subprocesses, packaging, or filesystem workflows",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["cleancli", "cleanmac"]
+omit = [
+    "test_cleanmac.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+precision = 2
+fail_under = 25
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+]

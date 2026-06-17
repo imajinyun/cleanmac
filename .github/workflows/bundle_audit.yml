@@ -1,0 +1,76 @@
+name: Bundle Drift Audit
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: Audit protected macOS bundles
+    runs-on: macos-15
+    env:
+      PYTHON: .venv/bin/python
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv for audit command
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+
+      - name: Run bundle drift audit
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          $PYTHON scripts/audit_bundle_drift.py --json --fail-on-drift > bundle-drift-audit.json
+          status=$?
+          cat bundle-drift-audit.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # pinned from actions/upload-artifact@v4
+        with:
+          name: bundle-drift-audit
+          path: bundle-drift-audit.json
+
+      - name: Create or update drift issue
+        if: steps.audit.outputs.status != '0'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # pinned from actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('bundle-drift-audit.json', 'utf8'));
+            const title = 'Bundle drift audit: uncovered macOS system bundles';
+            const rows = report.uncovered_system_bundles.map((row) => `- ${row.bundle_id} at \`${row.path}\``).join('\n');
+            const body = [
+              'The scheduled cleanmac bundle drift audit found macOS system app bundle identifiers that are not covered by the current protection policy.',
+              '',
+              rows || '- No row details were available.',
+              '',
+              `Schema: \`${report.schema}\``,
+            ].join('\n');
+            const {owner, repo} = context.repo;
+            const existing = await github.rest.issues.listForRepo({owner, repo, state: 'open', labels: 'bundle-drift', per_page: 20});
+            const issue = existing.data.find((item) => item.title === title);
+            if (issue) {
+              await github.rest.issues.update({owner, repo, issue_number: issue.number, body});
+            } else {
+              await github.rest.issues.create({owner, repo, title, body, labels: ['bundle-drift', 'safety']});
+            }
+
+      - name: Fail when drift exists
+        if: steps.audit.outputs.status != '0'
+        run: exit 1

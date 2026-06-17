@@ -1,0 +1,216 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality gates (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    env:
+      PYTHON: .venv/bin/python
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create venv and install dev dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e '.[dev,build]'
+
+      - name: Run quality checks
+        run: make quality-check
+
+      - name: Run pytest compatibility check
+        run: make pytest-test
+
+  smoke:
+    name: Repository smoke checks
+    runs-on: ubuntu-latest
+    env:
+      PYTHON: .venv/bin/python
+      CLEANMAC_TEST_MODE: "1"
+      CLEANMAC_TEST_NO_AUTH: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv and install build dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e '.[dev,build]'
+
+      - name: Run local no-auth test runner
+        run: make local-test
+
+      - name: Run build metadata check
+        run: make build-check
+
+      - name: Run package smoke
+        run: make package-smoke
+
+      - name: Run script governance smoke
+        run: make script-smoke
+
+      - name: Run documentation smoke
+        run: make docs-smoke
+
+      - name: Run governance smoke
+        run: make governance-smoke
+
+      - name: Run open source governance smoke
+        run: make open-source-smoke
+
+      - name: Run distribution smoke
+        run: make distribution-smoke
+
+      - name: Run dependency audit and SBOM smoke
+        run: make dependency-audit-smoke
+
+  compatibility-smoke:
+    name: Compatibility smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, ubuntu-latest]
+    env:
+      PYTHON: .venv/bin/python
+      CLEANMAC_TEST_MODE: "1"
+      CLEANMAC_TEST_NO_AUTH: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv and install smoke dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e '.[dev,build]'
+
+      - name: macOS smoke for remap, Trash, plist, and bundle parsing
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          make macos-smoke
+          $PYTHON cleanmac.py --json capabilities | $PYTHON -m json.tool >/dev/null
+
+      - name: Ubuntu sandbox, governance JSON, and package build smoke
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          $PYTHON -m unittest \
+            test_cleanmac.CleanMacCLITests.test_grouped_clean_commands_match_flat_alias_reports \
+            test_cleanmac.CleanMacCLITests.test_grouped_analyze_tree_reports_largest_entries \
+            test_cleanmac.CleanMacCLITests.test_capabilities_describes_commands_and_safety_model \
+            -v
+          make governance-smoke
+          make package-smoke
+          make build-check
+          make dependency-audit-smoke
+
+  security:
+    name: Security and unsafe-delete checks
+    runs-on: ubuntu-latest
+    env:
+      PYTHON: .venv/bin/python
+      CLEANMAC_TEST_MODE: "1"
+      CLEANMAC_TEST_NO_AUTH: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv and install test dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e '.[dev,build]'
+
+      - name: Check unsafe delete patterns
+        run: make security-smoke
+
+      - name: Run high-risk regression tests
+        run: |
+          $PYTHON -m unittest \
+            test_cleanmac.CleanMacCLITests.test_path_safety_rejects_fuzz_corpus \
+            test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_malformed_and_protected_paths \
+            test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_symlink_to_protected_path \
+            test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink \
+            test_cleanmac.CleanMacCLITests.test_test_mode_blocks_privileged_and_automation_helpers \
+            -v
+
+      - name: Scan for secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # pinned from gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  no-cache-validation:
+    name: No-cache dependency install
+    runs-on: ubuntu-latest
+    env:
+      PYTHON: .venv/bin/python
+      PIP_NO_CACHE_DIR: "1"
+      CLEANMAC_TEST_MODE: "1"
+      CLEANMAC_TEST_NO_AUTH: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+
+      - name: Set up Python without dependency cache
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create no-cache venv bootstrap
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --no-cache-dir --upgrade pip
+
+      - name: Run no-cache validation
+        run: make no-cache-check
+
+      - name: Run no-cache Docker validation
+        run: make no-cache-docker-test SANDBOX_MOUNT="$GITHUB_WORKSPACE/.." WORKDIR="/work/cleanmac"
+
+  docker:
+    name: Linux container smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # pinned from actions/checkout@v4
+
+      - name: Run Docker test
+        run: make docker-test SANDBOX_MOUNT="$GITHUB_WORKSPACE/.." WORKDIR="/work/cleanmac"

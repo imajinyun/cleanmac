@@ -1,0 +1,19 @@
+# cleanmac gitleaks configuration.
+# Uses the default ruleset and allowlists synthetic test fixtures that contain
+# deliberately fake credentials for protected-data regression coverage.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "cleanmac test and documentation allowlist"
+
+paths = [
+    '''test_cleanmac\.py''',
+    '''tests/.*''',
+]
+
+regexes = [
+    '''_authToken=secret''',
+    '''machine example\.com login token''',
+]
