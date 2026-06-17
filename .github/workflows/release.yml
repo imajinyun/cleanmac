@@ -172,7 +172,7 @@ jobs:
           path: release-assets
 
       - name: Attest release artifacts
-        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # pinned from actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # pinned from actions/attest-build-provenance@v2
         with:
           subject-path: |
             dist/*
