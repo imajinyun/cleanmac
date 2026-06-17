@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a cleanmac improvement
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior, command, or report shape you want.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety considerations
+      options:
+        - label: This should remain dry-run by default.
+          required: true
+        - label: Destructive behavior, if any, should require explicit manual flags.
+          required: true
+        - label: Documentation should cover safe preview and execution examples.
+          required: true
