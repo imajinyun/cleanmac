@@ -164,7 +164,7 @@ jobs:
       - name: Run high-risk regression tests
         run: |
           $PYTHON -m unittest \
-            test_cleanmac.CleanMacCLITests.test_path_safety_rejects_fuzz_corpus \
+            test_cleanmac.CleanMacCLITests.test_path_safety_rejects_dangerous_path_data \
             test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_malformed_and_protected_paths \
             test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_symlink_to_protected_path \
             test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink \

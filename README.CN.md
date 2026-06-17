@@ -1,67 +1,67 @@
-# cleanmac 使用文档
+# 🧹 cleanmac 使用文档
 
 `cleanmac` 是一个面向 macOS 的命令行清理工具，内置常见日志、缓存、临时文件、开发残留和用户目录清理规则。它强调可审计、默认 dry-run、计划复用、预算保护和沙箱验证，避免误删宿主机文件。
 
 `cleanmac` 是独立 Python 实现，不内置外部 macOS 清理工具源码，也不与同类项目存在从属或关联关系；安全边界、治理模型和发布自动化均在本仓库内维护。
 
-> **安全原则：默认不删除。** `cleanmac clean` 默认永远是 dry-run；只有显式传入 `--execute` 才会真正删除文件。对于 high / critical 风险分类，默认还必须额外传入 `--yes`。对真实根目录 `/` 执行还必须显式传入 `--allow-live-root`，推荐始终先使用 `--root` / `--home` 沙箱验证。确需执行时优先使用可恢复的 `--delete-mode trash`；只有在复核候选项、预算、skipped 项、operation log 和备份后，才使用 `--delete-mode permanent`。
+> 🛡️ **安全原则：默认不删除。** `cleanmac clean` 默认永远是 dry-run；只有显式传入 `--execute` 才会真正删除文件。对于 high / critical 风险分类，默认还必须额外传入 `--yes`。对真实根目录 `/` 执行还必须显式传入 `--allow-live-root`，推荐始终先使用 `--root` / `--home` 沙箱验证。确需执行时优先使用可恢复的 `--delete-mode trash`；只有在复核候选项、预算、skipped 项、operation log 和备份后，才使用 `--delete-mode permanent`。
 
 ---
 
-## 目录
+## 🧭 目录
 
-- [核心能力](#核心能力)
-- [快速开始](#快速开始)
-- [详细操作指南](#详细操作指南)
-- [安全模型](#安全模型)
-- [安装与运行](#安装与运行)
-- [全局参数](#全局参数)
-- [分类选择参数](#分类选择参数)
-- [清理分类总览](#清理分类总览)
-- [命令详解](#命令详解)
-- [JSON 输出字段说明](#json-输出字段说明)
-- [开发验证](#开发验证)
-- [注意事项与限制](#注意事项与限制)
+- [✨ 核心能力](#-核心能力)
+- [🚀 快速开始](#-快速开始)
+- [🧪 详细操作指南](#-详细操作指南)
+- [🛡️ 安全模型](#️-安全模型)
+- [📦 安装与运行](#-安装与运行)
+- [⚙️ 全局参数](#️-全局参数)
+- [🎯 分类选择参数](#-分类选择参数)
+- [🗂️ 清理分类总览](#️-清理分类总览)
+- [⌨️ 命令详解](#️-命令详解)
+- [📄 JSON 输出字段说明](#-json-输出字段说明)
+- [✅ 开发验证](#-开发验证)
+- [⚠️ 注意事项与限制](#️-注意事项与限制)
 
 ---
 
-## 核心能力
+## ✨ 核心能力
 
 `cleanmac` 当前支持：
 
-1. **清理分类管理**：列出分类 key、标题、路径、风险等级、默认状态、推荐状态和高级状态。
-2. **空间分析**：统计选中分类下的可回收空间，不删除文件。
-3. **候选项检查**：列出目标目录中的候选文件/目录，支持排序、递归和过滤。
-4. **诊断建议**：根据分类风险、目录大小、日志/缓存特征给出清理建议。
-5. **脚本审计**：展示分析和删除动作的计划，不自动执行破坏性操作。
-6. **固定安全工作流**：一次性运行脚本复核、分析、诊断、检查、dry-run 和人工执行提示。
-7. **清理计划**：生成 `cleanmac.plan.v1` JSON，后续可校验和复用。
-8. **清理报告**：输出清理前报告、dry-run 明细、执行后报告和审计文件。
-9. **沙箱路径重定向**：通过 `--root` / `--home` 将真实路径映射到临时目录。
-10. **多层执行保护**：支持 `--execute`、`--yes`、`--allow-live-root`、`--max-delete-mb`、`--max-items`、`--fail-on-skipped`、`--require-plan-context`。
-11. **精细过滤**：支持 `--include`、`--exclude`、`--older-than-days`、`--min-size-mb`、`--name-regex`。
-12. **环境检查**：`doctor` 只读检查平台、Python、Full Disk Access 提示、真实根目录执行门禁和路径别名归一化。
-13. **辅助行为预览**：`open` 预览 Finder 打开目标；`links` 预览或维护日志/缓存符号链接目录。
-14. **包化实现**：`cleanmac.py` 是薄入口，实际实现位于 `cleancli` 包中，因此既可以在源码目录直接运行，也可以安装包后通过同一 CLI 运行。
-15. **截图式一级命令组**：推荐使用 `clean`、`software`、`optimize`、`analyze`、`status` 五个一级命令组。
-16. **机器可消费命令模板**：`scripts` 输出 `command_templates`，包含 `argv`、`uses_shell`、`destructive`、`safe_to_auto_execute`、`manual_review_required`、`placeholders` 等元数据。
-17. **一致的对象报告**：对象型 JSON 报告包含 `schema`、`destructive`，并在适用时包含 `dry_run`；`list --json` 仍保持裸分类数组输出。
-18. **CLI 安全扩展**：扩展 bundle ID allow/block 策略、应用专属清理规则、Group Container 防护、官方卸载程序路由、持久化 JSONL 操作日志、取证删除日志、debug 计时、测试模式授权守卫和可恢复 Trash 路由。
-19. **开源治理**：补齐 license、贡献指南、安全策略、行为准则、Issue/PR 模板、Dependabot、CodeQL、pip-audit smoke 和发布产物 `SBOM.json`，支撑公开协作。
-20. **开发质量门禁**：Makefile 提供本地测试、editable 包安装 smoke、脚本/文档/治理/开源 smoke、wheel/sdist 发布包 smoke、Docker 测试和 release-check。
+1. 🧹 **清理分类管理**：列出分类 key、标题、路径、风险等级、默认状态、推荐状态和高级状态。
+2. 📊 **空间分析**：统计选中分类下的可回收空间，不删除文件。
+3. 🔎 **候选项检查**：列出目标目录中的候选文件/目录，支持排序、递归和过滤。
+4. 🩺 **诊断建议**：根据分类风险、目录大小、日志/缓存特征给出清理建议。
+5. 🧾 **脚本审计**：展示分析和删除动作的计划，不自动执行破坏性操作。
+6. 🧭 **固定安全工作流**：一次性运行脚本复核、分析、诊断、检查、dry-run 和人工执行提示。
+7. 🗺️ **清理计划**：生成 `cleanmac.plan.v1` JSON，后续可校验和复用。
+8. 📄 **清理报告**：输出清理前报告、dry-run 明细、执行后报告和审计文件。
+9. 🧪 **沙箱路径重定向**：通过 `--root` / `--home` 将真实路径映射到临时目录。
+10. 🛡️ **多层执行保护**：支持 `--execute`、`--yes`、`--allow-live-root`、`--max-delete-mb`、`--max-items`、`--fail-on-skipped`、`--require-plan-context`。
+11. 🎯 **精细过滤**：支持 `--include`、`--exclude`、`--older-than-days`、`--min-size-mb`、`--name-regex`。
+12. 🧰 **环境检查**：`doctor` 只读检查平台、Python、Full Disk Access 提示、真实根目录执行门禁和路径别名归一化。
+13. 🪟 **辅助行为预览**：`open` 预览 Finder 打开目标；`links` 预览或维护日志/缓存符号链接目录。
+14. 📦 **包化实现**：`cleanmac.py` 是薄入口，实际实现位于 `cleancli` 包中，因此既可以在源码目录直接运行，也可以安装包后通过同一 CLI 运行。
+15. 🧩 **截图式一级命令组**：推荐使用 `clean`、`software`、`optimize`、`analyze`、`status` 五个一级命令组。
+16. 🤖 **机器可消费命令模板**：`scripts` 输出 `command_templates`，包含 `argv`、`uses_shell`、`destructive`、`safe_to_auto_execute`、`manual_review_required`、`placeholders` 等元数据。
+17. 🧱 **一致的对象报告**：对象型 JSON 报告包含 `schema`、`destructive`，并在适用时包含 `dry_run`；`list --json` 仍保持裸分类数组输出。
+18. 🔐 **CLI 安全扩展**：扩展 bundle ID allow/block 策略、应用专属清理规则、Group Container 防护、官方卸载程序路由、持久化 JSONL 操作日志、取证删除日志、debug 计时、测试模式授权守卫和可恢复 Trash 路由。
+19. 🌍 **开源治理**：补齐 license、贡献指南、安全策略、行为准则、Issue/PR 模板、Dependabot、CodeQL、pip-audit smoke 和发布产物 `SBOM.json`，支撑公开协作。
+20. ✅ **开发质量门禁**：Makefile 提供本地测试、editable 包安装 smoke、脚本/文档/治理/开源 smoke、wheel/sdist 发布包 smoke、Docker 测试和 release-check。
 
 当前 CLI 安全扩展已经落到具体参数和 JSON 字段：
 
 | 能力 | CLI 入口 | JSON / 报告字段 |
 |---|---|---|
-| Bundle 保护 | `clean run --bundle-allowlist <ids>` 和 `clean run --bundle-blocklist <ids>` | `bundle_allowlist`、`bundle_blocklist`、item 级 `bundle_id`，以及 skipped 原因 `bundle-not-allowlisted` / `bundle-blocklisted` |
-| 应用专属清理 | `clean inspect --categories androidStudio,jetbrains,vscode,docker,raycast,unity,unreal,godot,deveco,maestro,chrome,firefox,slack,zoom,teams,nodePackageCaches,pythonPackageCaches,goBuildCaches,groupContainerCaches` | 分类元数据，以及受保护画像、凭证、工作区和 Group Container 数据对应的 `app-protected-data`、`protected-container-data`、`protected-group-container` skipped 原因 |
-| 官方卸载程序路由 | `software list` 和 `software uninstall-plan --app <name>` | 对 ESET、Jamf、CrowdStrike、SentinelOne、GlobalProtect、Cisco 输出 `official_uninstaller_vendor`、`official_uninstaller_required` 和厂商卸载提示 |
-| 持久化操作日志 | `clean run --operation-log <path>` | 每个执行项追加一行 `cleanmac.operation-log-entry.v1` JSONL 记录 |
-| 取证删除日志 | `clean run --execute` | `~/.cleanmac/deletions.log` 以 tab 分隔记录 timestamp、mode、size、status、path 和 detail |
-| Debug 计时 | `CLEANMAC_DEBUG=1 cleanmac ...` | `~/.cleanmac/cleanmac_debug_session.log` 记录毫秒级 `PERF` 条目 |
-| 测试模式授权守卫 | `CLEANMAC_TEST_MODE=1` / `CLEANMAC_TEST_NO_AUTH=1` | 测试中阻断 sudo / AppleScript helper；`CLEANMAC_TEST_TRASH_DIR` 可把 Trash 测试路由到夹具目录 |
-| 可恢复删除 | `clean run --delete-mode trash` | `delete_mode`、item 级 `trash_path`、`safety_gate.delete_mode`、符号链接拒绝和 Trash fail-closed 行为 |
+| 🔐 Bundle 保护 | `clean run --bundle-allowlist <ids>` 和 `clean run --bundle-blocklist <ids>` | `bundle_allowlist`、`bundle_blocklist`、item 级 `bundle_id`，以及 skipped 原因 `bundle-not-allowlisted` / `bundle-blocklisted` |
+| 🧩 应用专属清理 | `clean inspect --categories androidStudio,jetbrains,vscode,docker,raycast,unity,unreal,godot,deveco,maestro,chrome,firefox,slack,zoom,teams,nodePackageCaches,pythonPackageCaches,goBuildCaches,groupContainerCaches` | 分类元数据，以及受保护画像、凭证、工作区和 Group Container 数据对应的 `app-protected-data`、`protected-container-data`、`protected-group-container` skipped 原因 |
+| 🧯 官方卸载程序路由 | `software list` 和 `software uninstall-plan --app <name>` | 对 ESET、Jamf、CrowdStrike、SentinelOne、GlobalProtect、Cisco 输出 `official_uninstaller_vendor`、`official_uninstaller_required` 和厂商卸载提示 |
+| 📜 持久化操作日志 | `clean run --operation-log <path>` | 每个执行项追加一行 `cleanmac.operation-log-entry.v1` JSONL 记录 |
+| 🧾 取证删除日志 | `clean run --execute` | `~/.cleanmac/deletions.log` 以 tab 分隔记录 timestamp、mode、size、status、path 和 detail |
+| ⏱️ Debug 计时 | `CLEANMAC_DEBUG=1 cleanmac ...` | `~/.cleanmac/cleanmac_debug_session.log` 记录毫秒级 `PERF` 条目 |
+| 🧪 测试模式授权守卫 | `CLEANMAC_TEST_MODE=1` / `CLEANMAC_TEST_NO_AUTH=1` | 测试中阻断 sudo / AppleScript helper；`CLEANMAC_TEST_TRASH_DIR` 可把 Trash 测试路由到夹具目录 |
+| ♻️ 可恢复删除 | `clean run --delete-mode trash` | `delete_mode`、item 级 `trash_path`、`safety_gate.delete_mode`、符号链接拒绝和 Trash fail-closed 行为 |
 
 扩展应用缓存规则的 dry-run 示例：
 
@@ -71,21 +71,21 @@ python3 cleanmac.py --json clean inspect --categories chrome,firefox,slack,zoom,
 
 ---
 
-## 快速开始
+## 🚀 快速开始
 
-> **命令格式提示：** 当前 CLI 的全局参数必须放在一级命令之前，例如 `python3 cleanmac.py --json clean inspect ...`、`python3 cleanmac.py --root /tmp/root --home /Users/tester clean run ...`。子命令参数放在动作之后，例如 `clean inspect --categories ...`、`clean run --plan-file ...`。
+> 🧭 **命令格式提示：** 当前 CLI 的全局参数必须放在一级命令之前，例如 `python3 cleanmac.py --json clean inspect ...`、`python3 cleanmac.py --root /tmp/root --home /Users/tester clean run ...`。子命令参数放在动作之后，例如 `clean inspect --categories ...`、`clean run --plan-file ...`。
 
-### 一级命令组
+### 🧩 一级命令组
 
 | 命令组 | 对齐截图 | 当前能力 |
 |---|---|---|
-| `clean` | 清理 | `list`、`inspect`、`plan`、`validate-plan`、`run`、`scripts`、`open`、`links` |
-| `software` | 软件 | 只读软件清单、启动项位置、卸载计划占位，不执行卸载 |
-| `optimize` | 优化 | 维护任务清单和 dry-run 计划，不执行系统修改 |
-| `analyze` | 分析 | 分类空间分析、目录扫描和 tree 输出 |
-| `status` | 状态 | 只读系统快照，当前包含 load average 和磁盘信息 |
+| `clean` | 🧹 清理 | `list`、`inspect`、`plan`、`validate-plan`、`run`、`scripts`、`open`、`links` |
+| `software` | 📦 软件 | 只读软件清单、启动项位置、卸载计划占位，不执行卸载 |
+| `optimize` | ⚙️ 优化 | 维护任务清单和 dry-run 计划，不执行系统修改 |
+| `analyze` | 📊 分析 | 分类空间分析、目录扫描和 tree 输出 |
+| `status` | 🩺 状态 | 只读系统快照，当前包含 load average 和磁盘信息 |
 
-### 查看能力和分类
+### 🔎 查看能力和分类
 
 ```bash
 cd /path/to/cleanmac
@@ -94,7 +94,7 @@ python3 cleanmac.py clean list
 python3 cleanmac.py --json doctor
 ```
 
-### 预览常见日志候选项
+### 👀 预览常见日志候选项
 
 ```bash
 python3 cleanmac.py --json clean inspect \
@@ -105,7 +105,7 @@ python3 cleanmac.py --json clean inspect \
   > /tmp/cleanmac-logs-inspect.json
 ```
 
-### 生成、校验并 dry-run 清理计划
+### 🗺️ 生成、校验并 dry-run 清理计划
 
 ```bash
 python3 cleanmac.py --json clean plan \
@@ -124,7 +124,7 @@ python3 cleanmac.py --json clean run \
   > /tmp/cleanmac-logs-dry-run.json
 ```
 
-### 人工确认后执行
+### 🛡️ 人工确认后执行
 
 ```bash
 python3 cleanmac.py clean run \
@@ -138,7 +138,7 @@ python3 cleanmac.py clean run \
 
 ---
 
-## 详细操作指南
+## 🧪 详细操作指南
 
 ### 1. 第一次运行前检查环境
 
@@ -350,9 +350,9 @@ python3 cleanmac.py --root /tmp/cleanmac-root --home /Users/tester clean links \
 
 ---
 
-## 安全模型
+## 🛡️ 安全模型
 
-### 默认 dry-run
+### 🧯 默认 dry-run
 
 ```bash
 python3 cleanmac.py clean run --categories trash
@@ -374,7 +374,7 @@ python3 cleanmac.py --root /tmp/cleanmac-root --home /Users/tester clean run \
 python3 cleanmac.py clean run --categories downloads --execute --yes --allow-live-root
 ```
 
-### 风险策略
+### 🚦 风险策略
 
 默认策略下，high / critical 风险分类执行时需要 `--yes`。
 
@@ -383,7 +383,7 @@ python3 cleanmac.py clean run --categories downloads --execute --yes --allow-liv
 | `strict` | medium / high / critical 都需要 `--yes`。 |
 | `permissive` | 不因风险等级额外要求 `--yes`；仍必须显式传入 `--execute`。 |
 
-### 真实根目录执行保护
+### 🧱 真实根目录执行保护
 
 当 `--root /` 时，即使传入 `--execute` 也会默认拒绝执行。必须显式传入：
 
@@ -393,11 +393,11 @@ python3 cleanmac.py clean run --categories trash --execute --allow-live-root
 
 推荐先使用沙箱或计划文件完成验证。
 
-### 只删除目标内容，不删除父目录
+### 🎯 只删除目标内容，不删除父目录
 
 清理语义是删除目标目录下的直接内容，保留目标目录本身。执行后报告会通过 `target_preservation` 校验目标目录是否仍存在。
 
-### Bundle 感知的应用数据保护
+### 🔐 Bundle 感知的应用数据保护
 
 对于包含应用容器标识的路径，例如 `~/Library/Containers/com.example.app/...`，`cleanmac` 会提取 bundle ID，并在大小预算或删除动作之前应用 bundle 策略：
 
@@ -409,7 +409,7 @@ python3 cleanmac.py clean run --categories trash --execute --allow-live-root
 
 Allowlist 优先于 blocklist。Bundle 策略只作用于能够识别 bundle ID 的候选项；无法识别 bundle ID 的路径会继续走普通 include/exclude、年龄、大小和安全检查。
 
-### 可恢复 Trash 路由与操作日志
+### ♻️ 可恢复 Trash 路由与操作日志
 
 `--delete-mode permanent` 是默认行为，执行时直接删除候选项。`--delete-mode trash` 会把每个执行候选项移动到重定向后的用户 Trash，并使用类似 `~/.Trash/cleanmac-20260616T120000000000Z-download.bin` 的唯一名称，便于从 Trash 恢复。
 
@@ -417,15 +417,15 @@ Allowlist 优先于 blocklist。Bundle 策略只作用于能够识别 bundle ID 
 
 日志会自动做单步轮转：主日志 `~/.cleanmac/cleanmac.log` 的预算为 1 MB，操作日志 `~/.cleanmac/operations.jsonl` 的预算为 5 MB，超出后通过 `rotate_log_once()` 轮转为 `.1`。
 
-## 安装与运行
+## 📦 安装与运行
 
-### 直接运行脚本
+### ▶️ 直接运行脚本
 
 ```bash
 python3 cleanmac.py clean list
 ```
 
-### 以 Python 包方式安装
+### 📥 以 Python 包方式安装
 
 ```bash
 python3 -m venv .venv
@@ -434,13 +434,13 @@ python3 -m pip install -e .
 cleanmac list
 ```
 
-### Python 版本
+### 🐍 Python 版本
 
 建议使用 Python 3.10+。
 
 ---
 
-## 全局参数
+## ⚙️ 全局参数
 
 | 参数 | 默认值 | 说明 |
 |---|---|---|
@@ -451,7 +451,7 @@ cleanmac list
 
 ---
 
-## 分类选择参数
+## 🎯 分类选择参数
 
 | 参数 | 说明 |
 |---|---|
@@ -461,7 +461,7 @@ cleanmac list
 
 ---
 
-## 清理分类总览
+## 🗂️ 清理分类总览
 
 | key | 标题 | 路径 | 风险 | 默认 | 推荐 | 高级 | 备注 |
 |---|---|---|---|---|---|---|---|
@@ -496,11 +496,11 @@ cleanmac list
 
 ---
 
-## 命令详解
+## ⌨️ 命令详解
 
 当前推荐使用截图对齐的一级命令组：`clean`、`software`、`optimize`、`analyze`、`status`。`--json`、`--root`、`--home`、`--report-file` 等全局参数必须放在一级命令组之前。
 
-### 推荐命令组
+### 🧭 推荐命令组
 
 ```bash
 # 清理：预览、计划、校验、dry-run、执行
@@ -719,9 +719,9 @@ python3 cleanmac.py --json clean run \
   --yes
 ```
 
-## JSON 输出字段说明
+## 📄 JSON 输出字段说明
 
-### 对象报告的常见顶层字段
+### 🧱 对象报告的常见顶层字段
 
 `list --json` 为兼容现有分类列表消费方仍保持裸分类数组输出。其它 JSON 命令输出带 `schema` 的对象报告；对象报告也会包含 `destructive`，并在表达安全状态时包含 `dry_run`。
 
@@ -742,7 +742,7 @@ python3 cleanmac.py --json clean run \
 
 当前对象报告 schema 包括 `cleanmac.capabilities.v1`、`cleanmac.doctor.v1`、`cleanmac.inspect.v1`、`cleanmac.analyze.v1`、`cleanmac.analyze-tree.v1`、`cleanmac.diagnose.v1`、`cleanmac.scripts.v1`、`cleanmac.script-groups.v1`、`cleanmac.clean.v1`、`cleanmac.plan.v1`、`cleanmac.links.v1`、`cleanmac.open.v1`、`cleanmac.software.v1`、`cleanmac.optimize.v1`、`cleanmac.status.snapshot.v1`、`cleanmac.validate-plan.v1`、`cleanmac.workflow.v1`、`cleanmac.audit.v1`。操作日志 JSONL 记录使用 `cleanmac.operation-log-entry.v1`。
 
-### `items[]` 常见字段
+### 🧱 `items[]` 常见字段
 
 | 字段 | 说明 |
 |---|---|
@@ -758,7 +758,7 @@ python3 cleanmac.py --json clean run \
 
 ---
 
-## 开发验证
+## ✅ 开发验证
 
 ```bash
 python3 -m pip install -e '.[dev,build]'
@@ -819,7 +819,7 @@ Release 供应链检查由 `.github/workflows/release.yml` 承载：tagged relea
 
 ---
 
-## 注意事项与限制
+## ⚠️ 注意事项与限制
 
 1. 默认不会删除任何文件。
 2. 系统日志、下载目录、偏好设置、文档版本历史等分类风险较高，执行前必须仔细检查。
