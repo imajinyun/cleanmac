@@ -187,7 +187,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
                 "operation_log": string_schema("JSONL operation log path."),
                 "require_plan_context": bool_schema("Require root/home context match before execution."),
             },
-            ("plan_file", "confirmation_phrase", "confirmation_token"),
+            ("plan_file", "confirmation_phrase", "confirmation_token", "operation_log", "require_plan_context"),
         ),
         "argv_template": ["cleanmac", "--json", "clean", "run"],
     },
@@ -290,7 +290,15 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         append_option(argv, args, "min_size_mb", "--min-size-mb")
         return argv
     if name == "cleanmac_generate_plan":
-        argv = ["cleanmac", "--json", "clean", "plan", "--categories", categories_arg(args.get("categories"))]
+        argv = [
+            "cleanmac",
+            "--json",
+            "clean",
+            "plan",
+            "--categories",
+            categories_arg(args.get("categories")),
+            "--ai-origin",
+        ]
         append_option(argv, args, "risk_policy", "--risk-policy")
         append_option(argv, args, "max_delete_mb", "--max-delete-mb")
         append_option(argv, args, "max_items", "--max-items")
@@ -309,7 +317,17 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         plan_file = str(args.get("plan_file") or "")
         if not plan_file:
             raise ValueError("plan_file is required")
-        return ["cleanmac", "--json", "clean", "run", "--plan-file", plan_file, "--delete-mode", "trash"]
+        return [
+            "cleanmac",
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            plan_file,
+            "--require-plan-context",
+            "--delete-mode",
+            "trash",
+        ]
     if name == "cleanmac_execute_plan":
         if args.get("confirmation_phrase") != CONFIRMATION_PHRASE:
             raise ValueError("cleanmac_execute_plan requires explicit user confirmation phrase")
