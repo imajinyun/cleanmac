@@ -1711,9 +1711,9 @@ class CleanMacCLITests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "protected system path"):
                 cleancli.assert_safe_to_delete(protected, root=root, home=home)
 
-    def test_path_safety_rejects_fuzz_corpus(self) -> None:
+    def test_path_safety_rejects_dangerous_path_data(self) -> None:
         tmp, root, home = self.make_sandbox()
-        corpus = PROJECT_ROOT / "tests/fuzz_corpus/dangerous_paths.txt"
+        corpus = PROJECT_ROOT / "tests/data/dangerous_paths.txt"
         with tmp:
             dangerous_paths = [
                 line.strip()
@@ -2780,7 +2780,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertNotIn(local_developer_path, readme_cn)
         self.assertIn("cleancli/delete_ops.py", agents)
         self.assertIn("launchctl", agents)
-        self.assertIn("tests/fuzz_corpus/dangerous_paths.txt", agents)
+        self.assertIn("tests/data/dangerous_paths.txt", agents)
         for required_agent_section in (
             "## 项目地图",
             "## 常用命令",

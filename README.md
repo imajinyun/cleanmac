@@ -1,69 +1,69 @@
-# cleanmac User Guide
+# 🧹 cleanmac User Guide
 
 `cleanmac` is a macOS-oriented command-line cleanup tool for common logs, caches, temporary files, development leftovers, and user-directory cleanup targets. It emphasizes auditable output, dry-run by default, reusable plans, deletion budgets, and sandbox validation to avoid accidental deletion on the host machine.
 
 `cleanmac` is an independent Python implementation. It does not vendor source code from external macOS cleanup tools, is not affiliated with similarly scoped projects, and keeps safety, governance, and release automation in this repository.
 
-> **Safety principle: nothing is deleted by default.** `cleanmac clean` is always a dry-run unless `--execute` is passed explicitly. For high / critical risk categories, execution also requires `--yes` by default. Executing against the real root `/` additionally requires `--allow-live-root`. Prefer validating with `--root` / `--home` in a sandbox first. When you do execute, prefer recoverable `--delete-mode trash`; use `--delete-mode permanent` only after reviewing candidates, budgets, skipped items, operation-log output, and backups.
+> 🛡️ **Safety principle: nothing is deleted by default.** `cleanmac clean` is always a dry-run unless `--execute` is passed explicitly. For high / critical risk categories, execution also requires `--yes` by default. Executing against the real root `/` additionally requires `--allow-live-root`. Prefer validating with `--root` / `--home` in a sandbox first. When you do execute, prefer recoverable `--delete-mode trash`; use `--delete-mode permanent` only after reviewing candidates, budgets, skipped items, operation-log output, and backups.
 
 Chinese documentation: [README.CN.md](README.CN.md)
 
 ---
 
-## Table of Contents
+## 🧭 Table of Contents
 
-- [Capabilities](#capabilities)
-- [Quick Start](#quick-start)
-- [Detailed Operation Guide](#detailed-operation-guide)
-- [Safety Model](#safety-model)
-- [Installation and Running](#installation-and-running)
-- [Global Options](#global-options)
-- [Category Selection Options](#category-selection-options)
-- [Cleanup Category Overview](#cleanup-category-overview)
-- [Command Reference](#command-reference)
-- [JSON Output Fields](#json-output-fields)
-- [Development Validation](#development-validation)
-- [Notes and Limitations](#notes-and-limitations)
+- [✨ Capabilities](#-capabilities)
+- [🚀 Quick Start](#-quick-start)
+- [🧪 Detailed Operation Guide](#-detailed-operation-guide)
+- [🛡️ Safety Model](#️-safety-model)
+- [📦 Installation and Running](#-installation-and-running)
+- [⚙️ Global Options](#️-global-options)
+- [🎯 Category Selection Options](#-category-selection-options)
+- [🗂️ Cleanup Category Overview](#️-cleanup-category-overview)
+- [⌨️ Command Reference](#️-command-reference)
+- [📄 JSON Output Fields](#-json-output-fields)
+- [✅ Development Validation](#-development-validation)
+- [⚠️ Notes and Limitations](#️-notes-and-limitations)
 
 ---
 
-## Capabilities
+## ✨ Capabilities
 
 `cleanmac` currently supports:
 
-1. **Cleanup category management**: list category keys, titles, paths, risk levels, default state, recommended state, and advanced state.
-2. **Space analysis**: estimate reclaimable space for selected categories without deleting files.
-3. **Candidate inspection**: list candidate files/directories with sorting, recursion, and filters.
-4. **Diagnostic recommendations**: provide cleanup advice based on category risk, directory size, and log/cache characteristics.
-5. **Script audit**: show analysis and deletion action plans without automatically running destructive actions.
-6. **Fixed safety workflow**: run script review, analysis, diagnosis, inspection, dry-run, and manual execution guidance in one command.
-7. **Cleanup plans**: generate `cleanmac.plan.v1` JSON that can be validated and reused later.
-8. **Cleanup reports**: output pre-clean reports, dry-run details, post-execution reports, and audit files.
-9. **Sandbox path remapping**: map real paths into a temporary directory with `--root` / `--home`.
-10. **Layered execution guards**: support `--execute`, `--yes`, `--allow-live-root`, `--max-delete-mb`, `--max-items`, `--fail-on-skipped`, and `--require-plan-context`.
-11. **Fine-grained filters**: support `--include`, `--exclude`, `--older-than-days`, `--min-size-mb`, and `--name-regex`.
-12. **Environment checks**: `doctor` performs read-only checks for platform, Python, Full Disk Access guidance, live-root execution gates, and path alias normalization.
-13. **Auxiliary previews**: `open` previews Finder targets; `links` previews or manages log/cache symlink directories.
-14. **Packaged implementation**: `cleanmac.py` is a thin entrypoint and the implementation lives in the `cleancli` package, so the same CLI can run directly from the checkout or after package installation.
-15. **Screenshot-aligned command groups**: `clean`, `software`, `optimize`, `analyze`, and `status` are the preferred top-level command groups.
-16. **Machine-consumable command templates**: `scripts` exposes `command_templates` with `argv`, `uses_shell`, `destructive`, `safe_to_auto_execute`, `manual_review_required`, and `placeholders` metadata.
-17. **Consistent object reports**: object-shaped JSON reports include `schema`, `destructive`, and `dry_run` where applicable; `list --json` intentionally remains a raw category array.
-18. **CLI safety extensions**: expanded bundle ID allow/block policies, app-specific cleanup rules, Group Container safeguards, official uninstaller routing, persistent JSONL operation logs, forensic deletion logs, debug timing, test-mode auth guards, and recoverable Trash routing.
-19. **Open-source governance**: license, contribution guide, security policy, code of conduct, issue/PR templates, Dependabot, CodeQL, pip-audit smoke, and `SBOM.json` release artifacts are included for public collaboration.
-20. **Development quality gates**: the Makefile provides local tests, editable package smoke tests, script/docs/governance/open-source smoke tests, wheel/sdist distribution smoke tests, Docker tests, and `release-check`.
+1. 🧹 **Cleanup category management**: list category keys, titles, paths, risk levels, default state, recommended state, and advanced state.
+2. 📊 **Space analysis**: estimate reclaimable space for selected categories without deleting files.
+3. 🔎 **Candidate inspection**: list candidate files/directories with sorting, recursion, and filters.
+4. 🩺 **Diagnostic recommendations**: provide cleanup advice based on category risk, directory size, and log/cache characteristics.
+5. 🧾 **Script audit**: show analysis and deletion action plans without automatically running destructive actions.
+6. 🧭 **Fixed safety workflow**: run script review, analysis, diagnosis, inspection, dry-run, and manual execution guidance in one command.
+7. 🗺️ **Cleanup plans**: generate `cleanmac.plan.v1` JSON that can be validated and reused later.
+8. 📄 **Cleanup reports**: output pre-clean reports, dry-run details, post-execution reports, and audit files.
+9. 🧪 **Sandbox path remapping**: map real paths into a temporary directory with `--root` / `--home`.
+10. 🛡️ **Layered execution guards**: support `--execute`, `--yes`, `--allow-live-root`, `--max-delete-mb`, `--max-items`, `--fail-on-skipped`, and `--require-plan-context`.
+11. 🎯 **Fine-grained filters**: support `--include`, `--exclude`, `--older-than-days`, `--min-size-mb`, and `--name-regex`.
+12. 🧰 **Environment checks**: `doctor` performs read-only checks for platform, Python, Full Disk Access guidance, live-root execution gates, and path alias normalization.
+13. 🪟 **Auxiliary previews**: `open` previews Finder targets; `links` previews or manages log/cache symlink directories.
+14. 📦 **Packaged implementation**: `cleanmac.py` is a thin entrypoint and the implementation lives in the `cleancli` package, so the same CLI can run directly from the checkout or after package installation.
+15. 🧩 **Screenshot-aligned command groups**: `clean`, `software`, `optimize`, `analyze`, and `status` are the preferred top-level command groups.
+16. 🤖 **Machine-consumable command templates**: `scripts` exposes `command_templates` with `argv`, `uses_shell`, `destructive`, `safe_to_auto_execute`, `manual_review_required`, and `placeholders` metadata.
+17. 🧱 **Consistent object reports**: object-shaped JSON reports include `schema`, `destructive`, and `dry_run` where applicable; `list --json` intentionally remains a raw category array.
+18. 🔐 **CLI safety extensions**: expanded bundle ID allow/block policies, app-specific cleanup rules, Group Container safeguards, official uninstaller routing, persistent JSONL operation logs, forensic deletion logs, debug timing, test-mode auth guards, and recoverable Trash routing.
+19. 🌍 **Open-source governance**: license, contribution guide, security policy, code of conduct, issue/PR templates, Dependabot, CodeQL, pip-audit smoke, and `SBOM.json` release artifacts are included for public collaboration.
+20. ✅ **Development quality gates**: the Makefile provides local tests, editable package smoke tests, script/docs/governance/open-source smoke tests, wheel/sdist distribution smoke tests, Docker tests, and `release-check`.
 
 The current CLI safety extensions are exposed through concrete flags and JSON fields:
 
 | Capability | CLI surface | JSON/report surface |
 |---|---|---|
-| Bundle protection | `clean run --bundle-allowlist <ids>` and `clean run --bundle-blocklist <ids>` | `bundle_allowlist`, `bundle_blocklist`, item-level `bundle_id`, and skipped reasons `bundle-not-allowlisted` / `bundle-blocklisted` |
-| App-specific cleanup | `clean inspect --categories androidStudio,jetbrains,vscode,docker,raycast,unity,unreal,godot,deveco,maestro,chrome,firefox,slack,zoom,teams,nodePackageCaches,pythonPackageCaches,goBuildCaches,groupContainerCaches` | Category metadata plus `app-protected-data`, `protected-container-data`, and `protected-group-container` skipped reasons for protected profile, credential, workspace, and group-container data |
-| Official uninstaller routing | `software list` and `software uninstall-plan --app <name>` | `official_uninstaller_vendor`, `official_uninstaller_required`, and a vendor guidance message for ESET, Jamf, CrowdStrike, SentinelOne, GlobalProtect, and Cisco |
-| Persistent operation log | `clean run --operation-log <path>` | One JSONL record per executed item using `cleanmac.operation-log-entry.v1` |
-| Forensic deletion log | `clean run --execute` | Tab-separated `~/.cleanmac/deletions.log` entries recording timestamp, mode, size, status, path, and detail |
-| Debug timing | `CLEANMAC_DEBUG=1 cleanmac ...` | `~/.cleanmac/cleanmac_debug_session.log` with millisecond `PERF` entries |
-| Test-mode auth guard | `CLEANMAC_TEST_MODE=1` / `CLEANMAC_TEST_NO_AUTH=1` | Blocks sudo/AppleScript helper execution during tests; `CLEANMAC_TEST_TRASH_DIR` can route Trash tests to a fixture directory |
-| Recoverable deletion | `clean run --delete-mode trash` | `delete_mode`, item-level `trash_path`, `safety_gate.delete_mode`, symlink refusal, and fail-closed Trash behavior |
+| 🔐 Bundle protection | `clean run --bundle-allowlist <ids>` and `clean run --bundle-blocklist <ids>` | `bundle_allowlist`, `bundle_blocklist`, item-level `bundle_id`, and skipped reasons `bundle-not-allowlisted` / `bundle-blocklisted` |
+| 🧩 App-specific cleanup | `clean inspect --categories androidStudio,jetbrains,vscode,docker,raycast,unity,unreal,godot,deveco,maestro,chrome,firefox,slack,zoom,teams,nodePackageCaches,pythonPackageCaches,goBuildCaches,groupContainerCaches` | Category metadata plus `app-protected-data`, `protected-container-data`, and `protected-group-container` skipped reasons for protected profile, credential, workspace, and group-container data |
+| 🧯 Official uninstaller routing | `software list` and `software uninstall-plan --app <name>` | `official_uninstaller_vendor`, `official_uninstaller_required`, and a vendor guidance message for ESET, Jamf, CrowdStrike, SentinelOne, GlobalProtect, and Cisco |
+| 📜 Persistent operation log | `clean run --operation-log <path>` | One JSONL record per executed item using `cleanmac.operation-log-entry.v1` |
+| 🧾 Forensic deletion log | `clean run --execute` | Tab-separated `~/.cleanmac/deletions.log` entries recording timestamp, mode, size, status, path, and detail |
+| ⏱️ Debug timing | `CLEANMAC_DEBUG=1 cleanmac ...` | `~/.cleanmac/cleanmac_debug_session.log` with millisecond `PERF` entries |
+| 🧪 Test-mode auth guard | `CLEANMAC_TEST_MODE=1` / `CLEANMAC_TEST_NO_AUTH=1` | Blocks sudo/AppleScript helper execution during tests; `CLEANMAC_TEST_TRASH_DIR` can route Trash tests to a fixture directory |
+| ♻️ Recoverable deletion | `clean run --delete-mode trash` | `delete_mode`, item-level `trash_path`, `safety_gate.delete_mode`, symlink refusal, and fail-closed Trash behavior |
 
 Example dry-run for expanded app cache rules:
 
@@ -73,21 +73,21 @@ python3 cleanmac.py --json clean inspect --categories chrome,firefox,slack,zoom,
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-> **Command format note:** global options must appear before the top-level command, for example `python3 cleanmac.py --json clean inspect ...` and `python3 cleanmac.py --root /tmp/root --home /Users/tester clean run ...`. Action options appear after the action, for example `clean inspect --categories ...` and `clean run --plan-file ...`.
+> 🧭 **Command format note:** global options must appear before the top-level command, for example `python3 cleanmac.py --json clean inspect ...` and `python3 cleanmac.py --root /tmp/root --home /Users/tester clean run ...`. Action options appear after the action, for example `clean inspect --categories ...` and `clean run --plan-file ...`.
 
-### Top-level command groups
+### 🧩 Top-level command groups
 
 | Group | Product area | Current capability |
 |---|---|---|
-| `clean` | Cleanup | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` |
-| `software` | Software | Read-only app inventory, startup locations, and uninstall-plan placeholders |
-| `optimize` | Optimize | Maintenance task inventory and dry-run plans only |
-| `analyze` | Analyze | Category reclaim analysis, directory scan, and tree output |
-| `status` | Status | Read-only load average and disk snapshot |
+| `clean` | 🧹 Cleanup | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` |
+| `software` | 📦 Software | Read-only app inventory, startup locations, and uninstall-plan placeholders |
+| `optimize` | ⚙️ Optimize | Maintenance task inventory and dry-run plans only |
+| `analyze` | 📊 Analyze | Category reclaim analysis, directory scan, and tree output |
+| `status` | 🩺 Status | Read-only load average and disk snapshot |
 
-### Inspect capabilities and categories
+### 🔎 Inspect capabilities and categories
 
 ```bash
 cd /path/to/cleanmac
@@ -96,7 +96,7 @@ python3 cleanmac.py clean list
 python3 cleanmac.py --json doctor
 ```
 
-### Preview common log candidates
+### 👀 Preview common log candidates
 
 ```bash
 python3 cleanmac.py --json clean inspect \
@@ -107,7 +107,7 @@ python3 cleanmac.py --json clean inspect \
   > /tmp/cleanmac-logs-inspect.json
 ```
 
-### Generate, validate, and dry-run a cleanup plan
+### 🗺️ Generate, validate, and dry-run a cleanup plan
 
 ```bash
 python3 cleanmac.py --json clean plan \
@@ -126,7 +126,7 @@ python3 cleanmac.py --json clean run \
   > /tmp/cleanmac-logs-dry-run.json
 ```
 
-### Execute after manual review
+### 🛡️ Execute after manual review
 
 ```bash
 python3 cleanmac.py clean run \
@@ -140,7 +140,7 @@ python3 cleanmac.py clean run \
 
 ---
 
-## Detailed Operation Guide
+## 🧪 Detailed Operation Guide
 
 ### 1. Check the environment before first use
 
@@ -352,9 +352,9 @@ python3 cleanmac.py --root /tmp/cleanmac-root --home /Users/tester clean links \
 
 ---
 
-## Safety Model
+## 🛡️ Safety Model
 
-### Dry-run by default
+### 🧯 Dry-run by default
 
 ```bash
 python3 cleanmac.py clean run --categories trash
@@ -376,7 +376,7 @@ python3 cleanmac.py --root /tmp/cleanmac-root --home /Users/tester clean run \
 python3 cleanmac.py clean run --categories downloads --execute --yes --allow-live-root
 ```
 
-### Risk policies
+### 🚦 Risk policies
 
 By default, high / critical risk categories require `--yes` during execution.
 
@@ -385,7 +385,7 @@ By default, high / critical risk categories require `--yes` during execution.
 | `strict` | medium / high / critical all require `--yes`. |
 | `permissive` | Risk level does not add an extra `--yes` requirement; `--execute` is still required. |
 
-### Live-root execution protection
+### 🧱 Live-root execution protection
 
 When `--root /` is used, execution is refused by default even if `--execute` is present. You must explicitly pass:
 
@@ -395,11 +395,11 @@ python3 cleanmac.py clean run --categories trash --execute --allow-live-root
 
 Validate with a sandbox or plan file first.
 
-### Delete target contents only, not parent directories
+### 🎯 Delete target contents only, not parent directories
 
 Cleanup semantics delete direct contents under target directories while preserving the target directories themselves. Execution reports verify this through `target_preservation`.
 
-### Bundle-aware application data protection
+### 🔐 Bundle-aware application data protection
 
 For paths that contain app container identifiers such as `~/Library/Containers/com.example.app/...`, `cleanmac` extracts the bundle ID and applies bundle policy before size budgets or deletion:
 
@@ -411,7 +411,7 @@ For paths that contain app container identifiers such as `~/Library/Containers/c
 
 Allowlist is evaluated before blocklist. Bundle policy applies to bundle-owned candidates; paths without a recognizable bundle ID continue through the normal include/exclude, age, size, and safety checks.
 
-### Recoverable Trash routing and operation logs
+### ♻️ Recoverable Trash routing and operation logs
 
 `--delete-mode permanent` is the default and removes candidates directly during execution. `--delete-mode trash` moves each executed candidate into the remapped user Trash under a unique name such as `~/.Trash/cleanmac-20260616T120000000000Z-download.bin`, making recovery possible from Trash.
 
@@ -419,15 +419,15 @@ Execution writes operation records to `~/.cleanmac/operations.jsonl` by default;
 
 `rotate_log_once()` performs single-step log rotation before appending: the main log budget is 1 MB for `~/.cleanmac/cleanmac.log`, and the operation-log budget is 5 MB for `~/.cleanmac/operations.jsonl`.
 
-## Installation and Running
+## 📦 Installation and Running
 
-### Run the script directly
+### ▶️ Run the script directly
 
 ```bash
 python3 cleanmac.py clean list
 ```
 
-### Install as a Python package
+### 📥 Install as a Python package
 
 ```bash
 python3 -m venv .venv
@@ -436,13 +436,13 @@ python3 -m pip install -e .
 cleanmac list
 ```
 
-### Python version
+### 🐍 Python version
 
 Python 3.10+ is recommended.
 
 ---
 
-## Global Options
+## ⚙️ Global Options
 
 | Option | Default | Description |
 |---|---|---|
@@ -453,7 +453,7 @@ Python 3.10+ is recommended.
 
 ---
 
-## Category Selection Options
+## 🎯 Category Selection Options
 
 | Option | Description |
 |---|---|
@@ -463,7 +463,7 @@ Python 3.10+ is recommended.
 
 ---
 
-## Cleanup Category Overview
+## 🗂️ Cleanup Category Overview
 
 | Key | Title | Path | Risk | Default | Recommended | Advanced | Notes |
 |---|---|---|---|---|---|---|---|
@@ -498,11 +498,11 @@ Python 3.10+ is recommended.
 
 ---
 
-## Command Reference
+## ⌨️ Command Reference
 
 Preferred top-level command groups are `clean`, `software`, `optimize`, `analyze`, and `status`. Global options such as `--json`, `--root`, `--home`, and `--report-file` must be placed before the command group.
 
-### Recommended command groups
+### 🧭 Recommended command groups
 
 ```bash
 # Cleanup: inspect, plan, validate, dry-run, execute
@@ -721,7 +721,7 @@ python3 cleanmac.py --json clean run \
   --yes
 ```
 
-## JSON Output Fields
+## 📄 JSON Output Fields
 
 ### Common object-report top-level fields
 
@@ -744,7 +744,7 @@ python3 cleanmac.py --json clean run \
 
 Current object report schemas include `cleanmac.capabilities.v1`, `cleanmac.doctor.v1`, `cleanmac.inspect.v1`, `cleanmac.analyze.v1`, `cleanmac.analyze-tree.v1`, `cleanmac.diagnose.v1`, `cleanmac.scripts.v1`, `cleanmac.script-groups.v1`, `cleanmac.clean.v1`, `cleanmac.plan.v1`, `cleanmac.links.v1`, `cleanmac.open.v1`, `cleanmac.software.v1`, `cleanmac.optimize.v1`, `cleanmac.status.snapshot.v1`, `cleanmac.validate-plan.v1`, `cleanmac.workflow.v1`, and `cleanmac.audit.v1`. Operation-log JSONL records use `cleanmac.operation-log-entry.v1`.
 
-### Common `items[]` fields
+### 🧱 Common `items[]` fields
 
 | Field | Description |
 |---|---|
@@ -760,7 +760,7 @@ Current object report schemas include `cleanmac.capabilities.v1`, `cleanmac.doct
 
 ---
 
-## Development Validation
+## ✅ Development Validation
 
 ```bash
 python3 -m pip install -e '.[dev,build]'
@@ -821,7 +821,7 @@ Open-source project hygiene is covered by `LICENSE`, `CONTRIBUTING.md`, `SECURIT
 
 ---
 
-## Notes and Limitations
+## ⚠️ Notes and Limitations
 
 1. No files are deleted by default.
 2. System logs, downloads, preferences, document revisions, and similar categories are higher risk and require careful review before execution.

@@ -1,0 +1,56 @@
+# Dangerous path data for cleanmac assert_safe_to_delete.
+# Blank lines and comments are ignored by tests.
+relative/path
+../escape
+Downloads/../Secrets
+/
+/bin
+/bin/sh
+/sbin
+/usr
+/usr/bin
+/usr/bin/python3
+/usr/lib
+/System
+/System/Library
+/System/Library/CoreServices
+/Library
+/Library/Apple
+/Library/Extensions
+/Library/Keychains
+/Applications/Finder.app
+/Applications/Safari.app
+/Users
+/Users/Shared
+/Users/Guest
+/Users/Guest/Desktop
+/private
+/private/etc
+/private/etc/hosts
+/etc
+/etc/passwd
+/var
+/var/db
+/var/db/dslocal
+/var/audit
+/private/var
+/private/var/db
+/private/var/db/dslocal
+/private/var/audit
+/Users/tester/.Trash/../escape
+/tmp/../../System
+/private/tmp/../etc/passwd
+/Users/tester/Library/Group Containers/group.com.apple.notes/Library/Caches
+/Users/tester/Library/Containers/com.apple.Notes/Data/Documents
+/Users/tester/Library/Keychains/login.keychain-db
+/Users/tester/Library/Mail/V10/MailData
+/Users/tester/Library/Messages/chat.db
+/Users/tester/Library/Application Support/CloudDocs
+/Users/tester/Library/Application Support/com.apple.sharedfilelist
+/Users/tester/Library/Preferences/com.apple.security.plist
+/Users/tester/.ssh/id_rsa
+/Users/tester/.gnupg/private-keys-v1.d/key.key
+/Users/tester/Library/Application Support/1Password
+/Users/tester/Library/Application Support/Dropbox
+/Users/tester/Library/Application Support/Google/DriveFS
+/Users/tester/Library/Application Support/Code/User/settings.json

@@ -48,7 +48,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-tests/fuzz_corpus/
 
 # Type checkers / linters
 .mypy_cache/
