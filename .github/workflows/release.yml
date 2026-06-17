@@ -12,10 +12,9 @@ permissions:
   attestations: write
 
 jobs:
-  release:
-    name: Build, attest, and publish
+  build:
+    name: Build release artifacts
     runs-on: ubuntu-latest
-    environment: release
     env:
       PYTHON: .venv/bin/python
     steps:
@@ -45,24 +44,132 @@ jobs:
           $PYTHON scripts/generate_sbom.py --output release-assets/SBOM.json
           $PYTHON - <<'PY'
           import hashlib
+          import json
+          import platform
+          import sys
           from pathlib import Path
 
           dist = Path("dist")
           release_assets = Path("release-assets")
           lines = []
+          manifest = {
+              "schema": "cleanmac.release-artifact-manifest.v1",
+              "python_version": sys.version.split()[0],
+              "platform": platform.platform(),
+              "artifacts": [],
+              "distribution_policy": {
+                  "homebrew_formula": "preflight-only",
+                  "standalone_zipapp": "smoke-tested outside release upload",
+                  "publish_after_cross_platform_verification": True,
+              },
+          }
           for path in sorted(dist.iterdir()):
               if path.is_file():
-                  lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
+                  digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                  lines.append(f"{digest}  {path.name}")
+                  manifest["artifacts"].append({"name": path.name, "sha256": digest, "kind": path.suffix.lstrip(".")})
           sbom = release_assets / "SBOM.json"
-          lines.append(f"{hashlib.sha256(sbom.read_bytes()).hexdigest()}  {sbom.name}")
+          sbom_digest = hashlib.sha256(sbom.read_bytes()).hexdigest()
+          lines.append(f"{sbom_digest}  {sbom.name}")
+          manifest["artifacts"].append({"name": sbom.name, "sha256": sbom_digest, "kind": "sbom"})
           Path("release-assets/SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          Path("release-assets/ARTIFACT-MANIFEST.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
           PY
 
-      - name: Verify installation from wheel
+      - name: Verify installation from wheel on build runner
         run: |
           python -m venv /tmp/cleanmac-release-verify
           /tmp/cleanmac-release-verify/bin/python -m pip install dist/cleanmac-*.whl
           /tmp/cleanmac-release-verify/bin/cleanmac --json capabilities | $PYTHON -m json.tool >/dev/null
+
+      - name: Upload built distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned from actions/upload-artifact@v7.0.1
+        with:
+          name: cleanmac-dist
+          path: dist/*
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned from actions/upload-artifact@v7.0.1
+        with:
+          name: cleanmac-release-assets
+          path: release-assets/*
+
+  verify-release-artifacts:
+    name: Verify release artifacts (${{ matrix.os }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, macos-15]
+    env:
+      PYTHON: .venv/bin/python
+      CLEANMAC_TEST_MODE: "1"
+      CLEANMAC_TEST_NO_AUTH: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # pinned from actions/checkout@v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download built distributions
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        with:
+          name: cleanmac-dist
+          path: dist
+
+      - name: Download release metadata
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        with:
+          name: cleanmac-release-assets
+          path: release-assets
+
+      - name: Verify wheel install and release checksums
+        run: |
+          python -m venv .venv
+          $PYTHON -m pip install --upgrade pip
+          $PYTHON -m pip install dist/cleanmac-*.whl
+          cleanmac --json capabilities | $PYTHON -m json.tool >/dev/null
+          $PYTHON - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          dist = Path("dist")
+          assets = Path("release-assets")
+          for line in (assets / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
+              digest, name = line.split(None, 1)
+              name = name.strip()
+              base = assets if name == "SBOM.json" else dist
+              assert hashlib.sha256((base / name).read_bytes()).hexdigest() == digest
+          assert (assets / "ARTIFACT-MANIFEST.json").is_file()
+          PY
+
+      - name: Run real macOS smoke against release candidate
+        if: startsWith(matrix.os, 'macos')
+        run: make real-macos-smoke
+
+  publish:
+    name: Attest and publish release artifacts
+    needs: verify-release-artifacts
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Download built distributions
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        with:
+          name: cleanmac-dist
+          path: dist
+
+      - name: Download release metadata
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        with:
+          name: cleanmac-release-assets
+          path: release-assets
 
       - name: Attest release artifacts
         uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # pinned from actions/attest-build-provenance@v2
@@ -71,6 +178,7 @@ jobs:
             dist/*
             release-assets/SBOM.json
             release-assets/SHA256SUMS
+            release-assets/ARTIFACT-MANIFEST.json
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # pinned from softprops/action-gh-release@v2
@@ -80,6 +188,7 @@ jobs:
             dist/*
             release-assets/SBOM.json
             release-assets/SHA256SUMS
+            release-assets/ARTIFACT-MANIFEST.json
 
       - name: Publish to PyPI with trusted publishing
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pinned from pypa/gh-action-pypi-publish@release/v1

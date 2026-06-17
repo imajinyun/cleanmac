@@ -121,6 +121,10 @@ jobs:
           make macos-smoke
           $PYTHON cleanmac.py --json capabilities | $PYTHON -m json.tool >/dev/null
 
+      - name: Real macOS readonly smoke
+        if: startsWith(matrix.os, 'macos')
+        run: make real-macos-smoke
+
       - name: Ubuntu sandbox, governance JSON, and package build smoke
         if: matrix.os == 'ubuntu-latest'
         run: |
