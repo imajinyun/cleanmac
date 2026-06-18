@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from cleancli import ai_schema, delete_ops, protection
+from cleancli.ai_readiness import render_ai_readiness
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 
 VERSION = "0.1.0"
@@ -1095,6 +1096,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default="all",
         help="Output format. all = both OpenAI functions and Anthropic tools. (default: all)",
     )
+    subparsers.add_parser(
+        "ai-readiness",
+        help="Emit AI host readiness, provider export parity, and MCP integration status.",
+    )
 
     return parser.parse_args(argv)
 
@@ -1122,6 +1127,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "status",
         "completion",
         "ai-tools",
+        "ai-readiness",
     }
     first_command_index = next((index for index, item in enumerate(normalized) if item in known_commands), None)
     if first_command_index is None or first_command_index + 1 >= len(normalized):
@@ -1937,6 +1943,7 @@ def render_capabilities() -> dict[str, Any]:
             "status",
             "completion",
             "ai-tools",
+            "ai-readiness",
         ],
         "command_groups": COMMAND_GROUPS,
         "preferred_command_style": "grouped",
@@ -2054,8 +2061,10 @@ def render_capabilities() -> dict[str, Any]:
         "ai_openai_functions": ai_schema.render_openai_functions(),
         "ai_anthropic_tools": ai_schema.render_anthropic_tools(),
         "mcp_tool_catalog": ai_schema.render_mcp_tool_catalog(),
+        "ai_provider_export_parity": ai_schema.render_provider_export_parity(),
         "ai_schema_validation": ai_schema.validate_ai_tool_definitions(),
         "ai_contract_compatibility": ai_schema.render_contract_compatibility(ai_tool_contract),
+        "ai_readiness": render_ai_readiness(ai_tool_contract),
     }
 
 
@@ -5203,6 +5212,7 @@ def render_completion_shell(shell: str) -> str:
         "status",
         "completion",
         "ai-tools",
+        "ai-readiness",
     ]
     global_flags = "--root --home --json --report-file --version --verbose --quiet"
     category_flags = "--categories --default --all"
@@ -5226,6 +5236,7 @@ def render_completion_shell(shell: str) -> str:
         "status": "snapshot",
         "completion": "bash zsh fish",
         "ai-tools": "--format openai anthropic all",
+        "ai-readiness": "",
     }
     if shell == "bash":
         return _render_bash_completion(commands, global_flags, category_keys, cmd_flags)
@@ -5337,9 +5348,8 @@ def _render_fish_completion(
         lines.append(f'complete -c cleanmac -n "__fish_use_subcommand" -l {flag.lstrip("-")} -d "global flag"')
     # Commands
     for cmd in commands:
-        lines.append(
-            f'complete -c cleanmac -n "__fish_use_subcommand" -a {cmd} -d "{cmd_flags.get(cmd, cmd).split()[0]}"'
-        )
+        description = (cmd_flags.get(cmd) or cmd).split()[0]
+        lines.append(f'complete -c cleanmac -n "__fish_use_subcommand" -a {cmd} -d "{description}"')
         cmd_flags_str = cmd_flags.get(cmd, "")
         for flag in cmd_flags_str.split():
             clean_flag = flag.lstrip("-")
@@ -5588,6 +5598,9 @@ def _main_impl(argv: Sequence[str]) -> int:
                 "anthropic": ai_schema.render_anthropic_tools(),
             }
         print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-readiness":
+        print(json.dumps(render_ai_readiness(render_ai_tool_contract()), indent=2, ensure_ascii=False))
         return 0
     if args.command == "validate-plan":
         emit_report(

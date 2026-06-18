@@ -76,6 +76,65 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(result["content"][0]["type"], "text")
         data = json.loads(result["content"][0]["text"])
         self.assertEqual(data["schema"], "cleanmac.capabilities.v1")
+        self.assertEqual(result["structuredContent"]["schema"], "cleanmac.capabilities.v1")
+
+    def test_resources_list_exposes_ai_governance_resources(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 21, "method": "resources/list"})
+        resources = response["result"]["resources"]
+        uris = {resource["uri"] for resource in resources}
+
+        self.assertIn("cleanmac://capabilities", uris)
+        self.assertIn("cleanmac://ai/function-schemas", uris)
+        self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
+        self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
+
+    def test_resources_read_returns_json_content(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 22,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/function-schemas"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(len(contents), 1)
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/function-schemas")
+        self.assertEqual(contents[0]["mimeType"], "application/json")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-function-schemas.v1")
+
+    def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 23,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://unknown"},
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32602)
+        self.assertIn("Unknown resource URI", response["error"]["message"])
+
+    def test_prompts_list_and_get_safe_cleanup_review(self) -> None:
+        list_response = _mcp_request({"jsonrpc": "2.0", "id": 24, "method": "prompts/list"})
+        prompts = list_response["result"]["prompts"]
+        names = {prompt["name"] for prompt in prompts}
+        self.assertIn("safe-cleanup-review", names)
+
+        get_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 25,
+                "method": "prompts/get",
+                "params": {"name": "safe-cleanup-review", "arguments": {"categories": "trash,downloads"}},
+            }
+        )
+        prompt = get_response["result"]
+        self.assertEqual(prompt["description"], "Safe cleanmac cleanup review workflow")
+        message_text = prompt["messages"][0]["content"]["text"]
+        self.assertIn("trash,downloads", message_text)
+        self.assertIn("never call cleanmac_execute_plan without explicit human confirmation", message_text)
 
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(
@@ -105,6 +164,8 @@ class MckServerTests(unittest.TestCase):
         result = response["result"]
         self.assertEqual(result["protocolVersion"], "2024-11-05")
         self.assertIn("tools", result["capabilities"])
+        self.assertIn("resources", result["capabilities"])
+        self.assertIn("prompts", result["capabilities"])
         self.assertEqual(result["serverInfo"]["name"], "cleanmac-mcp")
 
     def test_shutdown(self) -> None:

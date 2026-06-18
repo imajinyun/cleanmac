@@ -373,6 +373,8 @@ python3 cleanmac.py clean run \
 
 ### 📜 操作日志
 
+默认路径：`~/.cleanmac/operations.jsonl`（JSONL 审计追踪，schema `cleanmac.operation-log-entry.v1`）、`~/.cleanmac/deletions.log`（文本日志）、`cleanmac_debug_session.log`（调试计时）。
+
 ```bash
 python3 cleanmac.py clean run \
   --plan-file /tmp/plan.json \
@@ -594,7 +596,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `userPrefs` | ⚙️ 偏好设置 | critical | ❌ | `~/Library/Preferences/` |
 | `docRev` | 📄 文档版本 | critical | ❌ | `/.DocumentRevisions-V100/` |
 
-*共 28 个分类。运行 `python3 cleanmac.py clean list` 查看完整表格。*
+其他应用专用分类：`groupContainerCaches`、`androidStudio`、`jetbrains`、`vscode`、`docker`、`chrome`、`firefox`、`slack`、`zoom`、`teams`、`nodePackageCaches`、`pythonPackageCaches`、`goBuildCaches`。系统/深层分类：`rotate_log_once`（日志轮转）、`deviceFirmware`（固件缓存）、`appleSiliconCaches`（Rosetta/M1 缓存）。治理：`official_uninstaller_vendor` 检测 CrowdStrike 等官方卸载器。
 
 ---
 
@@ -609,6 +611,11 @@ make mcp-smoke                                     # MCP 冒烟测试
 make local-test                                    # 完整本地测试
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # 文档校验
+make governance-smoke                              # 治理合约检查
+make open-source-smoke                             # 开源治理检查
+make dependency-audit-smoke                        # pip-audit + SBOM.json
+make no-cache-check                                # 无缓存全量验证
+make no-cache-release-check                        # 无缓存发布验证
 ```
 
 ### 📊 Makefile 目标
@@ -627,7 +634,7 @@ make docs-smoke                                    # 文档校验
 | `bundle-audit-smoke` | Bundle drift 审计 |
 | `macos-smoke` | macOS 专项测试 |
 | `security-smoke` | 静态安全扫描 |
-| `dependency-audit-smoke` | pip-audit + SBOM |
+| `dependency-audit-smoke` | pip-audit + SBOM.json |
 | `docs-smoke` | README 覆盖检查 |
 | `governance-smoke` | 治理合约检查 |
 | `distribution-smoke` | wheel + sdist |
