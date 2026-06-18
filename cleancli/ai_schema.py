@@ -676,6 +676,38 @@ def render_anthropic_tools() -> dict[str, Any]:
     }
 
 
+def render_provider_export_parity() -> dict[str, Any]:
+    function_tools = {tool["name"] for tool in render_function_schemas()["tools"]}
+    openai_tools = {tool["function"]["name"] for tool in render_openai_functions()["tools"]}
+    anthropic_tools = {tool["name"] for tool in render_anthropic_tools()["tools"]}
+    mcp_tools = {tool["name"] for tool in render_mcp_tool_catalog()["tools"]}
+    violations: list[str] = []
+    if function_tools != openai_tools:
+        violations.append("OpenAI tool names differ from function schemas")
+    if function_tools != anthropic_tools:
+        violations.append("Anthropic tool names differ from function schemas")
+    if function_tools != mcp_tools:
+        violations.append("MCP tool names differ from function schemas")
+    tool_counts = {
+        "function_tool_count": len(function_tools),
+        "openai_tool_count": len(openai_tools),
+        "anthropic_tool_count": len(anthropic_tools),
+        "mcp_tool_count": len(mcp_tools),
+    }
+    same_tool_count = len(set(tool_counts.values())) == 1
+    if not same_tool_count:
+        violations.append("provider tool counts differ")
+    return {
+        "schema": "cleanmac.ai-provider-export-parity.v1",
+        "same_tool_names": not violations,
+        "same_tool_count": same_tool_count,
+        "tool_count": len(function_tools),
+        **tool_counts,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
 def categories_arg(value: object) -> str:
     if not isinstance(value, list) or not value or not all(isinstance(item, str) and item for item in value):
         raise ValueError("categories must be a non-empty list of strings")

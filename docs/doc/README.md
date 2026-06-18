@@ -373,6 +373,8 @@ python3 cleanmac.py clean run \
 
 ### 📜 Operation log
 
+Default paths: `~/.cleanmac/operations.jsonl` (JSONL audit trail, schema `cleanmac.operation-log-entry.v1`), `~/.cleanmac/deletions.log` (text log), `cleanmac_debug_session.log` (debug timing).
+
 ```bash
 python3 cleanmac.py clean run \
   --plan-file /tmp/plan.json \
@@ -594,7 +596,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `userPrefs` | ⚙️ Preferences | critical | ❌ | `~/Library/Preferences/` |
 | `docRev` | 📄 Doc revisions | critical | ❌ | `/.DocumentRevisions-V100/` |
 
-*28 categories total. Run `python3 cleanmac.py clean list` for the full table.*
+Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `jetbrains`, `vscode`, `docker`, `chrome`, `firefox`, `slack`, `zoom`, `teams`, `nodePackageCaches`, `pythonPackageCaches`, `goBuildCaches`. System/deep categories: `rotate_log_once` (log rotation), `deviceFirmware` (firmware caches), `appleSiliconCaches` (Rosetta/M1 caches). Governance: `official_uninstaller_vendor` detects CrowdStrike, etc.
 
 ---
 
@@ -609,6 +611,11 @@ make mcp-smoke                                     # MCP smoke test
 make local-test                                    # Full local suite
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # Doc validation
+make governance-smoke                              # Governance contracts
+make open-source-smoke                             # Open source governance
+make dependency-audit-smoke                        # pip-audit + SBOM.json
+make no-cache-check                                # No-cache full validation
+make no-cache-release-check                        # No-cache release validation
 ```
 
 ### 📊 Make targets
@@ -627,7 +634,7 @@ make docs-smoke                                    # Doc validation
 | `bundle-audit-smoke` | Bundle drift audit |
 | `macos-smoke` | macOS-specific tests |
 | `security-smoke` | Static security scan |
-| `dependency-audit-smoke` | pip-audit + SBOM |
+| `dependency-audit-smoke` | pip-audit + SBOM.json |
 | `docs-smoke` | README coverage |
 | `governance-smoke` | Governance contracts |
 | `distribution-smoke` | wheel + sdist |

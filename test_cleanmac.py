@@ -437,6 +437,13 @@ class CleanMacCLITests(unittest.TestCase):
         anthropic_tools = report["ai_anthropic_tools"]
         self.assertEqual(anthropic_tools["schema"], "cleanmac.ai-anthropic-tools.v1")
         self.assertEqual({tool["name"] for tool in anthropic_tools["tools"]}, tool_names)
+        provider_parity = report["ai_provider_export_parity"]
+        self.assertEqual(provider_parity["schema"], "cleanmac.ai-provider-export-parity.v1")
+        self.assertTrue(provider_parity["same_tool_names"], provider_parity["violations"])
+        self.assertEqual(provider_parity["violation_count"], 0)
+        readiness = report["ai_readiness"]
+        self.assertEqual(readiness["schema"], "cleanmac.ai-readiness.v1")
+        self.assertTrue(readiness["ready"], readiness)
         mcp_catalog = report["mcp_tool_catalog"]
         self.assertEqual(mcp_catalog["schema"], "cleanmac.mcp-tool-catalog.v1")
         self.assertEqual({tool["name"] for tool in mcp_catalog["tools"]}, tool_names)
@@ -454,6 +461,15 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(contract_compatibility["mcp_tool_count"], len(tool_names))
         manual_ids = {row["id"] for row in boundaries["manual_only_behaviors"]}
         self.assertIn("destructive-clean-execution", manual_ids)
+
+    def test_provider_export_parity_reports_same_tool_names(self) -> None:
+        ai_schema = importlib.import_module("cleancli.ai_schema")
+        report = ai_schema.render_provider_export_parity()
+
+        self.assertEqual(report["schema"], "cleanmac.ai-provider-export-parity.v1")
+        self.assertTrue(report["same_tool_names"], report["violations"])
+        self.assertTrue(report["same_tool_count"], report["violations"])
+        self.assertEqual(report["violation_count"], 0)
 
     def test_ai_schema_builds_safe_argv_without_shell_or_implicit_execute(self) -> None:
         ai_schema = importlib.import_module("cleancli.ai_schema")
