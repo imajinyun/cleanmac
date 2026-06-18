@@ -39,8 +39,12 @@ class AIReadinessTests(unittest.TestCase):
         self.assertTrue(report["governance_advice"]["ready"])
         self.assertEqual(report["governance_advice"]["schema"], "cleanmac.ai-governance-advice.v1")
         self.assertEqual(report["governance_advice"]["level"], "strong")
+        self.assertTrue(report["host_policy"]["ready"])
+        self.assertEqual(report["host_policy"]["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertEqual(report["host_policy"]["default_decision"], "deny")
         self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-governance-advice"], report["recommended_preflight_commands"])
+        self.assertIn(["cleanmac", "--json", "ai-host-policy"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-eval-pack"], report["recommended_preflight_commands"])
         self.assertIn(
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],

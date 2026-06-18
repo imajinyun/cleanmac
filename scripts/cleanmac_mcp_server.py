@@ -160,6 +160,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://ai/host-policy",
+            "name": "cleanmac AI host policy",
+            "description": "Machine-readable allow/deny policy for AI Host cleanmac tool calling.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -184,6 +190,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_eval_pack,
         render_ai_eval_run,
         render_ai_governance_advice_report,
+        render_ai_host_policy_report,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -205,6 +212,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_decision_matrix()
     elif uri == "cleanmac://ai/governance-advice":
         payload = render_ai_governance_advice_report()
+    elif uri == "cleanmac://ai/host-policy":
+        payload = render_ai_host_policy_report()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":
@@ -256,6 +265,11 @@ def mcp_prompts() -> list[dict]:
         {
             "name": "review-ai-governance",
             "description": "Summarize governance advice before an AI Host calls cleanmac tools.",
+            "arguments": [],
+        },
+        {
+            "name": "review-ai-host-policy",
+            "description": "Summarize the AI Host allow/deny policy before tool orchestration.",
             "arguments": [],
         },
         {
@@ -354,6 +368,24 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                             "Read cleanmac://ai/governance-advice and summarize ready_for_llm_calling, "
                             "default_policy, required_host_controls, anti_patterns, and p0 recommendations. "
                             "Do not call cleanmac_execute_plan while producing this governance review."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "review-ai-host-policy":
+        return {
+            "description": "Review cleanmac AI Host allow/deny policy",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Read cleanmac://ai/host-policy before calling cleanmac tools. Summarize "
+                            "default_decision, transport.shell_allowed, auto_call.allow, auto_call.deny, "
+                            "execution_gate, prompt_injection_boundary, and error_recovery. Do not call "
+                            "cleanmac_execute_plan while producing this policy review."
                         ),
                     },
                 }

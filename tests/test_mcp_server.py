@@ -149,6 +149,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/self-test", uris)
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
         self.assertIn("cleanmac://ai/governance-advice", uris)
+        self.assertIn("cleanmac://ai/host-policy", uris)
         self.assertIn("cleanmac://ai/eval-pack", uris)
         self.assertIn("cleanmac://ai/eval-run-smoke", uris)
 
@@ -187,6 +188,19 @@ class MckServerTests(unittest.TestCase):
         governance_payload = json.loads(governance_response["result"]["contents"][0]["text"])
         self.assertEqual(governance_payload["schema"], "cleanmac.ai-governance-advice.v1")
         self.assertTrue(governance_payload["ready_for_llm_calling"], governance_payload)
+
+        host_policy_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 45,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/host-policy"},
+            }
+        )
+        host_policy_payload = json.loads(host_policy_response["result"]["contents"][0]["text"])
+        self.assertEqual(host_policy_payload["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertTrue(host_policy_payload["valid"], host_policy_payload)
+        self.assertIn("cleanmac_execute_plan", host_policy_payload["auto_call"]["deny"])
 
         eval_pack_response = _mcp_request(
             {
@@ -289,6 +303,24 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/governance-advice", message_text)
         self.assertIn("required_host_controls", message_text)
         self.assertIn("Do not call cleanmac_execute_plan", message_text)
+
+    def test_prompt_reviews_ai_host_policy(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 46, "method": "prompts/list"})
+        names = {prompt["name"] for prompt in response["result"]["prompts"]}
+        self.assertIn("review-ai-host-policy", names)
+
+        prompt_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 47,
+                "method": "prompts/get",
+                "params": {"name": "review-ai-host-policy", "arguments": {}},
+            }
+        )
+        message_text = prompt_response["result"]["messages"][0]["content"]["text"]
+        self.assertIn("cleanmac://ai/host-policy", message_text)
+        self.assertIn("auto_call.deny", message_text)
+        self.assertIn("cleanmac_execute_plan", message_text)
 
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(

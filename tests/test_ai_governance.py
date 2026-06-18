@@ -31,6 +31,8 @@ class AIGovernanceTests(unittest.TestCase):
         self.assertGreaterEqual(len(report["recommendations"]), 5)
         self.assertIn(["make", "ai-governance-smoke"], report["release_gate_commands"])
         self.assertIn(["make", "ai-host-smoke"], report["release_gate_commands"])
+        self.assertIn(["cleanmac", "--json", "ai-host-policy"], report["release_gate_commands"])
+        self.assertIn("read cleanmac://ai/host-policy", report["recommended_call_sequence"])
 
         recommendations = {item["id"]: item for item in report["recommendations"]}
         self.assertEqual(recommendations["preflight-first"]["priority"], "p0")
@@ -39,6 +41,7 @@ class AIGovernanceTests(unittest.TestCase):
         self.assertEqual(recommendations["dry-run-token-gate"]["status"], "satisfied")
         self.assertIn("cleanmac_dry_run_plan", recommendations["dry-run-token-gate"]["required_before_execute"])
         self.assertIn("Skipping ai-eval-run smoke", "\n".join(report["anti_patterns"]))
+        self.assertIn("cleanmac.ai-host-policy.v1", "\n".join(report["anti_patterns"]))
 
         route = {item["id"]: item for item in report["governance_route"]}
         self.assertGreaterEqual(len(route), 10)
