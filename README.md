@@ -1,4 +1,4 @@
-# 🧹 cleanmac User Guide
+# 🧹 cleanmac
 
 `cleanmac` is a macOS-oriented command-line cleanup tool for common logs, caches, temporary files, development leftovers, and user-directory cleanup targets. It emphasizes auditable output, dry-run by default, reusable plans, deletion budgets, and sandbox validation to avoid accidental deletion on the host machine.
 
