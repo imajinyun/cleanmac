@@ -505,7 +505,11 @@ def validate_ai_tool_definitions() -> dict[str, Any]:
             violations.append(f"{name}: built argv must start with cleanmac --json")
         if any(part in {"sh", "bash", "zsh", "-c", "shell"} for part in argv):
             violations.append(f"{name}: built argv contains shell execution tokens")
-        if tool.get("risk") != "destructive" and "--execute" in argv and name not in {"cleanmac_policy_simulate", "cleanmac_open", "cleanmac_links"}:
+        if (
+            tool.get("risk") != "destructive"
+            and "--execute" in argv
+            and name not in {"cleanmac_policy_simulate", "cleanmac_open", "cleanmac_links"}
+        ):
             violations.append(f"{name}: non-destructive tool argv must not include --execute")
     function_tool_names = {tool["name"] for tool in render_function_schemas()["tools"]}
     mcp_tool_names = {tool["name"] for tool in render_mcp_tool_catalog()["tools"]}
