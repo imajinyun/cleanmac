@@ -1023,6 +1023,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "software",
         "optimize",
         "status",
+        "completion",
     }
     first_command_index = next((index for index, item in enumerate(normalized) if item in known_commands), None)
     if first_command_index is None or first_command_index + 1 >= len(normalized):
