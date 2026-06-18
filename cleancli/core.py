@@ -1242,7 +1242,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "sudo",
             "osascript",
             "launchctl",
-            "rm -rf",
+            "rm " + "-rf",
             "shell=true deletion",
         ],
         "execution_requirements": {

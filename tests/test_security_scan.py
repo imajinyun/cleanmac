@@ -54,6 +54,18 @@ class SecurityScanTests(unittest.TestCase):
             any("subprocess must not directly invoke rm" in violation for violation in violations), violations
         )
 
+    def test_security_scan_ignores_local_virtualenvs(self) -> None:
+        scanner = load_security_module()
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vendored = root / ".venv" / "lib" / "python3.12" / "site-packages" / "pip" / "_internal" / "cleanup.py"
+            vendored.parent.mkdir(parents=True)
+            vendored.write_text("import shutil\nshutil.rmtree('/tmp/example')\n", encoding="utf-8")
+
+            violations = scanner.scan_repo(root)
+
+        self.assertEqual(violations, [])
+
     def test_security_scan_flags_shell_privileged_commands(self) -> None:
         scanner = load_security_module()
         with TemporaryDirectory() as tmp:
