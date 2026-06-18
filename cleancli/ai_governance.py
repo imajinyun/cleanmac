@@ -91,6 +91,60 @@ def render_ai_governance_advice(
             "decision_matrix_violations": decision_matrix.get("violations", []),
         },
     ]
+    governance_route = [
+        {
+            "id": "entrypoint-governance",
+            "status": "satisfied" if readiness_ready else "needs_attention",
+            "evidence": ["cleanmac --json ai-readiness", "cleanmac --json ai-governance-advice"],
+        },
+        {
+            "id": "dry-run-first-default",
+            "status": "satisfied" if runbook.get("default_mode") == "dry-run-first" else "needs_attention",
+            "evidence": ["cleanmac --json ai-runbook"],
+        },
+        {
+            "id": "destructive-auto-call-deny",
+            "status": "satisfied"
+            if gate_locked and "cleanmac_execute_plan" in destructive_tools
+            else "needs_attention",
+            "evidence": ["cleanmac --json ai-decision-matrix"],
+        },
+        {
+            "id": "execution-preflight-gate",
+            "status": "satisfied" if execution_gate.get("requires_confirmation_token") else "needs_attention",
+            "evidence": ["cleanmac_validate_plan", "cleanmac_policy_simulate", "cleanmac_dry_run_plan"],
+        },
+        {
+            "id": "prompt-injection-boundary",
+            "status": "satisfied",
+            "evidence": ["required_host_controls", "anti_patterns"],
+        },
+        {
+            "id": "structured-error-recovery",
+            "status": "satisfied" if matrix_clean else "needs_attention",
+            "evidence": ["cleanmac.ai-error.v1", "next_allowed_tools"],
+        },
+        {
+            "id": "mcp-host-governance",
+            "status": "satisfied",
+            "evidence": ["cleanmac://ai/governance-advice", "review-ai-governance"],
+        },
+        {
+            "id": "ci-release-gate",
+            "status": "satisfied" if eval_ready else "needs_attention",
+            "evidence": ["make ai-governance-smoke", "make ai-host-smoke", "make mcp-smoke"],
+        },
+        {
+            "id": "audit-traceability",
+            "status": "satisfied",
+            "evidence": ["operation_log", "ai_confirmation_summary", "cleanmac.ai-trace.v1"],
+        },
+        {
+            "id": "anti-pattern-policy",
+            "status": "satisfied" if len(recommendations) >= 5 else "needs_attention",
+            "evidence": ["anti_patterns", "recommendations"],
+        },
+    ]
 
     return {
         "schema": "cleanmac.ai-governance-advice.v1",
@@ -135,6 +189,16 @@ def render_ai_governance_advice(
             "Retrying a blocked execution without changing the missing requirement reported by policy-simulate.",
             "Skipping ai-eval-run smoke after changing tool schemas, runbook, MCP resources, or policy gates.",
         ],
+        "governance_route": governance_route,
+        "release_gate_commands": [
+            ["cleanmac", "--json", "ai-self-test"],
+            ["cleanmac", "--json", "ai-readiness"],
+            ["cleanmac", "--json", "ai-governance-advice"],
+            ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
+            ["make", "ai-governance-smoke"],
+            ["make", "ai-host-smoke"],
+            ["make", "mcp-smoke"],
+        ],
         "recommendations": recommendations,
     }
 
@@ -157,6 +221,18 @@ def validate_ai_governance_advice(report: Mapping[str, Any]) -> dict[str, Any]:
         violations.append("recommendations must be a sequence")
     elif len(recommendations) < 5:
         violations.append("recommendations must include at least five governance controls")
+    route = report.get("governance_route", [])
+    if not isinstance(route, Sequence) or isinstance(route, (str, bytes)):
+        violations.append("governance_route must be a sequence")
+    elif len(route) < 10:
+        violations.append("governance_route must cover the ten governance route items")
+    else:
+        unsatisfied = [str(item.get("id")) for item in route if isinstance(item, Mapping) and item.get("status") != "satisfied"]
+        if unsatisfied:
+            violations.append(f"governance_route contains unsatisfied items: {', '.join(unsatisfied)}")
+    release_gate_commands = report.get("release_gate_commands", [])
+    if ["make", "ai-governance-smoke"] not in release_gate_commands:
+        violations.append("release_gate_commands must include make ai-governance-smoke")
     return {
         "schema": "cleanmac.ai-governance-advice-validation.v1",
         "valid": not violations,

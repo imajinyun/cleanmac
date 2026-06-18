@@ -80,6 +80,9 @@ jobs:
       - name: Run governance smoke
         run: make governance-smoke
 
+      - name: Run AI governance smoke
+        run: make ai-governance-smoke
+
       - name: Run open source governance smoke
         run: make open-source-smoke
 
@@ -91,6 +94,9 @@ jobs:
 
       - name: Run MCP server smoke
         run: make mcp-smoke
+
+      - name: Run AI host smoke
+        run: make ai-host-smoke
 
   compatibility-smoke:
     name: Compatibility smoke (${{ matrix.os }})

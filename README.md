@@ -12,11 +12,14 @@
 # 🧪 Safe preview
 python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 10
 
-# 🤖 AI tool definitions (22 tools)
+# 🤖 AI tool definitions (23 tools)
 python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 
 # 🧭 Safe workflow (recommended AI entry)
 python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope selected
+
+# 🛡️ AI governance release gate
+make ai-governance-smoke
 
 # 🛡️ Sandbox execution
 python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean run --categories trash --execute
@@ -31,9 +34,10 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean run --categor
 | 🏷️ | Description |
 |---|---|
 | 🧹 **Dry-run first** | All cleanup commands preview only, no files deleted |
-| 🤖 **AI-native · 22 tools** | Full tool definitions in Anthropic / OpenAI / MCP formats |
+| 🤖 **AI-native · 23 tools** | Full tool definitions in Anthropic / OpenAI / MCP formats |
 | 🏗️ **MCP Server** | Built-in Model Context Protocol stdio server |
 | 🔐 **Multi-layer safety** | Bundle protection, budgets, Trash recovery, confirmation tokens |
+| 🛡️ **AI governance gates** | Machine-readable LLM policy, release smoke, anti-pattern checks |
 | 🧪 **Sandbox mode** | `--root` / `--home` path remapping for safe testing |
 | 📦 **Zero deps** | Pure Python 3.10+, no external packages required |
 

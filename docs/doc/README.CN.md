@@ -16,6 +16,7 @@
   - [🧭 AI 工作流管线](#-ai-工作流管线)
   - [🔐 AI 确认令牌](#-ai-确认令牌)
   - [🤝 Claude Desktop 配置](#-claude-desktop-配置)
+  - [🧪 AI 主机命令](#-ai-主机命令)
 - [📦 安装指南](#-安装指南)
 - [🛡️ 安全模型](#️-安全模型)
 - [⌨️ 命令详解](#-命令详解)
@@ -40,7 +41,7 @@
 | 🗺️ | **清理计划** | 可复用的 `cleanmac.plan.v1` JSON |
 | 📄 | **清理报告** | 清理前报告、dry-run 明细、执行后报告 |
 | 🧪 | **沙箱模式** | `--root` / `--home` 路径重映射 |
-| 🤖 | **AI 工具** | 22 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
+| 🤖 | **AI 工具** | 23 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
 | 🏗️ | **MCP Server** | 基于 stdio 的 Model Context Protocol 服务器 |
 | 🔐 | **确认令牌** | SHA-256 绑定的 AI 执行授权 |
 | 🛡️ | **执行保护** | 预算上限、风险策略、真实根目录保护 |
@@ -105,7 +106,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI 工具定义
 
-导出 **22 个工具**，支持三种格式：
+导出 **23 个工具**，支持三种格式：
 
 ```bash
 # 🧠 Anthropic 格式（Claude）
@@ -134,16 +135,17 @@ python3 cleanmac.py --json ai-tools --format mcp | jq '.tools | length'
 | `cleanmac_open` | 预览/打开 Finder 目标 | readonly |
 | `cleanmac_links` | 预览/管理符号链接映射 | readonly |
 | `cleanmac_optimize` | 列出/计划维护任务 | planning |
-| `cleanmac_plan` | 生成清理计划 | planning |
+| `cleanmac_generate_plan` | 生成清理计划 | planning |
 | `cleanmac_validate_plan` | 校验计划文件 | planning |
 | `cleanmac_workflow` | 🏆 多阶段安全工作流 | readonly |
-| `cleanmac_policy_simulate` | 模拟策略执行 | readonly |
+| `cleanmac_policy_simulate` | 模拟策略执行 | planning |
 | `cleanmac_software_list` | 只读应用清单 | readonly |
-| `cleanmac_software_startup` | 列出启动项 | readonly |
-| `cleanmac_software_uninstall` | 卸载计划（不执行） | planning |
-| `cleanmac_clean_list` | 列出分类（分组命令） | readonly |
-| `cleanmac_clean_inspect` | 检查候选项（分组命令） | readonly |
-| `cleanmac_clean_run` | Dry-run 或执行清理 | planning |
+| `cleanmac_software_leftovers` | 检查应用残留 | readonly |
+| `cleanmac_software_startup_items` | 列出启动项 | readonly |
+| `cleanmac_software_uninstall_plan` | 卸载计划（不执行） | planning |
+| `cleanmac_dry_run_plan` | Dry-run 计划（Trash 模式） | dry-run |
+| `cleanmac_execute_plan` | 执行清理（需确认） | destructive |
+| `cleanmac_ai_governance_advice` | AI 治理建议与反模式 | readonly |
 
 ### 📄 AI 合约自省
 
@@ -174,7 +176,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 协议示例：**
 
 ```bash
-# 📋 列出全部 22 个工具
+# 📋 列出全部 23 个工具
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -277,6 +279,52 @@ Cursor / 其他 MCP 客户端：
   }
 }
 ```
+
+### 🧪 AI 主机命令
+
+`cleanmac` 提供多个面向 AI 主机的 CLI 命令，用于集成检查、自省和评估：
+
+```bash
+# ✅ AI 就绪检查 — 验证所有 AI 合约、工具和 MCP 服务器
+python3 cleanmac.py --json ai-readiness
+
+# 📘 AI 运行手册 — 展示文档化的 AI 调用模式
+python3 cleanmac.py --json ai-runbook
+
+# 🔬 AI 自检 — 运行内置 AI 安全自检
+python3 cleanmac.py --json ai-self-test
+
+# 📊 AI 决策矩阵 — 查看工具级 MCP 注释和策略
+python3 cleanmac.py --json ai-decision-matrix
+
+# 🛡️ AI 治理建议 — 安全的 LLM 调用边界和反模式
+python3 cleanmac.py --json ai-governance-advice
+
+# 📦 AI 评估包 — 查看所有评估场景
+python3 cleanmac.py --json ai-eval-pack
+
+# 🏃 AI 评估运行 — 执行评估场景
+python3 cleanmac.py --json ai-eval-run --scenario smoke
+```
+
+运行全部 AI 主机测试：
+
+```bash
+make ai-host-smoke
+# ✅ 输出：ai-host-smoke passed
+```
+
+发布或集成门禁建议先运行治理路线检查，再运行完整 AI / MCP smoke：
+
+```bash
+make ai-governance-smoke
+make ai-host-smoke
+make mcp-smoke
+```
+
+治理路线会端到端校验 AI 调用策略：入口治理、dry-run-first 默认值、禁止自动调用破坏性工具、执行前置门禁、Prompt Injection 边界、结构化错误恢复、MCP Host 治理、CI/发布门禁、审计可追踪性和反模式检查。
+
+这些命令在任何环境中都可以安全运行——它们都是只读的内省和验证工具。
 
 ---
 
