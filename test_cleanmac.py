@@ -178,6 +178,11 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "private/var/db/DetachedSignatures/signature-cache/cache.bin").write_text("signature")
         return tmp, root, home
 
+    def test_cli_version(self) -> None:
+        result = self.run_cli("--version")
+        self.assertIn("cleanmac", result.stdout.strip())
+        self.assertIn(cleancli.VERSION, result.stdout.strip())
+
     def test_list_shows_categories(self) -> None:
         result = self.run_cli("list")
         self.assertIn("trash", result.stdout)
@@ -312,6 +317,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(dry_run_step["auto_call_allowed"])
         self.assertNotIn("--execute", dry_run_step["command_template"])
         self.assertIn("--require-plan-context", dry_run_step["command_template"])
+        confirm_step = next(row for row in workflow if row["step"] == "confirm")
+        self.assertFalse(confirm_step["auto_call_allowed"])
+        self.assertTrue(confirm_step["auto_prepare_allowed"])
         intents = {row["intent"]: row for row in report["ai_intent_hints"]}
         self.assertIn("developer_cache_cleanup", intents)
         self.assertIn("nodePackageCaches", intents["developer_cache_cleanup"]["recommended_categories"])
@@ -324,6 +332,9 @@ class CleanMacCLITests(unittest.TestCase):
         tool_names = {tool["name"] for tool in function_schemas["tools"]}
         self.assertIn("cleanmac_generate_plan", tool_names)
         self.assertIn("cleanmac_execute_plan", tool_names)
+        self.assertIn("cleanmac_policy_simulate", tool_names)
+        self.assertIn("cleanmac_workflow", tool_names)
+        self.assertIn("cleanmac_software_uninstall_plan", tool_names)
         execute_tool = next(tool for tool in function_schemas["tools"] if tool["name"] == "cleanmac_execute_plan")
         self.assertEqual(execute_tool["risk"], "destructive")
         self.assertTrue(execute_tool["requires_confirmation"])
@@ -364,8 +375,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac_execute_plan", by_name)
         self.assertFalse(by_name["cleanmac_inspect"]["requires_confirmation"])
         self.assertTrue(by_name["cleanmac_execute_plan"]["requires_confirmation"])
-        self.assertIn("operation_log", by_name["cleanmac_execute_plan"]["parameters"]["required"])
-        self.assertIn("require_plan_context", by_name["cleanmac_execute_plan"]["parameters"]["required"])
+        self.assertNotIn("operation_log", by_name["cleanmac_execute_plan"]["parameters"]["required"])
+        self.assertNotIn("require_plan_context", by_name["cleanmac_execute_plan"]["parameters"]["required"])
+        self.assertEqual(
+            by_name["cleanmac_execute_plan"]["parameters"]["properties"]["require_plan_context"]["default"], True
+        )
         self.assertEqual(
             ai_schema.build_tool_argv("cleanmac_generate_plan", {"categories": ["trash", "downloads"], "max_items": 5}),
             [
@@ -392,6 +406,23 @@ class CleanMacCLITests(unittest.TestCase):
                 "--require-plan-context",
                 "--delete-mode",
                 "trash",
+            ],
+        )
+        self.assertEqual(
+            ai_schema.build_tool_argv(
+                "cleanmac_policy_simulate", {"plan_file": "/tmp/plan.json", "execute": True, "delete_mode": "trash"}
+            ),
+            [
+                "cleanmac",
+                "--json",
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                "/tmp/plan.json",
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--require-plan-context",
             ],
         )
         with self.assertRaisesRegex(ValueError, "requires explicit user confirmation"):
@@ -1902,6 +1933,134 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["preview"]["shown_candidates"], 1)
             self.assertTrue(report["budget_summary"]["within_max_items"])
             self.assertTrue(report["budget_summary"]["within_max_delete_budget"])
+
+    def test_ai_policy_simulator_reports_missing_and_satisfied_guards(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "ai-plan.json"
+            plan_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "plan",
+                "--categories",
+                "downloads",
+                "--ai-origin",
+            )
+            plan = json.loads(plan_result.stdout)
+            self.assertEqual(plan["schema"], "cleanmac.plan.v1")
+            self.assertIn("generated_at", plan)
+            self.assertIn("expires_at", plan)
+            self.assertGreater(len(plan["candidate_fingerprints"]), 0)
+            plan_file.write_text(plan_result.stdout, encoding="utf-8")
+
+            missing = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+            )
+            missing_report = json.loads(missing.stdout)
+            self.assertEqual(missing_report["schema"], "cleanmac.ai-policy-simulation.v1")
+            self.assertFalse(missing_report["allowed"])
+            self.assertIn("--delete-mode trash", missing_report["missing_requirements"])
+            self.assertIn("--operation-log", missing_report["missing_requirements"])
+            self.assertIn("--require-plan-context", missing_report["missing_requirements"])
+
+            satisfied = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                str(root / "operations.jsonl"),
+                "--require-plan-context",
+                "--require-confirmation-token",
+                "--confirmation-token",
+                "cleanmac-confirm-test",
+            )
+            satisfied_report = json.loads(satisfied.stdout)
+            self.assertTrue(satisfied_report["allowed"], satisfied_report["missing_requirements"])
+            self.assertTrue(satisfied_report["plan_freshness"]["fresh"])
+            self.assertEqual(satisfied_report["missing_requirements"], [])
+
+    def test_ai_originated_execute_refuses_drifted_plan(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "ai-plan.json"
+            operation_log = root / "operations.jsonl"
+            plan_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "plan",
+                "--categories",
+                "downloads",
+                "--ai-origin",
+            )
+            plan_file.write_text(plan_result.stdout, encoding="utf-8")
+            dry_run = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--require-plan-context",
+                "--delete-mode",
+                "trash",
+            )
+            token = json.loads(dry_run.stdout)["ai_confirmation_summary"]["confirmation_token"]
+            (root / "Users/tester/Downloads/download.bin").write_text("download-drifted")
+
+            execute = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--require-plan-context",
+                "--delete-mode",
+                "trash",
+                "--execute",
+                "--yes",
+                "--operation-log",
+                str(operation_log),
+                "--require-confirmation-token",
+                "--confirmation-token",
+                token,
+            )
+            self.assertNotEqual(execute.returncode, 0)
+            error_report = json.loads(execute.stderr)
+            self.assertEqual(error_report["error"]["code"], "PLAN_STALE_OR_DRIFTED")
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 
     def test_require_plan_context_rejects_root_mismatch(self) -> None:
         tmp, root, home = self.make_sandbox()
