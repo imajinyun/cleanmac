@@ -227,7 +227,9 @@ def validate_ai_governance_advice(report: Mapping[str, Any]) -> dict[str, Any]:
     elif len(route) < 10:
         violations.append("governance_route must cover the ten governance route items")
     else:
-        unsatisfied = [str(item.get("id")) for item in route if isinstance(item, Mapping) and item.get("status") != "satisfied"]
+        unsatisfied = [
+            str(item.get("id")) for item in route if isinstance(item, Mapping) and item.get("status") != "satisfied"
+        ]
         if unsatisfied:
             violations.append(f"governance_route contains unsatisfied items: {', '.join(unsatisfied)}")
     release_gate_commands = report.get("release_gate_commands", [])
