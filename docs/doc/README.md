@@ -54,6 +54,8 @@
 | ⏱️ | **Debug timing** | Millisecond PERF logging |
 | 🧪 | **Test mode** | Auth guards for CI/testing |
 
+`cleanmac` is an independent Python implementation — no vendored external macOS cleanup sources, no affiliation with other cleanup projects.
+
 ---
 
 ## 🚀 Quick Start

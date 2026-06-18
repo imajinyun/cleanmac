@@ -10,6 +10,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
+SAFE_PLAN_TO_DRY_RUN_SCENARIO = "safe_plan_to_dry_run"
+INVALID_CATEGORY_RECOVERY_SCENARIO = "invalid_category_recovery"
+CONFIRMATION_TOKEN_POLICY_SCENARIO = "confirmation_token_policy"
 
 
 def run_cli(*args: str, root: Path, home: Path) -> dict:
@@ -41,6 +44,7 @@ def run_cli_process(*args: str, root: Path, home: Path) -> subprocess.CompletedP
 
 class AIHostScenarioTests(unittest.TestCase):
     def test_safe_ai_host_plan_to_dry_run_sequence(self) -> None:
+        self.assertEqual(SAFE_PLAN_TO_DRY_RUN_SCENARIO, "safe_plan_to_dry_run")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "root"
             home = root / "Users" / "tester"
@@ -88,6 +92,7 @@ class AIHostScenarioTests(unittest.TestCase):
             self.assertTrue(dry_run["ai_confirmation_summary"]["confirmation_token_embedded"])
 
     def test_ai_host_policy_simulate_allows_execute_intent_with_dry_run_token(self) -> None:
+        self.assertEqual(CONFIRMATION_TOKEN_POLICY_SCENARIO, "confirmation_token_policy")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "root"
             home = root / "Users" / "tester"
@@ -139,6 +144,7 @@ class AIHostScenarioTests(unittest.TestCase):
             self.assertEqual(decisions["plan_context_matches"], "pass")
 
     def test_ai_host_invalid_category_error_is_machine_readable(self) -> None:
+        self.assertEqual(INVALID_CATEGORY_RECOVERY_SCENARIO, "invalid_category_recovery")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "root"
             home = root / "Users" / "tester"

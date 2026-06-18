@@ -5,6 +5,7 @@ from typing import Any
 
 from cleancli import ai_schema
 from cleancli.ai_decision import render_ai_tool_decision_matrix
+from cleancli.ai_eval import render_ai_eval_pack
 from cleancli.ai_runbook import render_ai_runbook
 
 
@@ -15,6 +16,13 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     runbook = render_ai_runbook()
     decision_matrix = render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, runbook)
     decision_matrix_ready = decision_matrix["violation_count"] == 0
+    eval_pack = render_ai_eval_pack()
+    eval_pack_ready = bool(
+        eval_pack["schema"] == "cleanmac.ai-eval-pack.v1"
+        and not eval_pack["uses_shell"]
+        and not eval_pack["allows_destructive_execution"]
+        and eval_pack["scenario_count"] >= 4
+    )
     runbook_ready = bool(
         runbook["schema"] == "cleanmac.ai-runbook.v1"
         and not runbook["uses_shell"]
@@ -29,6 +37,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and provider_parity["same_tool_count"]
             and runbook_ready
             and decision_matrix_ready
+            and eval_pack_ready
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -66,6 +75,16 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "tool_count": decision_matrix["tool_count"],
             "violation_count": decision_matrix["violation_count"],
         },
+        "eval_pack": {
+            "schema": eval_pack["schema"],
+            "ready": eval_pack_ready,
+            "scenario_count": eval_pack["scenario_count"],
+        },
+        "eval_runner": {
+            "default_scenario": "smoke",
+            "destructive_execution_allowed": False,
+            "safe_to_run_in_ci": True,
+        },
         "recommended_starting_tools": [
             "cleanmac_capabilities",
             "cleanmac_list_categories",
@@ -83,5 +102,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             ["cleanmac", "--json", "ai-readiness"],
             ["cleanmac", "--json", "ai-runbook"],
             ["cleanmac", "--json", "ai-decision-matrix"],
+            ["cleanmac", "--json", "ai-eval-pack"],
+            ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
         ],
     }

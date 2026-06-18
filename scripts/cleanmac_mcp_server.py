@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 CLEANMAC_CLI: list[str] | None = None
 
@@ -152,6 +153,18 @@ def mcp_resources() -> list[dict]:
             "description": "Per-tool AI Host decision metadata, MCP annotations, phase, and recovery guidance.",
             "mimeType": "application/json",
         },
+        {
+            "uri": "cleanmac://ai/eval-pack",
+            "name": "cleanmac AI eval pack",
+            "description": "Static AI Host integration scenarios and expected safety assertions.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "cleanmac://ai/eval-run-smoke",
+            "name": "cleanmac AI eval smoke run",
+            "description": "Safe sandbox replay result for the smoke AI Host integration scenarios.",
+            "mimeType": "application/json",
+        },
     ]
 
 
@@ -162,6 +175,8 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli.ai_runbook import render_ai_runbook  # type: ignore[import-untyped]
     from cleancli.core import (  # type: ignore[import-untyped]
         render_ai_decision_matrix,
+        render_ai_eval_pack,
+        render_ai_eval_run,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -181,6 +196,10 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_self_test()
     elif uri == "cleanmac://ai/tool-decision-matrix":
         payload = render_ai_decision_matrix()
+    elif uri == "cleanmac://ai/eval-pack":
+        payload = render_ai_eval_pack()
+    elif uri == "cleanmac://ai/eval-run-smoke":
+        payload = render_ai_eval_run(scenario="smoke", cli=Path(__file__).resolve().parent.parent / "cleanmac.py")
     else:
         raise ValueError(f"Unknown resource URI: {uri}")
     return {
@@ -224,6 +243,11 @@ def mcp_prompts() -> list[dict]:
                     "required": True,
                 }
             ],
+        },
+        {
+            "name": "run-ai-eval-smoke",
+            "description": "Guide an AI Host through the safe cleanmac integration smoke evaluation.",
+            "arguments": [],
         },
     ]
 
@@ -282,6 +306,23 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                             f"may call {tool_name}. Include risk, runbook phase, MCP annotations, "
                             "required predecessor tools, on_error host action, and the rule: "
                             "do not auto-call destructive tools."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "run-ai-eval-smoke":
+        return {
+            "description": "Run cleanmac AI eval smoke workflow",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Read cleanmac://ai/eval-pack, then read cleanmac://ai/eval-run-smoke. "
+                            "Summarize passed_count, failed_count, scenario ids, and trace event_count. "
+                            "This evaluation is non-destructive; do not call cleanmac_execute_plan."
                         ),
                     },
                 }
