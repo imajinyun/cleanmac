@@ -16,6 +16,7 @@
   - [🧭 AI Workflow Pipeline](#-ai-workflow-pipeline)
   - [🔐 AI Confirmation Token](#-ai-confirmation-token)
   - [🤝 Claude Desktop Configuration](#-claude-desktop-configuration)
+  - [🧪 AI Host Commands](#-ai-host-commands)
 - [📦 Installation](#-installation)
 - [🛡️ Safety Model](#️-safety-model)
 - [⌨️ Command Reference](#️-command-reference)
@@ -40,7 +41,7 @@
 | 🗺️ | **Plans** | Reusable `cleanmac.plan.v1` JSON |
 | 📄 | **Reports** | Pre-clean, dry-run, post-execution, audit |
 | 🧪 | **Sandbox** | `--root` / `--home` path remapping |
-| 🤖 | **AI tools** | 22 tools in Anthropic / OpenAI / MCP formats |
+| 🤖 | **AI tools** | 23 tools in Anthropic / OpenAI / MCP formats |
 | 🏗️ | **MCP Server** | stdio-based Model Context Protocol server |
 | 🔐 | **Confirmation token** | SHA-256 bound AI execution authorization |
 | 🛡️ | **Execution guards** | Budget, risk policy, live-root protection |
@@ -107,7 +108,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI Tool Definitions
 
-Export **22 tools** in three formats:
+Export **23 tools** in three formats:
 
 ```bash
 # 🧠 Anthropic format (Claude)
@@ -136,16 +137,17 @@ Tool categories:
 | `cleanmac_open` | Preview/show Finder targets | readonly |
 | `cleanmac_links` | Preview/manage symlink mappings | readonly |
 | `cleanmac_optimize` | List/plan maintenance tasks | planning |
-| `cleanmac_plan` | Generate cleanup plan | planning |
+| `cleanmac_generate_plan` | Generate cleanup plan | planning |
 | `cleanmac_validate_plan` | Validate a plan file | planning |
 | `cleanmac_workflow` | Multi-phase safe workflow | readonly |
-| `cleanmac_policy_simulate` | Simulate policy enforcement | readonly |
+| `cleanmac_policy_simulate` | Simulate policy enforcement | planning |
 | `cleanmac_software_list` | Read-only app inventory | readonly |
-| `cleanmac_software_startup` | List startup items | readonly |
-| `cleanmac_software_uninstall` | Plan uninstall (no execution) | planning |
-| `cleanmac_clean_list` | List categories (group command) | readonly |
-| `cleanmac_clean_inspect` | Inspect candidates (group command) | readonly |
-| `cleanmac_clean_run` | Dry-run or execute cleanup | planning |
+| `cleanmac_software_leftovers` | Inspect app leftovers | readonly |
+| `cleanmac_software_startup_items` | List startup items | readonly |
+| `cleanmac_software_uninstall_plan` | Plan uninstall (no execution) | planning |
+| `cleanmac_dry_run_plan` | Dry-run a plan with Trash routing | dry-run |
+| `cleanmac_execute_plan` | Execute cleanup (requires confirmation) | destructive |
+| `cleanmac_ai_governance_advice` | AI host governance & anti-patterns | readonly |
 
 ### 📄 AI Contract Introspection
 
@@ -176,7 +178,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 protocol example:**
 
 ```bash
-# 📋 List all 22 tools
+# 📋 List all 23 tools
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -279,6 +281,52 @@ For Cursor / other MCP clients:
   }
 }
 ```
+
+### 🧪 AI Host Commands
+
+`cleanmac` provides several AI-oriented CLI commands for host integration, introspection, and evaluation:
+
+```bash
+# ✅ AI readiness check — verify all AI contracts, tools, and MCP server
+python3 cleanmac.py --json ai-readiness
+
+# 📘 AI runbook — show documented AI invocation patterns
+python3 cleanmac.py --json ai-runbook
+
+# 🔬 AI self-test — run built-in AI safety self-checks
+python3 cleanmac.py --json ai-self-test
+
+# 📊 AI decision matrix — review tool-level MCP annotations and policy
+python3 cleanmac.py --json ai-decision-matrix
+
+# 🛡️ AI governance advice — safe LLM calling boundaries and anti-patterns
+python3 cleanmac.py --json ai-governance-advice
+
+# 📦 AI eval pack — inspect all evaluation scenarios
+python3 cleanmac.py --json ai-eval-pack
+
+# 🏃 AI eval run — execute an evaluation scenario
+python3 cleanmac.py --json ai-eval-run --scenario smoke
+```
+
+Run all AI host tests together:
+
+```bash
+make ai-host-smoke
+# ✅ Output: ai-host-smoke passed
+```
+
+For release or integration gates, run the governance route check before broad smoke targets:
+
+```bash
+make ai-governance-smoke
+make ai-host-smoke
+make mcp-smoke
+```
+
+The governance route enforces the AI calling policy end to end: entrypoint governance, dry-run-first defaults, destructive auto-call denial, execution preflight gates, prompt-injection boundaries, structured error recovery, MCP host governance, CI/release gates, audit traceability, and anti-pattern checks.
+
+These commands are safe to run in any environment — they are all read-only introspection and validation tools.
 
 ---
 

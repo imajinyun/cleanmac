@@ -3524,6 +3524,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("dependency-audit-smoke:", makefile)
         self.assertIn("docs-smoke:", makefile)
         self.assertIn("governance-smoke:", makefile)
+        self.assertIn("ai-governance-smoke:", makefile)
         self.assertIn("open-source-smoke:", makefile)
         self.assertIn("ai-host-smoke:", makefile)
         self.assertIn("distribution-smoke:", makefile)
@@ -3537,7 +3538,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -3559,6 +3560,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("[ ! -e .pytest_cache ] || /bin/rm -R .pytest_cache", makefile)
         self.assertIn("./scripts/test.sh", makefile)
         self.assertIn("pytest-test", makefile)
+        self.assertIn("ai-governance-smoke", makefile)
         self.assertIn("$(PYTHON) -m venv", makefile)
         self.assertIn("$(PYTHON) -m build --wheel --sdist --outdir", makefile)
         self.assertIn("$(PYTHON) -m twine check", makefile)
@@ -3574,6 +3576,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.command-template-validation.v1", makefile)
         self.assertIn("make docs-smoke", makefile)
         self.assertIn("make governance-smoke", makefile)
+        self.assertIn("make ai-governance-smoke", makefile)
         self.assertIn("make open-source-smoke", makefile)
         self.assertIn("make dependency-audit-smoke", makefile)
         self.assertIn("make no-cache-check", makefile)
