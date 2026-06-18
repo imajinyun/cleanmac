@@ -57,6 +57,7 @@ test = [
 
 [project.scripts]
 cleanmac = "cleanmac:main"
+cleanmac-mcp = "cleancli.mcp_server:main"
 
 [tool.setuptools]
 py-modules = ["cleanmac"]

@@ -105,14 +105,18 @@ def execute_tool(tool: dict, arguments: dict) -> str:
     return result.stdout
 
 
-def handle_request(request: dict) -> dict | None:
-    """Process a single JSON-RPC request and return a response."""
+def handle_request(request: dict) -> tuple[dict | None, list[dict]]:
+    """Process a single JSON-RPC request.
+
+    Returns (response, notifications) where notifications is a list of
+    server-initiated messages to send after the response.
+    """
     method = request.get("method", "")
     req_id = request.get("id")
 
     if method == "initialize":
         tools = get_tool_definitions()
-        return {
+        response = {
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {
@@ -126,17 +130,23 @@ def handle_request(request: dict) -> dict | None:
                 },
             },
         }
+        # Per MCP spec (2024-11-05), the server must send
+        # notifications/initialized after handling initialize.
+        return response, [{"jsonrpc": "2.0", "method": "notifications/initialized"}]
 
     if method == "notifications/initialized":
-        return None  # no response for notifications
+        return None, []  # no response for notifications
 
     if method == "tools/list":
         tools = get_tool_definitions()
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": {"tools": [tool_to_mcp(t) for t in tools]},
-        }
+        return (
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {"tools": [tool_to_mcp(t) for t in tools]},
+            },
+            [],
+        )
 
     if method == "tools/call":
         params = request.get("params", {})
@@ -147,51 +157,69 @@ def handle_request(request: dict) -> dict | None:
         tool_map = {t["name"]: t for t in tools}
         tool = tool_map.get(name)
         if not tool:
-            return {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "error": {"code": -32602, "message": f"Unknown tool: {name}"},
-            }
+            return (
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {"code": -32602, "message": f"Unknown tool: {name}"},
+                },
+                [],
+            )
 
         try:
             output = execute_tool(tool, arguments)
-            return {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "content": [{"type": "text", "text": output}],
-                    "isError": False,
+            return (
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "content": [{"type": "text", "text": output}],
+                        "isError": False,
+                    },
                 },
-            }
+                [],
+            )
         except RuntimeError as exc:
-            return {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "content": [{"type": "text", "text": str(exc)}],
-                    "isError": True,
+            return (
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "content": [{"type": "text", "text": str(exc)}],
+                        "isError": True,
+                    },
                 },
-            }
+                [],
+            )
         except Exception as exc:
-            return {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "error": {"code": -32603, "message": f"Internal error: {exc}"},
-            }
+            return (
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {"code": -32603, "message": f"Internal error: {exc}"},
+                },
+                [],
+            )
 
     if method == "shutdown":
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": None,
-        }
+        return (
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": None,
+            },
+            [],
+        )
 
     # Unknown method
-    return {
-        "jsonrpc": "2.0",
-        "id": req_id,
-        "error": {"code": -32601, "message": f"Method not found: {method}"},
-    }
+    return (
+        {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {"code": -32601, "message": f"Method not found: {method}"},
+        },
+        [],
+    )
 
 
 def main() -> None:
@@ -215,7 +243,7 @@ def main() -> None:
             continue
 
         try:
-            response = handle_request(request)
+            response, notifications = handle_request(request)
         except Exception as exc:
             req_id = request.get("id") if isinstance(request, dict) else None
             response = {
@@ -223,9 +251,13 @@ def main() -> None:
                 "id": req_id,
                 "error": {"code": -32603, "message": f"Unhandled error: {exc}"},
             }
+            notifications = []
 
         if response is not None:
             print(json.dumps(response), file=sys.stdout, flush=True)
+
+        for notification in notifications:
+            print(json.dumps(notification), file=sys.stdout, flush=True)
 
 
 if __name__ == "__main__":

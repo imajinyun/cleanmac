@@ -226,6 +226,22 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(all_report["openai"]["schema"], "cleanmac.ai-openai-functions.v1")
         self.assertEqual(all_report["anthropic"]["schema"], "cleanmac.ai-anthropic-tools.v1")
 
+        # === Anthropic-specific schema assertions ===
+        anthropic_tools = anthropic_report["tools"]
+        for tool in anthropic_tools:
+            self.assertIn("name", tool)
+            self.assertIn("description", tool)
+            self.assertIn("input_schema", tool)
+            self.assertIsInstance(tool["input_schema"], dict)
+            self.assertEqual(tool["input_schema"]["type"], "object")
+            self.assertIn("properties", tool["input_schema"])
+            self.assertFalse(tool["input_schema"].get("additionalProperties", False))
+            self.assertTrue(tool["name"].startswith("cleanmac_"))
+
+        EXPECTED_TOOL_COUNT = 22
+        self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
+        self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
+
     def test_list_shows_categories(self) -> None:
         result = self.run_cli("list")
         self.assertIn("trash", result.stdout)
@@ -713,6 +729,71 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertFalse(candidate.exists())
             self.assertTrue(report["ai_confirmation_summary"]["confirmation_token_validated"])
+
+    def test_ai_confirmation_token_boundary_conditions(self) -> None:
+        from cleancli.core import ai_confirmation_token, ai_confirmation_token_context
+        from cleancli.core import CATEGORIES
+
+        cats = [c for c in CATEGORIES if c.key in ("trash", "downloads")]
+        base = dict(
+            categories=cats,
+            root=Path("/sandbox"),
+            home=Path("/Users/tester"),
+            risk_policy="default",
+            max_delete_mb=10.0,
+            max_items=5,
+            include_patterns=[],
+            exclude_patterns=[],
+            older_than_days=None,
+            min_size_mb=0,
+            name_regex=None,
+            bundle_allowlist=[],
+            bundle_blocklist=["com.apple.mail"],
+            delete_mode="trash",
+            plan_file=None,
+            rows=[],
+        )
+        ctx = ai_confirmation_token_context(**base)
+        token = ai_confirmation_token(ctx)
+
+        # Token format: cleanmac-confirm-<32 hex chars>
+        self.assertTrue(token.startswith("cleanmac-confirm-"))
+        hex_part = token[len("cleanmac-confirm-"):]
+        self.assertEqual(len(hex_part), 32)
+        self.assertTrue(all(c in "0123456789abcdef" for c in hex_part))
+
+        # Determinism: same context -> same token
+        ctx2 = ai_confirmation_token_context(**base)
+        token2 = ai_confirmation_token(ctx2)
+        self.assertEqual(token, token2)
+
+        # Context sensitivity: different root -> different token
+        diff_root = dict(base, root=Path("/other"))
+        diff_root_token = ai_confirmation_token(ai_confirmation_token_context(**diff_root))
+        self.assertNotEqual(token, diff_root_token)
+
+        # Different categories -> different token
+        single_cat = dict(base, categories=[c for c in CATEGORIES if c.key == "trash"])
+        single_cat_token = ai_confirmation_token(ai_confirmation_token_context(**single_cat))
+        self.assertNotEqual(token, single_cat_token)
+
+        # Different home -> different token
+        diff_home = dict(base, home=Path("/Users/other"))
+        diff_home_token = ai_confirmation_token(ai_confirmation_token_context(**diff_home))
+        self.assertNotEqual(token, diff_home_token)
+
+        # Empty context generates valid format too
+        empty_ctx = ai_confirmation_token_context(
+            categories=[], root=Path("/"), home=Path("/"),
+            risk_policy="default", max_delete_mb=None, max_items=None,
+            include_patterns=[], exclude_patterns=[], older_than_days=None,
+            min_size_mb=0, name_regex=None, bundle_allowlist=[],
+            bundle_blocklist=[], delete_mode="permanent",
+            plan_file=None, rows=[],
+        )
+        empty_token = ai_confirmation_token(empty_ctx)
+        self.assertTrue(empty_token.startswith("cleanmac-confirm-"))
+        self.assertEqual(len(empty_token[len("cleanmac-confirm-"):]), 32)
 
     def test_json_errors_emit_ai_safe_error_taxonomy(self) -> None:
         tmp, root, home = self.make_sandbox()
