@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from cleancli import ai_schema
+from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_runbook import render_ai_runbook
 
 
@@ -12,6 +13,8 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     compatibility = ai_schema.render_contract_compatibility(contract)
     provider_parity = ai_schema.render_provider_export_parity()
     runbook = render_ai_runbook()
+    decision_matrix = render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, runbook)
+    decision_matrix_ready = decision_matrix["violation_count"] == 0
     runbook_ready = bool(
         runbook["schema"] == "cleanmac.ai-runbook.v1"
         and not runbook["uses_shell"]
@@ -25,6 +28,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and provider_parity["same_tool_names"]
             and provider_parity["same_tool_count"]
             and runbook_ready
+            and decision_matrix_ready
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -56,6 +60,12 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "phase_count": len(runbook["phases"]),
             "execution_auto_call_allowed": runbook["execution_gate"]["auto_call_allowed"],
         },
+        "decision_matrix": {
+            "schema": decision_matrix["schema"],
+            "ready": decision_matrix_ready,
+            "tool_count": decision_matrix["tool_count"],
+            "violation_count": decision_matrix["violation_count"],
+        },
         "recommended_starting_tools": [
             "cleanmac_capabilities",
             "cleanmac_list_categories",
@@ -72,5 +82,6 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             ["cleanmac", "--json", "ai-self-test"],
             ["cleanmac", "--json", "ai-readiness"],
             ["cleanmac", "--json", "ai-runbook"],
+            ["cleanmac", "--json", "ai-decision-matrix"],
         ],
     }

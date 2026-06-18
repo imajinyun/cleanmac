@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from cleancli import ai_schema, delete_ops, protection
+from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
@@ -1109,6 +1110,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "ai-self-test",
         help="Run AI host integration self-checks without deleting files.",
     )
+    subparsers.add_parser(
+        "ai-decision-matrix",
+        help="Emit per-tool AI host decision metadata and MCP annotations.",
+    )
 
     return parser.parse_args(argv)
 
@@ -1139,6 +1144,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-readiness",
         "ai-runbook",
         "ai-self-test",
+        "ai-decision-matrix",
     }
     first_command_index = next((index for index, item in enumerate(normalized) if item in known_commands), None)
     if first_command_index is None or first_command_index + 1 >= len(normalized):
@@ -1957,6 +1963,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-readiness",
             "ai-runbook",
             "ai-self-test",
+            "ai-decision-matrix",
         ],
         "command_groups": COMMAND_GROUPS,
         "preferred_command_style": "grouped",
@@ -2078,9 +2085,14 @@ def render_capabilities() -> dict[str, Any]:
         "ai_schema_validation": ai_schema.validate_ai_tool_definitions(),
         "ai_contract_compatibility": ai_schema.render_contract_compatibility(ai_tool_contract),
         "ai_runbook": render_ai_runbook(),
+        "ai_decision_matrix": render_ai_decision_matrix(),
         "ai_self_test": render_ai_self_test(),
         "ai_readiness": render_ai_readiness(ai_tool_contract),
     }
+
+
+def render_ai_decision_matrix() -> dict[str, Any]:
+    return render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, render_ai_runbook())
 
 
 def render_ai_self_test() -> dict[str, Any]:
@@ -2089,6 +2101,7 @@ def render_ai_self_test() -> dict[str, Any]:
     compatibility = ai_schema.render_contract_compatibility(ai_tool_contract)
     provider_parity = ai_schema.render_provider_export_parity()
     runbook = render_ai_runbook()
+    decision_matrix = render_ai_decision_matrix()
     checks = [
         {
             "id": "schema-validation",
@@ -2109,6 +2122,11 @@ def render_ai_self_test() -> dict[str, Any]:
             "id": "runbook-execution-gate",
             "passed": bool(not runbook["uses_shell"] and not runbook["execution_gate"]["auto_call_allowed"]),
             "detail": runbook["execution_gate"],
+        },
+        {
+            "id": "tool-decision-matrix",
+            "passed": bool(decision_matrix["violation_count"] == 0),
+            "detail": decision_matrix,
         },
         {
             "id": "mcp-transport",
@@ -5271,6 +5289,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-readiness",
         "ai-runbook",
         "ai-self-test",
+        "ai-decision-matrix",
     ]
     global_flags = "--root --home --json --report-file --version --verbose --quiet"
     category_flags = "--categories --default --all"
@@ -5297,6 +5316,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-readiness": "",
         "ai-runbook": "",
         "ai-self-test": "",
+        "ai-decision-matrix": "",
     }
     if shell == "bash":
         return _render_bash_completion(commands, global_flags, category_keys, cmd_flags)
@@ -5670,6 +5690,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-self-test":
         print(json.dumps(render_ai_self_test(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-decision-matrix":
+        print(json.dumps(render_ai_decision_matrix(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "validate-plan":
         emit_report(
