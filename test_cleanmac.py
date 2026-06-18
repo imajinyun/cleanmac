@@ -1913,6 +1913,14 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["ai_summary"]["recommended_next_action"], "dry_run_plan")
             self.assertFalse(report["ai_summary"]["safe_to_execute_after_confirmation"])
             self.assertIn("trash", report["ai_summary"]["selected_categories"])
+            self.assertEqual(report["ai_confirmation_summary"]["schema"], "cleanmac.ai-confirmation-summary.v1")
+            self.assertEqual(
+                report["ai_confirmation_summary"]["confirmation_token_embedded"],
+                report["ai_confirmation_summary"]["confirmation_token"],
+            )
+            self.assertTrue(
+                report["ai_confirmation_summary"]["confirmation_token_embedded"].startswith("cleanmac-confirm-")
+            )
 
     def test_plan_command_marks_ai_originated_plan(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -3539,8 +3547,8 @@ class CleanMacCLITests(unittest.TestCase):
 
     def test_readme_audit_examples_keep_global_flags_before_command(self) -> None:
         for path, heading in (
-            (PROJECT_ROOT / "README.md", "### 5. Generate audit report files"),
-            (PROJECT_ROOT / "README.CN.md", "### 5. 生成审计报告文件"),
+            (PROJECT_ROOT / "docs/doc/README.md", "### 5. Generate audit report files"),
+            (PROJECT_ROOT / "docs/doc/README.CN.md", "### 5. 生成审计报告文件"),
         ):
             lines = path.read_text(encoding="utf-8").splitlines()
             start = lines.index(heading)
@@ -3779,8 +3787,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("useDefault = true", gitleaks)
         self.assertNotIn("README\\.md", gitleaks)
         self.assertNotIn("README\\.CN", gitleaks)
-        self.assertIn("independent Python implementation", readme)
-        self.assertIn("SBOM.json", readme)
+        self.assertIn("Dry-run first", readme)
+        self.assertIn("MCP Server", readme)
         self.assertNotIn(local_developer_path, readme)
         self.assertNotIn(local_developer_path, readme_cn)
         self.assertIn("cleancli/delete_ops.py", agents)
