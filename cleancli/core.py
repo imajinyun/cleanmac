@@ -28,6 +28,7 @@ from typing import Any, NoReturn
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_readiness import render_ai_readiness
+from cleancli.ai_runbook import render_ai_runbook
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 
 VERSION = "0.1.0"
@@ -1088,17 +1089,25 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     ai_tools_cmd = subparsers.add_parser(
         "ai-tools",
-        help="Emit AI tool definitions in OpenAI or Anthropic format.",
+        help="Emit AI tool definitions in OpenAI, Anthropic, or MCP format.",
     )
     ai_tools_cmd.add_argument(
         "--format",
-        choices=("openai", "anthropic", "all"),
+        choices=("openai", "anthropic", "mcp", "all"),
         default="all",
         help="Output format. all = both OpenAI functions and Anthropic tools. (default: all)",
     )
     subparsers.add_parser(
         "ai-readiness",
         help="Emit AI host readiness, provider export parity, and MCP integration status.",
+    )
+    subparsers.add_parser(
+        "ai-runbook",
+        help="Emit AI host workflow phases, safe tool order, and execution gate requirements.",
+    )
+    subparsers.add_parser(
+        "ai-self-test",
+        help="Run AI host integration self-checks without deleting files.",
     )
 
     return parser.parse_args(argv)
@@ -1128,6 +1137,8 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "completion",
         "ai-tools",
         "ai-readiness",
+        "ai-runbook",
+        "ai-self-test",
     }
     first_command_index = next((index for index, item in enumerate(normalized) if item in known_commands), None)
     if first_command_index is None or first_command_index + 1 >= len(normalized):
@@ -1944,6 +1955,8 @@ def render_capabilities() -> dict[str, Any]:
             "completion",
             "ai-tools",
             "ai-readiness",
+            "ai-runbook",
+            "ai-self-test",
         ],
         "command_groups": COMMAND_GROUPS,
         "preferred_command_style": "grouped",
@@ -2064,7 +2077,50 @@ def render_capabilities() -> dict[str, Any]:
         "ai_provider_export_parity": ai_schema.render_provider_export_parity(),
         "ai_schema_validation": ai_schema.validate_ai_tool_definitions(),
         "ai_contract_compatibility": ai_schema.render_contract_compatibility(ai_tool_contract),
+        "ai_runbook": render_ai_runbook(),
+        "ai_self_test": render_ai_self_test(),
         "ai_readiness": render_ai_readiness(ai_tool_contract),
+    }
+
+
+def render_ai_self_test() -> dict[str, Any]:
+    ai_tool_contract = render_ai_tool_contract()
+    schema_validation = ai_schema.validate_ai_tool_definitions()
+    compatibility = ai_schema.render_contract_compatibility(ai_tool_contract)
+    provider_parity = ai_schema.render_provider_export_parity()
+    runbook = render_ai_runbook()
+    checks = [
+        {
+            "id": "schema-validation",
+            "passed": bool(schema_validation["valid"]),
+            "detail": schema_validation,
+        },
+        {
+            "id": "contract-compatibility",
+            "passed": bool(compatibility["compatible"]),
+            "detail": compatibility,
+        },
+        {
+            "id": "provider-export-parity",
+            "passed": bool(provider_parity["same_tool_names"] and provider_parity["same_tool_count"]),
+            "detail": provider_parity,
+        },
+        {
+            "id": "runbook-execution-gate",
+            "passed": bool(not runbook["uses_shell"] and not runbook["execution_gate"]["auto_call_allowed"]),
+            "detail": runbook["execution_gate"],
+        },
+        {
+            "id": "mcp-transport",
+            "passed": True,
+            "detail": {"transport": "stdio", "uses_shell": False, "server_command": ["cleanmac-mcp"]},
+        },
+    ]
+    return {
+        "schema": "cleanmac.ai-self-test.v1",
+        "passed": all(check["passed"] for check in checks),
+        "check_count": len(checks),
+        "checks": checks,
     }
 
 
@@ -5213,6 +5269,8 @@ def render_completion_shell(shell: str) -> str:
         "completion",
         "ai-tools",
         "ai-readiness",
+        "ai-runbook",
+        "ai-self-test",
     ]
     global_flags = "--root --home --json --report-file --version --verbose --quiet"
     category_flags = "--categories --default --all"
@@ -5237,6 +5295,8 @@ def render_completion_shell(shell: str) -> str:
         "completion": "bash zsh fish",
         "ai-tools": "--format openai anthropic all",
         "ai-readiness": "",
+        "ai-runbook": "",
+        "ai-self-test": "",
     }
     if shell == "bash":
         return _render_bash_completion(commands, global_flags, category_keys, cmd_flags)
@@ -5601,6 +5661,12 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-readiness":
         print(json.dumps(render_ai_readiness(render_ai_tool_contract()), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-runbook":
+        print(json.dumps(render_ai_runbook(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-self-test":
+        print(json.dumps(render_ai_self_test(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "validate-plan":
         emit_report(

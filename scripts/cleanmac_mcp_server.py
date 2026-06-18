@@ -81,6 +81,17 @@ def parse_json_output(output: str) -> dict | None:
     return {"items": parsed}
 
 
+def structured_error(tool_name: str, message: str) -> dict:
+    parsed = parse_json_output(message)
+    return {
+        "schema": "cleanmac.mcp-tool-error.v1",
+        "tool": tool_name,
+        "message": message,
+        "parsed_error": parsed,
+        "retryable": False,
+    }
+
+
 def mcp_resources() -> list[dict]:
     return [
         {
@@ -101,13 +112,37 @@ def mcp_resources() -> list[dict]:
             "description": "MCP-compatible tool metadata and argv templates.",
             "mimeType": "application/json",
         },
+        {
+            "uri": "cleanmac://ai/readiness",
+            "name": "cleanmac AI readiness",
+            "description": "AI host readiness report with provider parity and integration status.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "cleanmac://ai/runbook",
+            "name": "cleanmac AI runbook",
+            "description": "Ordered safe workflow phases and execution gate for AI hosts.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "cleanmac://ai/self-test",
+            "name": "cleanmac AI self-test",
+            "description": "Machine-readable AI host integration self-check report.",
+            "mimeType": "application/json",
+        },
     ]
 
 
 def read_mcp_resource(uri: str) -> dict:
     ensure_project_root_on_path()
     from cleancli import ai_schema  # type: ignore[import-untyped]
-    from cleancli.core import render_capabilities  # type: ignore[import-untyped]
+    from cleancli.ai_readiness import render_ai_readiness  # type: ignore[import-untyped]
+    from cleancli.ai_runbook import render_ai_runbook  # type: ignore[import-untyped]
+    from cleancli.core import (  # type: ignore[import-untyped]
+        render_ai_self_test,
+        render_ai_tool_contract,
+        render_capabilities,
+    )
 
     if uri == "cleanmac://capabilities":
         payload = render_capabilities()
@@ -115,6 +150,12 @@ def read_mcp_resource(uri: str) -> dict:
         payload = ai_schema.render_function_schemas()
     elif uri == "cleanmac://ai/mcp-tool-catalog":
         payload = ai_schema.render_mcp_tool_catalog()
+    elif uri == "cleanmac://ai/readiness":
+        payload = render_ai_readiness(render_ai_tool_contract())
+    elif uri == "cleanmac://ai/runbook":
+        payload = render_ai_runbook()
+    elif uri == "cleanmac://ai/self-test":
+        payload = render_ai_self_test()
     else:
         raise ValueError(f"Unknown resource URI: {uri}")
     return {
@@ -136,30 +177,62 @@ def mcp_prompts() -> list[dict]:
                     "required": True,
                 }
             ],
-        }
+        },
+        {
+            "name": "confirm-execution-gate",
+            "description": "Prepare a human-facing checklist before destructive execution.",
+            "arguments": [
+                {
+                    "name": "plan_file",
+                    "description": "Path to the cleanmac plan JSON file that would be executed.",
+                    "required": True,
+                }
+            ],
+        },
     ]
 
 
 def get_mcp_prompt(name: str, arguments: dict) -> dict:
-    if name != "safe-cleanup-review":
-        raise ValueError(f"Unknown prompt: {name}")
-    categories = str(arguments.get("categories") or "trash")
-    return {
-        "description": "Safe cleanmac cleanup review workflow",
-        "messages": [
-            {
-                "role": "user",
-                "content": {
-                    "type": "text",
-                    "text": (
-                        "Use cleanmac safely. Start with cleanmac_capabilities, inspect categories "
-                        f"{categories}, generate an AI-originated plan, validate it, simulate policy, "
-                        "and never call cleanmac_execute_plan without explicit human confirmation."
-                    ),
-                },
-            }
-        ],
-    }
+    if name == "safe-cleanup-review":
+        categories = str(arguments.get("categories") or "trash")
+        return {
+            "description": "Safe cleanmac cleanup review workflow",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Use cleanmac safely. Start with cleanmac_capabilities, inspect categories "
+                            f"{categories}, generate an AI-originated plan, validate it, simulate policy, "
+                            "and never call cleanmac_execute_plan without explicit human confirmation."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "confirm-execution-gate":
+        plan_file = str(arguments.get("plan_file") or "")
+        return {
+            "description": "Human confirmation gate before cleanmac execution",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Before any destructive cleanmac execution for plan "
+                            f"{plan_file}, call cleanmac_validate_plan, cleanmac_policy_simulate "
+                            "with execute=true, and cleanmac_dry_run_plan. Show the human the "
+                            "candidate count, total bytes, delete mode, operation log path, and "
+                            "ai_confirmation_summary.confirmation_token. Only call cleanmac_execute_plan "
+                            "after the human explicitly provides the required confirmation phrase and token."
+                        ),
+                    },
+                }
+            ],
+        }
+    raise ValueError(f"Unknown prompt: {name}")
 
 
 def execute_tool(tool: dict, arguments: dict) -> str:
@@ -354,12 +427,14 @@ def handle_request(request: dict) -> tuple[dict | None, list[dict]]:
                 [],
             )
         except RuntimeError as exc:
+            message = str(exc)
             return (
                 {
                     "jsonrpc": "2.0",
                     "id": req_id,
                     "result": {
-                        "content": [{"type": "text", "text": str(exc)}],
+                        "content": [{"type": "text", "text": message}],
+                        "structuredContent": structured_error(str(name), message),
                         "isError": True,
                     },
                 },

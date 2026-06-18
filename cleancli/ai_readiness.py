@@ -4,12 +4,19 @@ from collections.abc import Mapping
 from typing import Any
 
 from cleancli import ai_schema
+from cleancli.ai_runbook import render_ai_runbook
 
 
 def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     schema_validation = ai_schema.validate_ai_tool_definitions()
     compatibility = ai_schema.render_contract_compatibility(contract)
     provider_parity = ai_schema.render_provider_export_parity()
+    runbook = render_ai_runbook()
+    runbook_ready = bool(
+        runbook["schema"] == "cleanmac.ai-runbook.v1"
+        and not runbook["uses_shell"]
+        and not runbook["execution_gate"]["auto_call_allowed"]
+    )
     return {
         "schema": "cleanmac.ai-readiness.v1",
         "ready": bool(
@@ -17,6 +24,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and compatibility["compatible"]
             and provider_parity["same_tool_names"]
             and provider_parity["same_tool_count"]
+            and runbook_ready
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -40,6 +48,13 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "resources_supported": True,
             "prompts_supported": True,
             "structured_content_supported": True,
+            "self_test_supported": True,
+        },
+        "runbook": {
+            "schema": runbook["schema"],
+            "ready": runbook_ready,
+            "phase_count": len(runbook["phases"]),
+            "execution_auto_call_allowed": runbook["execution_gate"]["auto_call_allowed"],
         },
         "recommended_starting_tools": [
             "cleanmac_capabilities",
@@ -52,5 +67,10 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "cleanmac_policy_simulate",
             "cleanmac_dry_run_plan",
             "human_confirmation",
+        ],
+        "recommended_preflight_commands": [
+            ["cleanmac", "--json", "ai-self-test"],
+            ["cleanmac", "--json", "ai-readiness"],
+            ["cleanmac", "--json", "ai-runbook"],
         ],
     }

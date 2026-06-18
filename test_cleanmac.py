@@ -3494,6 +3494,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("docs-smoke:", makefile)
         self.assertIn("governance-smoke:", makefile)
         self.assertIn("open-source-smoke:", makefile)
+        self.assertIn("ai-host-smoke:", makefile)
         self.assertIn("distribution-smoke:", makefile)
         self.assertIn("zipapp", makefile)
         self.assertIn("cleanmac.pyz", makefile)
