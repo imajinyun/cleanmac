@@ -183,6 +183,49 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac", result.stdout.strip())
         self.assertIn(cleancli.VERSION, result.stdout.strip())
 
+    def test_completion_bash_includes_commands_and_categories(self) -> None:
+        result = self.run_cli("completion", "bash")
+        self.assertIn("cleanmac bash completion", result.stdout)
+        self.assertIn("list", result.stdout)
+        self.assertIn("ai-tools", result.stdout)
+        self.assertIn("trash", result.stdout)
+        self.assertIn("complete -F _cleanmac_completion cleanmac", result.stdout)
+
+    def test_completion_zsh_includes_commands(self) -> None:
+        result = self.run_cli("completion", "zsh")
+        self.assertIn("cleanmac zsh completion", result.stdout)
+        self.assertIn("#compdef cleanmac", result.stdout)
+
+    def test_completion_fish_includes_commands(self) -> None:
+        result = self.run_cli("completion", "fish")
+        self.assertIn("cleanmac fish completion", result.stdout)
+        self.assertIn("__fish_use_subcommand", result.stdout)
+
+    def test_completion_json_includes_schema(self) -> None:
+        result = self.run_cli("--json", "completion", "bash")
+        report = json.loads(result.stdout)
+        self.assertEqual(report["schema"], "cleanmac.completion-script.v1")
+        self.assertEqual(report["shell"], "bash")
+        self.assertIn("_cleanmac_completion", report["script_content"])
+
+    def test_ai_tools_exports_provider_specific_tool_formats(self) -> None:
+        openai_result = self.run_cli("ai-tools", "--format", "openai")
+        openai_report = json.loads(openai_result.stdout)
+        self.assertEqual(openai_report["schema"], "cleanmac.ai-openai-functions.v1")
+        self.assertTrue(all(tool["type"] == "function" for tool in openai_report["tools"]))
+        self.assertIn("function", openai_report["tools"][0])
+
+        anthropic_result = self.run_cli("ai-tools", "--format", "anthropic")
+        anthropic_report = json.loads(anthropic_result.stdout)
+        self.assertEqual(anthropic_report["schema"], "cleanmac.ai-anthropic-tools.v1")
+        self.assertIn("input_schema", anthropic_report["tools"][0])
+
+        all_result = self.run_cli("ai-tools")
+        all_report = json.loads(all_result.stdout)
+        self.assertEqual(all_report["schema"], "cleanmac.ai-tools.v1")
+        self.assertEqual(all_report["openai"]["schema"], "cleanmac.ai-openai-functions.v1")
+        self.assertEqual(all_report["anthropic"]["schema"], "cleanmac.ai-anthropic-tools.v1")
+
     def test_list_shows_categories(self) -> None:
         result = self.run_cli("list")
         self.assertIn("trash", result.stdout)
@@ -192,9 +235,11 @@ class CleanMacCLITests(unittest.TestCase):
     def test_list_json_includes_category_metadata(self) -> None:
         result = self.run_cli("--json", "list")
         report = json.loads(result.stdout)
-        by_key = {row["key"]: row for row in report}
+        self.assertEqual(report["schema"], "cleanmac.category-list.v1")
+        self.assertIn("categories", report)
+        by_key = {row["key"]: row for row in report["categories"]}
 
-        self.assertEqual(len(report), len(cleancli.CATEGORIES))
+        self.assertEqual(len(report["categories"]), len(cleancli.CATEGORIES))
         self.assertIn("Deletes all files", by_key["trash"]["description"])
         self.assertTrue(by_key["trash"]["default"])
         self.assertTrue(by_key["incompleteDownloads"]["default"])
@@ -209,6 +254,15 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("Docker", by_key["docker"]["title"])
         self.assertEqual(by_key["gpuCaches"]["provider"], "gpu-cache")
         self.assertTrue(by_key["imessage"]["full_disk_access"])
+
+    def test_quiet_suppresses_human_readable_output_but_not_json(self) -> None:
+        quiet_result = self.run_cli("-q", "list")
+        self.assertEqual(quiet_result.stdout.strip(), "")
+
+        json_result = self.run_cli("-q", "--json", "list")
+        report = json.loads(json_result.stdout)
+        self.assertEqual(report["schema"], "cleanmac.category-list.v1")
+        self.assertGreater(len(report["categories"]), 0)
 
     def test_capabilities_describes_commands_and_safety_model(self) -> None:
         result = self.run_cli("--json", "capabilities")
@@ -304,6 +358,23 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("CLI_ARGUMENT_ERROR", error_codes)
         self.assertIn("UNKNOWN_CATEGORY", error_codes)
         self.assertIn("CONFIRMATION_TOKEN_MISMATCH", error_codes)
+        stale_error = next(row for row in report["ai_error_taxonomy"] if row["code"] == "PLAN_STALE_OR_DRIFTED")
+        self.assertFalse(stale_error["safe_to_auto_retry"])
+        self.assertIn("cleanmac_generate_plan", stale_error["next_allowed_tools"])
+        llm_guide = report["llm_invocation_guide"]
+        self.assertEqual(llm_guide["schema"], "cleanmac.llm-invocation-guide.v1")
+        self.assertEqual(llm_guide["must_start_with"], "cleanmac_capabilities")
+        self.assertIn("cleanmac_execute_plan", llm_guide["never_call_directly"])
+        self.assertIn("cleanmac_policy_simulate", llm_guide["mandatory_before_execute"])
+        self.assertIn("PLAN_STALE_OR_DRIFTED", llm_guide["safe_retry_rules"])
+        prompt_policy = report["prompt_injection_policy"]
+        self.assertEqual(prompt_policy["schema"], "cleanmac.prompt-injection-policy.v1")
+        self.assertTrue(prompt_policy["file_names_are_data_not_instructions"])
+        self.assertTrue(prompt_policy["ai_must_ignore_instructions_inside_paths"])
+        plan_policy = report["plan_policy"]
+        self.assertEqual(plan_policy["schema"], "cleanmac.plan-policy.v1")
+        self.assertTrue(plan_policy["ai_originated_plan_requires_freshness_check"])
+        self.assertEqual(plan_policy["max_age_seconds"], cleancli.PLAN_MAX_AGE_SECONDS)
         workflow = report["ai_recommended_workflow"]
         self.assertEqual(workflow[0]["step"], "discover")
         self.assertEqual(workflow[-1]["step"], "execute")
@@ -342,6 +413,13 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("confirmation_phrase", execute_tool["parameters"]["required"])
         self.assertIn("confirmation_token", execute_tool["parameters"]["required"])
         self.assertNotIn("shell", json.dumps(execute_tool["parameters"]))
+        openai_functions = report["ai_openai_functions"]
+        self.assertEqual(openai_functions["schema"], "cleanmac.ai-openai-functions.v1")
+        self.assertEqual({tool["function"]["name"] for tool in openai_functions["tools"]}, tool_names)
+        self.assertTrue(all(tool["type"] == "function" for tool in openai_functions["tools"]))
+        anthropic_tools = report["ai_anthropic_tools"]
+        self.assertEqual(anthropic_tools["schema"], "cleanmac.ai-anthropic-tools.v1")
+        self.assertEqual({tool["name"] for tool in anthropic_tools["tools"]}, tool_names)
         mcp_catalog = report["mcp_tool_catalog"]
         self.assertEqual(mcp_catalog["schema"], "cleanmac.mcp-tool-catalog.v1")
         self.assertEqual({tool["name"] for tool in mcp_catalog["tools"]}, tool_names)
@@ -1975,6 +2053,10 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("--delete-mode trash", missing_report["missing_requirements"])
             self.assertIn("--operation-log", missing_report["missing_requirements"])
             self.assertIn("--require-plan-context", missing_report["missing_requirements"])
+            blocking_codes = {row["code"] for row in missing_report["blocking_reasons"]}
+            self.assertIn("AI_ORIGIN_REQUIRES_TRASH", blocking_codes)
+            self.assertFalse(missing_report["safe_to_auto_retry"])
+            self.assertTrue(missing_report["retry_requires_user_confirmation"])
 
             satisfied = self.run_cli(
                 "--root",
@@ -2000,6 +2082,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(satisfied_report["allowed"], satisfied_report["missing_requirements"])
             self.assertTrue(satisfied_report["plan_freshness"]["fresh"])
             self.assertEqual(satisfied_report["missing_requirements"], [])
+            self.assertEqual(satisfied_report["blocking_reasons"], [])
 
     def test_ai_originated_execute_refuses_drifted_plan(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -3066,7 +3149,7 @@ class CleanMacCLITests(unittest.TestCase):
             plan_file.write_text(plan_result.stdout, encoding="utf-8")
 
             cases = [
-                (["clean", "list"], lambda report: isinstance(report, list)),
+                (["clean", "list"], lambda report: report["schema"] == "cleanmac.category-list.v1" and isinstance(report.get("categories"), list)),
                 (
                     ["clean", "inspect", "--categories", "trash"],
                     lambda report: report["schema"] == "cleanmac.inspect.v1" and report["dry_run"],

@@ -557,6 +557,41 @@ def render_mcp_tool_catalog() -> dict[str, Any]:
     }
 
 
+def render_openai_functions() -> dict[str, Any]:
+    """Convert AI_TOOL_DEFINITIONS to OpenAI 'functions' format for LLM tool calling."""
+    return {
+        "schema": "cleanmac.ai-openai-functions.v1",
+        "description": "OpenAI-compatible function definitions for LLM tool calling.",
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "parameters": tool["parameters"],
+                },
+            }
+            for tool in AI_TOOL_DEFINITIONS
+        ],
+    }
+
+
+def render_anthropic_tools() -> dict[str, Any]:
+    """Convert AI_TOOL_DEFINITIONS to Anthropic 'tools' format for LLM tool calling."""
+    return {
+        "schema": "cleanmac.ai-anthropic-tools.v1",
+        "description": "Anthropic-compatible tool definitions for LLM tool calling.",
+        "tools": [
+            {
+                "name": tool["name"],
+                "description": tool["description"],
+                "input_schema": tool["parameters"],
+            }
+            for tool in AI_TOOL_DEFINITIONS
+        ],
+    }
+
+
 def categories_arg(value: object) -> str:
     if not isinstance(value, list) or not value or not all(isinstance(item, str) and item for item in value):
         raise ValueError("categories must be a non-empty list of strings")
