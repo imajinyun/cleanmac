@@ -6,6 +6,7 @@ from typing import Any
 from cleancli import ai_schema
 from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_eval import render_ai_eval_pack
+from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
 from cleancli.ai_runbook import render_ai_runbook
 
 
@@ -28,6 +29,14 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
         and not runbook["uses_shell"]
         and not runbook["execution_gate"]["auto_call_allowed"]
     )
+    governance_advice = render_ai_governance_advice(
+        readiness={"ready": True, "eval_pack": {"ready": eval_pack_ready}},
+        runbook=runbook,
+        decision_matrix=decision_matrix,
+        eval_pack=eval_pack,
+    )
+    governance_validation = validate_ai_governance_advice(governance_advice)
+    governance_ready = bool(governance_advice["ready_for_llm_calling"] and governance_validation["valid"])
     return {
         "schema": "cleanmac.ai-readiness.v1",
         "ready": bool(
@@ -38,6 +47,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and runbook_ready
             and decision_matrix_ready
             and eval_pack_ready
+            and governance_ready
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -85,6 +95,12 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "destructive_execution_allowed": False,
             "safe_to_run_in_ci": True,
         },
+        "governance_advice": {
+            "schema": governance_advice["schema"],
+            "ready": governance_ready,
+            "level": governance_advice["governance_score"]["level"],
+            "validation": governance_validation,
+        },
         "recommended_starting_tools": [
             "cleanmac_capabilities",
             "cleanmac_list_categories",
@@ -102,6 +118,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             ["cleanmac", "--json", "ai-readiness"],
             ["cleanmac", "--json", "ai-runbook"],
             ["cleanmac", "--json", "ai-decision-matrix"],
+            ["cleanmac", "--json", "ai-governance-advice"],
             ["cleanmac", "--json", "ai-eval-pack"],
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
         ],

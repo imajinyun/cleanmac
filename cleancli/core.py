@@ -29,6 +29,7 @@ from typing import Any, NoReturn
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run
+from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
@@ -1116,6 +1117,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit per-tool AI host decision metadata and MCP annotations.",
     )
     subparsers.add_parser(
+        "ai-governance-advice",
+        help="Emit governance advice for safe large-model cleanmac tool calling.",
+    )
+    subparsers.add_parser(
         "ai-eval-pack",
         help="Emit AI Host integration scenario definitions without running them.",
     )
@@ -1159,6 +1164,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-runbook",
         "ai-self-test",
         "ai-decision-matrix",
+        "ai-governance-advice",
         "ai-eval-pack",
         "ai-eval-run",
     }
@@ -1980,6 +1986,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-runbook",
             "ai-self-test",
             "ai-decision-matrix",
+            "ai-governance-advice",
             "ai-eval-pack",
             "ai-eval-run",
         ],
@@ -2104,6 +2111,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_contract_compatibility": ai_schema.render_contract_compatibility(ai_tool_contract),
         "ai_runbook": render_ai_runbook(),
         "ai_decision_matrix": render_ai_decision_matrix(),
+        "ai_governance_advice": render_ai_governance_advice_report(),
         "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
         "ai_readiness": render_ai_readiness(ai_tool_contract),
@@ -2112,6 +2120,18 @@ def render_capabilities() -> dict[str, Any]:
 
 def render_ai_decision_matrix() -> dict[str, Any]:
     return render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, render_ai_runbook())
+
+
+def render_ai_governance_advice_report() -> dict[str, Any]:
+    runbook = render_ai_runbook()
+    decision_matrix = render_ai_decision_matrix()
+    eval_pack = render_ai_eval_pack()
+    return render_ai_governance_advice(
+        readiness=render_ai_readiness(render_ai_tool_contract()),
+        runbook=runbook,
+        decision_matrix=decision_matrix,
+        eval_pack=eval_pack,
+    )
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
@@ -2141,6 +2161,8 @@ def render_ai_self_test() -> dict[str, Any]:
     runbook = render_ai_runbook()
     decision_matrix = render_ai_decision_matrix()
     eval_pack = render_ai_eval_pack()
+    governance_advice = render_ai_governance_advice_report()
+    governance_validation = validate_ai_governance_advice(governance_advice)
     checks = [
         {
             "id": "schema-validation",
@@ -2176,6 +2198,15 @@ def render_ai_self_test() -> dict[str, Any]:
                 and eval_pack["scenario_count"] >= 4
             ),
             "detail": eval_pack,
+        },
+        {
+            "id": "ai-governance-advice",
+            "passed": bool(governance_advice["ready_for_llm_calling"] and governance_validation["valid"]),
+            "detail": {
+                "schema": governance_advice["schema"],
+                "ready_for_llm_calling": governance_advice["ready_for_llm_calling"],
+                "validation": governance_validation,
+            },
         },
         {
             "id": "mcp-transport",
@@ -5339,6 +5370,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-runbook",
         "ai-self-test",
         "ai-decision-matrix",
+        "ai-governance-advice",
         "ai-eval-pack",
         "ai-eval-run",
     ]
@@ -5368,6 +5400,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-runbook": "",
         "ai-self-test": "",
         "ai-decision-matrix": "",
+        "ai-governance-advice": "",
         "ai-eval-pack": "",
         "ai-eval-run": "--scenario smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
     }
@@ -5746,6 +5779,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-decision-matrix":
         print(json.dumps(render_ai_decision_matrix(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-governance-advice":
+        print(json.dumps(render_ai_governance_advice_report(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-eval-pack":
         print(json.dumps(render_ai_eval_pack(), indent=2, ensure_ascii=False))

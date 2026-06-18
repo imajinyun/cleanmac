@@ -36,7 +36,11 @@ class AIReadinessTests(unittest.TestCase):
         self.assertGreaterEqual(report["eval_pack"]["scenario_count"], 4)
         self.assertEqual(report["eval_runner"]["default_scenario"], "smoke")
         self.assertFalse(report["eval_runner"]["destructive_execution_allowed"])
+        self.assertTrue(report["governance_advice"]["ready"])
+        self.assertEqual(report["governance_advice"]["schema"], "cleanmac.ai-governance-advice.v1")
+        self.assertEqual(report["governance_advice"]["level"], "strong")
         self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
+        self.assertIn(["cleanmac", "--json", "ai-governance-advice"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-eval-pack"], report["recommended_preflight_commands"])
         self.assertIn(
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
