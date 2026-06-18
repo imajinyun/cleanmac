@@ -148,6 +148,8 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/runbook", uris)
         self.assertIn("cleanmac://ai/self-test", uris)
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
+        self.assertIn("cleanmac://ai/eval-pack", uris)
+        self.assertIn("cleanmac://ai/eval-run-smoke", uris)
 
         read_response = _mcp_request(
             {
@@ -172,6 +174,29 @@ class MckServerTests(unittest.TestCase):
         decision_payload = json.loads(decision_response["result"]["contents"][0]["text"])
         self.assertEqual(decision_payload["schema"], "cleanmac.ai-tool-decision-matrix.v1")
         self.assertEqual(decision_payload["violation_count"], 0)
+
+        eval_pack_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 38,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/eval-pack"},
+            }
+        )
+        eval_pack_payload = json.loads(eval_pack_response["result"]["contents"][0]["text"])
+        self.assertEqual(eval_pack_payload["schema"], "cleanmac.ai-eval-pack.v1")
+
+        eval_run_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 39,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/eval-run-smoke"},
+            }
+        )
+        eval_run_payload = json.loads(eval_run_response["result"]["contents"][0]["text"])
+        self.assertEqual(eval_run_payload["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(eval_run_payload["passed"], eval_run_payload)
 
     def test_prompts_include_confirm_execution_gate(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 33, "method": "prompts/list"})
@@ -215,6 +240,24 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/tool-decision-matrix", message_text)
         self.assertIn("cleanmac_execute_plan", message_text)
         self.assertIn("do not auto-call destructive tools", message_text)
+
+    def test_prompt_runs_ai_eval_smoke(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 40, "method": "prompts/list"})
+        names = {prompt["name"] for prompt in response["result"]["prompts"]}
+        self.assertIn("run-ai-eval-smoke", names)
+
+        prompt_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 41,
+                "method": "prompts/get",
+                "params": {"name": "run-ai-eval-smoke", "arguments": {}},
+            }
+        )
+        message_text = prompt_response["result"]["messages"][0]["content"]["text"]
+        self.assertIn("cleanmac://ai/eval-pack", message_text)
+        self.assertIn("cleanmac://ai/eval-run-smoke", message_text)
+        self.assertIn("do not call cleanmac_execute_plan", message_text)
 
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(

@@ -31,7 +31,17 @@ class AIReadinessTests(unittest.TestCase):
         self.assertTrue(report["decision_matrix"]["ready"])
         self.assertEqual(report["decision_matrix"]["schema"], "cleanmac.ai-tool-decision-matrix.v1")
         self.assertEqual(report["decision_matrix"]["violation_count"], 0)
+        self.assertTrue(report["eval_pack"]["ready"])
+        self.assertEqual(report["eval_pack"]["schema"], "cleanmac.ai-eval-pack.v1")
+        self.assertGreaterEqual(report["eval_pack"]["scenario_count"], 4)
+        self.assertEqual(report["eval_runner"]["default_scenario"], "smoke")
+        self.assertFalse(report["eval_runner"]["destructive_execution_allowed"])
         self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
+        self.assertIn(["cleanmac", "--json", "ai-eval-pack"], report["recommended_preflight_commands"])
+        self.assertIn(
+            ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
+            report["recommended_preflight_commands"],
+        )
         self.assertIn("cleanmac_capabilities", report["recommended_starting_tools"])
         self.assertIn("cleanmac_policy_simulate", report["mandatory_before_execute"])
 

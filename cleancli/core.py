@@ -28,6 +28,7 @@ from typing import Any, NoReturn
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_decision import render_ai_tool_decision_matrix
+from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
@@ -1114,6 +1115,19 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "ai-decision-matrix",
         help="Emit per-tool AI host decision metadata and MCP annotations.",
     )
+    subparsers.add_parser(
+        "ai-eval-pack",
+        help="Emit AI Host integration scenario definitions without running them.",
+    )
+    ai_eval_run_cmd = subparsers.add_parser(
+        "ai-eval-run",
+        help="Run safe sandbox AI Host integration scenarios and emit a trace summary.",
+    )
+    ai_eval_run_cmd.add_argument(
+        "--scenario",
+        default="smoke",
+        help="AI eval scenario set to run. Default: smoke",
+    )
 
     return parser.parse_args(argv)
 
@@ -1145,6 +1159,8 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-runbook",
         "ai-self-test",
         "ai-decision-matrix",
+        "ai-eval-pack",
+        "ai-eval-run",
     }
     first_command_index = next((index for index, item in enumerate(normalized) if item in known_commands), None)
     if first_command_index is None or first_command_index + 1 >= len(normalized):
@@ -1964,6 +1980,8 @@ def render_capabilities() -> dict[str, Any]:
             "ai-runbook",
             "ai-self-test",
             "ai-decision-matrix",
+            "ai-eval-pack",
+            "ai-eval-run",
         ],
         "command_groups": COMMAND_GROUPS,
         "preferred_command_style": "grouped",
@@ -2086,6 +2104,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_contract_compatibility": ai_schema.render_contract_compatibility(ai_tool_contract),
         "ai_runbook": render_ai_runbook(),
         "ai_decision_matrix": render_ai_decision_matrix(),
+        "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
         "ai_readiness": render_ai_readiness(ai_tool_contract),
     }
@@ -2095,6 +2114,25 @@ def render_ai_decision_matrix() -> dict[str, Any]:
     return render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, render_ai_runbook())
 
 
+def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.ai-error.v1",
+        "ok": False,
+        "destructive_operation_started": False,
+        "safe_to_auto_retry": True,
+        "argv": list(argv),
+        "error": {
+            "code": "AI_EVAL_UNKNOWN_SCENARIO",
+            "category": "invalid_ai_eval_scenario",
+            "retryable_after_fix": True,
+            "safe_to_auto_retry": True,
+            "message": message,
+            "next_allowed_commands": ["ai-eval-pack", "ai-eval-run --scenario smoke"],
+            "exit_code": 1,
+        },
+    }
+
+
 def render_ai_self_test() -> dict[str, Any]:
     ai_tool_contract = render_ai_tool_contract()
     schema_validation = ai_schema.validate_ai_tool_definitions()
@@ -2102,6 +2140,7 @@ def render_ai_self_test() -> dict[str, Any]:
     provider_parity = ai_schema.render_provider_export_parity()
     runbook = render_ai_runbook()
     decision_matrix = render_ai_decision_matrix()
+    eval_pack = render_ai_eval_pack()
     checks = [
         {
             "id": "schema-validation",
@@ -2127,6 +2166,16 @@ def render_ai_self_test() -> dict[str, Any]:
             "id": "tool-decision-matrix",
             "passed": bool(decision_matrix["violation_count"] == 0),
             "detail": decision_matrix,
+        },
+        {
+            "id": "ai-eval-pack",
+            "passed": bool(
+                eval_pack["schema"] == "cleanmac.ai-eval-pack.v1"
+                and not eval_pack["uses_shell"]
+                and not eval_pack["allows_destructive_execution"]
+                and eval_pack["scenario_count"] >= 4
+            ),
+            "detail": eval_pack,
         },
         {
             "id": "mcp-transport",
@@ -5290,6 +5339,8 @@ def render_completion_shell(shell: str) -> str:
         "ai-runbook",
         "ai-self-test",
         "ai-decision-matrix",
+        "ai-eval-pack",
+        "ai-eval-run",
     ]
     global_flags = "--root --home --json --report-file --version --verbose --quiet"
     category_flags = "--categories --default --all"
@@ -5317,6 +5368,8 @@ def render_completion_shell(shell: str) -> str:
         "ai-runbook": "",
         "ai-self-test": "",
         "ai-decision-matrix": "",
+        "ai-eval-pack": "",
+        "ai-eval-run": "--scenario smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
     }
     if shell == "bash":
         return _render_bash_completion(commands, global_flags, category_keys, cmd_flags)
@@ -5693,6 +5746,23 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-decision-matrix":
         print(json.dumps(render_ai_decision_matrix(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-eval-pack":
+        print(json.dumps(render_ai_eval_pack(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-eval-run":
+        try:
+            report = render_ai_eval_run(
+                scenario=args.scenario,
+                cli=Path(__file__).resolve().parent.parent / "cleanmac.py",
+            )
+        except ValueError as exc:
+            print(
+                json.dumps(render_ai_eval_unknown_scenario_error(str(exc), actual_argv), indent=2, ensure_ascii=False),
+                file=sys.stderr,
+            )
+            return 1
+        print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
     if args.command == "validate-plan":
         emit_report(
