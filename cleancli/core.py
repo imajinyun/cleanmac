@@ -22,12 +22,14 @@ import sys
 import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, NoReturn
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
+
+VERSION = "0.1.0"
 
 LOG_CATEGORY_KEYS = {"userLogs", "systemLogs", "userAppLogs", "terminal"}
 CACHE_CATEGORY_KEYS = {"userCache", "userAppCache"}
@@ -39,6 +41,7 @@ DELETE_LOG_FILE = "~/.cleanmac/deletions.log"
 OPERATIONS_LOG_FILE = "~/.cleanmac/operations.jsonl"
 LOG_ROTATE_BYTES = 1 * 1024 * 1024
 OPERATIONS_LOG_ROTATE_BYTES = 5 * 1024 * 1024
+PLAN_MAX_AGE_SECONDS = 30 * 60
 
 
 @dataclass(frozen=True)
@@ -625,6 +628,7 @@ GROUPED_COMMAND_ALIASES: dict[tuple[str, str], str] = {
     ("clean", "inspect"): "inspect",
     ("clean", "plan"): "plan",
     ("clean", "validate-plan"): "validate-plan",
+    ("clean", "policy-simulate"): "policy-simulate",
     ("clean", "run"): "clean",
     ("clean", "scripts"): "scripts",
     ("clean", "open"): "open",
@@ -647,6 +651,8 @@ class CleanMacArgumentParser(argparse.ArgumentParser):
         raise CleanMacCLIError(message, exit_code=2)
 
     def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
+        if message:
+            print(message, end="", file=sys.stderr if status else sys.stdout)
         if status:
             raise CleanMacCLIError(message or "argument parsing failed", exit_code=status)
         raise SystemExit(status)
@@ -677,6 +683,12 @@ def render_ai_error_taxonomy() -> list[dict[str, Any]]:
             "category": "context_mismatch",
             "retryable_after_fix": True,
             "suggested_next_action": "regenerate_plan_for_current_root_home_context",
+        },
+        {
+            "code": "PLAN_STALE_OR_DRIFTED",
+            "category": "plan_freshness_failed",
+            "retryable_after_fix": True,
+            "suggested_next_action": "regenerate_plan_and_repeat_matching_dry_run",
         },
         {
             "code": "AI_GUARD_REQUIRED",
@@ -741,6 +753,8 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
         code = "PLAN_CONTEXT_REQUIRED"
     elif "Plan root mismatch" in message or "Plan home mismatch" in message:
         code = "PLAN_CONTEXT_MISMATCH"
+    elif "plan is stale or drifted" in message:
+        code = "PLAN_STALE_OR_DRIFTED"
     elif "AI-originated plan requires" in message:
         code = "AI_GUARD_REQUIRED"
     elif "confirmation token is required" in message:
@@ -806,6 +820,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Home path used for ~ expansion before --root remapping.",
     )
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    parser.add_argument("--version", action="version", version=f"cleanmac {VERSION}", help="Show version and exit.")
     parser.add_argument(
         "--report-file",
         help="Write the command report to a JSON audit file while still printing the normal output.",
@@ -865,6 +880,17 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     validate_plan = subparsers.add_parser("validate-plan", help="Validate a cleanup plan/audit JSON file.")
     validate_plan.add_argument("--plan-file", required=True)
+
+    policy_simulate = subparsers.add_parser(
+        "policy-simulate", help="Simulate AI cleanup policy without deleting files."
+    )
+    policy_simulate.add_argument("--plan-file", required=True)
+    policy_simulate.add_argument("--execute", action="store_true", help="Simulate destructive execution intent.")
+    policy_simulate.add_argument("--delete-mode", choices=("permanent", "trash"), default="permanent")
+    policy_simulate.add_argument("--operation-log")
+    policy_simulate.add_argument("--require-plan-context", action="store_true")
+    policy_simulate.add_argument("--require-confirmation-token", action="store_true")
+    policy_simulate.add_argument("--confirmation-token")
 
     analyze_tree = subparsers.add_parser("analyze-tree", help=argparse.SUPPRESS)
     analyze_tree.add_argument("--path", default="~", help="Directory to scan.")
@@ -961,6 +987,18 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     status_cmd = subparsers.add_parser("status", help="Read-only system health snapshots.")
     status_cmd.add_argument("action", nargs="?", choices=("snapshot",), default="snapshot")
 
+    completion_cmd = subparsers.add_parser(
+        "completion",
+        help="Generate shell completion script. Usage: eval \"$(cleanmac completion bash)\"",
+    )
+    completion_cmd.add_argument(
+        "shell",
+        nargs="?",
+        choices=("bash", "zsh", "fish"),
+        default="bash",
+        help="Target shell type (bash|zsh|fish). Default: bash",
+    )
+
     return parser.parse_args(argv)
 
 
@@ -975,6 +1013,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "analyze",
         "plan",
         "validate-plan",
+        "policy-simulate",
         "analyze-tree",
         "diagnose",
         "workflow",
@@ -1018,6 +1057,69 @@ def display_path(path: Path | str) -> str:
     if sys.platform == "darwin" and text.startswith("/private/var/"):
         return "/var/" + text[len("/private/var/") :]
     return text
+
+
+def parse_iso_datetime(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def path_fingerprint(path: Path | str) -> dict[str, Any]:
+    candidate = Path(path).expanduser()
+    base: dict[str, Any] = {"path": display_path(candidate), "exists": False}
+    try:
+        stat = candidate.lstat()
+    except OSError as exc:
+        base["error"] = str(exc)
+        return base
+    base.update(
+        {
+            "exists": True,
+            "is_dir": candidate.is_dir(),
+            "is_file": candidate.is_file(),
+            "is_symlink": candidate.is_symlink(),
+            "size_bytes": path_size_bytes(candidate) if candidate.exists() else 0,
+            "mtime_ns": stat.st_mtime_ns,
+        }
+    )
+    if candidate.is_symlink():
+        try:
+            base["symlink_target"] = os.readlink(candidate)
+        except OSError as exc:
+            base["symlink_target_error"] = str(exc)
+    return base
+
+
+def candidate_fingerprints(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [path_fingerprint(str(row["path"])) for row in rows if row.get("path")]
+
+
+def compare_candidate_fingerprints(expected: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    drift: list[dict[str, Any]] = []
+    for row in expected:
+        path = str(row.get("path") or "")
+        if not path:
+            continue
+        current = path_fingerprint(path)
+        changed_fields = [
+            field
+            for field in ("exists", "is_dir", "is_file", "is_symlink", "size_bytes", "mtime_ns", "symlink_target")
+            if row.get(field) != current.get(field)
+        ]
+        if changed_fields:
+            drift.append(
+                {
+                    "path": path,
+                    "changed_fields": changed_fields,
+                    "expected": {field: row.get(field) for field in changed_fields},
+                    "actual": {field: current.get(field) for field in changed_fields},
+                }
+            )
+    return drift
 
 
 def same_context_path(expected: str | None, actual: Path | str) -> bool:
@@ -1114,6 +1216,14 @@ def load_clean_plan(plan_file: str) -> dict[str, Any]:
         "root": str(plan.get("root")) if isinstance(plan.get("root"), str) else None,
         "home": str(plan.get("home")) if isinstance(plan.get("home"), str) else None,
         "ai_origin": plan.get("ai_origin") is True,
+        "generated_at": str(plan.get("generated_at")) if isinstance(plan.get("generated_at"), str) else None,
+        "expires_at": str(plan.get("expires_at")) if isinstance(plan.get("expires_at"), str) else None,
+        "plan_max_age_seconds": plan.get("plan_max_age_seconds")
+        if isinstance(plan.get("plan_max_age_seconds"), int)
+        else None,
+        "candidate_fingerprints": plan.get("candidate_fingerprints")
+        if isinstance(plan.get("candidate_fingerprints"), list)
+        else [],
     }
 
 
@@ -1140,6 +1250,38 @@ def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None
     if getattr(args, "max_items", None) is None and plan["max_items"] is not None:
         args.max_items = int(plan["max_items"])
     return plan
+
+
+def render_plan_freshness_report(plan: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
+    now = now or datetime.now(timezone.utc)
+    generated_at = parse_iso_datetime(plan.get("generated_at"))
+    expires_at = parse_iso_datetime(plan.get("expires_at"))
+    max_age_seconds = plan.get("plan_max_age_seconds") or PLAN_MAX_AGE_SECONDS
+    age_seconds = None if generated_at is None else max((now - generated_at).total_seconds(), 0)
+    stale_reasons: list[str] = []
+    if generated_at is None:
+        stale_reasons.append("missing-generated-at")
+    elif age_seconds is not None and age_seconds > float(max_age_seconds):
+        stale_reasons.append("plan-age-exceeded")
+    if expires_at is not None and now > expires_at:
+        stale_reasons.append("plan-expired")
+    fingerprints = [row for row in plan.get("candidate_fingerprints", []) if isinstance(row, dict)]
+    drift = compare_candidate_fingerprints(fingerprints) if fingerprints else []
+    return {
+        "schema": "cleanmac.plan-freshness.v1",
+        "fresh": not stale_reasons and not drift,
+        "generated_at": plan.get("generated_at"),
+        "expires_at": plan.get("expires_at"),
+        "age_seconds": age_seconds,
+        "max_age_seconds": max_age_seconds,
+        "stale_reasons": stale_reasons,
+        "drift_count": len(drift),
+        "drift": drift,
+        "fingerprint_count": len(fingerprints),
+        "suggested_next_action": "continue"
+        if not stale_reasons and not drift
+        else "regenerate_plan_and_repeat_dry_run",
+    }
 
 
 def remap_path(pattern: str, *, root: Path, home: Path) -> str:
@@ -1307,6 +1449,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "inspect",
             "plan",
             "validate-plan",
+            "policy-simulate",
             "workflow",
             "scripts",
         ],
@@ -1379,6 +1522,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "clean inspect",
             "clean plan",
             "clean validate-plan",
+            "clean policy-simulate",
             "workflow",
             "software list",
             "software leftovers",
@@ -1472,8 +1616,10 @@ def render_ai_recommended_workflow() -> list[dict[str, Any]]:
         },
         {
             "step": "confirm",
+            "kind": "human_interaction",
             "prompt_template": "Summarize categories, estimated bytes, skipped items, risk, trash mode, and operation log before asking for explicit confirmation.",
-            "auto_call_allowed": True,
+            "auto_call_allowed": False,
+            "auto_prepare_allowed": True,
             "requires_user_confirmation": True,
             "confirmation_phrase": ai_schema.CONFIRMATION_PHRASE,
         },
@@ -4150,6 +4296,7 @@ def render_clean_plan(
     ai_origin: bool = False,
 ) -> dict[str, Any]:
     category_keys = [category.key for category in categories]
+    generated_at = datetime.now(timezone.utc)
     pre_report = render_pre_clean_report(
         categories,
         root=root,
@@ -4176,6 +4323,9 @@ def render_clean_plan(
         "schema": "cleanmac.plan.v1",
         "destructive": False,
         "dry_run": True,
+        "generated_at": generated_at.isoformat(),
+        "expires_at": (generated_at + timedelta(seconds=PLAN_MAX_AGE_SECONDS)).isoformat(),
+        "plan_max_age_seconds": PLAN_MAX_AGE_SECONDS,
         "ai_origin": ai_origin,
         "ai_summary": ai_summary,
         "categories": category_keys,
@@ -4196,6 +4346,7 @@ def render_clean_plan(
         "requires_yes_for_execute": pre_report["summary"]["requires_yes_for_execute"],
         "yes_required_categories": pre_report["summary"]["yes_required_categories"],
         "pre_clean_report": pre_report,
+        "candidate_fingerprints": candidate_fingerprints(pre_report["candidates"]),
         "replay_command": build_clean_command(category_keys, execute=False),
     }
 
@@ -4428,6 +4579,102 @@ def validate_clean_plan(plan_file: str, *, root: Path | None = None, home: Path 
             [str(key) for key in plan["category_keys"] if str(key) in CATEGORY_BY_KEY], execute=False
         ),
         "execute_command_requires_review": True,
+    }
+
+
+def render_ai_policy_simulation(
+    *,
+    plan_file: str,
+    root: Path,
+    home: Path,
+    execute: bool,
+    delete_mode: str,
+    operation_log: str | None,
+    require_plan_context: bool,
+    require_confirmation_token: bool,
+    confirmation_token: str | None,
+    original_argv: Sequence[str],
+) -> dict[str, Any]:
+    plan = load_clean_plan(plan_file)
+    context_warnings = []
+    missing_requirements: list[str] = []
+    policy_decisions: list[dict[str, Any]] = []
+    if plan.get("root") and not same_context_path(str(plan["root"]), root):
+        context_warnings.append({"field": "root", "expected": plan["root"], "actual": display_path(root)})
+    if plan.get("home") and not same_context_path(str(plan["home"]), home):
+        context_warnings.append({"field": "home", "expected": plan["home"], "actual": display_path(home)})
+    freshness = render_plan_freshness_report(plan)
+    if execute and plan.get("ai_origin"):
+        checks = [
+            ("ai_origin_requires_trash", delete_mode == "trash", "--delete-mode trash"),
+            (
+                "ai_origin_requires_operation_log",
+                "--operation-log" in original_argv and bool(operation_log),
+                "--operation-log",
+            ),
+            (
+                "ai_origin_requires_confirmation_token",
+                require_confirmation_token and bool(confirmation_token),
+                "--require-confirmation-token with --confirmation-token",
+            ),
+            ("ai_origin_requires_plan_context", require_plan_context, "--require-plan-context"),
+        ]
+        for rule, passed, requirement in checks:
+            policy_decisions.append({"rule": rule, "result": "pass" if passed else "fail"})
+            if not passed:
+                missing_requirements.append(requirement)
+    if execute and context_warnings:
+        missing_requirements.append("matching root/home plan context")
+        policy_decisions.append({"rule": "plan_context_matches", "result": "fail"})
+    elif execute:
+        policy_decisions.append({"rule": "plan_context_matches", "result": "pass"})
+    if execute and not freshness["fresh"]:
+        missing_requirements.append("fresh non-drifted plan")
+        policy_decisions.append({"rule": "plan_freshness", "result": "fail"})
+    else:
+        policy_decisions.append({"rule": "plan_freshness", "result": "pass"})
+    allowed = execute is False or not missing_requirements
+    safe_argv = [
+        "cleanmac",
+        "--json",
+        "clean",
+        "run",
+        "--plan-file",
+        plan_file,
+        "--require-plan-context",
+        "--delete-mode",
+        "trash",
+    ]
+    if execute:
+        safe_argv.extend(
+            [
+                "--execute",
+                "--yes",
+                "--operation-log",
+                operation_log or OPERATIONS_LOG_FILE,
+                "--require-confirmation-token",
+                "--confirmation-token",
+                confirmation_token or "{confirmation_token_from_matching_dry_run}",
+            ]
+        )
+    return {
+        "schema": "cleanmac.ai-policy-simulation.v1",
+        "destructive": execute,
+        "dry_run": not execute,
+        "allowed": allowed,
+        "would_be_destructive": execute,
+        "plan_file": plan_file,
+        "plan": plan,
+        "missing_requirements": missing_requirements,
+        "context_warnings": context_warnings,
+        "plan_freshness": freshness,
+        "policy_decisions": policy_decisions,
+        "required_user_confirmation": execute,
+        "required_confirmation_phrase": ai_schema.CONFIRMATION_PHRASE if execute else None,
+        "safe_argv": safe_argv,
+        "recommended_next_action": "execute_after_user_confirmation"
+        if allowed and execute
+        else ("dry_run_or_execute_with_safe_argv" if allowed else "fix_missing_requirements_and_repeat_dry_run"),
     }
 
 
@@ -4712,6 +4959,10 @@ def print_report(report: dict[str, Any], *, as_json: bool, command: str) -> None
         print(f"Plan valid: {report['valid']}")
         print(f"Replay dry-run: {report['replay_clean_command']}")
         return
+    if command == "policy-simulate":
+        print(f"Policy simulation allowed: {report['allowed']}")
+        print(f"Recommended next action: {report['recommended_next_action']}")
+        return
     if command == "workflow":
         print(f"Workflow: {report['workflow_name']}")
         print(f"Dry-run scope: {report['dry_run_scope']}")
@@ -4846,6 +5097,27 @@ def _main_impl(argv: Sequence[str]) -> int:
             validate_clean_plan(args.plan_file, root=root, home=home),
             args=args,
             command="validate-plan",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "policy-simulate":
+        emit_report(
+            render_ai_policy_simulation(
+                plan_file=args.plan_file,
+                root=root,
+                home=home,
+                execute=args.execute,
+                delete_mode=args.delete_mode,
+                operation_log=args.operation_log,
+                require_plan_context=args.require_plan_context,
+                require_confirmation_token=args.require_confirmation_token,
+                confirmation_token=args.confirmation_token,
+                original_argv=original_argv,
+            ),
+            args=args,
+            command="policy-simulate",
             root=root,
             home=home,
             argv=actual_argv,
@@ -5010,6 +5282,12 @@ def _main_impl(argv: Sequence[str]) -> int:
                 raise SystemExit(f"Plan root mismatch: expected {plan_metadata['root']} actual {display_path(root)}")
             if plan_metadata.get("home") and not same_context_path(str(plan_metadata["home"]), home):
                 raise SystemExit(f"Plan home mismatch: expected {plan_metadata['home']} actual {display_path(home)}")
+        if args.execute and plan_metadata and plan_metadata.get("ai_origin"):
+            freshness = render_plan_freshness_report(plan_metadata)
+            if not freshness["fresh"]:
+                raise SystemExit(
+                    "Refusing to execute cleanup because AI-originated plan is stale or drifted; regenerate plan and repeat dry-run."
+                )
         if args.execute and root == Path("/") and not args.allow_live_root:
             raise SystemExit(
                 "Refusing to execute cleanup against live root '/'. Use --root with a sandbox, or pass --allow-live-root after reviewing dry-run output."
