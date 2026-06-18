@@ -2157,7 +2157,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(execute_ledger["plan"]["sha256"], cleancli.file_sha256(str(plan_file)))
             self.assertTrue(execute_ledger["confirmation"]["token_required"])
             self.assertTrue(execute_ledger["confirmation"]["token_validated"])
-            self.assertEqual(execute_ledger["operation_log"]["path"], cleancli.display_path(operation_log.resolve(strict=False)))
+            self.assertEqual(
+                execute_ledger["operation_log"]["path"], cleancli.display_path(operation_log.resolve(strict=False))
+            )
             self.assertEqual(execute_ledger["operation_log"]["status"], "ready")
             self.assertTrue(execute_ledger["operation_log"]["ready"])
             self.assertTrue(execute_ledger["safe_chain_complete"])
