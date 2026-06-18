@@ -13,10 +13,12 @@ IGNORED_DIRS = {
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
+    ".venv",
     "build",
     "dist",
     "__pycache__",
     "cleanmac.egg-info",
+    "venv",
 }
 TEXT_ALLOWLIST = {
     "AGENTS.md",

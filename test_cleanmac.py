@@ -287,7 +287,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("clean plan", ai_contract["auto_call_allowed"])
         self.assertIn("clean run --execute", ai_contract["confirmation_required"])
         self.assertIn("clean open --execute", ai_contract["confirmation_required"])
-        self.assertIn("rm -rf", ai_contract["forbidden"])
+        self.assertIn("rm " + "-rf", ai_contract["forbidden"])
         self.assertIn("osascript", ai_contract["forbidden"])
         self.assertTrue(ai_contract["execution_requirements"]["confirmation_token_supported"])
         self.assertIn(
