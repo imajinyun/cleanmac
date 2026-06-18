@@ -136,6 +136,48 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("trash,downloads", message_text)
         self.assertIn("never call cleanmac_execute_plan without explicit human confirmation", message_text)
 
+    def test_resources_expose_readiness_runbook_and_self_test(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 31, "method": "resources/list"})
+        uris = {resource["uri"] for resource in response["result"]["resources"]}
+
+        self.assertIn("cleanmac://ai/readiness", uris)
+        self.assertIn("cleanmac://ai/runbook", uris)
+        self.assertIn("cleanmac://ai/self-test", uris)
+
+        read_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 32,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/runbook"},
+            }
+        )
+        payload = json.loads(read_response["result"]["contents"][0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-runbook.v1")
+        self.assertFalse(payload["execution_gate"]["auto_call_allowed"])
+
+    def test_prompts_include_confirm_execution_gate(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 33, "method": "prompts/list"})
+        names = {prompt["name"] for prompt in response["result"]["prompts"]}
+        self.assertIn("confirm-execution-gate", names)
+
+        prompt_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 34,
+                "method": "prompts/get",
+                "params": {
+                    "name": "confirm-execution-gate",
+                    "arguments": {"plan_file": "/tmp/cleanmac-plan.json"},
+                },
+            }
+        )
+        message_text = prompt_response["result"]["messages"][0]["content"]["text"]
+        self.assertIn("/tmp/cleanmac-plan.json", message_text)
+        self.assertIn("cleanmac_policy_simulate", message_text)
+        self.assertIn("cleanmac_dry_run_plan", message_text)
+        self.assertIn("cleanmac_execute_plan", message_text)
+
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(
             {
@@ -147,6 +189,21 @@ class MckServerTests(unittest.TestCase):
         )
         self.assertEqual(response["error"]["code"], -32602)
         self.assertIn("Unknown tool", response["error"]["message"])
+
+    def test_tools_call_error_includes_structured_content(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 41,
+                "method": "tools/call",
+                "params": {"name": "cleanmac_inspect", "arguments": {}},
+            }
+        )
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        self.assertEqual(result["structuredContent"]["schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertEqual(result["structuredContent"]["tool"], "cleanmac_inspect")
+        self.assertIn("message", result["structuredContent"])
 
     def test_initialize_handshake(self) -> None:
         response = _mcp_request(
