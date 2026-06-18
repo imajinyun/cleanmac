@@ -64,9 +64,12 @@ def get_tool_definitions() -> list[dict]:
 
 def tool_to_mcp(tool: dict) -> dict:
     """Convert an AI_TOOL_DEFINITION entry to MCP tool format."""
+    from cleancli.ai_decision import mcp_annotations_for_tool  # type: ignore[import-untyped]
+
     return {
         "name": tool["name"],
         "description": tool["description"],
+        "annotations": mcp_annotations_for_tool(tool),
         "inputSchema": tool["parameters"],
     }
 
@@ -83,12 +86,25 @@ def parse_json_output(output: str) -> dict | None:
 
 def structured_error(tool_name: str, message: str) -> dict:
     parsed = parse_json_output(message)
+    lower_message = message.lower()
+    missing_or_invalid_arguments: list[str] = []
+    if "categories" in lower_message:
+        missing_or_invalid_arguments.append("categories")
+    if "plan_file" in lower_message or "plan-file" in lower_message:
+        missing_or_invalid_arguments.append("plan_file")
+    if "confirmation_token" in lower_message or "confirmation-token" in lower_message:
+        missing_or_invalid_arguments.append("confirmation_token")
+
+    argument_error = bool(missing_or_invalid_arguments or "failed to build argv" in lower_message)
     return {
         "schema": "cleanmac.mcp-tool-error.v1",
         "tool": tool_name,
         "message": message,
         "parsed_error": parsed,
-        "retryable": False,
+        "host_action": "fix_arguments_and_retry" if argument_error else "stop_and_show_structured_error",
+        "missing_or_invalid_arguments": missing_or_invalid_arguments,
+        "retryable": argument_error,
+        "safe_to_auto_retry": False,
     }
 
 
@@ -130,6 +146,12 @@ def mcp_resources() -> list[dict]:
             "description": "Machine-readable AI host integration self-check report.",
             "mimeType": "application/json",
         },
+        {
+            "uri": "cleanmac://ai/tool-decision-matrix",
+            "name": "cleanmac AI tool decision matrix",
+            "description": "Per-tool AI Host decision metadata, MCP annotations, phase, and recovery guidance.",
+            "mimeType": "application/json",
+        },
     ]
 
 
@@ -139,6 +161,7 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli.ai_readiness import render_ai_readiness  # type: ignore[import-untyped]
     from cleancli.ai_runbook import render_ai_runbook  # type: ignore[import-untyped]
     from cleancli.core import (  # type: ignore[import-untyped]
+        render_ai_decision_matrix,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -156,6 +179,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_runbook()
     elif uri == "cleanmac://ai/self-test":
         payload = render_ai_self_test()
+    elif uri == "cleanmac://ai/tool-decision-matrix":
+        payload = render_ai_decision_matrix()
     else:
         raise ValueError(f"Unknown resource URI: {uri}")
     return {
@@ -185,6 +210,17 @@ def mcp_prompts() -> list[dict]:
                 {
                     "name": "plan_file",
                     "description": "Path to the cleanmac plan JSON file that would be executed.",
+                    "required": True,
+                }
+            ],
+        },
+        {
+            "name": "explain-tool-decision",
+            "description": "Explain whether an AI host may call a cleanmac tool and why.",
+            "arguments": [
+                {
+                    "name": "tool_name",
+                    "description": "cleanmac_* tool name to explain.",
                     "required": True,
                 }
             ],
@@ -227,6 +263,25 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                             "candidate count, total bytes, delete mode, operation log path, and "
                             "ai_confirmation_summary.confirmation_token. Only call cleanmac_execute_plan "
                             "after the human explicitly provides the required confirmation phrase and token."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "explain-tool-decision":
+        tool_name = str(arguments.get("tool_name") or "cleanmac_capabilities")
+        return {
+            "description": "Explain cleanmac AI tool decision metadata",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Read cleanmac://ai/tool-decision-matrix and explain whether an AI host "
+                            f"may call {tool_name}. Include risk, runbook phase, MCP annotations, "
+                            "required predecessor tools, on_error host action, and the rule: "
+                            "do not auto-call destructive tools."
                         ),
                     },
                 }

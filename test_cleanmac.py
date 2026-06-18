@@ -226,12 +226,26 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(mcp_report["schema"], "cleanmac.mcp-tool-catalog.v1")
         self.assertIn("invocation", mcp_report["tools"][0])
 
+        mcp_tools = {tool["name"]: tool for tool in mcp_report["tools"]}
+        execute_annotations = mcp_tools["cleanmac_execute_plan"]["annotations"]
+        self.assertEqual(execute_annotations["readOnlyHint"], False)
+        self.assertEqual(execute_annotations["destructiveHint"], True)
+        self.assertEqual(execute_annotations["idempotentHint"], False)
+        self.assertEqual(execute_annotations["openWorldHint"], False)
+
+        inspect_annotations = mcp_tools["cleanmac_inspect"]["annotations"]
+        self.assertEqual(inspect_annotations["readOnlyHint"], True)
+        self.assertEqual(inspect_annotations["destructiveHint"], False)
+        self.assertEqual(inspect_annotations["idempotentHint"], True)
+        self.assertEqual(inspect_annotations["openWorldHint"], False)
+
         all_result = self.run_cli("ai-tools")
         all_report = json.loads(all_result.stdout)
         self.assertEqual(all_report["schema"], "cleanmac.ai-tools.v1")
         self.assertEqual(all_report["openai"]["schema"], "cleanmac.ai-openai-functions.v1")
         self.assertEqual(all_report["anthropic"]["schema"], "cleanmac.ai-anthropic-tools.v1")
         self.assertEqual(all_report["mcp"]["schema"], "cleanmac.mcp-tool-catalog.v1")
+        self.assertIn("annotations", all_report["mcp"]["tools"][0])
 
         # === Anthropic-specific schema assertions ===
         anthropic_tools = anthropic_report["tools"]

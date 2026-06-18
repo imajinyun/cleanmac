@@ -27,7 +27,11 @@ class AISelfTestTests(unittest.TestCase):
         self.assertIn("contract-compatibility", check_ids)
         self.assertIn("provider-export-parity", check_ids)
         self.assertIn("runbook-execution-gate", check_ids)
+        self.assertIn("tool-decision-matrix", check_ids)
         self.assertIn("mcp-transport", check_ids)
+        checks = {check["id"]: check for check in report["checks"]}
+        self.assertTrue(checks["tool-decision-matrix"]["passed"])
+        self.assertEqual(checks["tool-decision-matrix"]["detail"]["violation_count"], 0)
         self.assertTrue(all(check["passed"] for check in report["checks"]), report["checks"])
 
 

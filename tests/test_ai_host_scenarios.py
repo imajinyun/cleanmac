@@ -26,6 +26,19 @@ def run_cli(*args: str, root: Path, home: Path) -> dict:
     return json.loads(result.stdout)
 
 
+def run_cli_process(*args: str, root: Path, home: Path) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["CLEANMAC_TEST_MODE"] = "1"
+    env["CLEANMAC_TEST_NO_AUTH"] = "1"
+    return subprocess.run(
+        [sys.executable, str(CLI), "--json", "--root", str(root), "--home", str(home), *args],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+
+
 class AIHostScenarioTests(unittest.TestCase):
     def test_safe_ai_host_plan_to_dry_run_sequence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -73,6 +86,72 @@ class AIHostScenarioTests(unittest.TestCase):
             )
             self.assertTrue(dry_run["dry_run"])
             self.assertTrue(dry_run["ai_confirmation_summary"]["confirmation_token_embedded"])
+
+    def test_ai_host_policy_simulate_allows_execute_intent_with_dry_run_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            home = root / "Users" / "tester"
+            trash = home / ".Trash"
+            downloads = home / "Downloads"
+            downloads.mkdir(parents=True)
+            trash.mkdir(parents=True)
+            (downloads / "old-cache.tmp").write_text("cache", encoding="utf-8")
+            plan_file = Path(tmp) / "plan.json"
+            operation_log = Path(tmp) / "operations.jsonl"
+
+            plan = run_cli("clean", "plan", "--categories", "downloads", "--ai-origin", root=root, home=home)
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            dry_run = run_cli(
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--delete-mode",
+                "trash",
+                root=root,
+                home=home,
+            )
+            token = dry_run["ai_confirmation_summary"]["confirmation_token"]
+
+            simulation = run_cli(
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                str(operation_log),
+                "--require-plan-context",
+                "--require-confirmation-token",
+                "--confirmation-token",
+                token,
+                root=root,
+                home=home,
+            )
+
+            self.assertTrue(simulation["allowed"], simulation)
+            self.assertFalse(simulation["blocking_reasons"], simulation["blocking_reasons"])
+            decisions = {row["rule"]: row["result"] for row in simulation["policy_decisions"]}
+            self.assertEqual(decisions["ai_origin_requires_confirmation_token"], "pass")
+            self.assertEqual(decisions["ai_origin_requires_operation_log"], "pass")
+            self.assertEqual(decisions["plan_context_matches"], "pass")
+
+    def test_ai_host_invalid_category_error_is_machine_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            home = root / "Users" / "tester"
+            home.mkdir(parents=True)
+
+            result = run_cli_process("clean", "inspect", "--categories", "notACategory", root=root, home=home)
+
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(result.stderr)
+            self.assertEqual(report["schema"], "cleanmac.ai-error.v1")
+            self.assertEqual(report["error"]["code"], "UNKNOWN_CATEGORY")
+            self.assertTrue(report["error"]["retryable_after_fix"])
+            self.assertIn("cleanmac_list_categories", report["error"]["next_allowed_tools"])
 
 
 if __name__ == "__main__":

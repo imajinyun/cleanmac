@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from cleancli.ai_decision import mcp_annotations_for_tool
+
 DEFAULT_OPERATION_LOG = "~/.cleanmac/operations.jsonl"
 CONFIRMATION_PHRASE = "确认执行 cleanmac 清理"
 
@@ -433,6 +435,14 @@ def tool_definition_violations(tool: Mapping[str, Any], *, seen_names: set[str])
             violations.append(f"{name}: destructive tools must require confirmation")
     elif tool.get("requires_confirmation") is True and tool.get("auto_call_allowed") is True:
         violations.append(f"{name}: confirmation-required tools must not be auto-callable")
+    annotations = mcp_annotations_for_tool(tool)
+    if tool.get("risk") == "destructive":
+        if annotations["readOnlyHint"] is not False:
+            violations.append(f"{name}: destructive tool must not be readOnlyHint")
+        if annotations["destructiveHint"] is not True:
+            violations.append(f"{name}: destructive tool must be destructiveHint")
+    elif annotations["destructiveHint"] is not False:
+        violations.append(f"{name}: non-destructive tool must not be destructiveHint")
     return violations
 
 
@@ -629,6 +639,7 @@ def render_mcp_tool_catalog() -> dict[str, Any]:
                 "risk": tool["risk"],
                 "auto_call_allowed": tool["auto_call_allowed"],
                 "requires_confirmation": tool["requires_confirmation"],
+                "annotations": mcp_annotations_for_tool(tool),
                 "inputSchema": tool["parameters"],
                 "invocation": {
                     "mode": "argv",

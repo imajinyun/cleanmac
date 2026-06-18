@@ -54,6 +54,7 @@ class MckServerTests(unittest.TestCase):
         for tool in tools:
             self.assertIn("name", tool)
             self.assertIn("description", tool)
+            self.assertIn("annotations", tool)
             self.assertIn("inputSchema", tool)
         names = {t["name"] for t in tools}
         self.assertIn("cleanmac_capabilities", names)
@@ -61,6 +62,9 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac_open", names)
         self.assertIn("cleanmac_links", names)
         self.assertIn("cleanmac_optimize", names)
+        tool_by_name = {t["name"]: t for t in tools}
+        self.assertTrue(tool_by_name["cleanmac_capabilities"]["annotations"]["readOnlyHint"])
+        self.assertTrue(tool_by_name["cleanmac_execute_plan"]["annotations"]["destructiveHint"])
 
     def test_tools_call_readonly_capabilities(self) -> None:
         response = _mcp_request(
@@ -143,6 +147,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/readiness", uris)
         self.assertIn("cleanmac://ai/runbook", uris)
         self.assertIn("cleanmac://ai/self-test", uris)
+        self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
 
         read_response = _mcp_request(
             {
@@ -155,6 +160,18 @@ class MckServerTests(unittest.TestCase):
         payload = json.loads(read_response["result"]["contents"][0]["text"])
         self.assertEqual(payload["schema"], "cleanmac.ai-runbook.v1")
         self.assertFalse(payload["execution_gate"]["auto_call_allowed"])
+
+        decision_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 35,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/tool-decision-matrix"},
+            }
+        )
+        decision_payload = json.loads(decision_response["result"]["contents"][0]["text"])
+        self.assertEqual(decision_payload["schema"], "cleanmac.ai-tool-decision-matrix.v1")
+        self.assertEqual(decision_payload["violation_count"], 0)
 
     def test_prompts_include_confirm_execution_gate(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 33, "method": "prompts/list"})
@@ -177,6 +194,27 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac_policy_simulate", message_text)
         self.assertIn("cleanmac_dry_run_plan", message_text)
         self.assertIn("cleanmac_execute_plan", message_text)
+
+    def test_prompt_explains_tool_decision(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 36, "method": "prompts/list"})
+        names = {prompt["name"] for prompt in response["result"]["prompts"]}
+        self.assertIn("explain-tool-decision", names)
+
+        prompt_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 37,
+                "method": "prompts/get",
+                "params": {
+                    "name": "explain-tool-decision",
+                    "arguments": {"tool_name": "cleanmac_execute_plan"},
+                },
+            }
+        )
+        message_text = prompt_response["result"]["messages"][0]["content"]["text"]
+        self.assertIn("cleanmac://ai/tool-decision-matrix", message_text)
+        self.assertIn("cleanmac_execute_plan", message_text)
+        self.assertIn("do not auto-call destructive tools", message_text)
 
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(
@@ -201,9 +239,14 @@ class MckServerTests(unittest.TestCase):
         )
         result = response["result"]
         self.assertTrue(result["isError"])
-        self.assertEqual(result["structuredContent"]["schema"], "cleanmac.mcp-tool-error.v1")
-        self.assertEqual(result["structuredContent"]["tool"], "cleanmac_inspect")
-        self.assertIn("message", result["structuredContent"])
+        structured = result["structuredContent"]
+        self.assertEqual(structured["schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertEqual(structured["tool"], "cleanmac_inspect")
+        self.assertIn("message", structured)
+        self.assertEqual(structured["host_action"], "fix_arguments_and_retry")
+        self.assertTrue(structured["retryable"])
+        self.assertIn("categories", structured["missing_or_invalid_arguments"])
+        self.assertEqual(structured["safe_to_auto_retry"], False)
 
     def test_initialize_handshake(self) -> None:
         response = _mcp_request(

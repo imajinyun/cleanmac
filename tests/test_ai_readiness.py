@@ -28,6 +28,10 @@ class AIReadinessTests(unittest.TestCase):
         self.assertTrue(report["contracts"]["contract_compatibility"]["compatible"])
         self.assertTrue(report["contracts"]["provider_export_parity"]["same_tool_names"])
         self.assertEqual(report["mcp"]["server_command"], ["cleanmac-mcp"])
+        self.assertTrue(report["decision_matrix"]["ready"])
+        self.assertEqual(report["decision_matrix"]["schema"], "cleanmac.ai-tool-decision-matrix.v1")
+        self.assertEqual(report["decision_matrix"]["violation_count"], 0)
+        self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
         self.assertIn("cleanmac_capabilities", report["recommended_starting_tools"])
         self.assertIn("cleanmac_policy_simulate", report["mandatory_before_execute"])
 
