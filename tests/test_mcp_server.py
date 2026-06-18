@@ -63,12 +63,14 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac_optimize", names)
 
     def test_tools_call_readonly_capabilities(self) -> None:
-        response = _mcp_request({
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/call",
-            "params": {"name": "cleanmac_capabilities", "arguments": {}},
-        })
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "cleanmac_capabilities", "arguments": {}},
+            }
+        )
         result = response["result"]
         self.assertFalse(result.get("isError"))
         self.assertEqual(result["content"][0]["type"], "text")
@@ -76,26 +78,30 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(data["schema"], "cleanmac.capabilities.v1")
 
     def test_tools_call_unknown_tool(self) -> None:
-        response = _mcp_request({
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "tools/call",
-            "params": {"name": "cleanmac_nonexistent", "arguments": {}},
-        })
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "cleanmac_nonexistent", "arguments": {}},
+            }
+        )
         self.assertEqual(response["error"]["code"], -32602)
         self.assertIn("Unknown tool", response["error"]["message"])
 
     def test_initialize_handshake(self) -> None:
-        response = _mcp_request({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "test", "version": "1.0"},
-            },
-        })
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "1.0"},
+                },
+            }
+        )
         result = response["result"]
         self.assertEqual(result["protocolVersion"], "2024-11-05")
         self.assertIn("tools", result["capabilities"])
@@ -129,19 +135,21 @@ class MckServerTests(unittest.TestCase):
             text=True,
             env=_mcp_env(),
         )
-        payload = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "test", "version": "1.0"},
-            },
-        })
+        payload = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "1.0"},
+                },
+            }
+        )
         stdout, stderr = proc.communicate(input=payload, timeout=10)
 
-        lines = [l for l in stdout.strip().split("\n") if l.strip()]
+        lines = [line for line in stdout.strip().split("\n") if line.strip()]
         self.assertGreaterEqual(len(lines), 2, f"Expected at least 2 output lines, got {len(lines)}")
 
         # First line: the initialize response

@@ -12,6 +12,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import Any
 
 import cleancli.core as cleancli
 
@@ -731,34 +732,33 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(report["ai_confirmation_summary"]["confirmation_token_validated"])
 
     def test_ai_confirmation_token_boundary_conditions(self) -> None:
-        from cleancli.core import ai_confirmation_token, ai_confirmation_token_context
-        from cleancli.core import CATEGORIES
+        from cleancli.core import CATEGORIES, ai_confirmation_token, ai_confirmation_token_context
 
         cats = [c for c in CATEGORIES if c.key in ("trash", "downloads")]
-        base = dict(
-            categories=cats,
-            root=Path("/sandbox"),
-            home=Path("/Users/tester"),
-            risk_policy="default",
-            max_delete_mb=10.0,
-            max_items=5,
-            include_patterns=[],
-            exclude_patterns=[],
-            older_than_days=None,
-            min_size_mb=0,
-            name_regex=None,
-            bundle_allowlist=[],
-            bundle_blocklist=["com.apple.mail"],
-            delete_mode="trash",
-            plan_file=None,
-            rows=[],
-        )
+        base: dict[str, Any] = {
+            "categories": cats,
+            "root": Path("/sandbox"),
+            "home": Path("/Users/tester"),
+            "risk_policy": "default",
+            "max_delete_mb": 10.0,
+            "max_items": 5,
+            "include_patterns": [],
+            "exclude_patterns": [],
+            "older_than_days": None,
+            "min_size_mb": 0,
+            "name_regex": None,
+            "bundle_allowlist": [],
+            "bundle_blocklist": ["com.apple.mail"],
+            "delete_mode": "trash",
+            "plan_file": None,
+            "rows": [],
+        }
         ctx = ai_confirmation_token_context(**base)
         token = ai_confirmation_token(ctx)
 
         # Token format: cleanmac-confirm-<32 hex chars>
         self.assertTrue(token.startswith("cleanmac-confirm-"))
-        hex_part = token[len("cleanmac-confirm-"):]
+        hex_part = token[len("cleanmac-confirm-") :]
         self.assertEqual(len(hex_part), 32)
         self.assertTrue(all(c in "0123456789abcdef" for c in hex_part))
 
@@ -784,16 +784,26 @@ class CleanMacCLITests(unittest.TestCase):
 
         # Empty context generates valid format too
         empty_ctx = ai_confirmation_token_context(
-            categories=[], root=Path("/"), home=Path("/"),
-            risk_policy="default", max_delete_mb=None, max_items=None,
-            include_patterns=[], exclude_patterns=[], older_than_days=None,
-            min_size_mb=0, name_regex=None, bundle_allowlist=[],
-            bundle_blocklist=[], delete_mode="permanent",
-            plan_file=None, rows=[],
+            categories=[],
+            root=Path("/"),
+            home=Path("/"),
+            risk_policy="default",
+            max_delete_mb=None,
+            max_items=None,
+            include_patterns=[],
+            exclude_patterns=[],
+            older_than_days=None,
+            min_size_mb=0,
+            name_regex=None,
+            bundle_allowlist=[],
+            bundle_blocklist=[],
+            delete_mode="permanent",
+            plan_file=None,
+            rows=[],
         )
         empty_token = ai_confirmation_token(empty_ctx)
         self.assertTrue(empty_token.startswith("cleanmac-confirm-"))
-        self.assertEqual(len(empty_token[len("cleanmac-confirm-"):]), 32)
+        self.assertEqual(len(empty_token[len("cleanmac-confirm-") :]), 32)
 
     def test_json_errors_emit_ai_safe_error_taxonomy(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -3230,7 +3240,12 @@ class CleanMacCLITests(unittest.TestCase):
             plan_file.write_text(plan_result.stdout, encoding="utf-8")
 
             cases = [
-                (["clean", "list"], lambda report: report["schema"] == "cleanmac.category-list.v1" and isinstance(report.get("categories"), list)),
+                (
+                    ["clean", "list"],
+                    lambda report: (
+                        report["schema"] == "cleanmac.category-list.v1" and isinstance(report.get("categories"), list)
+                    ),
+                ),
                 (
                     ["clean", "inspect", "--categories", "trash"],
                     lambda report: report["schema"] == "cleanmac.inspect.v1" and report["dry_run"],
