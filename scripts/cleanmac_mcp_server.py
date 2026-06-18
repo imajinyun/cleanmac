@@ -154,6 +154,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://ai/governance-advice",
+            "name": "cleanmac AI governance advice",
+            "description": "Governance recommendations for safe large-model cleanmac tool calling.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -177,6 +183,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_decision_matrix,
         render_ai_eval_pack,
         render_ai_eval_run,
+        render_ai_governance_advice_report,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -196,6 +203,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_self_test()
     elif uri == "cleanmac://ai/tool-decision-matrix":
         payload = render_ai_decision_matrix()
+    elif uri == "cleanmac://ai/governance-advice":
+        payload = render_ai_governance_advice_report()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":
@@ -243,6 +252,11 @@ def mcp_prompts() -> list[dict]:
                     "required": True,
                 }
             ],
+        },
+        {
+            "name": "review-ai-governance",
+            "description": "Summarize governance advice before an AI Host calls cleanmac tools.",
+            "arguments": [],
         },
         {
             "name": "run-ai-eval-smoke",
@@ -323,6 +337,23 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                             "Read cleanmac://ai/eval-pack, then read cleanmac://ai/eval-run-smoke. "
                             "Summarize passed_count, failed_count, scenario ids, and trace event_count. "
                             "This evaluation is non-destructive; do not call cleanmac_execute_plan."
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "review-ai-governance":
+        return {
+            "description": "Review cleanmac AI governance advice",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Read cleanmac://ai/governance-advice and summarize ready_for_llm_calling, "
+                            "default_policy, required_host_controls, anti_patterns, and p0 recommendations. "
+                            "Do not call cleanmac_execute_plan while producing this governance review."
                         ),
                     },
                 }

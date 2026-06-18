@@ -148,6 +148,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/runbook", uris)
         self.assertIn("cleanmac://ai/self-test", uris)
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
+        self.assertIn("cleanmac://ai/governance-advice", uris)
         self.assertIn("cleanmac://ai/eval-pack", uris)
         self.assertIn("cleanmac://ai/eval-run-smoke", uris)
 
@@ -174,6 +175,18 @@ class MckServerTests(unittest.TestCase):
         decision_payload = json.loads(decision_response["result"]["contents"][0]["text"])
         self.assertEqual(decision_payload["schema"], "cleanmac.ai-tool-decision-matrix.v1")
         self.assertEqual(decision_payload["violation_count"], 0)
+
+        governance_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 42,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/governance-advice"},
+            }
+        )
+        governance_payload = json.loads(governance_response["result"]["contents"][0]["text"])
+        self.assertEqual(governance_payload["schema"], "cleanmac.ai-governance-advice.v1")
+        self.assertTrue(governance_payload["ready_for_llm_calling"], governance_payload)
 
         eval_pack_response = _mcp_request(
             {
@@ -258,6 +271,24 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/eval-pack", message_text)
         self.assertIn("cleanmac://ai/eval-run-smoke", message_text)
         self.assertIn("do not call cleanmac_execute_plan", message_text)
+
+    def test_prompt_reviews_ai_governance(self) -> None:
+        response = _mcp_request({"jsonrpc": "2.0", "id": 43, "method": "prompts/list"})
+        names = {prompt["name"] for prompt in response["result"]["prompts"]}
+        self.assertIn("review-ai-governance", names)
+
+        prompt_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 44,
+                "method": "prompts/get",
+                "params": {"name": "review-ai-governance", "arguments": {}},
+            }
+        )
+        message_text = prompt_response["result"]["messages"][0]["content"]["text"]
+        self.assertIn("cleanmac://ai/governance-advice", message_text)
+        self.assertIn("required_host_controls", message_text)
+        self.assertIn("Do not call cleanmac_execute_plan", message_text)
 
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(
