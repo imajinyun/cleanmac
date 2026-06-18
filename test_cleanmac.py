@@ -294,6 +294,11 @@ class CleanMacCLITests(unittest.TestCase):
             "--require-plan-context",
             ai_contract["execution_requirements"]["ai_originated_plan_requires"],
         )
+        self.assertEqual(ai_contract["error_taxonomy_schema"], "cleanmac.ai-error.v1")
+        error_codes = {row["code"] for row in report["ai_error_taxonomy"]}
+        self.assertIn("CLI_ARGUMENT_ERROR", error_codes)
+        self.assertIn("UNKNOWN_CATEGORY", error_codes)
+        self.assertIn("CONFIRMATION_TOKEN_MISMATCH", error_codes)
         workflow = report["ai_recommended_workflow"]
         self.assertEqual(workflow[0]["step"], "discover")
         self.assertEqual(workflow[-1]["step"], "execute")
@@ -331,6 +336,16 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual({tool["name"] for tool in mcp_catalog["tools"]}, tool_names)
         self.assertTrue(all(tool["invocation"]["mode"] == "argv" for tool in mcp_catalog["tools"]))
         self.assertTrue(all(not tool["invocation"].get("uses_shell", True) for tool in mcp_catalog["tools"]))
+        schema_validation = report["ai_schema_validation"]
+        self.assertEqual(schema_validation["schema"], "cleanmac.ai-schema-validation.v1")
+        self.assertTrue(schema_validation["valid"], schema_validation["violations"])
+        self.assertEqual(schema_validation["tool_count"], len(tool_names))
+        self.assertIn("cleanmac_execute_plan", schema_validation["destructive_tools"])
+        contract_compatibility = report["ai_contract_compatibility"]
+        self.assertEqual(contract_compatibility["schema"], "cleanmac.ai-contract-compatibility.v1")
+        self.assertTrue(contract_compatibility["compatible"], contract_compatibility["violations"])
+        self.assertEqual(contract_compatibility["function_tool_count"], len(tool_names))
+        self.assertEqual(contract_compatibility["mcp_tool_count"], len(tool_names))
         manual_ids = {row["id"] for row in boundaries["manual_only_behaviors"]}
         self.assertIn("destructive-clean-execution", manual_ids)
 
@@ -338,8 +353,13 @@ class CleanMacCLITests(unittest.TestCase):
         ai_schema = importlib.import_module("cleancli.ai_schema")
 
         schemas = ai_schema.render_function_schemas()
+        validation = ai_schema.validate_ai_tool_definitions()
         by_name = {tool["name"]: tool for tool in schemas["tools"]}
 
+        self.assertEqual(validation["schema"], "cleanmac.ai-schema-validation.v1")
+        self.assertTrue(validation["valid"], validation["violations"])
+        self.assertEqual(validation["tool_count"], len(schemas["tools"]))
+        self.assertIn("cleanmac_execute_plan", validation["destructive_tools"])
         self.assertIn("cleanmac_inspect", by_name)
         self.assertIn("cleanmac_execute_plan", by_name)
         self.assertFalse(by_name["cleanmac_inspect"]["requires_confirmation"])
@@ -469,6 +489,7 @@ class CleanMacCLITests(unittest.TestCase):
             )
             execute_report = json.loads(execute.stdout)
             execute_summary = execute_report["ai_confirmation_summary"]
+            execute_ledger = execute_report["ai_execution_ledger"]
 
             self.assertFalse(execute_summary["requires_confirmation"])
             self.assertEqual(execute_summary["recommended_next_action"], "review_operation_log")
@@ -476,6 +497,11 @@ class CleanMacCLITests(unittest.TestCase):
                 execute_summary["deleted_count"], sum(1 for row in execute_report["items"] if row["deleted"])
             )
             self.assertEqual(execute_summary["operation_log"], execute_report["operation_log"])
+            self.assertEqual(execute_ledger["schema"], "cleanmac.ai-execution-ledger.v1")
+            self.assertEqual(execute_ledger["phase"], "clean-execute")
+            self.assertEqual(execute_ledger["confirmation"]["token_validated"], False)
+            self.assertEqual(execute_ledger["operation_log"]["status"], "ready")
+            self.assertTrue(execute_ledger["operation_log"]["ready"])
             self.assertEqual(execute_report["ai_summary"]["phase"], "clean-execute")
             self.assertEqual(execute_report["ai_summary"]["recommended_next_action"], "review_operation_log")
 
@@ -578,6 +604,65 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertFalse(candidate.exists())
             self.assertTrue(report["ai_confirmation_summary"]["confirmation_token_validated"])
+
+    def test_json_errors_emit_ai_safe_error_taxonomy(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            unknown_category = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--categories",
+                "doesNotExist",
+            )
+            unknown_report = json.loads(unknown_category.stderr)
+
+            self.assertNotEqual(unknown_category.returncode, 0)
+            self.assertEqual(unknown_report["schema"], "cleanmac.ai-error.v1")
+            self.assertFalse(unknown_report["ok"])
+            self.assertFalse(unknown_report["destructive_operation_started"])
+            self.assertEqual(unknown_report["error"]["code"], "UNKNOWN_CATEGORY")
+            self.assertEqual(unknown_report["error"]["category"], "invalid_category")
+            self.assertEqual(
+                unknown_report["error"]["suggested_next_action"], "call_capabilities_or_clean_list_then_retry"
+            )
+            self.assertIn("Unknown category: doesNotExist", unknown_report["error"]["message"])
+
+            missing_token = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--categories",
+                "downloads",
+                "--delete-mode",
+                "trash",
+                "--execute",
+                "--yes",
+                "--require-confirmation-token",
+            )
+            missing_token_report = json.loads(missing_token.stderr)
+
+            self.assertNotEqual(missing_token.returncode, 0)
+            self.assertEqual(missing_token_report["error"]["code"], "CONFIRMATION_TOKEN_REQUIRED")
+            self.assertEqual(missing_token_report["error"]["category"], "confirmation_required")
+            self.assertFalse(missing_token_report["safe_to_auto_retry"])
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
+
+            bad_argument = self.run_cli_unchecked("--json", "clean", "run", "--definitely-unknown")
+            bad_argument_report = json.loads(bad_argument.stderr)
+
+            self.assertNotEqual(bad_argument.returncode, 0)
+            self.assertEqual(bad_argument_report["error"]["code"], "CLI_ARGUMENT_ERROR")
+            self.assertEqual(bad_argument_report["error"]["exit_code"], 2)
+            self.assertIn("unrecognized arguments", bad_argument_report["error"]["message"])
 
     def test_grouped_clean_commands_match_flat_alias_reports(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -1927,7 +2012,18 @@ class CleanMacCLITests(unittest.TestCase):
                 "--delete-mode",
                 "trash",
             )
-            token = json.loads(dry_run.stdout)["ai_confirmation_summary"]["confirmation_token"]
+            dry_report = json.loads(dry_run.stdout)
+            token = dry_report["ai_confirmation_summary"]["confirmation_token"]
+            dry_ledger = dry_report["ai_execution_ledger"]
+            self.assertEqual(dry_ledger["schema"], "cleanmac.ai-execution-ledger.v1")
+            self.assertEqual(dry_ledger["phase"], "clean-dry-run")
+            self.assertEqual(dry_ledger["plan"]["file"], cleancli.display_path(plan_file.resolve(strict=False)))
+            self.assertEqual(dry_ledger["plan"]["sha256"], cleancli.file_sha256(str(plan_file)))
+            self.assertTrue(dry_ledger["plan"]["ai_originated"])
+            self.assertTrue(dry_ledger["plan"]["context_required"])
+            self.assertEqual(dry_ledger["confirmation"]["token"], token)
+            self.assertFalse(dry_ledger["confirmation"]["token_validated"])
+            self.assertFalse(dry_ledger["safe_chain_complete"])
             candidate = root / "Users/tester/Downloads/download.bin"
 
             permanent = self.run_cli_unchecked(
@@ -2048,11 +2144,29 @@ class CleanMacCLITests(unittest.TestCase):
                 token,
             )
             report = json.loads(execute.stdout)
+            execute_ledger = report["ai_execution_ledger"]
+            records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+            delete_record = next(row for row in records if row["action"] == "delete")
 
             self.assertFalse(candidate.exists())
             self.assertTrue(operation_log.exists())
             self.assertTrue(report["plan_metadata"]["ai_origin"])
             self.assertTrue(report["ai_confirmation_summary"]["confirmation_token_validated"])
+            self.assertEqual(execute_ledger["phase"], "clean-execute")
+            self.assertEqual(execute_ledger["plan"]["file"], cleancli.display_path(plan_file.resolve(strict=False)))
+            self.assertEqual(execute_ledger["plan"]["sha256"], cleancli.file_sha256(str(plan_file)))
+            self.assertTrue(execute_ledger["confirmation"]["token_required"])
+            self.assertTrue(execute_ledger["confirmation"]["token_validated"])
+            self.assertEqual(execute_ledger["operation_log"]["path"], cleancli.display_path(operation_log.resolve(strict=False)))
+            self.assertEqual(execute_ledger["operation_log"]["status"], "ready")
+            self.assertTrue(execute_ledger["operation_log"]["ready"])
+            self.assertTrue(execute_ledger["safe_chain_complete"])
+            self.assertTrue(delete_record["ai"]["originated_plan"])
+            self.assertEqual(delete_record["ai"]["plan_file"], cleancli.display_path(plan_file.resolve(strict=False)))
+            self.assertEqual(delete_record["ai"]["plan_sha256"], cleancli.file_sha256(str(plan_file)))
+            self.assertTrue(delete_record["ai"]["require_plan_context"])
+            self.assertTrue(delete_record["ai"]["confirmation_token_required"])
+            self.assertTrue(delete_record["ai"]["confirmation_token_validated"])
 
     def test_plan_file_reuses_filters(self) -> None:
         tmp, root, home = self.make_sandbox()

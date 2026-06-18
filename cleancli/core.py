@@ -635,8 +635,163 @@ GROUPED_COMMAND_ALIASES: dict[tuple[str, str], str] = {
 }
 
 
+class CleanMacCLIError(Exception):
+    def __init__(self, message: str, *, exit_code: int = 1) -> None:
+        super().__init__(message)
+        self.message = message.strip()
+        self.exit_code = exit_code
+
+
+class CleanMacArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise CleanMacCLIError(message, exit_code=2)
+
+    def exit(self, status: int = 0, message: str | None = None) -> None:
+        if status:
+            raise CleanMacCLIError(message or "argument parsing failed", exit_code=status)
+        raise SystemExit(status)
+
+
+def render_ai_error_taxonomy() -> list[dict[str, Any]]:
+    return [
+        {
+            "code": "CLI_ARGUMENT_ERROR",
+            "category": "invalid_arguments",
+            "retryable_after_fix": True,
+            "suggested_next_action": "correct_arguments_and_retry_readonly_first",
+        },
+        {
+            "code": "UNKNOWN_CATEGORY",
+            "category": "invalid_category",
+            "retryable_after_fix": True,
+            "suggested_next_action": "call_capabilities_or_clean_list_then_retry",
+        },
+        {
+            "code": "PLAN_CONTEXT_REQUIRED",
+            "category": "missing_guard",
+            "retryable_after_fix": True,
+            "suggested_next_action": "add_plan_file_or_remove_require_plan_context_for_readonly_dry_run",
+        },
+        {
+            "code": "PLAN_CONTEXT_MISMATCH",
+            "category": "context_mismatch",
+            "retryable_after_fix": True,
+            "suggested_next_action": "regenerate_plan_for_current_root_home_context",
+        },
+        {
+            "code": "AI_GUARD_REQUIRED",
+            "category": "ai_guard_missing",
+            "retryable_after_fix": True,
+            "suggested_next_action": "rerun_with_trash_operation_log_confirmation_token_and_plan_context",
+        },
+        {
+            "code": "CONFIRMATION_TOKEN_REQUIRED",
+            "category": "confirmation_required",
+            "retryable_after_fix": True,
+            "suggested_next_action": "perform_matching_dry_run_and_pass_confirmation_token_after_user_confirmation",
+        },
+        {
+            "code": "CONFIRMATION_TOKEN_MISMATCH",
+            "category": "confirmation_mismatch",
+            "retryable_after_fix": True,
+            "suggested_next_action": "discard_token_and_repeat_dry_run_for_exact_current_context",
+        },
+        {
+            "code": "OPERATION_LOG_UNAVAILABLE",
+            "category": "audit_log_unavailable",
+            "retryable_after_fix": True,
+            "suggested_next_action": "choose_writable_non_symlink_operation_log_path_then_retry",
+        },
+        {
+            "code": "SAFETY_BUDGET_EXCEEDED",
+            "category": "safety_budget_exceeded",
+            "retryable_after_fix": True,
+            "suggested_next_action": "narrow_scope_or_raise_budget_only_after_user_review",
+        },
+        {
+            "code": "LIVE_ROOT_REFUSED",
+            "category": "live_root_guard",
+            "retryable_after_fix": False,
+            "suggested_next_action": "use_sandbox_root_or_explicit_user_authorized_live_root_flow",
+        },
+        {
+            "code": "USER_CONFIRMATION_REQUIRED",
+            "category": "user_confirmation_required",
+            "retryable_after_fix": True,
+            "suggested_next_action": "show_dry_run_summary_and_get_explicit_user_confirmation",
+        },
+        {
+            "code": "EXECUTION_REFUSED",
+            "category": "execution_refused",
+            "retryable_after_fix": False,
+            "suggested_next_action": "inspect_error_message_and_return_control_to_user",
+        },
+    ]
+
+
+AI_ERROR_TAXONOMY_BY_CODE = {entry["code"]: entry for entry in render_ai_error_taxonomy()}
+
+
+def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
+    if exit_code == 2:
+        code = "CLI_ARGUMENT_ERROR"
+    elif "Unknown category" in message:
+        code = "UNKNOWN_CATEGORY"
+    elif "--require-plan-context requires --plan-file" in message:
+        code = "PLAN_CONTEXT_REQUIRED"
+    elif "Plan root mismatch" in message or "Plan home mismatch" in message:
+        code = "PLAN_CONTEXT_MISMATCH"
+    elif "AI-originated plan requires" in message:
+        code = "AI_GUARD_REQUIRED"
+    elif "confirmation token is required" in message:
+        code = "CONFIRMATION_TOKEN_REQUIRED"
+    elif "confirmation token mismatch" in message:
+        code = "CONFIRMATION_TOKEN_MISMATCH"
+    elif "operation log preflight failed" in message:
+        code = "OPERATION_LOG_UNAVAILABLE"
+    elif "exceeds --max-items budget" in message or "exceed --max-delete-mb budget" in message:
+        code = "SAFETY_BUDGET_EXCEEDED"
+    elif "live root '/'" in message:
+        code = "LIVE_ROOT_REFUSED"
+    elif "without --yes" in message:
+        code = "USER_CONFIRMATION_REQUIRED"
+    else:
+        code = "EXECUTION_REFUSED"
+    taxonomy = AI_ERROR_TAXONOMY_BY_CODE[code]
+    return {
+        "code": code,
+        "category": taxonomy["category"],
+        "retryable_after_fix": taxonomy["retryable_after_fix"],
+        "suggested_next_action": taxonomy["suggested_next_action"],
+    }
+
+
+def render_ai_error_report(message: str, *, argv: Sequence[str], exit_code: int) -> dict[str, Any]:
+    classification = classify_cli_error(message, exit_code=exit_code)
+    return {
+        "schema": "cleanmac.ai-error.v1",
+        "ok": False,
+        "destructive_operation_started": False,
+        "safe_to_auto_retry": False,
+        "argv": list(argv),
+        "error": {
+            **classification,
+            "message": message,
+            "exit_code": exit_code,
+        },
+    }
+
+
+def emit_cli_error(message: str, *, argv: Sequence[str], exit_code: int, as_json: bool) -> int:
+    if as_json:
+        print(json.dumps(render_ai_error_report(message, argv=argv, exit_code=exit_code), indent=2), file=sys.stderr)
+    else:
+        print(message, file=sys.stderr)
+    return exit_code
+
+
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
+    parser = CleanMacArgumentParser(
         prog="cleanmac",
         description="macOS cleanup CLI. Defaults to dry-run for destructive commands.",
     )
@@ -656,7 +811,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Write the command report to a JSON audit file while still printing the normal output.",
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=True, parser_class=CleanMacArgumentParser)
 
     subparsers.add_parser("list", help="List available cleanup categories.")
     subparsers.add_parser("capabilities", help="Describe commands and safety guardrails.")
@@ -1260,6 +1415,8 @@ def render_ai_tool_contract() -> dict[str, Any]:
                 "--require-plan-context",
             ],
         },
+        "error_taxonomy_schema": "cleanmac.ai-error.v1",
+        "error_taxonomy": render_ai_error_taxonomy(),
     }
 
 
@@ -1413,6 +1570,7 @@ def render_ai_intent_hints() -> list[dict[str, Any]]:
 
 
 def render_capabilities() -> dict[str, Any]:
+    ai_tool_contract = render_ai_tool_contract()
     return {
         "schema": "cleanmac.capabilities.v1",
         "name": "cleanmac",
@@ -1543,11 +1701,14 @@ def render_capabilities() -> dict[str, Any]:
             "symlink_target_validation_enabled": True,
         },
         "boundary_governance": render_boundary_governance(),
-        "ai_tool_contract": render_ai_tool_contract(),
+        "ai_tool_contract": ai_tool_contract,
+        "ai_error_taxonomy": render_ai_error_taxonomy(),
         "ai_recommended_workflow": render_ai_recommended_workflow(),
         "ai_intent_hints": render_ai_intent_hints(),
         "ai_function_schemas": ai_schema.render_function_schemas(),
         "mcp_tool_catalog": ai_schema.render_mcp_tool_catalog(),
+        "ai_schema_validation": ai_schema.validate_ai_tool_definitions(),
+        "ai_contract_compatibility": ai_schema.render_contract_compatibility(ai_tool_contract),
     }
 
 
@@ -3557,6 +3718,67 @@ def render_ai_confirmation_summary(
     }
 
 
+def render_ai_execution_ledger(
+    *,
+    execute: bool,
+    confirmation_token_context: dict[str, Any],
+    confirmation_token_value: str,
+    confirmation_token_required: bool,
+    confirmation_token_validated: bool,
+    operation_log: str | None,
+    operation_log_path: str | None,
+    operation_log_status: dict[str, Any],
+    operation_session_id: str,
+    operation_log_entry_count: int,
+    delete_mode: str,
+    require_plan_context: bool,
+    ai_originated_plan: bool,
+) -> dict[str, Any]:
+    effective_operation_log = operation_log_path or operation_log
+    operation_log_ready = operation_log_status.get("status") in {"ready", "not-needed"}
+    plan_file = confirmation_token_context.get("plan_file")
+    plan_sha256 = confirmation_token_context.get("plan_sha256")
+    safe_chain_complete = bool(
+        execute
+        and delete_mode == "trash"
+        and effective_operation_log
+        and operation_log_status.get("status") == "ready"
+        and confirmation_token_required
+        and confirmation_token_validated
+        and (not plan_file or require_plan_context)
+    )
+    return {
+        "schema": "cleanmac.ai-execution-ledger.v1",
+        "phase": "clean-execute" if execute else "clean-dry-run",
+        "safe_chain_complete": safe_chain_complete,
+        "plan": {
+            "file": plan_file,
+            "sha256": plan_sha256,
+            "ai_originated": ai_originated_plan,
+            "context_required": require_plan_context,
+        },
+        "confirmation": {
+            "token_required": confirmation_token_required,
+            "token_validated": confirmation_token_validated,
+            "token": confirmation_token_value,
+        },
+        "operation_log": {
+            "path": effective_operation_log,
+            "status": operation_log_status.get("status"),
+            "ready": operation_log_ready,
+            "error": operation_log_status.get("error"),
+            "rotated": operation_log_status.get("rotated", False),
+            "entry_count": operation_log_entry_count,
+            "session_id": operation_session_id,
+        },
+        "execution": {
+            "delete_mode": delete_mode,
+            "destructive": execute,
+            "trash_recoverable": delete_mode == "trash",
+        },
+    }
+
+
 def clean(
     categories: list[Category],
     *,
@@ -3579,6 +3801,8 @@ def clean(
     operation_log: str | None = OPERATIONS_LOG_FILE,
     confirmation_token: str | None = None,
     require_confirmation_token: bool = False,
+    require_plan_context: bool = False,
+    ai_originated_plan: bool = False,
     command_argv: Sequence[str] = (),
 ) -> dict[str, Any]:
     timer_start = debug_timer_start("clean", root=root, home=home)
@@ -3679,6 +3903,15 @@ def clean(
     confirmation_token_validated = False
     operation_log_entries: list[dict[str, Any]] = []
     command_text = shlex.join(["cleanmac.py", *command_argv]) if command_argv else "cleanmac.py clean run"
+    ai_operation_audit = {
+        "schema": "cleanmac.operation-log-ai-audit.v1",
+        "originated_plan": ai_originated_plan,
+        "plan_file": confirmation_context.get("plan_file"),
+        "plan_sha256": confirmation_context.get("plan_sha256"),
+        "require_plan_context": require_plan_context,
+        "confirmation_token_required": require_confirmation_token,
+        "confirmation_token_validated": False,
+    }
     if execute:
         for item in skipped:
             operation_log_entries.append(
@@ -3700,6 +3933,7 @@ def clean(
                     "reason": item["reason"],
                     "root": display_path(root),
                     "home": display_path(home),
+                    "ai": dict(ai_operation_audit),
                 }
             )
     if execute and fail_on_skipped and skipped:
@@ -3718,6 +3952,9 @@ def clean(
         if confirmation_token != expected_confirmation_token:
             raise SystemExit("Refusing to execute cleanup because confirmation token mismatch.")
         confirmation_token_validated = True
+    ai_operation_audit["confirmation_token_validated"] = confirmation_token_validated
+    for entry in operation_log_entries:
+        entry["ai"] = dict(ai_operation_audit)
     operation_log_status = {
         "schema": "cleanmac.operation-log-status.v1",
         "status": "disabled" if not operation_log else "not-needed",
@@ -3785,6 +4022,7 @@ def clean(
                     "status": row.get("status", "deleted"),
                     "root": display_path(root),
                     "home": display_path(home),
+                    "ai": dict(ai_operation_audit),
                 }
             )
     elapsed_ms = debug_timer_end("clean", timer_start, root=root, home=home)
@@ -3823,6 +4061,21 @@ def clean(
         max_delete_mb=max_delete_mb,
         max_items=max_items,
         pre_report=pre_report,
+    )
+    ai_execution_ledger = render_ai_execution_ledger(
+        execute=execute,
+        confirmation_token_context=confirmation_context,
+        confirmation_token_value=expected_confirmation_token,
+        confirmation_token_required=require_confirmation_token,
+        confirmation_token_validated=confirmation_token_validated,
+        operation_log=operation_log,
+        operation_log_path=operation_log_path,
+        operation_log_status=operation_log_status,
+        operation_session_id=session_id,
+        operation_log_entry_count=len(operation_log_entries),
+        delete_mode=delete_mode,
+        require_plan_context=require_plan_context,
+        ai_originated_plan=ai_originated_plan,
     )
     ai_summary = render_ai_summary(
         categories,
@@ -3868,6 +4121,7 @@ def clean(
         "pre_clean_report": pre_report,
         "post_clean_report": post_report,
         "ai_confirmation_summary": ai_confirmation_summary,
+        "ai_execution_ledger": ai_execution_ledger,
         "ai_summary": ai_summary,
         "total_bytes": candidate_bytes,
         "total_human": human_size(candidate_bytes),
@@ -4566,8 +4820,8 @@ def emit_report(
     print_report(report, as_json=args.json, command=command)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    original_argv = list(sys.argv[1:] if argv is None else argv)
+def _main_impl(argv: Sequence[str]) -> int:
+    original_argv = list(argv)
     actual_argv, grouped_command = normalize_grouped_argv(original_argv)
     args = parse_args(actual_argv)
     if grouped_command:
@@ -4787,6 +5041,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             operation_log=args.operation_log,
             confirmation_token=args.confirmation_token,
             require_confirmation_token=args.require_confirmation_token,
+            require_plan_context=args.require_plan_context,
+            ai_originated_plan=bool(plan_metadata and plan_metadata.get("ai_origin")),
             command_argv=original_argv,
         )
         if plan_metadata:
@@ -4794,6 +5050,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         emit_report(report, args=args, command="clean", root=root, home=home, argv=actual_argv)
         return 0
     raise SystemExit(f"Unsupported command: {args.command}")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    original_argv = list(sys.argv[1:] if argv is None else argv)
+    as_json = "--json" in original_argv
+    try:
+        return _main_impl(original_argv)
+    except CleanMacCLIError as exc:
+        return emit_cli_error(exc.message, argv=original_argv, exit_code=exc.exit_code, as_json=as_json)
+    except SystemExit as exc:
+        if exc.code in (None, 0):
+            return 0
+        exit_code = exc.code if isinstance(exc.code, int) else 1
+        message = str(exc.code) if exc.code is not None else "cleanmac exited unexpectedly"
+        return emit_cli_error(message, argv=original_argv, exit_code=exit_code, as_json=as_json)
 
 
 if __name__ == "__main__":

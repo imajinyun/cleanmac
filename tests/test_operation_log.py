@@ -36,6 +36,10 @@ def test_operation_log_records_delete_status_path_bytes_mode_and_trash_path() ->
         assert record["bytes"] > 0
         assert record["delete_mode"] == "trash"
         assert record["trash_path"]
+        assert record["ai"]["originated_plan"] is False
+        assert record["ai"]["plan_file"] is None
+        assert record["ai"]["plan_sha256"] is None
+        assert record["ai"]["confirmation_token_validated"] is False
 
 
 def test_operation_log_preflight_blocks_execute_when_parent_is_symlink() -> None:
