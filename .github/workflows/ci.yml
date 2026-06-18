@@ -89,6 +89,9 @@ jobs:
       - name: Run dependency audit and SBOM smoke
         run: make dependency-audit-smoke
 
+      - name: Run MCP server smoke
+        run: make mcp-smoke
+
   compatibility-smoke:
     name: Compatibility smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

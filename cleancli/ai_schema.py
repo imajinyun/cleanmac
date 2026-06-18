@@ -82,7 +82,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_diagnose",
-        "description": "Analyze categories and emit non-destructive cleanup recommendations.",
+        "description": "Analyze selected cleanup categories and emit non-destructive, actionable recommendations including warning thresholds and suggested actions. Does not delete or modify any files. Use after capabilities to guide category selection.",
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
@@ -117,7 +117,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_analyze_tree",
-        "description": "Scan a directory tree and report largest entries without deleting files.",
+        "description": "Scan a directory tree recursively and report the largest files and directories by size. Read-only operation. Useful for identifying disk space hogs before deciding on cleanup. Supports configurable scan depth, minimum size filters, and result count limits.",
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
@@ -247,7 +247,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_workflow",
-        "description": "Run the fixed safe workflow without destructive cleanup.",
+        "description": "Run the fixed safe multi-phase workflow: inspect selected categories, diagnose thresholds, generate a dry-run cleanup plan. The execute phase is never automatically invoked. Recommended starting point for AI-driven cleanup after capabilities discovery and category selection.",
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
@@ -297,6 +297,78 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "requires_confirmation": False,
         "parameters": object_schema({"app": string_schema("Application name or bundle ID to plan for.")}),
         "argv_template": ["cleanmac", "--json", "software", "uninstall-plan"],
+    },
+    {
+        "name": "cleanmac_scripts",
+        "description": "List shell command templates for cleanup categories without executing anything.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "categories": category_array_schema(),
+                "group": {
+                    "type": "string",
+                    "enum": ["all", "clean", "software", "optimize", "analyze", "status"],
+                    "description": "Command template group filter.",
+                },
+            },
+            required=("categories",),
+        ),
+        "argv_template": ["cleanmac", "--json", "scripts"],
+    },
+    {
+        "name": "cleanmac_open",
+        "description": "Preview or execute Finder open targets for cleanup categories. Dry-run by default; use --execute to open folders in Finder.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "categories": category_array_schema(),
+                "execute": bool_schema("Open folders in Finder. Requires user confirmation."),
+            },
+            required=("categories",),
+        ),
+        "argv_template": ["cleanmac", "--json", "open"],
+    },
+    {
+        "name": "cleanmac_links",
+        "description": "Preview, create, or remove app log and cache symlink folder mappings. Dry-run by default.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "kind": {
+                    "type": "string",
+                    "enum": ["all", "logs", "cache"],
+                    "description": "Link kind filter. All = both logs and cache.",
+                },
+                "execute": bool_schema("Create or update symlink mappings. Requires user confirmation."),
+                "remove": bool_schema("Remove existing symlink mappings. Requires user confirmation."),
+            },
+        ),
+        "argv_template": ["cleanmac", "--json", "links"],
+    },
+    {
+        "name": "cleanmac_optimize",
+        "description": "List, plan, or run system maintenance tasks. Current execution is dry-run only; run action is reserved for future use.",
+        "risk": "planning",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "plan", "run"],
+                    "description": "Optimize action. list=show available tasks, plan=show maintenance plan, run=execute tasks (currently dry-run only).",
+                },
+                "execute": bool_schema("Reserved for future maintenance execution; current tasks remain dry-run."),
+            },
+            required=("action",),
+        ),
+        "argv_template": ["cleanmac", "--json", "optimize", "{action}"],
     },
 )
 
@@ -401,6 +473,14 @@ def representative_args(name: str) -> dict[str, Any]:
             "operation_log": DEFAULT_OPERATION_LOG,
             "require_plan_context": True,
         }
+    if name == "cleanmac_scripts":
+        return {"categories": ["trash"], "group": "all"}
+    if name == "cleanmac_open":
+        return {"categories": ["trash"]}
+    if name == "cleanmac_links":
+        return {"kind": "logs"}
+    if name == "cleanmac_optimize":
+        return {"action": "list"}
     return {}
 
 
@@ -425,7 +505,7 @@ def validate_ai_tool_definitions() -> dict[str, Any]:
             violations.append(f"{name}: built argv must start with cleanmac --json")
         if any(part in {"sh", "bash", "zsh", "-c", "shell"} for part in argv):
             violations.append(f"{name}: built argv contains shell execution tokens")
-        if tool.get("risk") != "destructive" and "--execute" in argv and name != "cleanmac_policy_simulate":
+        if tool.get("risk") != "destructive" and "--execute" in argv and name not in {"cleanmac_policy_simulate", "cleanmac_open", "cleanmac_links"}:
             violations.append(f"{name}: non-destructive tool argv must not include --execute")
     function_tool_names = {tool["name"] for tool in render_function_schemas()["tools"]}
     mcp_tool_names = {tool["name"] for tool in render_mcp_tool_catalog()["tools"]}
@@ -732,5 +812,28 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
     if name == "cleanmac_software_uninstall_plan":
         argv = ["cleanmac", "--json", "software", "uninstall-plan"]
         append_option(argv, args, "app", "--app")
+        return argv
+    if name == "cleanmac_scripts":
+        argv = ["cleanmac", "--json", "scripts", "--categories", categories_arg(args.get("categories"))]
+        append_option(argv, args, "group", "--group")
+        return argv
+    if name == "cleanmac_open":
+        argv = ["cleanmac", "--json", "open", "--categories", categories_arg(args.get("categories"))]
+        if args.get("execute"):
+            argv.append("--execute")
+        return argv
+    if name == "cleanmac_links":
+        argv = ["cleanmac", "--json", "links"]
+        append_option(argv, args, "kind", "--kind")
+        if args.get("execute"):
+            argv.append("--execute")
+        if args.get("remove"):
+            argv.append("--remove")
+        return argv
+    if name == "cleanmac_optimize":
+        action = str(args.get("action", "list"))
+        argv = ["cleanmac", "--json", "optimize", action]
+        if args.get("execute"):
+            argv.append("--execute")
         return argv
     raise ValueError(f"Unknown cleanmac AI tool: {name}")
