@@ -30,6 +30,7 @@ from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run
 from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
+from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
@@ -1121,6 +1122,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit governance advice for safe large-model cleanmac tool calling.",
     )
     subparsers.add_parser(
+        "ai-host-policy",
+        help="Emit machine-readable allow/deny policy for AI Host cleanmac tool calling.",
+    )
+    subparsers.add_parser(
         "ai-eval-pack",
         help="Emit AI Host integration scenario definitions without running them.",
     )
@@ -1988,6 +1993,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-self-test",
             "ai-decision-matrix",
             "ai-governance-advice",
+            "ai-host-policy",
             "ai-eval-pack",
             "ai-eval-run",
         ],
@@ -2113,6 +2119,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_runbook": render_ai_runbook(),
         "ai_decision_matrix": render_ai_decision_matrix(),
         "ai_governance_advice": render_ai_governance_advice_report(),
+        "ai_host_policy": render_ai_host_policy_report(),
         "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
         "ai_readiness": render_ai_readiness(ai_tool_contract),
@@ -2133,6 +2140,12 @@ def render_ai_governance_advice_report() -> dict[str, Any]:
         decision_matrix=decision_matrix,
         eval_pack=eval_pack,
     )
+
+
+def render_ai_host_policy_report() -> dict[str, Any]:
+    decision_matrix = render_ai_decision_matrix()
+    governance_advice = render_ai_governance_advice_report()
+    return render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
@@ -2164,6 +2177,8 @@ def render_ai_self_test() -> dict[str, Any]:
     eval_pack = render_ai_eval_pack()
     governance_advice = render_ai_governance_advice_report()
     governance_validation = validate_ai_governance_advice(governance_advice)
+    host_policy = render_ai_host_policy_report()
+    host_policy_validation = validate_ai_host_policy(host_policy)
     checks = [
         {
             "id": "schema-validation",
@@ -2207,6 +2222,14 @@ def render_ai_self_test() -> dict[str, Any]:
                 "schema": governance_advice["schema"],
                 "ready_for_llm_calling": governance_advice["ready_for_llm_calling"],
                 "validation": governance_validation,
+            },
+        },
+        {
+            "id": "ai-host-policy",
+            "passed": bool(host_policy["valid"] and host_policy_validation["valid"]),
+            "detail": {
+                "schema": host_policy["schema"],
+                "validation": host_policy_validation,
             },
         },
         {
@@ -5784,6 +5807,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-governance-advice":
         print(json.dumps(render_ai_governance_advice_report(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-host-policy":
+        print(json.dumps(render_ai_host_policy_report(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-eval-pack":
         print(json.dumps(render_ai_eval_pack(), indent=2, ensure_ascii=False))

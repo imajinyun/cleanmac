@@ -7,6 +7,7 @@ from cleancli import ai_schema
 from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_eval import render_ai_eval_pack
 from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
+from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_runbook import render_ai_runbook
 
 
@@ -37,6 +38,9 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     )
     governance_validation = validate_ai_governance_advice(governance_advice)
     governance_ready = bool(governance_advice["ready_for_llm_calling"] and governance_validation["valid"])
+    host_policy = render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
+    host_policy_validation = validate_ai_host_policy(host_policy)
+    host_policy_ready = bool(host_policy["valid"] and host_policy_validation["valid"])
     return {
         "schema": "cleanmac.ai-readiness.v1",
         "ready": bool(
@@ -48,6 +52,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and decision_matrix_ready
             and eval_pack_ready
             and governance_ready
+            and host_policy_ready
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -101,6 +106,12 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "level": governance_advice["governance_score"]["level"],
             "validation": governance_validation,
         },
+        "host_policy": {
+            "schema": host_policy["schema"],
+            "ready": host_policy_ready,
+            "default_decision": host_policy["default_decision"],
+            "validation": host_policy_validation,
+        },
         "recommended_starting_tools": [
             "cleanmac_capabilities",
             "cleanmac_list_categories",
@@ -119,6 +130,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             ["cleanmac", "--json", "ai-runbook"],
             ["cleanmac", "--json", "ai-decision-matrix"],
             ["cleanmac", "--json", "ai-governance-advice"],
+            ["cleanmac", "--json", "ai-host-policy"],
             ["cleanmac", "--json", "ai-eval-pack"],
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
         ],

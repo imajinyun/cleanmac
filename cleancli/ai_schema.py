@@ -381,6 +381,15 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema({}),
         "argv_template": ["cleanmac", "--json", "ai-governance-advice"],
     },
+    {
+        "name": "cleanmac_ai_host_policy",
+        "description": "Return a machine-readable AI Host allow/deny policy with auto-call permissions, destructive execution gates, prompt-injection boundaries, and error recovery rules.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({}),
+        "argv_template": ["cleanmac", "--json", "ai-host-policy"],
+    },
 )
 
 
@@ -464,6 +473,7 @@ def representative_args(name: str) -> dict[str, Any]:
         "cleanmac_software_list",
         "cleanmac_software_leftovers",
         "cleanmac_software_startup_items",
+        "cleanmac_ai_host_policy",
     }:
         return {}
     if name == "cleanmac_diagnose":
@@ -894,4 +904,6 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         return argv
     if name == "cleanmac_ai_governance_advice":
         return ["cleanmac", "--json", "ai-governance-advice"]
+    if name == "cleanmac_ai_host_policy":
+        return ["cleanmac", "--json", "ai-host-policy"]
     raise ValueError(f"Unknown cleanmac AI tool: {name}")

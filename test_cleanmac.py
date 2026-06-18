@@ -261,7 +261,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 23
+        EXPECTED_TOOL_COUNT = 24
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -315,6 +315,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("status", report["commands"])
         self.assertIn("validate-plan", report["commands"])
         self.assertIn("ai-governance-advice", report["commands"])
+        self.assertIn("ai-host-policy", report["commands"])
         self.assertIn("ai-eval-pack", report["commands"])
         self.assertIn("ai-eval-run", report["commands"])
         self.assertEqual(report["preferred_command_style"], "grouped")
@@ -327,6 +328,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertFalse(report["ai_eval_pack"]["allows_destructive_execution"])
         self.assertEqual(report["ai_governance_advice"]["schema"], "cleanmac.ai-governance-advice.v1")
         self.assertTrue(report["ai_governance_advice"]["ready_for_llm_calling"])
+        self.assertEqual(report["ai_host_policy"]["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertTrue(report["ai_host_policy"]["valid"])
+        self.assertIn("cleanmac_execute_plan", report["ai_host_policy"]["auto_call"]["deny"])
         self.assertTrue(report["safety_guardrails"]["dry_run_default"])
         self.assertEqual(report["safety_guardrails"]["bundle_allowlist_flag"], "clean --bundle-allowlist")
         self.assertEqual(report["safety_guardrails"]["bundle_blocklist_flag"], "clean --bundle-blocklist")
@@ -449,6 +453,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(function_schemas["schema"], "cleanmac.ai-function-schemas.v1")
         tool_names = {tool["name"] for tool in function_schemas["tools"]}
         self.assertIn("cleanmac_ai_governance_advice", tool_names)
+        self.assertIn("cleanmac_ai_host_policy", tool_names)
         self.assertIn("cleanmac_generate_plan", tool_names)
         self.assertIn("cleanmac_execute_plan", tool_names)
         self.assertIn("cleanmac_policy_simulate", tool_names)
