@@ -189,9 +189,200 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
             },
             ("plan_file", "confirmation_phrase", "confirmation_token", "operation_log", "require_plan_context"),
         ),
-        "argv_template": ["cleanmac", "--json", "clean", "run"],
+        "argv_template": [
+            "cleanmac",
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            "{plan_file}",
+            "--require-plan-context",
+            "--delete-mode",
+            "trash",
+            "--execute",
+            "--yes",
+            "--operation-log",
+            "{operation_log}",
+            "--require-confirmation-token",
+            "--confirmation-token",
+            "{confirmation_token}",
+        ],
     },
 )
+
+
+REQUIRED_TOOL_FIELDS = (
+    "name",
+    "description",
+    "risk",
+    "auto_call_allowed",
+    "requires_confirmation",
+    "parameters",
+    "argv_template",
+)
+ALLOWED_RISKS = {"readonly", "planning", "dry-run", "destructive"}
+
+
+def tool_definition_violations(tool: Mapping[str, Any], *, seen_names: set[str]) -> list[str]:
+    name = str(tool.get("name") or "<missing-name>")
+    violations: list[str] = []
+    for field in REQUIRED_TOOL_FIELDS:
+        if field not in tool:
+            violations.append(f"{name}: missing required tool field {field}")
+    if not isinstance(tool.get("name"), str) or not str(tool.get("name") or "").startswith("cleanmac_"):
+        violations.append(f"{name}: name must be a cleanmac_* string")
+    elif name in seen_names:
+        violations.append(f"{name}: duplicate tool name")
+    else:
+        seen_names.add(name)
+    if tool.get("risk") not in ALLOWED_RISKS:
+        violations.append(f"{name}: invalid risk {tool.get('risk')!r}")
+    if not isinstance(tool.get("auto_call_allowed"), bool):
+        violations.append(f"{name}: auto_call_allowed must be boolean")
+    if not isinstance(tool.get("requires_confirmation"), bool):
+        violations.append(f"{name}: requires_confirmation must be boolean")
+    parameters = tool.get("parameters")
+    if not isinstance(parameters, Mapping) or parameters.get("type") != "object":
+        violations.append(f"{name}: parameters must be an object JSON schema")
+    else:
+        if parameters.get("additionalProperties") is not False:
+            violations.append(f"{name}: parameters must set additionalProperties=false")
+        required = parameters.get("required", [])
+        properties = parameters.get("properties", {})
+        if not isinstance(required, list):
+            violations.append(f"{name}: parameters.required must be a list")
+        if not isinstance(properties, Mapping):
+            violations.append(f"{name}: parameters.properties must be an object")
+        elif isinstance(required, list):
+            for field in required:
+                if field not in properties:
+                    violations.append(f"{name}: required parameter {field} has no schema")
+        if "shell" in str(parameters).lower() or "command" in parameters.get("properties", {}):
+            violations.append(f"{name}: parameters must not accept shell or raw command input")
+    argv_template = tool.get("argv_template")
+    if not isinstance(argv_template, list) or not argv_template or argv_template[:2] != ["cleanmac", "--json"]:
+        violations.append(f"{name}: argv_template must start with cleanmac --json")
+    elif any(not isinstance(part, str) or not part for part in argv_template):
+        violations.append(f"{name}: argv_template parts must be non-empty strings")
+    if tool.get("risk") == "destructive":
+        if tool.get("auto_call_allowed") is not False:
+            violations.append(f"{name}: destructive tools must not be auto-callable")
+        if tool.get("requires_confirmation") is not True:
+            violations.append(f"{name}: destructive tools must require confirmation")
+    elif tool.get("requires_confirmation") is True and tool.get("auto_call_allowed") is True:
+        violations.append(f"{name}: confirmation-required tools must not be auto-callable")
+    return violations
+
+
+def representative_args(name: str) -> dict[str, Any]:
+    if name in {"cleanmac_capabilities", "cleanmac_doctor", "cleanmac_status_snapshot", "cleanmac_list_categories"}:
+        return {}
+    if name == "cleanmac_diagnose":
+        return {"categories": ["trash"], "log_threshold_mb": 100, "large_threshold_mb": 1024}
+    if name == "cleanmac_inspect":
+        return {"categories": ["trash"], "limit": 10}
+    if name == "cleanmac_analyze_tree":
+        return {"path": "~", "depth": 2, "top": 10}
+    if name == "cleanmac_generate_plan":
+        return {"categories": ["trash"], "max_items": 10, "max_delete_mb": 5}
+    if name in {"cleanmac_validate_plan", "cleanmac_dry_run_plan"}:
+        return {"plan_file": "/tmp/cleanmac-plan.json"}
+    if name == "cleanmac_execute_plan":
+        return {
+            "plan_file": "/tmp/cleanmac-plan.json",
+            "confirmation_phrase": CONFIRMATION_PHRASE,
+            "confirmation_token": "cleanmac-confirm-test",
+            "operation_log": DEFAULT_OPERATION_LOG,
+            "require_plan_context": True,
+        }
+    return {}
+
+
+def validate_ai_tool_definitions() -> dict[str, Any]:
+    violations: list[str] = []
+    seen_names: set[str] = set()
+    destructive_tools: list[str] = []
+    auto_call_tools: list[str] = []
+    for tool in AI_TOOL_DEFINITIONS:
+        name = str(tool.get("name") or "<missing-name>")
+        violations.extend(tool_definition_violations(tool, seen_names=seen_names))
+        if tool.get("risk") == "destructive":
+            destructive_tools.append(name)
+        if tool.get("auto_call_allowed") is True:
+            auto_call_tools.append(name)
+        try:
+            argv = build_tool_argv(name, representative_args(name))
+        except Exception as exc:
+            violations.append(f"{name}: representative argv build failed: {exc}")
+            continue
+        if not argv or argv[:2] != ["cleanmac", "--json"]:
+            violations.append(f"{name}: built argv must start with cleanmac --json")
+        if any(part in {"sh", "bash", "zsh", "-c", "shell"} for part in argv):
+            violations.append(f"{name}: built argv contains shell execution tokens")
+        if tool.get("risk") != "destructive" and "--execute" in argv:
+            violations.append(f"{name}: non-destructive tool argv must not include --execute")
+    function_tool_names = {tool["name"] for tool in render_function_schemas()["tools"]}
+    mcp_tool_names = {tool["name"] for tool in render_mcp_tool_catalog()["tools"]}
+    definition_names = {str(tool.get("name")) for tool in AI_TOOL_DEFINITIONS}
+    if function_tool_names != definition_names:
+        violations.append("function schemas do not match AI_TOOL_DEFINITIONS")
+    if mcp_tool_names != definition_names:
+        violations.append("MCP tool catalog does not match AI_TOOL_DEFINITIONS")
+    return {
+        "schema": "cleanmac.ai-schema-validation.v1",
+        "valid": not violations,
+        "tool_count": len(AI_TOOL_DEFINITIONS),
+        "auto_call_tool_count": len(auto_call_tools),
+        "destructive_tools": destructive_tools,
+        "auto_call_tools": auto_call_tools,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
+def render_contract_compatibility(contract: Mapping[str, Any]) -> dict[str, Any]:
+    function_schemas = render_function_schemas()
+    mcp_catalog = render_mcp_tool_catalog()
+    function_tools = {tool["name"]: tool for tool in function_schemas["tools"]}
+    mcp_tools = {tool["name"]: tool for tool in mcp_catalog["tools"]}
+    violations: list[str] = []
+    if set(function_tools) != set(mcp_tools):
+        violations.append("function schema tool names differ from MCP tool names")
+    if contract.get("default_invocation", {}).get("json_required") is not True:
+        violations.append("AI contract must require JSON invocation")
+    if contract.get("execution_requirements", {}).get("confirmation_token_supported") is not True:
+        violations.append("AI contract must advertise confirmation token support")
+    for name, tool in function_tools.items():
+        mcp_tool = mcp_tools.get(name)
+        if not mcp_tool:
+            continue
+        if tool["parameters"] != mcp_tool["inputSchema"]:
+            violations.append(f"{name}: function parameters differ from MCP inputSchema")
+        invocation = mcp_tool.get("invocation", {})
+        if invocation.get("mode") != "argv" or invocation.get("uses_shell") is not False:
+            violations.append(f"{name}: MCP invocation must be argv-only without shell")
+    execute_tool = function_tools.get("cleanmac_execute_plan", {})
+    execute_required = set(execute_tool.get("parameters", {}).get("required", []))
+    for field in {"plan_file", "confirmation_phrase", "confirmation_token", "operation_log", "require_plan_context"}:
+        if field not in execute_required:
+            violations.append(f"cleanmac_execute_plan: missing required parameter {field}")
+    execute_mcp = mcp_tools.get("cleanmac_execute_plan", {})
+    execute_argv = execute_mcp.get("invocation", {}).get("argv_template", [])
+    if "--execute" not in execute_argv:
+        violations.append("cleanmac_execute_plan MCP template must include --execute")
+    if execute_tool.get("auto_call_allowed") is not False or execute_tool.get("requires_confirmation") is not True:
+        violations.append("cleanmac_execute_plan must be manual confirmation only")
+    return {
+        "schema": "cleanmac.ai-contract-compatibility.v1",
+        "compatible": not violations,
+        "function_schema": function_schemas["schema"],
+        "mcp_catalog_schema": mcp_catalog["schema"],
+        "contract_schema": contract.get("schema"),
+        "function_tool_count": len(function_tools),
+        "mcp_tool_count": len(mcp_tools),
+        "violation_count": len(violations),
+        "violations": violations,
+    }
 
 
 def tool_by_name(name: str) -> dict[str, Any]:
