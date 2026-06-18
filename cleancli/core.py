@@ -5293,7 +5293,7 @@ def render_completion_shell(shell: str) -> str:
         "optimize": "list plan run --execute",
         "status": "snapshot",
         "completion": "bash zsh fish",
-        "ai-tools": "--format openai anthropic all",
+        "ai-tools": "--format openai anthropic mcp all",
         "ai-readiness": "",
         "ai-runbook": "",
         "ai-self-test": "",
@@ -5651,11 +5651,14 @@ def _main_impl(argv: Sequence[str]) -> int:
             report = ai_schema.render_openai_functions()
         elif args.format == "anthropic":
             report = ai_schema.render_anthropic_tools()
+        elif args.format == "mcp":
+            report = ai_schema.render_mcp_tool_catalog()
         else:
             report = {
                 "schema": "cleanmac.ai-tools.v1",
                 "openai": ai_schema.render_openai_functions(),
                 "anthropic": ai_schema.render_anthropic_tools(),
+                "mcp": ai_schema.render_mcp_tool_catalog(),
             }
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0

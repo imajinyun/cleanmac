@@ -221,11 +221,17 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(anthropic_report["schema"], "cleanmac.ai-anthropic-tools.v1")
         self.assertIn("input_schema", anthropic_report["tools"][0])
 
+        mcp_result = self.run_cli("ai-tools", "--format", "mcp")
+        mcp_report = json.loads(mcp_result.stdout)
+        self.assertEqual(mcp_report["schema"], "cleanmac.mcp-tool-catalog.v1")
+        self.assertIn("invocation", mcp_report["tools"][0])
+
         all_result = self.run_cli("ai-tools")
         all_report = json.loads(all_result.stdout)
         self.assertEqual(all_report["schema"], "cleanmac.ai-tools.v1")
         self.assertEqual(all_report["openai"]["schema"], "cleanmac.ai-openai-functions.v1")
         self.assertEqual(all_report["anthropic"]["schema"], "cleanmac.ai-anthropic-tools.v1")
+        self.assertEqual(all_report["mcp"]["schema"], "cleanmac.mcp-tool-catalog.v1")
 
         # === Anthropic-specific schema assertions ===
         anthropic_tools = anthropic_report["tools"]
@@ -242,6 +248,7 @@ class CleanMacCLITests(unittest.TestCase):
         EXPECTED_TOOL_COUNT = 22
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
+        self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
 
     def test_list_shows_categories(self) -> None:
         result = self.run_cli("list")
