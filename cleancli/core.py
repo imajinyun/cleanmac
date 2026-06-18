@@ -24,7 +24,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
@@ -643,10 +643,10 @@ class CleanMacCLIError(Exception):
 
 
 class CleanMacArgumentParser(argparse.ArgumentParser):
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> NoReturn:
         raise CleanMacCLIError(message, exit_code=2)
 
-    def exit(self, status: int = 0, message: str | None = None) -> None:
+    def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
         if status:
             raise CleanMacCLIError(message or "argument parsing failed", exit_code=status)
         raise SystemExit(status)
@@ -3953,8 +3953,8 @@ def clean(
             raise SystemExit("Refusing to execute cleanup because confirmation token mismatch.")
         confirmation_token_validated = True
     ai_operation_audit["confirmation_token_validated"] = confirmation_token_validated
-    for entry in operation_log_entries:
-        entry["ai"] = dict(ai_operation_audit)
+    for log_entry in operation_log_entries:
+        log_entry["ai"] = dict(ai_operation_audit)
     operation_log_status = {
         "schema": "cleanmac.operation-log-status.v1",
         "status": "disabled" if not operation_log else "not-needed",
