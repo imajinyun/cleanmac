@@ -118,6 +118,9 @@ jobs:
       - name: Run AI host smoke
         run: make ai-host-smoke
 
+      - name: Run AI robustness smoke
+        run: make ai-robustness-smoke
+
   compatibility-smoke:
     name: Compatibility smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

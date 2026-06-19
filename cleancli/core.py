@@ -33,6 +33,7 @@ from cleancli.ai_governance import render_ai_governance_advice, validate_ai_gove
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
+from cleancli.ai_versioning import render_ai_schema_registry
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 
 VERSION = "0.1.0"
@@ -1126,6 +1127,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit machine-readable allow/deny policy for AI Host cleanmac tool calling.",
     )
     subparsers.add_parser(
+        "ai-schema-registry",
+        help="Emit cleanmac AI schema inventory and compatibility policy.",
+    )
+    subparsers.add_parser(
         "ai-eval-pack",
         help="Emit AI Host integration scenario definitions without running them.",
     )
@@ -1137,6 +1142,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--scenario",
         default="smoke",
         help="AI eval scenario set to run. Default: smoke",
+    )
+    ai_eval_run_cmd.add_argument(
+        "--trace-file",
+        default=None,
+        help="Optional path to persist a redacted AI eval trace as JSONL.",
     )
 
     return parser.parse_args(argv)
@@ -1170,6 +1180,8 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-self-test",
         "ai-decision-matrix",
         "ai-governance-advice",
+        "ai-host-policy",
+        "ai-schema-registry",
         "ai-eval-pack",
         "ai-eval-run",
     }
@@ -1994,6 +2006,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-decision-matrix",
             "ai-governance-advice",
             "ai-host-policy",
+            "ai-schema-registry",
             "ai-eval-pack",
             "ai-eval-run",
         ],
@@ -2120,6 +2133,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_decision_matrix": render_ai_decision_matrix(),
         "ai_governance_advice": render_ai_governance_advice_report(),
         "ai_host_policy": render_ai_host_policy_report(),
+        "ai_schema_registry": render_ai_schema_registry(),
         "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
         "ai_readiness": render_ai_readiness(ai_tool_contract),
@@ -2179,6 +2193,7 @@ def render_ai_self_test() -> dict[str, Any]:
     governance_validation = validate_ai_governance_advice(governance_advice)
     host_policy = render_ai_host_policy_report()
     host_policy_validation = validate_ai_host_policy(host_policy)
+    schema_registry = render_ai_schema_registry()
     checks = [
         {
             "id": "schema-validation",
@@ -2231,6 +2246,13 @@ def render_ai_self_test() -> dict[str, Any]:
                 "schema": host_policy["schema"],
                 "validation": host_policy_validation,
             },
+        },
+        {
+            "id": "schema-registry-coverage",
+            "passed": bool(
+                schema_registry["schema"] == "cleanmac.ai-schema-registry.v1" and schema_registry["entry_count"] >= 20
+            ),
+            "detail": {"schema": schema_registry["schema"], "entry_count": schema_registry["entry_count"]},
         },
         {
             "id": "mcp-transport",
@@ -5396,6 +5418,8 @@ def render_completion_shell(shell: str) -> str:
         "ai-self-test",
         "ai-decision-matrix",
         "ai-governance-advice",
+        "ai-host-policy",
+        "ai-schema-registry",
         "ai-eval-pack",
         "ai-eval-run",
     ]
@@ -5426,8 +5450,10 @@ def render_completion_shell(shell: str) -> str:
         "ai-self-test": "",
         "ai-decision-matrix": "",
         "ai-governance-advice": "",
+        "ai-host-policy": "",
+        "ai-schema-registry": "",
         "ai-eval-pack": "",
-        "ai-eval-run": "--scenario smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
+        "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
     }
     if shell == "bash":
         return _render_bash_completion(commands, global_flags, category_keys, cmd_flags)
@@ -5811,6 +5837,9 @@ def _main_impl(argv: Sequence[str]) -> int:
     if args.command == "ai-host-policy":
         print(json.dumps(render_ai_host_policy_report(), indent=2, ensure_ascii=False))
         return 0
+    if args.command == "ai-schema-registry":
+        print(json.dumps(render_ai_schema_registry(), indent=2, ensure_ascii=False))
+        return 0
     if args.command == "ai-eval-pack":
         print(json.dumps(render_ai_eval_pack(), indent=2, ensure_ascii=False))
         return 0
@@ -5819,6 +5848,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             report = render_ai_eval_run(
                 scenario=args.scenario,
                 cli=Path(__file__).resolve().parent.parent / "cleanmac.py",
+                trace_file=Path(args.trace_file) if args.trace_file else None,
             )
         except ValueError as exc:
             print(
@@ -5826,6 +5856,31 @@ def _main_impl(argv: Sequence[str]) -> int:
                 file=sys.stderr,
             )
             return 1
+        except RuntimeError as exc:
+            print(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.ai-error.v1",
+                        "ok": False,
+                        "destructive_operation_started": False,
+                        "safe_to_auto_retry": False,
+                        "argv": actual_argv,
+                        "error": {
+                            "code": "trace-persistence-failed",
+                            "category": "ai_trace_persistence",
+                            "retryable_after_fix": True,
+                            "safe_to_auto_retry": False,
+                            "message": str(exc),
+                            "next_allowed_commands": ["ai-eval-run --scenario smoke"],
+                            "exit_code": 2,
+                        },
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                file=sys.stderr,
+            )
+            return 2
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
     if args.command == "validate-plan":

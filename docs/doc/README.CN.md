@@ -690,6 +690,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 python3 -m unittest -v                            # 全部测试
 python3 -m unittest tests.test_mcp_server -v      # MCP 专项
 make mcp-smoke                                     # MCP 冒烟测试
+make ai-robustness-smoke                           # AI 鲁棒性回归测试
 make local-test                                    # 完整本地测试
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # 文档校验
@@ -724,6 +725,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `governance-smoke` | 治理合约检查 |
 | `ai-governance-smoke` | AI 治理路线检查 |
 | `ai-host-smoke` | AI 主机集成测试套件 |
+| `ai-robustness-smoke` | AI 并发、幂等、协议与 trace 回归 |
 | `distribution-smoke` | wheel + sdist |
 | `release-artifacts-smoke` | SHA256SUMS + 证明 |
 | `docker-test` | Debian 容器测试 |

@@ -266,6 +266,39 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
 
+    def test_ai_schema_registry_covers_public_ai_schemas(self) -> None:
+        from cleancli import ai_versioning
+
+        registry = ai_versioning.render_ai_schema_registry()
+        self.assertEqual(registry["schema"], "cleanmac.ai-schema-registry.v1")
+        self.assertGreaterEqual(registry["entry_count"], 20)
+        names = {entry["name"] for entry in registry["entries"]}
+        self.assertIn("cleanmac.ai-readiness.v1", names)
+        self.assertIn("cleanmac.ai-trace.v1", names)
+        self.assertIn("cleanmac.capabilities.v1", names)
+
+    def test_ai_reports_render_directly_for_coverage_and_contracts(self) -> None:
+        capabilities = cleancli.render_capabilities()
+        self.assertEqual(capabilities["schema"], "cleanmac.capabilities.v1")
+        self.assertTrue(capabilities["ai_readiness"]["ready"])
+        self.assertEqual(capabilities["ai_schema_registry"]["schema"], "cleanmac.ai-schema-registry.v1")
+
+        self_test = cleancli.render_ai_self_test()
+        self.assertEqual(self_test["schema"], "cleanmac.ai-self-test.v1")
+        self.assertTrue(self_test["passed"], self_test)
+
+        governance = cleancli.render_ai_governance_advice_report()
+        self.assertEqual(governance["schema"], "cleanmac.ai-governance-advice.v1")
+        self.assertTrue(governance["ready_for_llm_calling"])
+
+        host_policy = cleancli.render_ai_host_policy_report()
+        self.assertEqual(host_policy["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertTrue(host_policy["valid"])
+
+        for shell in ("bash", "zsh", "fish"):
+            script = cleancli.render_completion_shell(shell)
+            self.assertIn("cleanmac", script)
+
     def test_list_shows_categories(self) -> None:
         result = self.run_cli("list")
         self.assertIn("trash", result.stdout)
@@ -3519,7 +3552,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('$(PYTHON) -m venv "$$tmpdir/venv"', makefile)
         self.assertIn("\"$$tmpdir/venv/bin/python\" -m pip install -e '.[test]'", makefile)
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
-        self.assertIn('"$$tmpdir/venv/bin/python" -m pytest -q', makefile)
+        self.assertIn(
+            '"$$tmpdir/venv/bin/python" -m pytest --cov=cleancli --cov=cleanmac --cov-report=term-missing -q', makefile
+        )
         self.assertIn("build-check:", makefile)
         self.assertIn("package-smoke:", makefile)
         self.assertIn("script-smoke:", makefile)
@@ -3532,6 +3567,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("ai-governance-smoke:", makefile)
         self.assertIn("open-source-smoke:", makefile)
         self.assertIn("ai-host-smoke:", makefile)
+        self.assertIn("ai-robustness-smoke:", makefile)
         self.assertIn("distribution-smoke:", makefile)
         self.assertIn("zipapp", makefile)
         self.assertIn("cleanmac.pyz", makefile)
@@ -3543,7 +3579,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke mcp-smoke ai-host-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -3582,6 +3618,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("make docs-smoke", makefile)
         self.assertIn("make governance-smoke", makefile)
         self.assertIn("make ai-governance-smoke", makefile)
+        self.assertIn("make ai-robustness-smoke", makefile)
         self.assertIn("make open-source-smoke", makefile)
         self.assertIn("make dependency-audit-smoke", makefile)
         self.assertIn("make no-cache-check", makefile)
@@ -3646,7 +3683,7 @@ class CleanMacCLITests(unittest.TestCase):
             "PYTHON=python3 ./scripts/test.sh",
             'python3 -m venv "$tmpdir/venv"',
             '"$tmpdir/venv/bin/python" -m pip install -e',
-            '"$tmpdir/venv/bin/python" -m pytest -q',
+            '"$tmpdir/venv/bin/python" -m pytest --cov=cleancli --cov=cleanmac --cov-report=term-missing -q',
             "python3 -m build --wheel --sdist --outdir",
             "python3 -m twine check",
             "-m pip install -e .",
@@ -3685,6 +3722,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("ruff>=", pyproject)
         self.assertIn("mypy>=", pyproject)
         self.assertIn("pytest>=", pyproject)
+        self.assertIn("pytest-cov>=", pyproject)
         self.assertIn("coverage[toml]>=", pyproject)
         self.assertIn("pip-audit>=", pyproject)
         self.assertIn("[tool.ruff]", pyproject)
@@ -3710,6 +3748,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("make local-test", ci)
         self.assertIn("Run pytest compatibility check", ci)
         self.assertIn("make pytest-test", ci)
+        self.assertIn("make ai-robustness-smoke", ci)
         self.assertIn("make build-check", ci)
         self.assertIn("make package-smoke", ci)
         self.assertIn("make script-smoke", ci)
@@ -3750,6 +3789,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("set -e", makefile)
         self.assertIn("--no-cache-dir", makefile)
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
+        fail_under_line = next(line for line in pyproject.splitlines() if line.startswith("fail_under = "))
+        self.assertGreaterEqual(int(fail_under_line.split("=", 1)[1].strip()), 45)
         self.assertIn("actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # pinned from actions/cache@v4.2.3", ci)
 
     def test_release_workflow_generates_checksums_attestation_and_pypi_publish(self) -> None:

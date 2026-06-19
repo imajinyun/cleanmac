@@ -159,12 +159,13 @@ class AIHostScenarioTests(unittest.TestCase):
             self.assertEqual(result["schema"], "cleanmac.ai-governance-advice.v1")
             host_controls = result.get("required_host_controls", [])
             path_data_statements = [
-                c for c in host_controls
-                if "path" in str(c).lower() or "data" in str(c).lower()
-                or "untrusted" in str(c).lower()
+                c
+                for c in host_controls
+                if "path" in str(c).lower() or "data" in str(c).lower() or "untrusted" in str(c).lower()
             ]
             self.assertGreaterEqual(
-                len(path_data_statements), 1,
+                len(path_data_statements),
+                1,
                 "Host controls must include path/data/untrusted handling",
             )
 

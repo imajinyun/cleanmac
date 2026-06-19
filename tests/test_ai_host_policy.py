@@ -5,12 +5,15 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
 
 
 class AIHostPolicyTests(unittest.TestCase):
+    report: dict[str, Any]
+
     @classmethod
     def setUpClass(cls) -> None:
         result = subprocess.run(
@@ -62,6 +65,81 @@ class AIHostPolicyTests(unittest.TestCase):
             "cleanmac://ai/host-policy",
             self.report["required_resources_before_execution"],
         )
+
+    def test_host_policy_renderer_handles_partial_decision_matrix(self) -> None:
+        from cleancli.ai_host_policy import render_ai_host_policy
+
+        report = render_ai_host_policy(
+            decision_matrix={
+                "violation_count": 1,
+                "tools": [
+                    {"name": "cleanmac_capabilities", "risk": "readonly", "auto_call_allowed": True},
+                    {"name": "cleanmac_generate_plan", "risk": "planning", "auto_call_allowed": False},
+                    {"name": "cleanmac_dry_run_plan", "risk": "dry-run", "auto_call_allowed": False},
+                    "ignored-non-mapping-row",
+                ],
+            },
+            governance_advice={"ready_for_llm_calling": False, "release_gate_commands": [], "anti_patterns": []},
+        )
+
+        self.assertEqual(report["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["auto_call"]["allow"], ["cleanmac_capabilities"])
+        self.assertEqual(report["auto_call"]["readonly_tools"], ["cleanmac_capabilities"])
+        self.assertEqual(report["auto_call"]["planning_tools"], ["cleanmac_generate_plan"])
+        self.assertEqual(report["auto_call"]["dry_run_tools"], ["cleanmac_dry_run_plan"])
+        self.assertNotIn("cleanmac_execute_plan", report["auto_call"]["destructive_tools"])
+
+    def test_host_policy_validation_reports_structural_violations(self) -> None:
+        from cleancli.ai_host_policy import validate_ai_host_policy
+
+        validation = validate_ai_host_policy(
+            {
+                "schema": "cleanmac.not-host-policy.v1",
+                "default_decision": "allow",
+                "transport": {"shell_allowed": True},
+                "auto_call": "invalid",
+                "execution_gate": "invalid",
+                "valid": False,
+            }
+        )
+
+        self.assertEqual(validation["schema"], "cleanmac.ai-host-policy-validation.v1")
+        self.assertFalse(validation["valid"])
+        joined = "\n".join(validation["violations"])
+        self.assertIn("schema must be cleanmac.ai-host-policy.v1", joined)
+        self.assertIn("default_decision must be deny", joined)
+        self.assertIn("transport.shell_allowed must be false", joined)
+        self.assertIn("auto_call must be an object", joined)
+        self.assertIn("execution_gate must be an object", joined)
+        self.assertIn("host policy valid flag must be true", joined)
+
+    def test_host_policy_validation_reports_missing_destructive_gate_flags(self) -> None:
+        from cleancli.ai_host_policy import validate_ai_host_policy
+
+        validation = validate_ai_host_policy(
+            {
+                "schema": "cleanmac.ai-host-policy.v1",
+                "default_decision": "deny",
+                "transport": {"shell_allowed": False},
+                "auto_call": {"deny": [], "destructive_tools": []},
+                "execution_gate": {
+                    "requires_human_confirmation": False,
+                    "requires_matching_dry_run_confirmation_token": False,
+                    "requires_trash_delete_mode": False,
+                    "requires_operation_log": False,
+                    "requires_plan_context_match": False,
+                },
+                "valid": True,
+            }
+        )
+
+        self.assertFalse(validation["valid"])
+        joined = "\n".join(validation["violations"])
+        self.assertIn("cleanmac_execute_plan must be auto-call denied", joined)
+        self.assertIn("cleanmac_execute_plan must be marked destructive", joined)
+        self.assertIn("execution_gate.requires_human_confirmation must be true", joined)
+        self.assertIn("execution_gate.requires_plan_context_match must be true", joined)
 
 
 if __name__ == "__main__":
