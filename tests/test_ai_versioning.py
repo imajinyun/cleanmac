@@ -101,6 +101,8 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("dry_run", plan_schema["required"])
         self.assertEqual(plan_schema["properties"]["destructive"]["const"], False)
         self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
+        self.assertIn("cleanmac.release-artifact-manifest.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.release-artifact-manifest.v1"])
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
         from cleancli.ai_versioning import (

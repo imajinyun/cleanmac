@@ -696,6 +696,7 @@ make local-test                                    # 完整本地测试
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # 文档校验
 make governance-smoke                              # 治理合约检查
+make ai-contract-smoke                             # AI 合同样例与 schema fragment
 make open-source-smoke                             # 开源治理检查
 make dependency-audit-smoke                        # pip-audit + SBOM.json
 make no-cache-check                                # 无缓存全量验证
@@ -728,12 +729,14 @@ make no-cache-release-check                        # 无缓存发布验证
 | `ai-host-smoke` | AI 主机集成测试套件 |
 | `ai-robustness-smoke` | AI 并发、幂等、协议与 trace 回归 |
 | `distribution-smoke` | wheel + sdist |
-| `release-artifacts-smoke` | SHA256SUMS + 证明 |
+| `release-artifacts-smoke` | SHA256SUMS + ARTIFACT-MANIFEST.json + 证明 |
 | `docker-test` | Debian 容器测试 |
 | `no-cache-check` | 无缓存全量验证 |
 | `no-cache-release-check` | 无缓存发布验证 |
 | `no-cache-docker-test` | Docker 测试（--pull=always） |
 | `release-check` | 全部门禁串联 |
+
+发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。
 
 ### 🤖 CI 配置
 

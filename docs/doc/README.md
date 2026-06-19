@@ -698,6 +698,7 @@ make local-test                                    # Full local suite
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # Doc validation
 make governance-smoke                              # Governance contracts
+make ai-contract-smoke                             # AI contract samples and schema fragments
 make open-source-smoke                             # Open source governance
 make dependency-audit-smoke                        # pip-audit + SBOM.json
 make no-cache-check                                # No-cache full validation
@@ -730,12 +731,14 @@ make no-cache-release-check                        # No-cache release validation
 | `ai-host-smoke` | AI host integration test suite |
 | `ai-robustness-smoke` | AI concurrency, idempotency, protocol, and trace regressions |
 | `distribution-smoke` | wheel + sdist |
-| `release-artifacts-smoke` | SHA256SUMS + attestation |
+| `release-artifacts-smoke` | SHA256SUMS + ARTIFACT-MANIFEST.json + attestation |
 | `docker-test` | Debian container tests |
 | `no-cache-check` | No-cache full validation |
 | `no-cache-release-check` | No-cache release validation |
 | `no-cache-docker-test` | Docker test with --pull=always |
 | `release-check` | All gates combined |
+
+Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions.
 
 ### 🤖 CI Configuration
 

@@ -94,6 +94,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.plan-policy.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.plan.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.prompt-injection-policy.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.release-artifact-manifest.v1", 1, "cleancli.release_artifacts", "stable"),
     ("cleanmac.script-groups.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.scripts.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.software.v1", 1, "cleancli.core", "stable"),
@@ -125,6 +126,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.ai-host-preflight.v1",
     "cleanmac.ai-host-evidence.v1",
     "cleanmac.ai-host-tool-call-decision.v1",
+    "cleanmac.release-artifact-manifest.v1",
     "cleanmac.ai-governance-advice.v1",
     "cleanmac.ai-eval-pack.v1",
     "cleanmac.ai-eval-run.v1",
@@ -579,6 +581,30 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.release-artifact-manifest.v1": {
+        "type": "object",
+        "required": ["schema", "python_version", "platform", "artifacts", "distribution_policy"],
+        "properties": {
+            "schema": {"const": "cleanmac.release-artifact-manifest.v1"},
+            "python_version": {"type": "string"},
+            "platform": {"type": "string"},
+            "artifacts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["name", "sha256", "kind"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "sha256": {"type": "string"},
+                        "kind": {"type": "string"},
+                    },
+                    "additionalProperties": True,
+                },
+            },
+            "distribution_policy": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
 }
 
 
@@ -1001,6 +1027,21 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "target_schema": "cleanmac.plan.v1",
             "error_count": 0,
             "errors": [],
+        },
+        "cleanmac.release-artifact-manifest.v1": {
+            "schema": "cleanmac.release-artifact-manifest.v1",
+            "python_version": "3.12.0",
+            "platform": "Linux-6.0-x86_64-with-glibc2.36",
+            "artifacts": [
+                {"name": "cleanmac-0.1.0-py3-none-any.whl", "sha256": "a" * 64, "kind": "wheel"},
+                {"name": "cleanmac-0.1.0.tar.gz", "sha256": "b" * 64, "kind": "sdist"},
+                {"name": "SBOM.json", "sha256": "c" * 64, "kind": "sbom"},
+            ],
+            "distribution_policy": {
+                "homebrew_formula": "preflight-only",
+                "standalone_zipapp": "smoke-tested outside release upload",
+                "publish_after_cross_platform_verification": True,
+            },
         },
     }
     if schema_name == "cleanmac.ai-contract-validation-summary.v1":
