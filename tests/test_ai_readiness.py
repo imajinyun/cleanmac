@@ -52,6 +52,11 @@ class AIReadinessTests(unittest.TestCase):
         self.assertEqual(report["contract_validation"]["schema"], "cleanmac.ai-contract-validation-summary.v1")
         self.assertGreaterEqual(report["contract_validation"]["validated_schema_count"], 2)
         self.assertEqual(report["contract_validation"]["failure_count"], 0)
+        coverage = report["contract_validation"]["contract_schema_coverage"]
+        self.assertIn("cleanmac.ai-host-policy.v1", coverage["critical_schemas"])
+        self.assertIn("cleanmac.ai-governance-advice.v1", coverage["critical_schemas"])
+        self.assertIn("cleanmac.ai-eval-pack.v1", coverage["critical_schemas"])
+        self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
         self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-governance-advice"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-host-policy"], report["recommended_preflight_commands"])
