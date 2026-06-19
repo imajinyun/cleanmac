@@ -141,6 +141,89 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertIn("execution_gate.requires_human_confirmation must be true", joined)
         self.assertIn("execution_gate.requires_plan_context_match must be true", joined)
 
+    def test_tool_call_decision_allows_readonly_structured_arguments(self) -> None:
+        from cleancli.ai_host_policy import evaluate_ai_host_tool_call
+
+        decision = evaluate_ai_host_tool_call(
+            tool={
+                "name": "cleanmac_capabilities",
+                "risk": "readonly",
+                "auto_call_allowed": True,
+                "requires_confirmation": False,
+            },
+            arguments={},
+            source="unit-test",
+        )
+
+        self.assertEqual(decision["schema"], "cleanmac.ai-host-tool-call-decision.v1")
+        self.assertTrue(decision["allowed"], decision)
+        self.assertTrue(decision["safe_to_auto_retry"])
+        self.assertEqual(decision["blocking_reasons"], [])
+
+    def test_tool_call_decision_denies_raw_command_arguments(self) -> None:
+        from cleancli.ai_host_policy import evaluate_ai_host_tool_call
+
+        decision = evaluate_ai_host_tool_call(
+            tool={
+                "name": "cleanmac_capabilities",
+                "risk": "readonly",
+                "auto_call_allowed": True,
+                "requires_confirmation": False,
+            },
+            arguments={"raw_command": "rm -rf /", "shell": True},
+            source="unit-test",
+        )
+
+        self.assertFalse(decision["allowed"])
+        self.assertFalse(decision["safe_to_auto_retry"])
+        codes = [reason["code"] for reason in decision["blocking_reasons"]]
+        self.assertEqual(codes, ["RAW_COMMAND_ARGUMENT_DENIED", "RAW_COMMAND_ARGUMENT_DENIED"])
+        self.assertEqual([reason["field"] for reason in decision["blocking_reasons"]], ["raw_command", "shell"])
+
+    def test_tool_call_decision_denies_destructive_call_without_runtime_gates(self) -> None:
+        from cleancli.ai_host_policy import evaluate_ai_host_tool_call
+
+        decision = evaluate_ai_host_tool_call(
+            tool={
+                "name": "cleanmac_execute_plan",
+                "risk": "destructive",
+                "auto_call_allowed": False,
+                "requires_confirmation": True,
+            },
+            arguments={"plan_file": "/tmp/plan.json", "require_plan_context": False},
+            source="unit-test",
+        )
+
+        self.assertFalse(decision["allowed"])
+        self.assertFalse(decision["safe_to_auto_retry"])
+        codes = {reason["code"] for reason in decision["blocking_reasons"]}
+        self.assertIn("HUMAN_CONFIRMATION_PHRASE_REQUIRED", codes)
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", codes)
+        self.assertIn("PLAN_CONTEXT_REQUIRED", codes)
+
+    def test_tool_call_decision_allows_destructive_call_only_with_runtime_gates(self) -> None:
+        from cleancli.ai_host_policy import evaluate_ai_host_tool_call
+
+        decision = evaluate_ai_host_tool_call(
+            tool={
+                "name": "cleanmac_execute_plan",
+                "risk": "destructive",
+                "auto_call_allowed": False,
+                "requires_confirmation": True,
+            },
+            arguments={
+                "plan_file": "/tmp/plan.json",
+                "confirmation_phrase": "确认执行 cleanmac 清理",
+                "confirmation_token": "abc123",
+                "require_plan_context": True,
+            },
+            source="unit-test",
+        )
+
+        self.assertTrue(decision["allowed"], decision)
+        self.assertFalse(decision["safe_to_auto_retry"])
+        self.assertEqual(decision["blocking_reasons"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,6 +25,15 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "host_preflight_discovery",
+            "description": "Verify AI Hosts can run the runtime preflight gate before orchestration.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "ai-host-preflight"]],
+            "expected_final_schema": "cleanmac.ai-host-preflight.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "discover_readiness",
             "description": "Verify an AI Host can discover capabilities, readiness, runbook, and decision metadata.",
             "required_tools": ["cleanmac_capabilities"],
@@ -201,6 +210,24 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "mcp_raw_command_argument_denial",
+            "description": "Verify MCP denies raw-command-shaped arguments before CLI execution.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["python3", "scripts/cleanmac_mcp_server.py"]],
+            "expected_final_schema": "cleanmac.mcp-tool-error.v1",
+            "expected_blocking_codes": ["RAW_COMMAND_ARGUMENT_DENIED"],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "mcp_destructive_policy_denial",
+            "description": "Verify MCP denies cleanmac_execute_plan when runtime confirmation gates are missing.",
+            "required_tools": ["cleanmac_execute_plan"],
+            "required_cli_commands": [["python3", "scripts/cleanmac_mcp_server.py"]],
+            "expected_final_schema": "cleanmac.mcp-tool-error.v1",
+            "expected_blocking_codes": ["HUMAN_CONFIRMATION_PHRASE_REQUIRED", "CONFIRMATION_TOKEN_REQUIRED"],
+            "may_execute_delete": False,
+        },
+        {
             "id": "prompt_injection_boundary",
             "description": "Verify path-like prompt injection text remains untrusted data and never becomes an instruction.",
             "required_tools": ["cleanmac_generate_plan", "cleanmac_dry_run_plan"],
@@ -372,6 +399,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
     if requested == "smoke":
         return [
             "host_integration_pack_discovery",
+            "host_preflight_discovery",
             "discover_readiness",
             "schema_registry_discovery",
             "contract_validation_plan",
@@ -383,6 +411,8 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "confirmation_token_policy",
             "confirmation_token_validation",
             "mcp_resource_prompt_surface",
+            "mcp_raw_command_argument_denial",
+            "mcp_destructive_policy_denial",
             "prompt_injection_boundary",
             "plan_context_mismatch_policy",
             "permanent_delete_deny_policy",
@@ -583,6 +613,24 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and "cleanmac://ai/host-integration-pack" in integration_pack["mcp"]["resources"]
                     ),
                     observed_schema=integration_pack["schema"],
+                )
+            )
+
+        if "host_preflight_discovery" in selected:
+            preflight, event = _run_cli(cli, ["ai-host-preflight"], root=root, home=home)
+            events.append(event)
+            checks = {row["id"]: row for row in preflight.get("checks", [])}
+            results.append(
+                _scenario_result(
+                    "host_preflight_discovery",
+                    passed=bool(
+                        preflight["schema"] == "cleanmac.ai-host-preflight.v1"
+                        and preflight["ready"]
+                        and checks.get("integration-pack-ready", {}).get("passed") is True
+                        and checks.get("mcp-runtime-policy-present", {}).get("passed") is True
+                        and "matching_confirmation_token" in preflight["required_before_destructive_tool"]
+                    ),
+                    observed_schema=preflight["schema"],
                 )
             )
 
@@ -1084,6 +1132,69 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "observed_schema": "cleanmac.mcp-smoke.v1",
                     "observed_blocking_codes": [mcp_error] if mcp_error else [],
                 }
+            )
+
+        if "mcp_raw_command_argument_denial" in selected:
+            response, event = _run_mcp_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 61,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "cleanmac_capabilities",
+                        "arguments": {"raw_command": "rm -rf /"},
+                    },
+                }
+            )
+            events.append(event)
+            result = response.get("result", {})
+            structured = result.get("structuredContent", {})
+            decision = result.get("governanceDecision", {})
+            blocking_codes = [row["code"] for row in decision.get("blocking_reasons", [])]
+            results.append(
+                _scenario_result(
+                    "mcp_raw_command_argument_denial",
+                    passed=bool(
+                        result.get("isError") is True
+                        and structured.get("schema") == "cleanmac.mcp-tool-error.v1"
+                        and decision.get("allowed") is False
+                        and "RAW_COMMAND_ARGUMENT_DENIED" in blocking_codes
+                    ),
+                    observed_schema=str(structured.get("schema") or ""),
+                    observed_blocking_codes=blocking_codes,
+                )
+            )
+
+        if "mcp_destructive_policy_denial" in selected:
+            response, event = _run_mcp_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 62,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "cleanmac_execute_plan",
+                        "arguments": {"plan_file": str(plan_file)},
+                    },
+                }
+            )
+            events.append(event)
+            result = response.get("result", {})
+            structured = result.get("structuredContent", {})
+            decision = result.get("governanceDecision", {})
+            blocking_codes = [row["code"] for row in decision.get("blocking_reasons", [])]
+            results.append(
+                _scenario_result(
+                    "mcp_destructive_policy_denial",
+                    passed=bool(
+                        result.get("isError") is True
+                        and structured.get("schema") == "cleanmac.mcp-tool-error.v1"
+                        and decision.get("allowed") is False
+                        and "HUMAN_CONFIRMATION_PHRASE_REQUIRED" in blocking_codes
+                        and "CONFIRMATION_TOKEN_REQUIRED" in blocking_codes
+                    ),
+                    observed_schema=str(structured.get("schema") or ""),
+                    observed_blocking_codes=blocking_codes,
+                )
             )
 
         if "confirmation_token_execution" in selected:

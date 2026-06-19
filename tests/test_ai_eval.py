@@ -32,6 +32,7 @@ class AIEvalTests(unittest.TestCase):
 
         scenarios = {scenario["id"]: scenario for scenario in report["scenarios"]}
         self.assertIn("host_integration_pack_discovery", scenarios)
+        self.assertIn("host_preflight_discovery", scenarios)
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
         self.assertIn("schema_registry_discovery", scenarios)
@@ -42,6 +43,8 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("invalid_category_recovery", scenarios)
         self.assertIn("confirmation_token_policy", scenarios)
         self.assertIn("mcp_resource_prompt_surface", scenarios)
+        self.assertIn("mcp_raw_command_argument_denial", scenarios)
+        self.assertIn("mcp_destructive_policy_denial", scenarios)
         self.assertIn("prompt_injection_boundary", scenarios)
         self.assertIn("plan_context_mismatch_policy", scenarios)
         self.assertIn("permanent_delete_deny_policy", scenarios)
@@ -62,6 +65,13 @@ class AIEvalTests(unittest.TestCase):
         integration_pack = scenarios["host_integration_pack_discovery"]
         self.assertEqual(integration_pack["expected_final_schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertFalse(integration_pack["may_execute_delete"])
+        preflight = scenarios["host_preflight_discovery"]
+        self.assertEqual(preflight["expected_final_schema"], "cleanmac.ai-host-preflight.v1")
+        self.assertFalse(preflight["may_execute_delete"])
+        raw_denial = scenarios["mcp_raw_command_argument_denial"]
+        self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", raw_denial["expected_blocking_codes"])
+        destructive_denial = scenarios["mcp_destructive_policy_denial"]
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", destructive_denial["expected_blocking_codes"])
         unsupported_schema = scenarios["unsupported_plan_schema_recovery"]
         self.assertIn("unsupported-schema-version", unsupported_schema["expected_blocking_codes"])
         legacy_warning = scenarios["legacy_plan_schema_warning"]
@@ -97,6 +107,7 @@ class AIEvalTests(unittest.TestCase):
 
         scenario_results = {item["id"]: item for item in report["results"]}
         self.assertTrue(scenario_results["host_integration_pack_discovery"]["passed"])
+        self.assertTrue(scenario_results["host_preflight_discovery"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
@@ -111,6 +122,8 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["plan_context_mismatch_policy"]["passed"])
         self.assertTrue(scenario_results["permanent_delete_deny_policy"]["passed"])
         self.assertTrue(scenario_results["mcp_resource_prompt_surface"]["passed"])
+        self.assertTrue(scenario_results["mcp_raw_command_argument_denial"]["passed"])
+        self.assertTrue(scenario_results["mcp_destructive_policy_denial"]["passed"])
         self.assertTrue(scenario_results["bundle_protection_enforcement"]["passed"])
         self.assertEqual(
             scenario_results["safe_plan_to_dry_run"]["observed_blocking_codes"],
@@ -171,6 +184,9 @@ class AIEvalTests(unittest.TestCase):
 
         self.assertIn("safe_plan_to_dry_run", scenario_ids)
         self.assertIn("host_integration_pack_discovery", scenario_ids)
+        self.assertIn("host_preflight_discovery", scenario_ids)
+        self.assertIn("mcp_raw_command_argument_denial", scenario_ids)
+        self.assertIn("mcp_destructive_policy_denial", scenario_ids)
         self.assertIn("schema_registry_discovery", scenario_ids)
         self.assertIn("contract_validation_plan", scenario_ids)
         self.assertIn("contract_samples_roundtrip", scenario_ids)
@@ -231,6 +247,31 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(result["passed"])
         self.assertEqual(result["observed_schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertEqual(result["observed_blocking_codes"], [])
+
+    def test_ai_eval_run_host_preflight_discovery(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "host_preflight_discovery")
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["selected_scenarios"], ["host_preflight_discovery"])
+        self.assertEqual(report["passed_count"], 1)
+
+        result = report["results"][0]
+        self.assertEqual(result["id"], "host_preflight_discovery")
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["observed_schema"], "cleanmac.ai-host-preflight.v1")
+
+    def test_ai_eval_run_mcp_runtime_policy_denials(self) -> None:
+        raw_report = self.run_json("ai-eval-run", "--scenario", "mcp_raw_command_argument_denial")
+        destructive_report = self.run_json("ai-eval-run", "--scenario", "mcp_destructive_policy_denial")
+
+        self.assertTrue(raw_report["passed"], raw_report)
+        self.assertEqual(raw_report["results"][0]["observed_schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", raw_report["results"][0]["observed_blocking_codes"])
+
+        self.assertTrue(destructive_report["passed"], destructive_report)
+        self.assertEqual(destructive_report["results"][0]["observed_schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", destructive_report["results"][0]["observed_blocking_codes"])
 
 
 class AITracePersistenceTests(unittest.TestCase):

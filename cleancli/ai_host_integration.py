@@ -82,3 +82,71 @@ def render_ai_host_integration_pack(
         "contract_validation": contract_validation,
         "contract_samples": contract_samples,
     }
+
+
+def render_ai_host_preflight(
+    *,
+    integration_pack: Mapping[str, Any],
+    runtime_policy_schema_registered: bool,
+) -> dict[str, Any]:
+    """Return a runtime preflight gate report for AI Host orchestration."""
+
+    host_policy = integration_pack.get("host_policy", {})
+    contract_validation = integration_pack.get("contract_validation", {})
+    mcp = integration_pack.get("mcp", {})
+    resources = mcp.get("resources", []) if isinstance(mcp, Mapping) else []
+    checks = [
+        {
+            "id": "integration-pack-ready",
+            "passed": bool(integration_pack.get("ready")),
+            "evidence": "cleanmac.ai-host-integration-pack.v1",
+        },
+        {
+            "id": "host-policy-valid",
+            "passed": bool(isinstance(host_policy, Mapping) and host_policy.get("valid")),
+            "evidence": "cleanmac.ai-host-policy.v1",
+        },
+        {
+            "id": "contract-validation-valid",
+            "passed": bool(isinstance(contract_validation, Mapping) and contract_validation.get("valid")),
+            "evidence": "cleanmac.ai-contract-validation-summary.v1",
+        },
+        {
+            "id": "mcp-runtime-policy-present",
+            "passed": bool(
+                runtime_policy_schema_registered
+                and isinstance(resources, list)
+                and "cleanmac://ai/host-integration-pack" in resources
+            ),
+            "evidence": "cleanmac.ai-host-tool-call-decision.v1",
+        },
+    ]
+    return {
+        "schema": "cleanmac.ai-host-preflight.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": all(check["passed"] for check in checks),
+        "purpose": "Runtime preflight gate for AI Host cleanmac orchestration.",
+        "entrypoint": {
+            "cli": ["cleanmac", "--json", "ai-host-integration-pack"],
+            "mcp_resource": "cleanmac://ai/host-integration-pack",
+        },
+        "checks": checks,
+        "required_before_destructive_tool": [
+            "cleanmac_generate_plan",
+            "cleanmac_validate_plan",
+            "cleanmac_policy_simulate",
+            "cleanmac_dry_run_plan",
+            "human_confirmation_phrase",
+            "matching_confirmation_token",
+            "plan_context_match",
+            "trash_delete_mode",
+            "operation_log",
+        ],
+        "release_gate_commands": [
+            ["make", "mcp-smoke"],
+            ["make", "ai-host-smoke"],
+            ["make", "ai-governance-smoke"],
+            ["make", "ai-contract-smoke"],
+        ],
+    }

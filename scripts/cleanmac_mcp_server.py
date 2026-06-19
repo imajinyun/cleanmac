@@ -109,6 +109,25 @@ def structured_error(tool_name: str, message: str) -> dict:
     }
 
 
+def policy_denial_result(tool_name: str, decision: dict) -> dict:
+    return {
+        "content": [{"type": "text", "text": "cleanmac MCP policy denied this tool call"}],
+        "structuredContent": {
+            "schema": "cleanmac.mcp-tool-error.v1",
+            "tool": tool_name,
+            "message": "cleanmac MCP policy denied this tool call",
+            "parsed_error": None,
+            "host_action": "stop_and_show_structured_error",
+            "missing_or_invalid_arguments": [],
+            "retryable": False,
+            "safe_to_auto_retry": False,
+            "policy_decision": decision,
+        },
+        "governanceDecision": decision,
+        "isError": True,
+    }
+
+
 def resolve_tool_timeout() -> float:
     raw = os.environ.get("CLEANMAC_MCP_TOOL_TIMEOUT")
     if not raw:
@@ -201,6 +220,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://ai/host-preflight",
+            "name": "cleanmac AI host preflight",
+            "description": "Runtime preflight gate for AI Host cleanmac orchestration.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -232,6 +257,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_governance_advice_report,
         render_ai_host_integration_pack_report,
         render_ai_host_policy_report,
+        render_ai_host_preflight_report,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -263,6 +289,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_contract_samples()
     elif uri == "cleanmac://ai/host-integration-pack":
         payload = render_ai_host_integration_pack_report()
+    elif uri == "cleanmac://ai/host-preflight":
+        payload = render_ai_host_preflight_report()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":
@@ -616,6 +644,8 @@ def handle_request(request: dict) -> tuple[dict | None, list[dict]]:
         params = request.get("params", {})
         name = params.get("name", "")
         arguments = params.get("arguments", {})
+        if not isinstance(arguments, dict):
+            arguments = {}
 
         tools = get_tool_definitions()
         tool_map = {t["name"]: t for t in tools}
@@ -630,10 +660,25 @@ def handle_request(request: dict) -> tuple[dict | None, list[dict]]:
                 [],
             )
 
+        ensure_project_root_on_path()
+        from cleancli.ai_host_policy import evaluate_ai_host_tool_call  # type: ignore[import-untyped]
+
+        decision = evaluate_ai_host_tool_call(tool=tool, arguments=arguments, source="mcp.tools/call")
+        if not decision["allowed"]:
+            return (
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": policy_denial_result(str(name), decision),
+                },
+                [],
+            )
+
         try:
             output = execute_tool(tool, arguments)
             result = {
                 "content": [{"type": "text", "text": output}],
+                "governanceDecision": decision,
                 "isError": False,
             }
             structured_content = parse_json_output(output)
@@ -656,6 +701,7 @@ def handle_request(request: dict) -> tuple[dict | None, list[dict]]:
                     "result": {
                         "content": [{"type": "text", "text": message}],
                         "structuredContent": structured_error(str(name), message),
+                        "governanceDecision": decision,
                         "isError": True,
                     },
                 },

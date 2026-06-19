@@ -5,6 +5,79 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from cleancli.ai_schema import CONFIRMATION_PHRASE
+
+RAW_COMMAND_ARGUMENT_KEYS = frozenset(
+    {
+        "argv",
+        "cmd",
+        "command",
+        "raw_command",
+        "shell",
+        "subprocess",
+    }
+)
+
+
+def evaluate_ai_host_tool_call(
+    *,
+    tool: Mapping[str, Any],
+    arguments: Mapping[str, Any],
+    source: str,
+) -> dict[str, Any]:
+    """Return a runtime allow/deny decision for one AI Host tool call."""
+
+    name = str(tool.get("name") or "")
+    risk = str(tool.get("risk") or "")
+    blocking_reasons: list[dict[str, Any]] = []
+    for field in sorted(str(key) for key in arguments if str(key) in RAW_COMMAND_ARGUMENT_KEYS):
+        blocking_reasons.append(
+            {
+                "code": "RAW_COMMAND_ARGUMENT_DENIED",
+                "field": field,
+                "message": "MCP tool calls must use structured cleanmac arguments, not raw command inputs.",
+            }
+        )
+
+    if risk == "destructive":
+        if arguments.get("confirmation_phrase") != CONFIRMATION_PHRASE:
+            blocking_reasons.append(
+                {
+                    "code": "HUMAN_CONFIRMATION_PHRASE_REQUIRED",
+                    "field": "confirmation_phrase",
+                    "message": "Destructive cleanmac execution requires the exact human confirmation phrase.",
+                }
+            )
+        if not str(arguments.get("confirmation_token") or ""):
+            blocking_reasons.append(
+                {
+                    "code": "CONFIRMATION_TOKEN_REQUIRED",
+                    "field": "confirmation_token",
+                    "message": "Destructive cleanmac execution requires a token from a matching dry-run.",
+                }
+            )
+        if arguments.get("require_plan_context", True) is not True:
+            blocking_reasons.append(
+                {
+                    "code": "PLAN_CONTEXT_REQUIRED",
+                    "field": "require_plan_context",
+                    "message": "Destructive cleanmac execution must require root/home plan context matching.",
+                }
+            )
+
+    allowed = not blocking_reasons
+    return {
+        "schema": "cleanmac.ai-host-tool-call-decision.v1",
+        "source": source,
+        "tool": name,
+        "risk": risk,
+        "allowed": allowed,
+        "auto_call_allowed": bool(tool.get("auto_call_allowed")),
+        "requires_human_confirmation": bool(tool.get("requires_confirmation")),
+        "blocking_reasons": blocking_reasons,
+        "safe_to_auto_retry": bool(allowed and risk in {"readonly", "planning", "dry-run"}),
+    }
+
 
 def render_ai_host_policy(
     *,
@@ -68,6 +141,8 @@ def render_ai_host_policy(
             "safe_auto_retry_requires": ["safe_to_auto_retry=true", "non_destructive_tool", "same_or_narrower_scope"],
         },
         "required_resources_before_execution": [
+            "cleanmac://ai/host-integration-pack",
+            "cleanmac://ai/host-preflight",
             "cleanmac://ai/readiness",
             "cleanmac://ai/runbook",
             "cleanmac://ai/tool-decision-matrix",
