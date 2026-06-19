@@ -36,6 +36,14 @@ class AISchemaRegistryTests(unittest.TestCase):
             self.assertIn("version", entry)
             self.assertIn("module", entry)
             self.assertIn("stability", entry)
+            self.assertIn("kind", entry)
+            self.assertIn("producer", entry)
+            self.assertIn("consumers", entry)
+            self.assertIn("latest", entry)
+            self.assertIn("deprecated", entry)
+            self.assertIn("replaced_by", entry)
+            self.assertIn("compatibility", entry)
+            self.assertIn("breaking_change_policy", entry["compatibility"])
 
     def test_registry_covers_every_v1_schema_emitted_by_codebase(self) -> None:
         from cleancli import ai_versioning
@@ -60,12 +68,45 @@ class AISchemaRegistryTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["entry_count"], len(first["entries"]))
+        self.assertGreaterEqual(first["stable_schema_count"], 20)
+        self.assertEqual(first["deprecated_schema_count"], 0)
+        self.assertEqual(first["latest_plan_schema"], "cleanmac.plan.v1")
         self.assertEqual(first["supported_plan_schemas"][0], "cleanmac.plan.v1")
         self.assertIn("cleanmac.clean.v1", first["supported_plan_schemas"])
         self.assertIn("cleanmac.clean-plan.v1", first["supported_plan_schemas"])
         self.assertIn("Breaking changes require a new vN suffix", first["compatibility_policy"]["stable"])
         self.assertIn("subject to change", first["compatibility_policy"]["internal"])
         self.assertEqual({entry["version"] for entry in first["entries"]}, {1})
+        entries = {entry["name"]: entry for entry in first["entries"]}
+        self.assertTrue(entries["cleanmac.plan.v1"]["latest"])
+        self.assertFalse(entries["cleanmac.clean.v1"]["latest"])
+        self.assertFalse(entries["cleanmac.clean-plan.v1"]["latest"])
+        self.assertEqual(entries["cleanmac.plan.v1"]["producer"], "clean plan")
+        self.assertIn("validate-plan", entries["cleanmac.plan.v1"]["consumers"])
+
+    def test_registry_exposes_core_json_schema_fragments(self) -> None:
+        from cleancli import ai_versioning
+
+        entries = {entry["name"]: entry for entry in ai_versioning.render_ai_schema_registry()["entries"]}
+        for schema_name in (
+            "cleanmac.plan.v1",
+            "cleanmac.validate-plan.v1",
+            "cleanmac.ai-policy-simulation.v1",
+            "cleanmac.ai-schema-registry.v1",
+            "cleanmac.ai-readiness.v1",
+        ):
+            self.assertIn("json_schema", entries[schema_name], schema_name)
+            json_schema = entries[schema_name]["json_schema"]
+            self.assertEqual(json_schema["type"], "object")
+            self.assertIn("schema", json_schema["required"])
+            self.assertEqual(json_schema["properties"]["schema"]["const"], schema_name)
+            self.assertTrue(json_schema["additionalProperties"])
+
+        plan_schema = entries["cleanmac.plan.v1"]["json_schema"]
+        self.assertIn("destructive", plan_schema["required"])
+        self.assertIn("dry_run", plan_schema["required"])
+        self.assertEqual(plan_schema["properties"]["destructive"]["const"], False)
+        self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
 
     def test_plan_schema_negotiation_accepts_only_supported_schema_versions(self) -> None:
         from cleancli.ai_versioning import negotiate_plan_schema

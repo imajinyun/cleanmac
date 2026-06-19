@@ -43,8 +43,26 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     host_policy_validation = validate_ai_host_policy(host_policy)
     host_policy_ready = bool(host_policy["valid"] and host_policy_validation["valid"])
     schema_registry = render_ai_schema_registry()
+    registry_entries = {str(entry["name"]): entry for entry in schema_registry["entries"]}
+    required_contract_schemas = {
+        "cleanmac.plan.v1",
+        "cleanmac.validate-plan.v1",
+        "cleanmac.ai-policy-simulation.v1",
+        "cleanmac.ai-schema-registry.v1",
+        "cleanmac.ai-readiness.v1",
+    }
+    supported_plan_schemas_registered = all(
+        str(schema_name) in registry_entries for schema_name in schema_registry["supported_plan_schemas"]
+    )
+    core_contract_schemas_present = all(
+        "json_schema" in registry_entries.get(schema_name, {}) for schema_name in required_contract_schemas
+    )
     schema_registry_ready = bool(
-        schema_registry["schema"] == "cleanmac.ai-schema-registry.v1" and schema_registry["entry_count"] >= 20
+        schema_registry["schema"] == "cleanmac.ai-schema-registry.v1"
+        and schema_registry["entry_count"] >= 20
+        and schema_registry["latest_plan_schema"] == "cleanmac.plan.v1"
+        and supported_plan_schemas_registered
+        and core_contract_schemas_present
     )
     return {
         "schema": "cleanmac.ai-readiness.v1",
@@ -127,6 +145,11 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "schema": schema_registry["schema"],
             "ready": schema_registry_ready,
             "entry_count": schema_registry["entry_count"],
+            "stable_schema_count": schema_registry["stable_schema_count"],
+            "deprecated_schema_count": schema_registry["deprecated_schema_count"],
+            "latest_plan_schema": schema_registry["latest_plan_schema"],
+            "supported_plan_schemas_registered": supported_plan_schemas_registered,
+            "core_contract_schemas_present": core_contract_schemas_present,
         },
         "recommended_starting_tools": [
             "cleanmac_capabilities",

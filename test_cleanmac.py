@@ -272,10 +272,17 @@ class CleanMacCLITests(unittest.TestCase):
         registry = ai_versioning.render_ai_schema_registry()
         self.assertEqual(registry["schema"], "cleanmac.ai-schema-registry.v1")
         self.assertGreaterEqual(registry["entry_count"], 20)
+        self.assertEqual(registry["latest_plan_schema"], "cleanmac.plan.v1")
         names = {entry["name"] for entry in registry["entries"]}
         self.assertIn("cleanmac.ai-readiness.v1", names)
         self.assertIn("cleanmac.ai-trace.v1", names)
         self.assertIn("cleanmac.capabilities.v1", names)
+        entries = {entry["name"]: entry for entry in registry["entries"]}
+        self.assertEqual(entries["cleanmac.plan.v1"]["producer"], "clean plan")
+        self.assertIn("json_schema", entries["cleanmac.plan.v1"])
+        self.assertEqual(
+            entries["cleanmac.plan.v1"]["json_schema"]["properties"]["schema"]["const"], "cleanmac.plan.v1"
+        )
 
     def test_ai_reports_render_directly_for_coverage_and_contracts(self) -> None:
         capabilities = cleancli.render_capabilities()
