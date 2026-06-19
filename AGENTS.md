@@ -16,7 +16,18 @@
 - `scripts/test.sh`：默认本地测试入口，设置 no-auth/test-mode，并 stub `sudo`、`osascript`、`launchctl`、`rm`。
 - `tests/`：事故驱动回归测试，覆盖 delete safety、path safety、Trash fail-closed、sudo guard、Group Containers、operation log、script governance、app protection。
 - `tests/data/dangerous_paths.txt`：高风险路径测试数据，新增危险路径时必须追加并保持测试通过。
-- `.github/workflows/ci.yml`：真实 CI，包含 quality、smoke、macOS smoke、security/gitleaks、no-cache、Linux container smoke。
+- `scripts/cleanmac_mcp_server.py`：MCP stdio server entry point（JSON-RPC 2.0）
+- `cleancli/ai_schema.py`：AI 工具定义、schema 校验、三种 provider 格式导出
+- `cleancli/ai_readiness.py`：AI readiness 检查
+- `cleancli/ai_runbook.py`：AI runbook / invocation patterns
+- `cleancli/ai_decision.py`：AI 工具决策矩阵
+- `cleancli/ai_governance.py`：AI 治理建议与路线验证
+- `cleancli/ai_host_policy.py`：AI 主机允许/拒绝策略
+- `cleancli/ai_eval.py`：AI 评估场景编排与 runner
+- `tests/test_ai_readiness.py`、`tests/test_ai_runbook.py`、`tests/test_ai_self_test.py`、
+  `tests/test_ai_decision_matrix.py`、`tests/test_ai_governance.py`、`tests/test_ai_eval.py`、
+  `tests/test_ai_host_scenarios.py`、`tests/test_mcp_server.py`：AI/MCP 专项测试
+- `.github/workflows/ci.yml`：真实 CI，包含 quality、smoke、macOS smoke、security/gitleaks、no-cache、Linux container smoke、MCP smoke、AI governance smoke、AI host smoke。
 - `.github/workflows/release.yml`：release 构建、`SHA256SUMS`、artifact attestation、wheel 安装验证、PyPI trusted publishing。
 
 ## 常用命令
@@ -40,7 +51,10 @@ make package-smoke
 make script-smoke
 make docs-smoke
 make governance-smoke
+make ai-governance-smoke
 make open-source-smoke
+make mcp-smoke
+make ai-host-smoke
 make distribution-smoke
 make release-artifacts-smoke
 make docker-test
@@ -73,6 +87,14 @@ rm -R "$tmpdir"
 - 计划 replay 使用 `--require-plan-context` 时必须校验 root/home，一旦不一致必须在删除前失败。
 - operation log 写入失败不能伪装成功；执行报告必须暴露失败状态，避免用户误以为已经安全记录。
 - 脚本模板和 workflow 只能生成/展示命令，不能自动执行破坏性模板；`safe_to_auto_execute` 对 destructive template 必须为 false。
+
+## AI & MCP 安全规则
+- MCP server（`scripts/cleanmac_mcp_server.py`）不接受 shell/raw command 输入；所有工具调用必须走 argv_template
+- 破坏性工具（`cleanmac_execute_plan`）必须同时 deny auto_call 且 require confirmation
+- 确认令牌是 SHA-256 绑定的上下文令牌，不匹配时拒绝执行
+- MCP resources 不能暴露敏感路径或凭证信息
+- 修改 MCP server 后必须运行 `make mcp-smoke` 和 `make ai-host-smoke`
+- AI 工具定义修改后必须运行 `python3 cleanmac.py --json ai-tools` 验证 provider 导出 parity
 
 ## 高风险模块所有权与必跑测试
 
@@ -147,6 +169,23 @@ python3 -m unittest test_cleanmac.CleanMacCLITests.test_open_source_governance_f
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_release_workflow_generates_checksums_attestation_and_pypi_publish -v
 make open-source-smoke
 make release-artifacts-smoke
+```
+
+### AI schema / governance / eval
+
+职责：AI 工具定义、provider 格式导出、确认令牌、治理路线、主机策略、评估场景。
+
+修改后必须运行：
+
+```bash
+python3 -m unittest tests.test_ai_governance tests.test_ai_readiness tests.test_ai_runbook -v
+python3 -m unittest tests.test_ai_self_test tests.test_ai_decision_matrix tests.test_ai_eval -v
+python3 -m unittest tests.test_ai_host_scenarios tests.test_mcp_server -v
+python3 -m unittest test_cleanmac.CleanMacCLITests.test_ai_tools_exports_provider_specific_tool_formats -v
+python3 -m unittest test_cleanmac.CleanMacCLITests.test_ai_schema_builds_safe_argv_without_shell_or_implicit_execute -v
+make mcp-smoke
+make ai-host-smoke
+make ai-governance-smoke
 ```
 
 ## 高风险路径回归规则

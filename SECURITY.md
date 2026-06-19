@@ -33,3 +33,15 @@ Preferred private channels are GitHub private vulnerability reporting on the rep
 - Bundle allow/block policy.
 - Trash routing and operation-log persistence.
 - Dependency audit, generated `SBOM.json`, release checksums, and artifact attestation.
+
+## AI and MCP Security
+
+- **MCP Server Attack Surface**: The stdio MCP server (`scripts/cleanmac_mcp_server.py`)
+  processes JSON-RPC requests from LLM clients. It does not expose a network socket.
+- **Tool Definition Safety**: All 24 AI tools are read-only or planning by default;
+  only `cleanmac_execute_plan` is destructive and requires explicit user confirmation.
+- **Confirmation Token**: SHA-256 bound tokens prevent unauthorized plan execution.
+- **Prompt Injection Prevention**: File and category names are treated as data,
+  not instructions. MCP prompts include explicit guardrails against tool misuse.
+- **Host Policy**: The `ai-host-policy` command defines machine-readable allow/deny
+  rules for auto-call permissions, destructive execution gates, and error recovery.

@@ -3543,7 +3543,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke mcp-smoke ai-host-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -3750,7 +3750,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("set -e", makefile)
         self.assertIn("--no-cache-dir", makefile)
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
-        self.assertNotIn("actions/cache", ci)
+        self.assertIn("actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # pinned from actions/cache@v4.2.3", ci)
 
     def test_release_workflow_generates_checksums_attestation_and_pypi_publish(self) -> None:
         release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")

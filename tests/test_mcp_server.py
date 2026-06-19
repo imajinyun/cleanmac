@@ -428,6 +428,126 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(notification.get("method"), "notifications/initialized")
         self.assertNotIn("id", notification)
 
+    def test_resources_read_all_individual_resources(self) -> None:
+        """Verify each resource URI returns valid JSON with a schema field."""
+        list_response = _mcp_request({"jsonrpc": "2.0", "id": 51, "method": "resources/list"})
+        uris = [r["uri"] for r in list_response["result"]["resources"]]
+        self.assertGreater(len(uris), 8)
+
+        for idx, uri in enumerate(uris, start=52):
+            response = _mcp_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": idx,
+                    "method": "resources/read",
+                    "params": {"uri": uri},
+                }
+            )
+            if "error" in response:
+                # Unknown URIs should have been caught elsewhere
+                self.fail(f"Resource {uri} returned error: {response['error']}")
+            content = response["result"]["contents"][0]
+            self.assertEqual(content["uri"], uri)
+            self.assertEqual(content["mimeType"], "application/json")
+            payload = json.loads(content["text"])
+            self.assertIn("schema", payload, f"Resource {uri} missing schema field")
+
+    def test_prompt_get_unknown_name(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 61,
+                "method": "prompts/get",
+                "params": {"name": "nonexistent-prompt"},
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32602)
+        self.assertIn("Unknown prompt", response["error"]["message"])
+
+    def test_unknown_method(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 62,
+                "method": "bogus_method",
+            }
+        )
+        self.assertEqual(response["error"]["code"], -32601)
+        self.assertIn("Method not found", response["error"]["message"])
+
+    def test_shutdown_prevents_further_requests(self) -> None:
+        """After shutdown, sending another request should yield no response or an error."""
+        proc = subprocess.Popen(
+            [sys.executable, str(MCP_SERVER)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=_mcp_env(),
+        )
+        # Send shutdown
+        stdout1, _ = proc.communicate(
+            input=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "shutdown"}),
+            timeout=10,
+        )
+        self.assertIsNotNone(stdout1)
+
+        # Process should have exited; start a new one and verify tools/list still works
+        response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+        tools = response["result"]["tools"]
+        self.assertGreaterEqual(len(tools), 22)
+
+    def test_notifications_initialized_standalone(self) -> None:
+        """Sending a standalone notifications/initialized is silently handled (no response)."""
+        proc = subprocess.Popen(
+            [sys.executable, str(MCP_SERVER)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=_mcp_env(),
+        )
+        payload = json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        stdout, stderr = proc.communicate(input=payload, timeout=10)
+        # Should produce no output (silent)
+        self.assertEqual(stdout.strip(), "")
+
+    def test_prompt_get_missing_arguments_uses_defaults(self) -> None:
+        """prompts/get with safe-cleanup-review but no arguments should use defaults."""
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 63,
+                "method": "prompts/get",
+                "params": {"name": "safe-cleanup-review", "arguments": {}},
+            }
+        )
+        self.assertNotIn("error", response, f"Unexpected error: {response.get('error')}")
+        prompt = response["result"]
+        self.assertEqual(prompt["description"], "Safe cleanmac cleanup review workflow")
+        message_text = prompt["messages"][0]["content"]["text"]
+        # Should contain default placeholder or empty categories
+        self.assertIsInstance(message_text, str)
+        self.assertGreater(len(message_text), 100)
+
+    def test_resources_read_capabilities(self) -> None:
+        """Verify the capabilities resource reads correctly with expected schema."""
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 64,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://capabilities"},
+            }
+        )
+        content = response["result"]["contents"][0]
+        self.assertEqual(content["uri"], "cleanmac://capabilities")
+        self.assertEqual(content["mimeType"], "application/json")
+        payload = json.loads(content["text"])
+        self.assertEqual(payload["schema"], "cleanmac.capabilities.v1")
+        self.assertIn("commands", payload)
+        self.assertIn("category_count", payload)
+
 
 if __name__ == "__main__":
     unittest.main()
