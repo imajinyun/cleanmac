@@ -67,6 +67,14 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Caches/com.docker.docker").mkdir(parents=True)
         (root / "Users/tester/Library/Caches/Google/Chrome/Default/Cache").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Google/Chrome/Default/Code Cache/js").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Microsoft Edge/Default/Cache").mkdir(parents=True)
+        (
+            root / "Users/tester/Library/Application Support/Microsoft Edge/Default/Service Worker/CacheStorage/cache-a"
+        ).mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cache").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Application Support/Arc/User Data/Default/Cache").mkdir(parents=True)
         (root / "Users/tester/Library/Caches/Firefox/Profiles/dev.default-release/cache2/entries").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Firefox/Profiles/dev.default-release/cache2/entries").mkdir(
             parents=True
@@ -81,12 +89,26 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Microsoft/Teams/Service Worker/CacheStorage/cache-a").mkdir(
             parents=True
         )
+        (root / "Users/tester/Library/Application Support/discord/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/discord/Service Worker/CacheStorage/cache-a").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Application Support/Notion/Cache").mkdir(parents=True)
         (root / "Users/tester/.npm/_cacache/content-v2/sha512/aa").mkdir(parents=True)
         (root / "Users/tester/Library/pnpm/store/v3/files/aa").mkdir(parents=True)
         (root / "Users/tester/Library/Caches/Yarn/v6/npm-example").mkdir(parents=True)
         (root / "Users/tester/Library/Caches/pip/http-v2/a/b").mkdir(parents=True)
         (root / "Users/tester/Library/Caches/go-build/aa").mkdir(parents=True)
         (root / "Users/tester/go/pkg/mod/cache/download/example.com/pkg/@v").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/Homebrew/downloads").mkdir(parents=True)
+        (root / "Users/tester/.gradle/caches/modules-2/files-2.1/example").mkdir(parents=True)
+        (root / "Users/tester/.cargo/registry/cache/index.crates.io").mkdir(parents=True)
+        (root / "Users/tester/.cocoapods").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/CocoaPods/Pods/Release").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Windsurf/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Windsurf/Service Worker/CacheStorage/cache-a").mkdir(
+            parents=True
+        )
         (root / "Applications/Falcon.app/Contents").mkdir(parents=True)
         (root / "Users/tester/Library/logs").mkdir(parents=True)
         (root / "Users/tester/Library/Caches/com.example.app").mkdir(parents=True)
@@ -128,6 +150,19 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Google/Chrome/Default/Code Cache/js/cache.js").write_text(
             "chrome-code-cache"
         )
+        (root / "Users/tester/Library/Application Support/Microsoft Edge/Default/Cache/data_0").write_text("edge-cache")
+        (
+            root
+            / "Users/tester/Library/Application Support/Microsoft Edge/Default/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("edge-service-worker-cache")
+        (
+            root
+            / "Users/tester/Library/Application Support/Microsoft Edge/Default/Service Worker/CacheStorage/cache-a/Cookies"
+        ).write_text("edge-cookie")
+        (root / "Users/tester/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cache/data_0").write_text(
+            "brave-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Arc/User Data/Default/Cache/data_0").write_text("arc-cache")
         (root / "Users/tester/Library/Caches/Firefox/Profiles/dev.default-release/cache2/entries/cache.bin").write_text(
             "firefox-cache"
         )
@@ -149,15 +184,44 @@ class CleanMacCLITests(unittest.TestCase):
             root
             / "Users/tester/Library/Application Support/Microsoft/Teams/Service Worker/CacheStorage/cache-a/cache.bin"
         ).write_text("teams-service-worker-cache")
+        (root / "Users/tester/Library/Application Support/discord/Cache/cache.bin").write_text("discord-cache")
+        (
+            root / "Users/tester/Library/Application Support/discord/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("discord-service-worker-cache")
+        (
+            root / "Users/tester/Library/Application Support/discord/Service Worker/CacheStorage/cache-a/Cookies"
+        ).write_text("discord-cookie")
+        (root / "Users/tester/Library/Application Support/Notion/Cache/cache.bin").write_text("notion-cache")
         (root / "Users/tester/.npm/_cacache/content-v2/sha512/aa/cache.bin").write_text("npm-cache")
         (root / "Users/tester/Library/pnpm/store/v3/files/aa/cache.bin").write_text("pnpm-cache")
         (root / "Users/tester/Library/Caches/Yarn/v6/npm-example/package.tgz").write_text("yarn-cache")
         (root / "Users/tester/Library/Caches/pip/http-v2/a/b/cache.bin").write_text("pip-cache")
         (root / "Users/tester/Library/Caches/go-build/aa/cache-a").write_text("go-build-cache")
         (root / "Users/tester/go/pkg/mod/cache/download/example.com/pkg/@v/v1.0.0.zip").write_text("go-mod-cache")
+        (root / "Users/tester/Library/Caches/Homebrew/downloads/pkg.tar.gz").write_text("homebrew-cache")
+        (root / "Users/tester/.gradle/caches/modules-2/files-2.1/example/cache.bin").write_text("gradle-cache")
+        (root / "Users/tester/.cargo/registry/cache/index.crates.io/example.crate").write_text("cargo-cache")
+        (root / "Users/tester/Library/Caches/CocoaPods/Pods/Release/cache.bin").write_text("cocoapods-cache")
+        (root / "Users/tester/Library/Application Support/Windsurf/Cache/cache.bin").write_text("windsurf-cache")
+        (
+            root / "Users/tester/Library/Application Support/Windsurf/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("windsurf-service-worker-cache")
+        (
+            root / "Users/tester/Library/Application Support/Windsurf/Service Worker/CacheStorage/cache-a/Local Storage"
+        ).write_text("windsurf-local-storage-marker")
         (root / "Users/tester/Library/Application Support/Google/Chrome/Default/Bookmarks").write_text("bookmarks")
         (root / "Users/tester/Library/Application Support/Google/Chrome/Default/Login Data").write_text("login-data")
         (root / "Users/tester/Library/Application Support/Google/Chrome/Default/Cookies").write_text("cookies")
+        (root / "Users/tester/Library/Application Support/Microsoft Edge/Default/Login Data").write_text("edge-login")
+        (root / "Users/tester/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies").write_text(
+            "brave-cookies"
+        )
+        (root / "Users/tester/Library/Application Support/Arc/User Data/Default/Local Storage/leveldb").mkdir(
+            parents=True
+        )
+        (
+            root / "Users/tester/Library/Application Support/Arc/User Data/Default/Local Storage/leveldb/state.ldb"
+        ).write_text("arc-local-storage")
         (root / "Users/tester/Library/Application Support/Firefox/Profiles/dev.default-release/logins.json").write_text(
             "firefox-logins"
         )
@@ -168,9 +232,24 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Slack/Local Storage/leveldb/state.ldb").write_text(
             "slack-local-storage"
         )
+        (root / "Users/tester/Library/Application Support/discord/Local Storage/leveldb").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/discord/Local Storage/leveldb/state.ldb").write_text(
+            "discord-local-storage"
+        )
+        (root / "Users/tester/Library/Application Support/Notion/IndexedDB/state.leveldb").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Notion/IndexedDB/state.leveldb/000003.log").write_text(
+            "notion-indexeddb"
+        )
         (root / "Users/tester/.npmrc").write_text("//registry.example/:_authToken=secret")
         (root / "Users/tester/.pypirc").write_text("[distutils]")
         (root / "Users/tester/.netrc").write_text("machine example.com login token")
+        (root / "Users/tester/.gradle/gradle.properties").write_text("signingPassword=secret")
+        (root / "Users/tester/.cargo/credentials").write_text("token = secret")
+        (root / "Users/tester/.cocoapods/config.yaml").write_text("trunk_token: secret")
+        (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb").write_text(
+            "windsurf-state"
+        )
         (root / "Applications/Falcon.app/Contents/Info.plist").write_bytes(
             b'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.crowdstrike.falcon.UserAgent</string></dict></plist>'
         )
@@ -1520,7 +1599,9 @@ class CleanMacCLITests(unittest.TestCase):
                     "clean",
                     "inspect",
                     "--categories",
-                    "chrome,firefox,slack,zoom,teams,nodePackageCaches,pythonPackageCaches,goBuildCaches",
+                    "chrome,firefox,edge,brave,arc,slack,zoom,teams,discord,notion,"
+                    "nodePackageCaches,pythonPackageCaches,goBuildCaches,homebrewCaches,gradleCaches,"
+                    "cargoCaches,cocoaPodsCaches,windsurf",
                 )
             finally:
                 if original_test_mode is None:
@@ -1532,15 +1613,32 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertIn(str(root / "Users/tester/Library/Caches/Google/Chrome/Default/Cache/data_0"), paths)
             self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Microsoft Edge/Default/Cache/data_0"), paths
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cache/data_0"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Arc/User Data/Default/Cache/data_0"), paths
+            )
+            self.assertIn(
                 str(root / "Users/tester/Library/Caches/Firefox/Profiles/dev.default-release/cache2/entries/cache.bin"),
                 paths,
             )
             self.assertIn(str(root / "Users/tester/Library/Application Support/Slack/Cache/cache.bin"), paths)
             self.assertIn(str(root / "Users/tester/Library/Application Support/zoom.us/data/Cache/cache.bin"), paths)
             self.assertIn(str(root / "Users/tester/Library/Application Support/Microsoft/Teams/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Application Support/discord/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Notion/Cache/cache.bin"), paths)
             self.assertIn(str(root / "Users/tester/.npm/_cacache/content-v2"), paths)
             self.assertIn(str(root / "Users/tester/Library/Caches/pip/http-v2"), paths)
             self.assertIn(str(root / "Users/tester/Library/Caches/go-build/aa"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/Homebrew/downloads"), paths)
+            self.assertIn(str(root / "Users/tester/.gradle/caches/modules-2"), paths)
+            self.assertIn(str(root / "Users/tester/.cargo/registry/cache/index.crates.io"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/CocoaPods/Pods"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Windsurf/Cache/cache.bin"), paths)
 
     def test_expanded_app_cleanup_rules_preserve_user_data_and_credentials(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -1557,7 +1655,9 @@ class CleanMacCLITests(unittest.TestCase):
                     "clean",
                     "inspect",
                     "--categories",
-                    "chrome,firefox,slack,nodePackageCaches,pythonPackageCaches,goBuildCaches",
+                    "chrome,firefox,edge,brave,arc,slack,discord,notion,nodePackageCaches,"
+                    "pythonPackageCaches,goBuildCaches,homebrewCaches,gradleCaches,cargoCaches,"
+                    "cocoaPodsCaches,windsurf",
                 )
             finally:
                 if original_test_mode is None:
@@ -1574,6 +1674,21 @@ class CleanMacCLITests(unittest.TestCase):
             )
             self.assertNotIn(
                 str(root / "Users/tester/Library/Application Support/Google/Chrome/Default/Login Data"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Microsoft Edge/Default/Login Data"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/Arc/User Data/Default/Local Storage/leveldb/state.ldb"
+                ),
                 candidate_paths,
             )
             self.assertNotIn(
@@ -1597,6 +1712,24 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertNotIn(str(root / "Users/tester/.npmrc"), candidate_paths)
             self.assertNotIn(str(root / "Users/tester/.pypirc"), candidate_paths)
             self.assertNotIn(str(root / "Users/tester/.netrc"), candidate_paths)
+            self.assertNotIn(str(root / "Users/tester/.gradle/gradle.properties"), candidate_paths)
+            self.assertNotIn(str(root / "Users/tester/.cargo/credentials"), candidate_paths)
+            self.assertNotIn(str(root / "Users/tester/.cocoapods/config.yaml"), candidate_paths)
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb"),
+                candidate_paths,
+            )
+
+            protected_roots = {
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/Microsoft Edge/Default/Service Worker/CacheStorage/cache-a"
+                ),
+                str(root / "Users/tester/Library/Application Support/discord/Service Worker/CacheStorage/cache-a"),
+                str(root / "Users/tester/Library/Application Support/Windsurf/Service Worker/CacheStorage/cache-a"),
+            }
+            for protected_root in protected_roots:
+                self.assertEqual(skipped_reasons[protected_root], "app-protected-data")
 
     def test_software_uninstall_plan_routes_official_uninstallers(self) -> None:
         tmp, root, home = self.make_sandbox()
