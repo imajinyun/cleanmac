@@ -216,10 +216,53 @@ def render_ai_eval_pack() -> dict[str, Any]:
                     "{confirmation_token}",
                 ],
             ],
-            "expected_final_schema": "cleanmac.clean-report.v1",
+            "expected_final_schema": "cleanmac.clean.v1",
             "expected_blocking_codes": ["CONFIRMATION_TOKEN_MISMATCH"],
             "may_execute_delete": True,
             "sandbox_only": True,
+        },
+        {
+            "id": "confirmation_token_validation",
+            "description": "Verify confirmation token binding via policy-simulate only — no dry-run or execute needed.",
+            "required_tools": ["cleanmac_policy_simulate", "cleanmac_dry_run_plan"],
+            "required_cli_commands": [
+                [
+                    "cleanmac",
+                    "--json",
+                    "clean",
+                    "policy-simulate",
+                    "--plan-file",
+                    "{plan_file}",
+                    "--execute",
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    "{operation_log}",
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                ],
+                [
+                    "cleanmac",
+                    "--json",
+                    "clean",
+                    "policy-simulate",
+                    "--plan-file",
+                    "{plan_file}",
+                    "--execute",
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    "{operation_log}",
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                    "--confirmation-token",
+                    "{confirmation_token}",
+                ],
+            ],
+            "expected_final_schema": "cleanmac.ai-policy-simulation.v1",
+            "expected_blocking_codes": ["AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN"],
+            "may_execute_delete": False,
+            "sandbox_only": False,
         },
         {
             "id": "bundle_protection_enforcement",
@@ -230,7 +273,7 @@ def render_ai_eval_pack() -> dict[str, Any]:
                 ["cleanmac", "--json", "clean", "--categories", "userAppCache", "--bundle-allowlist", "com.example"],
                 ["cleanmac", "--json", "clean", "--categories", "groupContainerCaches", "--older-than-days", "0"],
             ],
-            "expected_final_schema": "cleanmac.clean-report.v1",
+            "expected_final_schema": "cleanmac.clean.v1",
             "expected_blocking_codes": [],
             "may_execute_delete": False,
         },
@@ -256,6 +299,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "safe_plan_to_dry_run",
             "invalid_category_recovery",
             "confirmation_token_policy",
+            "confirmation_token_validation",
             "mcp_resource_prompt_surface",
             "prompt_injection_boundary",
             "plan_context_mismatch_policy",
@@ -410,6 +454,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path) -> dict[str, Any]:
         plan_required_scenarios = {
             "safe_plan_to_dry_run",
             "confirmation_token_policy",
+            "confirmation_token_validation",
             "prompt_injection_boundary",
             "plan_context_mismatch_policy",
             "permanent_delete_deny_policy",
@@ -528,6 +573,71 @@ def render_ai_eval_run(*, scenario: str, cli: Path) -> dict[str, Any]:
                     "passed": bool(simulation["allowed"] and not simulation["blocking_reasons"]),
                     "observed_schema": simulation["schema"],
                     "observed_blocking_codes": [row["code"] for row in simulation["blocking_reasons"]],
+                }
+            )
+
+        if "confirmation_token_validation" in selected:
+            if dry_run is None:
+                dry_run, event = _run_cli(
+                    cli,
+                    ["clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash"],
+                    root=root,
+                    home=home,
+                )
+                events.append(event)
+            token = str(dry_run["ai_confirmation_summary"]["confirmation_token"])
+            missing_token_simulation, event = _run_cli(
+                cli,
+                [
+                    "clean",
+                    "policy-simulate",
+                    "--plan-file",
+                    str(plan_file),
+                    "--execute",
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    str(operation_log),
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                ],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            valid_token_simulation, event = _run_cli(
+                cli,
+                [
+                    "clean",
+                    "policy-simulate",
+                    "--plan-file",
+                    str(plan_file),
+                    "--execute",
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    str(operation_log),
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                    "--confirmation-token",
+                    token,
+                ],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            blocking_codes = [row["code"] for row in missing_token_simulation["blocking_reasons"]]
+            results.append(
+                {
+                    "id": "confirmation_token_validation",
+                    "passed": bool(
+                        not missing_token_simulation["allowed"]
+                        and "AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN" in blocking_codes
+                        and valid_token_simulation["allowed"]
+                        and not valid_token_simulation["blocking_reasons"]
+                    ),
+                    "observed_schema": valid_token_simulation["schema"],
+                    "observed_blocking_codes": blocking_codes,
                 }
             )
 
@@ -708,7 +818,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path) -> dict[str, Any]:
                     .get("text", "")
                 )
                 mcp_passed = bool(
-                    len(tools) >= 22
+                    len(tools) == 24
                     and "cleanmac_capabilities" in tool_names
                     and "cleanmac_execute_plan" in tool_names
                     and "cleanmac://capabilities" in resource_uris

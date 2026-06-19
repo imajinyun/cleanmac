@@ -1,0 +1,26 @@
+name: Nightly CI Build
+
+on:
+  schedule:
+    # Daily at 05:17 Beijing time (UTC+8) = 21:17 UTC
+    - cron: "17 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: Full release and no-cache check
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # pinned from actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9fcd # pinned from actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run release check
+        run: make release-check
+      - name: Run no-cache check
+        run: make no-cache-check

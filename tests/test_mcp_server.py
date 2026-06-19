@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -50,7 +51,7 @@ class MckServerTests(unittest.TestCase):
     def test_tools_list_returns_all_tools(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = response["result"]["tools"]
-        self.assertGreaterEqual(len(tools), 22)
+        self.assertEqual(len(tools), 24)
         for tool in tools:
             self.assertIn("name", tool)
             self.assertIn("description", tool)
@@ -65,6 +66,96 @@ class MckServerTests(unittest.TestCase):
         tool_by_name = {t["name"]: t for t in tools}
         self.assertTrue(tool_by_name["cleanmac_capabilities"]["annotations"]["readOnlyHint"])
         self.assertTrue(tool_by_name["cleanmac_execute_plan"]["annotations"]["destructiveHint"])
+
+    def test_destructive_tool_call_blocked_by_policy(self) -> None:
+        """Verify cleanmac_execute_plan is deny-listed and all denied tools have destructiveHint."""
+        host_policy_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 71,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/host-policy"},
+            }
+        )
+        host_policy = json.loads(host_policy_response["result"]["contents"][0]["text"])
+        deny_list = host_policy["auto_call"]["deny"]
+
+        self.assertIn("cleanmac_execute_plan", deny_list)
+
+        tools_response = _mcp_request({"jsonrpc": "2.0", "id": 72, "method": "tools/list"})
+        tools = tools_response["result"]["tools"]
+        tool_by_name = {t["name"]: t for t in tools}
+
+        for denied_tool in deny_list:
+            self.assertIn(
+                denied_tool,
+                tool_by_name,
+                f"Deny-listed tool {denied_tool} not found in tools/list",
+            )
+            self.assertTrue(
+                tool_by_name[denied_tool]["annotations"]["destructiveHint"],
+                f"Deny-listed tool {denied_tool} missing destructiveHint annotation",
+            )
+
+    def test_infrastructure_error_cli_not_found(self) -> None:
+        """Verify MCP returns structured error when CLEANMAC_CLI points to a nonexistent path."""
+        env = _mcp_env()
+        env["CLEANMAC_CLI"] = "/nonexistent/cleanmac"
+        proc = subprocess.Popen(
+            [sys.executable, str(MCP_SERVER)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        request = {
+            "jsonrpc": "2.0",
+            "id": 73,
+            "method": "tools/call",
+            "params": {"name": "cleanmac_capabilities", "arguments": {}},
+        }
+        stdout, _stderr = proc.communicate(input=json.dumps(request), timeout=15)
+        response = json.loads(stdout.strip().split("\n")[0])
+
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        self.assertIn("CLI not found", result["content"][0]["text"])
+        self.assertEqual(result["structuredContent"]["schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertEqual(result["structuredContent"]["tool"], "cleanmac_capabilities")
+
+    def test_infrastructure_error_nonzero_exit(self) -> None:
+        """Verify MCP returns structured error when the CLI exits with non-zero status."""
+        with tempfile.TemporaryDirectory() as tmp:
+            failing_script = Path(tmp) / "fail.sh"
+            failing_script.write_text("#!/bin/sh\necho 'simulated failure' >&2\nexit 1\n", encoding="utf-8")
+            failing_script.chmod(0o755)
+
+            env = _mcp_env()
+            env["CLEANMAC_CLI"] = str(failing_script)
+            proc = subprocess.Popen(
+                [sys.executable, str(MCP_SERVER)],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+            request = {
+                "jsonrpc": "2.0",
+                "id": 75,
+                "method": "tools/call",
+                "params": {"name": "cleanmac_capabilities", "arguments": {}},
+            }
+            stdout, _stderr = proc.communicate(input=json.dumps(request), timeout=15)
+            response = json.loads(stdout.strip().split("\n")[0])
+
+            result = response["result"]
+            self.assertTrue(result["isError"])
+            error_text = result["content"][0]["text"]
+            self.assertIn("failed", error_text.lower())
+            self.assertEqual(result["structuredContent"]["schema"], "cleanmac.mcp-tool-error.v1")
+            self.assertEqual(result["structuredContent"]["tool"], "cleanmac_capabilities")
 
     def test_tools_call_readonly_capabilities(self) -> None:
         response = _mcp_request(
@@ -495,7 +586,7 @@ class MckServerTests(unittest.TestCase):
         # Process should have exited; start a new one and verify tools/list still works
         response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = response["result"]["tools"]
-        self.assertGreaterEqual(len(tools), 22)
+        self.assertEqual(len(tools), 24)
 
     def test_notifications_initialized_standalone(self) -> None:
         """Sending a standalone notifications/initialized is silently handled (no response)."""

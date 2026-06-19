@@ -2,7 +2,7 @@ name: Bundle Drift Audit
 
 on:
   schedule:
-    - cron: "17 3 1 * *"
+    - cron: "17 3 * * 1"
   workflow_dispatch:
 
 permissions:

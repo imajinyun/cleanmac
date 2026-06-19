@@ -117,7 +117,12 @@ def render_ai_governance_advice(
         },
         {
             "id": "prompt-injection-boundary",
-            "status": "satisfied",
+            "status": "satisfied"
+            if any(
+                s.get("id") == "prompt_injection_boundary" and not s.get("may_execute_delete", True)
+                for s in eval_pack.get("scenarios", [])
+            )
+            else "needs_attention",
             "evidence": ["required_host_controls", "anti_patterns"],
         },
         {
@@ -127,7 +132,13 @@ def render_ai_governance_advice(
         },
         {
             "id": "mcp-host-governance",
-            "status": "satisfied",
+            "status": "satisfied"
+            if any(
+                s.get("id") == "mcp_resource_prompt_surface"
+                and s.get("expected_final_schema") == "cleanmac.mcp-smoke.v1"
+                for s in eval_pack.get("scenarios", [])
+            )
+            else "needs_attention",
             "evidence": ["cleanmac://ai/governance-advice", "cleanmac://ai/host-policy", "review-ai-governance"],
         },
         {
@@ -137,7 +148,12 @@ def render_ai_governance_advice(
         },
         {
             "id": "audit-traceability",
-            "status": "satisfied",
+            "status": "satisfied"
+            if bool(
+                eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
+                and not eval_pack.get("allows_destructive_execution", True)
+            )
+            else "needs_attention",
             "evidence": ["operation_log", "ai_confirmation_summary", "cleanmac.ai-trace.v1"],
         },
         {

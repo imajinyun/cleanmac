@@ -38,6 +38,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("plan_context_mismatch_policy", scenarios)
         self.assertIn("permanent_delete_deny_policy", scenarios)
         self.assertIn("confirmation_token_execution", scenarios)
+        self.assertIn("confirmation_token_validation", scenarios)
         self.assertIn("bundle_protection_enforcement", scenarios)
 
         safe_plan = scenarios["safe_plan_to_dry_run"]
@@ -56,6 +57,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(execution_policy["sandbox_only"])
         self.assertTrue(execution_policy["may_execute_delete"])
         self.assertIn("CONFIRMATION_TOKEN_MISMATCH", execution_policy["expected_blocking_codes"])
+        validation_policy = scenarios["confirmation_token_validation"]
+        self.assertFalse(validation_policy["may_execute_delete"])
+        self.assertIn("AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN", validation_policy["expected_blocking_codes"])
         bundle_policy = scenarios["bundle_protection_enforcement"]
         self.assertFalse(bundle_policy["may_execute_delete"])
 
@@ -66,7 +70,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(report["passed"], report)
         self.assertEqual(report["scenario"], "smoke")
         self.assertFalse(report["destructive_execution_allowed"])
-        self.assertGreaterEqual(report["passed_count"], 9)
+        self.assertGreaterEqual(report["passed_count"], 10)
         self.assertEqual(report["failed_count"], 0)
         self.assertEqual(report["trace"]["schema"], "cleanmac.ai-trace.v1")
         self.assertGreater(report["trace"]["event_count"], 0)
@@ -76,6 +80,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["safe_plan_to_dry_run"]["passed"])
         self.assertTrue(scenario_results["invalid_category_recovery"]["passed"])
         self.assertTrue(scenario_results["confirmation_token_policy"]["passed"])
+        self.assertTrue(scenario_results["confirmation_token_validation"]["passed"])
         self.assertTrue(scenario_results["prompt_injection_boundary"]["passed"])
         self.assertTrue(scenario_results["plan_context_mismatch_policy"]["passed"])
         self.assertTrue(scenario_results["permanent_delete_deny_policy"]["passed"])
@@ -112,6 +117,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("plan_context_mismatch_policy", scenario_ids)
         self.assertIn("permanent_delete_deny_policy", scenario_ids)
         self.assertIn("confirmation_token_execution", scenario_ids)
+        self.assertIn("confirmation_token_validation", scenario_ids)
         self.assertIn("bundle_protection_enforcement", scenario_ids)
 
     def test_ai_eval_run_mcp_resource_prompt_surface(self) -> None:
@@ -143,6 +149,20 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(result["id"], "confirmation_token_execution")
         self.assertEqual(result["observed_schema"], "cleanmac.clean.v1")
         self.assertEqual(result["observed_blocking_codes"], ["CONFIRMATION_TOKEN_MISMATCH"])
+
+    def test_ai_eval_run_confirmation_token_validation(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "confirmation_token_validation")
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["selected_scenarios"], ["confirmation_token_validation"])
+        self.assertEqual(report["passed_count"], 1)
+        self.assertEqual(report["failed_count"], 0)
+
+        result = report["results"][0]
+        self.assertEqual(result["id"], "confirmation_token_validation")
+        self.assertEqual(result["observed_schema"], "cleanmac.ai-policy-simulation.v1")
+        self.assertEqual(result["observed_blocking_codes"], ["AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN"])
 
     def test_ai_eval_run_bundle_protection_enforcement(self) -> None:
         report = self.run_json("ai-eval-run", "--scenario", "bundle_protection_enforcement")

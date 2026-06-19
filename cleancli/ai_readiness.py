@@ -23,7 +23,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
         eval_pack["schema"] == "cleanmac.ai-eval-pack.v1"
         and not eval_pack["uses_shell"]
         and not eval_pack["allows_destructive_execution"]
-        and eval_pack["scenario_count"] >= 4
+        and eval_pack["scenario_count"] >= 9
     )
     runbook_ready = bool(
         runbook["schema"] == "cleanmac.ai-runbook.v1"

@@ -143,6 +143,123 @@ class AIHostScenarioTests(unittest.TestCase):
             self.assertEqual(decisions["ai_origin_requires_operation_log"], "pass")
             self.assertEqual(decisions["plan_context_matches"], "pass")
 
+    def test_prompt_injection_boundary_path_text_treated_as_data(self) -> None:
+        """Verify the host policy declares that paths and filenames are treated as untrusted data."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            home = root / "Users" / "tester"
+            home.mkdir(parents=True)
+
+            result = run_cli(
+                "ai-governance-advice",
+                root=root,
+                home=home,
+            )
+
+            self.assertEqual(result["schema"], "cleanmac.ai-governance-advice.v1")
+            host_controls = result.get("required_host_controls", [])
+            path_data_statements = [
+                c for c in host_controls
+                if "path" in str(c).lower() or "data" in str(c).lower()
+                or "untrusted" in str(c).lower()
+            ]
+            self.assertGreaterEqual(
+                len(path_data_statements), 1,
+                "Host controls must include path/data/untrusted handling",
+            )
+
+    def test_plan_context_mismatch_policy_blocks_execution(self) -> None:
+        """Verify execution intent is blocked when plan root/home differs from sandbox context."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            home = root / "Users" / "tester"
+            other_root = Path(tmp) / "other_root"
+            other_home = other_root / "Users" / "other"
+            downloads = home / "Downloads"
+            downloads.mkdir(parents=True)
+            (downloads / "old-cache.tmp").write_text("cache", encoding="utf-8")
+            plan_file = Path(tmp) / "plan.json"
+            operation_log = Path(tmp) / "operations.jsonl"
+
+            plan = run_cli("clean", "plan", "--categories", "downloads", "--ai-origin", root=root, home=home)
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+
+            plan_for_token = run_cli(
+                "clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash", root=root, home=home
+            )
+            token = plan_for_token["ai_confirmation_summary"]["confirmation_token"]
+
+            result = run_cli(
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                str(operation_log),
+                "--require-plan-context",
+                "--require-confirmation-token",
+                "--confirmation-token",
+                token,
+                root=other_root,
+                home=other_home,
+            )
+
+            self.assertFalse(result["allowed"], "Policy simulate with mismatched context should be denied")
+            blocking_codes = {row["code"] for row in result["blocking_reasons"]}
+            self.assertIn(
+                "PLAN_CONTEXT_MISMATCH",
+                blocking_codes,
+                f"Expected PLAN_CONTEXT_MISMATCH in blocking reasons, got: {blocking_codes}",
+            )
+
+    def test_permanent_delete_deny_policy_blocks_ai_origin(self) -> None:
+        """Verify AI-originated execute intent using permanent delete mode is blocked by policy."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            home = root / "Users" / "tester"
+            downloads = home / "Downloads"
+            downloads.mkdir(parents=True)
+            (downloads / "old-cache.tmp").write_text("cache", encoding="utf-8")
+            plan_file = Path(tmp) / "plan.json"
+            operation_log = Path(tmp) / "operations.jsonl"
+
+            plan = run_cli("clean", "plan", "--categories", "downloads", "--ai-origin", root=root, home=home)
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+
+            plan_for_token = run_cli(
+                "clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash", root=root, home=home
+            )
+            token = plan_for_token["ai_confirmation_summary"]["confirmation_token"]
+
+            result = run_cli(
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+                "--delete-mode",
+                "permanent",
+                "--operation-log",
+                str(operation_log),
+                "--require-plan-context",
+                "--require-confirmation-token",
+                "--confirmation-token",
+                token,
+                root=root,
+                home=home,
+            )
+
+            self.assertFalse(result["allowed"], "Permanent delete simulate with AI origin should be denied")
+            blocking_codes = {row["code"] for row in result["blocking_reasons"]}
+            self.assertIn(
+                "AI_ORIGIN_REQUIRES_TRASH",
+                blocking_codes,
+                f"Expected AI_ORIGIN_REQUIRES_TRASH in blocking reasons, got: {blocking_codes}",
+            )
+
     def test_ai_host_invalid_category_error_is_machine_readable(self) -> None:
         self.assertEqual(INVALID_CATEGORY_RECOVERY_SCENARIO, "invalid_category_recovery")
         with tempfile.TemporaryDirectory() as tmp:
