@@ -31,6 +31,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(report["scenario_count"], len(report["scenarios"]))
 
         scenarios = {scenario["id"]: scenario for scenario in report["scenarios"]}
+        self.assertIn("host_integration_pack_discovery", scenarios)
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
         self.assertIn("schema_registry_discovery", scenarios)
@@ -58,6 +59,9 @@ class AIEvalTests(unittest.TestCase):
         contract_samples = scenarios["contract_samples_roundtrip"]
         self.assertEqual(contract_samples["expected_final_schema"], "cleanmac.ai-contract-samples.v1")
         self.assertFalse(contract_samples["may_execute_delete"])
+        integration_pack = scenarios["host_integration_pack_discovery"]
+        self.assertEqual(integration_pack["expected_final_schema"], "cleanmac.ai-host-integration-pack.v1")
+        self.assertFalse(integration_pack["may_execute_delete"])
         unsupported_schema = scenarios["unsupported_plan_schema_recovery"]
         self.assertIn("unsupported-schema-version", unsupported_schema["expected_blocking_codes"])
         legacy_warning = scenarios["legacy_plan_schema_warning"]
@@ -92,6 +96,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertGreater(report["trace"]["event_count"], 0)
 
         scenario_results = {item["id"]: item for item in report["results"]}
+        self.assertTrue(scenario_results["host_integration_pack_discovery"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
@@ -165,6 +170,7 @@ class AIEvalTests(unittest.TestCase):
         scenario_ids = {scenario["id"] for scenario in report["scenarios"]}
 
         self.assertIn("safe_plan_to_dry_run", scenario_ids)
+        self.assertIn("host_integration_pack_discovery", scenario_ids)
         self.assertIn("schema_registry_discovery", scenario_ids)
         self.assertIn("contract_validation_plan", scenario_ids)
         self.assertIn("contract_samples_roundtrip", scenario_ids)
@@ -209,6 +215,21 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(result["id"], "contract_samples_roundtrip")
         self.assertTrue(result["passed"])
         self.assertEqual(result["observed_schema"], "cleanmac.ai-contract-samples.v1")
+        self.assertEqual(result["observed_blocking_codes"], [])
+
+    def test_ai_eval_run_host_integration_pack_discovery(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "host_integration_pack_discovery")
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["selected_scenarios"], ["host_integration_pack_discovery"])
+        self.assertEqual(report["passed_count"], 1)
+        self.assertEqual(report["failed_count"], 0)
+
+        result = report["results"][0]
+        self.assertEqual(result["id"], "host_integration_pack_discovery")
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["observed_schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertEqual(result["observed_blocking_codes"], [])
 
 

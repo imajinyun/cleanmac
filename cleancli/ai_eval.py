@@ -14,6 +14,17 @@ from typing import Any
 def render_ai_eval_pack() -> dict[str, Any]:
     scenarios = [
         {
+            "id": "host_integration_pack_discovery",
+            "description": "Verify AI Hosts can load the one-stop integration pack with schemas, policy, governance, eval, and samples.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "ai-host-integration-pack"],
+            ],
+            "expected_final_schema": "cleanmac.ai-host-integration-pack.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "discover_readiness",
             "description": "Verify an AI Host can discover capabilities, readiness, runbook, and decision metadata.",
             "required_tools": ["cleanmac_capabilities"],
@@ -360,6 +371,7 @@ def scenario_ids(pack: dict[str, Any]) -> list[str]:
 def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
     if requested == "smoke":
         return [
+            "host_integration_pack_discovery",
             "discover_readiness",
             "schema_registry_discovery",
             "contract_validation_plan",
@@ -553,6 +565,24 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and "cleanmac_execute_plan" in host_policy["auto_call"]["deny"]
                     ),
                     observed_schema=host_policy["schema"],
+                )
+            )
+
+        if "host_integration_pack_discovery" in selected:
+            integration_pack, event = _run_cli(cli, ["ai-host-integration-pack"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "host_integration_pack_discovery",
+                    passed=bool(
+                        integration_pack["schema"] == "cleanmac.ai-host-integration-pack.v1"
+                        and integration_pack["ready"]
+                        and integration_pack["host_policy"]["valid"]
+                        and integration_pack["contract_validation"]["valid"]
+                        and "cleanmac.ai-host-integration-pack.v1" in integration_pack["critical_schemas"]
+                        and "cleanmac://ai/host-integration-pack" in integration_pack["mcp"]["resources"]
+                    ),
+                    observed_schema=integration_pack["schema"],
                 )
             )
 

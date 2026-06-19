@@ -183,6 +183,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
         self.assertIn("cleanmac://ai/contract-validation", uris)
         self.assertIn("cleanmac://ai/contract-samples", uris)
+        self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -233,6 +234,22 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["sample_count"], len(payload["samples"]))
         self.assertTrue(all(sample["valid"] for sample in payload["samples"]), payload)
 
+    def test_resources_read_host_integration_pack(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 28,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/host-integration-pack"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/host-integration-pack")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-host-integration-pack.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["mcp"]["resource_uri"], "cleanmac://ai/host-integration-pack")
+
     def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
         response = _mcp_request(
             {
@@ -275,6 +292,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
         self.assertIn("cleanmac://ai/governance-advice", uris)
         self.assertIn("cleanmac://ai/host-policy", uris)
+        self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/eval-pack", uris)
         self.assertIn("cleanmac://ai/eval-run-smoke", uris)
 
