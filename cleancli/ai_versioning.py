@@ -105,6 +105,20 @@ SUPPORTED_PLAN_SCHEMAS: tuple[str, ...] = (
     "cleanmac.clean-plan.v1",
 )
 
+AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
+    "cleanmac.plan.v1",
+    "cleanmac.validate-plan.v1",
+    "cleanmac.ai-policy-simulation.v1",
+    "cleanmac.ai-schema-registry.v1",
+    "cleanmac.ai-readiness.v1",
+    "cleanmac.ai-host-policy.v1",
+    "cleanmac.ai-governance-advice.v1",
+    "cleanmac.ai-eval-pack.v1",
+    "cleanmac.ai-eval-run.v1",
+    "cleanmac.ai-contract-validation.v1",
+    "cleanmac.ai-contract-validation-summary.v1",
+)
+
 CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
     "cleanmac.plan.v1": {
         "type": "object",
@@ -186,6 +200,77 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "tool_count": {"type": "integer"},
             "contracts": {"type": "object"},
             "schema_registry": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.ai-host-policy.v1": {
+        "type": "object",
+        "required": ["schema", "valid", "default_decision", "auto_call", "execution_gate"],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-host-policy.v1"},
+            "valid": {"type": "boolean"},
+            "default_decision": {"const": "deny"},
+            "auto_call": {"type": "object"},
+            "execution_gate": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.ai-governance-advice.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "ready_for_llm_calling",
+            "governance_score",
+            "default_policy",
+            "required_host_controls",
+            "recommended_call_sequence",
+            "anti_patterns",
+            "governance_route",
+            "release_gate_commands",
+            "recommendations",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-governance-advice.v1"},
+            "ready_for_llm_calling": {"type": "boolean"},
+            "governance_score": {"type": "object"},
+            "default_policy": {"type": "object"},
+            "required_host_controls": {"type": "array", "items": {"type": "string"}},
+            "recommended_call_sequence": {"type": "array", "items": {"type": "string"}},
+            "anti_patterns": {"type": "array", "items": {"type": "string"}},
+            "governance_route": {"type": "array", "items": {"type": "object"}},
+            "release_gate_commands": {"type": "array", "items": {"type": "array"}},
+            "recommendations": {"type": "array", "items": {"type": "object"}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.ai-eval-pack.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "scenario_count",
+            "scenarios",
+            "allows_destructive_execution",
+            "recommended_runner_command",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-eval-pack.v1"},
+            "scenario_count": {"type": "integer"},
+            "scenarios": {"type": "array", "items": {"type": "object"}},
+            "allows_destructive_execution": {"const": False},
+            "recommended_runner_command": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.ai-eval-run.v1": {
+        "type": "object",
+        "required": ["schema", "scenario", "passed", "passed_count", "failed_count", "results"],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-eval-run.v1"},
+            "scenario": {"type": "string"},
+            "passed": {"type": "boolean"},
+            "passed_count": {"type": "integer"},
+            "failed_count": {"type": "integer"},
+            "results": {"type": "array", "items": {"type": "object"}},
         },
         "additionalProperties": True,
     },
@@ -415,15 +500,17 @@ def render_ai_contract_validation_summary() -> dict[str, Any]:
     )
     result_by_schema = {schema_registry_validation["target_schema"]: schema_registry_validation}
     missing_schema_fragments = [
-        schema_name
-        for schema_name in (
-            "cleanmac.plan.v1",
-            "cleanmac.validate-plan.v1",
-            "cleanmac.ai-policy-simulation.v1",
-            "cleanmac.ai-schema-registry.v1",
-            "cleanmac.ai-readiness.v1",
-        )
-        if schema_name not in CORE_CONTRACT_SCHEMAS
+        schema_name for schema_name in AI_HOST_CRITICAL_SCHEMAS if schema_name not in CORE_CONTRACT_SCHEMAS
+    ]
+    registry = render_ai_schema_registry()
+    stable_ai_schemas = [
+        entry["name"]
+        for entry in registry["entries"]
+        if entry["stability"] == "stable"
+        and (entry["kind"] == "ai-output" or str(entry["name"]).startswith("cleanmac.mcp-"))
+    ]
+    stable_ai_schema_fragments = [
+        schema_name for schema_name in stable_ai_schemas if schema_name in CORE_CONTRACT_SCHEMAS
     ]
     coverage_result = {
         "schema": "cleanmac.ai-contract-validation.v1",
@@ -451,6 +538,15 @@ def render_ai_contract_validation_summary() -> dict[str, Any]:
         "valid": failure_count == 0,
         "validated_schema_count": len(results),
         "failure_count": failure_count,
+        "contract_schema_coverage": {
+            "registered_schema_count": registry["entry_count"],
+            "json_schema_fragment_count": len(CORE_CONTRACT_SCHEMAS),
+            "critical_schemas": list(AI_HOST_CRITICAL_SCHEMAS),
+            "critical_schema_count": len(AI_HOST_CRITICAL_SCHEMAS),
+            "stable_ai_schema_count": len(stable_ai_schemas),
+            "stable_ai_schema_fragment_count": len(stable_ai_schema_fragments),
+            "missing_stable_ai_schema_fragments": missing_schema_fragments,
+        },
         "results": results,
     }
 

@@ -158,6 +158,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "ready": bool(contract_validation["valid"]),
             "validated_schema_count": contract_validation["validated_schema_count"],
             "failure_count": contract_validation["failure_count"],
+            "contract_schema_coverage": contract_validation["contract_schema_coverage"],
         },
         "recommended_starting_tools": [
             "cleanmac_capabilities",

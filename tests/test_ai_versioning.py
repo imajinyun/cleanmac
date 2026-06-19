@@ -88,13 +88,7 @@ class AISchemaRegistryTests(unittest.TestCase):
         from cleancli import ai_versioning
 
         entries = {entry["name"]: entry for entry in ai_versioning.render_ai_schema_registry()["entries"]}
-        for schema_name in (
-            "cleanmac.plan.v1",
-            "cleanmac.validate-plan.v1",
-            "cleanmac.ai-policy-simulation.v1",
-            "cleanmac.ai-schema-registry.v1",
-            "cleanmac.ai-readiness.v1",
-        ):
+        for schema_name in ai_versioning.AI_HOST_CRITICAL_SCHEMAS:
             self.assertIn("json_schema", entries[schema_name], schema_name)
             json_schema = entries[schema_name]["json_schema"]
             self.assertEqual(json_schema["type"], "object")
@@ -107,6 +101,64 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("dry_run", plan_schema["required"])
         self.assertEqual(plan_schema["properties"]["destructive"]["const"], False)
         self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
+
+    def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
+        from cleancli.ai_versioning import AI_HOST_CRITICAL_SCHEMAS, CORE_CONTRACT_SCHEMAS, validate_contract_payload
+
+        self.assertLessEqual(set(AI_HOST_CRITICAL_SCHEMAS), set(CORE_CONTRACT_SCHEMAS))
+        host_policy = {
+            "schema": "cleanmac.ai-host-policy.v1",
+            "valid": True,
+            "default_decision": "deny",
+            "auto_call": {"allow": [], "deny": ["cleanmac_execute_plan"]},
+            "execution_gate": {"auto_call_allowed": False},
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.ai-host-policy.v1", host_policy)["valid"])
+
+        missing_auto_call = dict(host_policy)
+        del missing_auto_call["auto_call"]
+        missing_report = validate_contract_payload("cleanmac.ai-host-policy.v1", missing_auto_call)
+        self.assertFalse(missing_report["valid"])
+        self.assertEqual(missing_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+
+        wrong_schema = dict(host_policy)
+        wrong_schema["schema"] = "cleanmac.ai-host-policy.v2"
+        const_report = validate_contract_payload("cleanmac.ai-host-policy.v1", wrong_schema)
+        self.assertFalse(const_report["valid"])
+        self.assertEqual(const_report["errors"][0]["code"], "CONST_MISMATCH")
+
+        governance_advice = {
+            "schema": "cleanmac.ai-governance-advice.v1",
+            "ready_for_llm_calling": True,
+            "governance_score": {"level": "strong"},
+            "default_policy": {"shell_allowed": False},
+            "required_host_controls": ["Load host policy before execution."],
+            "recommended_call_sequence": ["cleanmac_capabilities"],
+            "anti_patterns": ["Calling execute directly."],
+            "governance_route": [{"id": "entrypoint-governance", "status": "satisfied"}],
+            "release_gate_commands": [["make", "ai-governance-smoke"]],
+            "recommendations": [{"id": "preflight-first"}],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.ai-governance-advice.v1", governance_advice)["valid"])
+
+        eval_pack = {
+            "schema": "cleanmac.ai-eval-pack.v1",
+            "scenario_count": 1,
+            "scenarios": [{"id": "discover_readiness"}],
+            "allows_destructive_execution": False,
+            "recommended_runner_command": ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.ai-eval-pack.v1", eval_pack)["valid"])
+
+        eval_run = {
+            "schema": "cleanmac.ai-eval-run.v1",
+            "scenario": "smoke",
+            "passed": True,
+            "passed_count": 1,
+            "failed_count": 0,
+            "results": [{"id": "discover_readiness", "passed": True}],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.ai-eval-run.v1", eval_run)["valid"])
 
     def test_contract_validator_reports_valid_missing_and_unsupported_payloads(self) -> None:
         from cleancli.ai_versioning import render_ai_contract_validation_summary, validate_contract_payload
@@ -136,6 +188,9 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(summary["schema"], "cleanmac.ai-contract-validation-summary.v1")
         self.assertTrue(summary["valid"], summary)
         self.assertEqual(summary["failure_count"], 0)
+        coverage = summary["contract_schema_coverage"]
+        self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
+        self.assertGreaterEqual(coverage["json_schema_fragment_count"], len(coverage["critical_schemas"]))
 
     def test_plan_schema_negotiation_accepts_only_supported_schema_versions(self) -> None:
         from cleancli.ai_versioning import negotiate_plan_schema

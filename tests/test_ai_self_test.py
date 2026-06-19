@@ -47,6 +47,9 @@ class AISelfTestTests(unittest.TestCase):
             checks["contract-validation-smoke"]["detail"]["schema"],
             "cleanmac.ai-contract-validation-summary.v1",
         )
+        coverage = checks["contract-validation-smoke"]["detail"]["contract_schema_coverage"]
+        self.assertIn("cleanmac.ai-eval-run.v1", coverage["critical_schemas"])
+        self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
         self.assertTrue(all(check["passed"] for check in report["checks"]), report["checks"])
 
 
