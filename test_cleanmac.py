@@ -2431,7 +2431,18 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.ai-host-policy.v1", schemas)
         self.assertIn("cleanmac.ai-host-evidence.v1", schemas)
         self.assertIn("cleanmac.ai-eval-run.v1", schemas)
+        self.assertIn("cleanmac.release-artifact-manifest.v1", schemas)
         self.assertTrue(all(sample["valid"] for sample in report["samples"]), report)
+
+    def test_release_manifest_schema_is_registered_and_sampled(self) -> None:
+        registry = json.loads(self.run_cli("--json", "ai-schema-registry").stdout)
+        samples = json.loads(self.run_cli("--json", "ai-contract-samples").stdout)
+        names = {entry["name"] for entry in registry["entries"]}
+        sample_by_schema = {sample["target_schema"]: sample for sample in samples["samples"]}
+
+        self.assertIn("cleanmac.release-artifact-manifest.v1", names)
+        self.assertIn("cleanmac.release-artifact-manifest.v1", sample_by_schema)
+        self.assertTrue(sample_by_schema["cleanmac.release-artifact-manifest.v1"]["valid"])
 
     def test_ai_host_evidence_command_emits_registered_schema(self) -> None:
         result = self.run_cli("--json", "ai-host-evidence")
@@ -4569,6 +4580,21 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("security-smoke", release)
         self.assertIn("cleanmac --json capabilities", release)
         self.assertNotIn('packages-dir: "release-assets"', release)
+
+    def test_release_workflow_reuses_release_manifest_script(self) -> None:
+        release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+
+        self.assertIn("scripts/generate_release_manifest.py", release)
+        self.assertIn("--dist-dir dist", release)
+        self.assertIn("--assets-dir release-assets", release)
+        self.assertNotIn("manifest = {", release)
+
+    def test_release_artifacts_smoke_reuses_release_manifest_script(self) -> None:
+        makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+
+        self.assertIn("scripts/generate_release_manifest.py", makefile)
+        self.assertIn("ARTIFACT-MANIFEST.json", makefile)
+        self.assertIn("SHA256SUMS", makefile)
 
     def test_open_source_governance_files_are_configured(self) -> None:
         required_files = [

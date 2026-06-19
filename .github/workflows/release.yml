@@ -38,45 +38,12 @@ jobs:
       - name: Build distributions
         run: $PYTHON -m build --wheel --sdist --outdir dist
 
-      - name: Generate SHA256SUMS
+      - name: Generate release manifest and SHA256SUMS
         run: |
           mkdir -p release-assets
           $PYTHON scripts/generate_sbom.py --output release-assets/SBOM.json
-          $PYTHON - <<'PY'
-          import hashlib
-          import json
-          import platform
-          import sys
-          from pathlib import Path
-
-          dist = Path("dist")
-          release_assets = Path("release-assets")
-          lines = []
-          manifest = {
-              "schema": "cleanmac.release-artifact-manifest.v1",
-              "python_version": sys.version.split()[0],
-              "platform": platform.platform(),
-              "artifacts": [],
-              "distribution_policy": {
-                  "homebrew_formula": "preflight-only",
-                  "standalone_zipapp": "smoke-tested outside release upload",
-                  "publish_after_cross_platform_verification": True,
-              },
-          }
-          for path in sorted(dist.iterdir()):
-              if path.is_file():
-                  digest = hashlib.sha256(path.read_bytes()).hexdigest()
-                  lines.append(f"{digest}  {path.name}")
-                  manifest["artifacts"].append({"name": path.name, "sha256": digest, "kind": path.suffix.lstrip(".")})
-          sbom = release_assets / "SBOM.json"
-          sbom_digest = hashlib.sha256(sbom.read_bytes()).hexdigest()
-          lines.append(f"{sbom_digest}  {sbom.name}")
-          manifest["artifacts"].append({"name": sbom.name, "sha256": sbom_digest, "kind": "sbom"})
-          Path("release-assets/SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
-          Path("release-assets/ARTIFACT-MANIFEST.json").write_text(
-              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-          )
-          PY
+          $PYTHON scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets
+          $PYTHON -c 'import json, pathlib; manifest=json.loads(pathlib.Path("release-assets/ARTIFACT-MANIFEST.json").read_text(encoding="utf-8")); assert manifest["schema"] == "cleanmac.release-artifact-manifest.v1"; assert manifest["distribution_policy"]["homebrew_formula"] == "preflight-only"; assert manifest["distribution_policy"]["publish_after_cross_platform_verification"]'
 
       - name: Verify installation from wheel on build runner
         run: |

@@ -161,6 +161,8 @@ make governance-smoke
 
 职责：`pyproject.toml`、`.github/workflows/*`、`.gitleaks.toml`、README/CONTRIBUTING/SECURITY、release artifact 证明。
 
+- `cleancli/release_artifacts.py` and `scripts/generate_release_manifest.py` own release manifest generation; do not duplicate checksum/manifest logic in workflow YAML or Makefile one-liners.
+
 修改后必须运行：
 
 ```bash

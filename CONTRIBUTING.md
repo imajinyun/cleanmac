@@ -47,6 +47,7 @@ If Docker is not available locally, include that limitation in the pull request 
 - [ ] The change is covered by tests.
 - [ ] `make quality-check` passes.
 - [ ] `make dependency-audit-smoke` passes for supply-chain changes.
+- [ ] `make release-artifacts-smoke` passes for release, packaging, or manifest changes.
 - [ ] `make docs-smoke` passes.
 - [ ] `make mcp-smoke` passes (if MCP server touched).
 - [ ] `make governance-smoke` passes.
