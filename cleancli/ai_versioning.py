@@ -494,7 +494,7 @@ def validate_contract_payload(schema_name: str, payload: Any) -> dict[str, Any]:
             }
         ]
     else:
-        errors = _validate_schema_fragment(schema_fragment, payload, "$.")
+        errors = _validate_schema_fragment(schema_fragment, payload, "$")
     return {
         "schema": "cleanmac.ai-contract-validation.v1",
         "destructive": False,

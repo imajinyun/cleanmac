@@ -35,6 +35,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("safe_plan_to_dry_run", scenarios)
         self.assertIn("schema_registry_discovery", scenarios)
         self.assertIn("contract_validation_plan", scenarios)
+        self.assertIn("contract_samples_roundtrip", scenarios)
         self.assertIn("unsupported_plan_schema_recovery", scenarios)
         self.assertIn("legacy_plan_schema_warning", scenarios)
         self.assertIn("invalid_category_recovery", scenarios)
@@ -54,6 +55,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertFalse(safe_plan["may_execute_delete"])
         contract_validation = scenarios["contract_validation_plan"]
         self.assertEqual(contract_validation["expected_final_schema"], "cleanmac.ai-contract-validation.v1")
+        contract_samples = scenarios["contract_samples_roundtrip"]
+        self.assertEqual(contract_samples["expected_final_schema"], "cleanmac.ai-contract-samples.v1")
+        self.assertFalse(contract_samples["may_execute_delete"])
         unsupported_schema = scenarios["unsupported_plan_schema_recovery"]
         self.assertIn("unsupported-schema-version", unsupported_schema["expected_blocking_codes"])
         legacy_warning = scenarios["legacy_plan_schema_warning"]
@@ -91,6 +95,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
+        self.assertTrue(scenario_results["contract_samples_roundtrip"]["passed"])
         self.assertTrue(scenario_results["unsupported_plan_schema_recovery"]["passed"])
         self.assertTrue(scenario_results["legacy_plan_schema_warning"]["passed"])
         self.assertTrue(scenario_results["safe_plan_to_dry_run"]["passed"])
@@ -162,6 +167,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("safe_plan_to_dry_run", scenario_ids)
         self.assertIn("schema_registry_discovery", scenario_ids)
         self.assertIn("contract_validation_plan", scenario_ids)
+        self.assertIn("contract_samples_roundtrip", scenario_ids)
         self.assertIn("unsupported_plan_schema_recovery", scenario_ids)
         self.assertIn("legacy_plan_schema_warning", scenario_ids)
         self.assertIn("invalid_category_recovery", scenario_ids)
@@ -188,6 +194,21 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(result["id"], "mcp_resource_prompt_surface")
         self.assertTrue(result["passed"])
         self.assertEqual(result["observed_schema"], "cleanmac.mcp-smoke.v1")
+        self.assertEqual(result["observed_blocking_codes"], [])
+
+    def test_ai_eval_run_contract_samples_roundtrip(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "contract_samples_roundtrip")
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["selected_scenarios"], ["contract_samples_roundtrip"])
+        self.assertEqual(report["passed_count"], 1)
+        self.assertEqual(report["failed_count"], 0)
+
+        result = report["results"][0]
+        self.assertEqual(result["id"], "contract_samples_roundtrip")
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["observed_schema"], "cleanmac.ai-contract-samples.v1")
         self.assertEqual(result["observed_blocking_codes"], [])
 
 

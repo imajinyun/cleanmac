@@ -94,6 +94,17 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "contract_samples_roundtrip",
+            "description": "Verify every AI Host critical contract sample is emitted and validates against its registered schema.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "ai-contract-samples"],
+            ],
+            "expected_final_schema": "cleanmac.ai-contract-samples.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "unsupported_plan_schema_recovery",
             "description": "Verify unsupported plan schemas return invalid validation metadata instead of proceeding.",
             "required_tools": ["cleanmac_validate_plan"],
@@ -352,6 +363,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "discover_readiness",
             "schema_registry_discovery",
             "contract_validation_plan",
+            "contract_samples_roundtrip",
             "unsupported_plan_schema_recovery",
             "legacy_plan_schema_warning",
             "safe_plan_to_dry_run",
@@ -604,6 +616,24 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "contract_validation_plan",
                     passed=bool(validation["valid"] and validation["error_count"] == 0),
                     observed_schema=validation["schema"],
+                )
+            )
+
+        if "contract_samples_roundtrip" in selected:
+            samples, event = _run_cli(cli, ["ai-contract-samples"], root=root, home=home)
+            events.append(event)
+            sample_rows = samples.get("samples", [])
+            results.append(
+                _scenario_result(
+                    "contract_samples_roundtrip",
+                    passed=bool(
+                        samples["schema"] == "cleanmac.ai-contract-samples.v1"
+                        and samples["sample_count"] == len(sample_rows)
+                        and sample_rows
+                        and all(row["valid"] for row in sample_rows)
+                        and all(row["validation"]["valid"] for row in sample_rows)
+                    ),
+                    observed_schema=samples["schema"],
                 )
             )
 
