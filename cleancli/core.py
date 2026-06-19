@@ -1424,6 +1424,18 @@ def ensure_supported_plan_schema(plan: dict[str, Any]) -> None:
         raise SystemExit(f"Unsupported plan schema {schema or '<missing>'}: {reason}")
 
 
+def plan_schema_warnings(schema_negotiation: dict[str, Any]) -> list[dict[str, str]]:
+    if schema_negotiation.get("accepted") is not True or schema_negotiation.get("legacy") is not True:
+        return []
+    schema = str(schema_negotiation.get("schema") or "")
+    latest = str(schema_negotiation.get("latest_supported_schema") or "cleanmac.plan.v1")
+    if schema:
+        message = f"Plan schema {schema} is supported for compatibility; {latest} is preferred."
+    else:
+        message = f"Plan file has no schema field and is accepted as legacy; {latest} is preferred."
+    return [{"code": "LEGACY_PLAN_SCHEMA", "schema": schema, "message": message}]
+
+
 def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None:
     if getattr(args, "command", None) != "clean" or not getattr(args, "plan_file", None):
         return None
@@ -5104,6 +5116,7 @@ def validate_clean_plan(plan_file: str, *, root: Path | None = None, home: Path 
         "valid": bool(schema_negotiation["accepted"] and not unknown),
         "plan": plan,
         "schema_negotiation": schema_negotiation,
+        "schema_warnings": plan_schema_warnings(schema_negotiation),
         "unknown_categories": unknown,
         "context_warnings": context_warnings,
         "preview": preview,

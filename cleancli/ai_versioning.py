@@ -124,7 +124,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "generated_at": {"type": "string"},
             "expires_at": {"type": "string"},
             "selected_category_keys": {"type": "array", "items": {"type": "string"}},
-            "candidate_fingerprints": {"type": "array", "items": {"type": "string"}},
+            "candidate_fingerprints": {"type": "array", "items": {"type": "object"}},
         },
         "additionalProperties": True,
     },
@@ -465,18 +465,27 @@ def negotiate_plan_schema(plan: dict[str, Any], *, allow_legacy_missing: bool = 
                 "schema": "",
                 "reason": "legacy-missing-schema-field",
                 "latest_supported_schema": LATEST_PLAN_SCHEMA,
+                "legacy": True,
             }
-        return {"accepted": False, "schema": "", "reason": "missing-schema-field"}
+        return {
+            "accepted": False,
+            "schema": "",
+            "reason": "missing-schema-field",
+            "latest_supported_schema": LATEST_PLAN_SCHEMA,
+            "legacy": False,
+        }
     if schema in SUPPORTED_PLAN_SCHEMAS:
         return {
             "accepted": True,
             "schema": schema,
             "reason": "supported",
             "latest_supported_schema": LATEST_PLAN_SCHEMA,
+            "legacy": schema != LATEST_PLAN_SCHEMA,
         }
     return {
         "accepted": False,
         "schema": schema,
         "reason": "unsupported-schema-version",
         "latest_supported_schema": LATEST_PLAN_SCHEMA,
+        "legacy": False,
     }
