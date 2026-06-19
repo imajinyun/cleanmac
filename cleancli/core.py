@@ -33,7 +33,7 @@ from cleancli.ai_governance import render_ai_governance_advice, validate_ai_gove
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
-from cleancli.ai_versioning import render_ai_schema_registry
+from cleancli.ai_versioning import negotiate_plan_schema, render_ai_schema_registry
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 
 VERSION = "0.1.0"
@@ -1349,6 +1349,7 @@ def load_clean_plan(plan_file: str) -> dict[str, Any]:
     )
     if not isinstance(plan, dict):
         raise SystemExit(f"Plan file does not contain a usable report object: {plan_path}")
+    schema_negotiation = negotiate_plan_schema(plan, allow_legacy_missing=True)
 
     category_keys = normalize_plan_category_keys(plan.get("selected_category_keys"))
     if not category_keys:
@@ -1363,6 +1364,8 @@ def load_clean_plan(plan_file: str) -> dict[str, Any]:
 
     return {
         "path": display_path(plan_path),
+        "source_schema": str(plan.get("schema")) if isinstance(plan.get("schema"), str) else "",
+        "schema_negotiation": schema_negotiation,
         "category_keys": category_keys,
         "risk_policy": normalize_risk_policy(plan.get("risk_policy")),
         "max_delete_mb": max_delete_mb if isinstance(max_delete_mb, (int, float)) else None,
@@ -1388,10 +1391,23 @@ def load_clean_plan(plan_file: str) -> dict[str, Any]:
     }
 
 
+def ensure_supported_plan_schema(plan: dict[str, Any]) -> None:
+    schema_negotiation = plan.get("schema_negotiation")
+    if not isinstance(schema_negotiation, dict) or schema_negotiation.get("accepted") is not True:
+        schema = "" if not isinstance(schema_negotiation, dict) else str(schema_negotiation.get("schema") or "")
+        reason = (
+            "missing-schema-negotiation"
+            if not isinstance(schema_negotiation, dict)
+            else str(schema_negotiation.get("reason") or "unknown")
+        )
+        raise SystemExit(f"Unsupported plan schema {schema or '<missing>'}: {reason}")
+
+
 def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None:
     if getattr(args, "command", None) != "clean" or not getattr(args, "plan_file", None):
         return None
     plan = load_clean_plan(args.plan_file)
+    ensure_supported_plan_schema(plan)
     if not args.categories and plan["category_keys"]:
         args.categories = ",".join(str(key) for key in plan["category_keys"])
     if args.risk_policy == "default" and plan["risk_policy"]:
@@ -4979,6 +4995,7 @@ def build_global_cli_command(
 
 def validate_clean_plan(plan_file: str, *, root: Path | None = None, home: Path | None = None) -> dict[str, Any]:
     plan = load_clean_plan(plan_file)
+    schema_negotiation = plan["schema_negotiation"]
     unknown = [key for key in plan["category_keys"] if str(key) not in CATEGORY_BY_KEY]
     context_warnings = []
     if root is not None and plan.get("root") and not same_context_path(str(plan["root"]), root):
@@ -5018,8 +5035,9 @@ def validate_clean_plan(plan_file: str, *, root: Path | None = None, home: Path 
         "schema": "cleanmac.validate-plan.v1",
         "destructive": False,
         "dry_run": True,
-        "valid": not unknown,
+        "valid": bool(schema_negotiation["accepted"] and not unknown),
         "plan": plan,
+        "schema_negotiation": schema_negotiation,
         "unknown_categories": unknown,
         "context_warnings": context_warnings,
         "preview": preview,
@@ -5045,6 +5063,7 @@ def render_ai_policy_simulation(
     original_argv: Sequence[str],
 ) -> dict[str, Any]:
     plan = load_clean_plan(plan_file)
+    ensure_supported_plan_schema(plan)
     context_warnings = []
     missing_requirements: list[str] = []
     blocking_reasons: list[dict[str, Any]] = []

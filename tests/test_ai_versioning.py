@@ -60,6 +60,8 @@ class AISchemaRegistryTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["entry_count"], len(first["entries"]))
+        self.assertEqual(first["supported_plan_schemas"][0], "cleanmac.plan.v1")
+        self.assertIn("cleanmac.clean.v1", first["supported_plan_schemas"])
         self.assertIn("cleanmac.clean-plan.v1", first["supported_plan_schemas"])
         self.assertIn("Breaking changes require a new vN suffix", first["compatibility_policy"]["stable"])
         self.assertIn("subject to change", first["compatibility_policy"]["internal"])
@@ -69,16 +71,35 @@ class AISchemaRegistryTests(unittest.TestCase):
         from cleancli.ai_versioning import negotiate_plan_schema
 
         self.assertEqual(
-            negotiate_plan_schema({"schema": "cleanmac.clean-plan.v1"}),
-            {"accepted": True, "schema": "cleanmac.clean-plan.v1", "reason": "supported"},
+            negotiate_plan_schema({"schema": "cleanmac.plan.v1"}),
+            {
+                "accepted": True,
+                "schema": "cleanmac.plan.v1",
+                "reason": "supported",
+                "latest_supported_schema": "cleanmac.plan.v1",
+            },
         )
         self.assertEqual(
             negotiate_plan_schema({}),
             {"accepted": False, "schema": "", "reason": "missing-schema-field"},
         )
         self.assertEqual(
+            negotiate_plan_schema({}, allow_legacy_missing=True),
+            {
+                "accepted": True,
+                "schema": "",
+                "reason": "legacy-missing-schema-field",
+                "latest_supported_schema": "cleanmac.plan.v1",
+            },
+        )
+        self.assertEqual(
             negotiate_plan_schema({"schema": "cleanmac.clean-plan.v2"}),
-            {"accepted": False, "schema": "cleanmac.clean-plan.v2", "reason": "unsupported-schema-version"},
+            {
+                "accepted": False,
+                "schema": "cleanmac.clean-plan.v2",
+                "reason": "unsupported-schema-version",
+                "latest_supported_schema": "cleanmac.plan.v1",
+            },
         )
 
 
