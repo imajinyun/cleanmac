@@ -9,6 +9,7 @@ from cleancli.ai_eval import render_ai_eval_pack
 from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_runbook import render_ai_runbook
+from cleancli.ai_versioning import render_ai_schema_registry
 
 
 def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
@@ -41,6 +42,10 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     host_policy = render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
     host_policy_validation = validate_ai_host_policy(host_policy)
     host_policy_ready = bool(host_policy["valid"] and host_policy_validation["valid"])
+    schema_registry = render_ai_schema_registry()
+    schema_registry_ready = bool(
+        schema_registry["schema"] == "cleanmac.ai-schema-registry.v1" and schema_registry["entry_count"] >= 20
+    )
     return {
         "schema": "cleanmac.ai-readiness.v1",
         "ready": bool(
@@ -53,6 +58,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and eval_pack_ready
             and governance_ready
             and host_policy_ready
+            and schema_registry_ready
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -100,6 +106,11 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "destructive_execution_allowed": False,
             "safe_to_run_in_ci": True,
         },
+        "trace_persistence": {
+            "supported": True,
+            "format": "jsonl",
+            "redaction": "shell-metachar-argv-filter",
+        },
         "governance_advice": {
             "schema": governance_advice["schema"],
             "ready": governance_ready,
@@ -111,6 +122,11 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "ready": host_policy_ready,
             "default_decision": host_policy["default_decision"],
             "validation": host_policy_validation,
+        },
+        "schema_registry": {
+            "schema": schema_registry["schema"],
+            "ready": schema_registry_ready,
+            "entry_count": schema_registry["entry_count"],
         },
         "recommended_starting_tools": [
             "cleanmac_capabilities",
@@ -131,6 +147,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             ["cleanmac", "--json", "ai-decision-matrix"],
             ["cleanmac", "--json", "ai-governance-advice"],
             ["cleanmac", "--json", "ai-host-policy"],
+            ["cleanmac", "--json", "ai-schema-registry"],
             ["cleanmac", "--json", "ai-eval-pack"],
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
         ],

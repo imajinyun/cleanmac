@@ -417,7 +417,30 @@ def _trace(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def render_ai_eval_run(*, scenario: str, cli: Path) -> dict[str, Any]:
+def _redact_event(event: dict[str, Any]) -> dict[str, Any]:
+    redacted = dict(event)
+    argv = list(redacted.get("argv") or [])
+    redacted["argv"] = [token for token in argv if all(ch not in str(token) for ch in ("|", ";", "&", "`", "$"))]
+    return redacted
+
+
+def _persist_trace(trace_file: Path, events: list[dict[str, Any]]) -> dict[str, Any]:
+    if trace_file.exists() and trace_file.is_dir():
+        raise RuntimeError(f"trace-file-is-directory: {trace_file}")
+    if trace_file.is_symlink():
+        raise RuntimeError(f"trace-file-is-symlink: {trace_file}")
+    redacted = [_redact_event(event) for event in events]
+    try:
+        trace_file.parent.mkdir(parents=True, exist_ok=True)
+        with trace_file.open("w", encoding="utf-8") as fh:
+            for event in redacted:
+                fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        raise RuntimeError(f"trace-file-write-failed: {exc}") from exc
+    return {"status": "written", "path": str(trace_file), "event_count": len(redacted)}
+
+
+def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = None) -> dict[str, Any]:
     pack = render_ai_eval_pack()
     selected = selected_scenario_ids(scenario, scenario_ids(pack))
     results: list[dict[str, Any]] = []
@@ -966,6 +989,10 @@ def render_ai_eval_run(*, scenario: str, cli: Path) -> dict[str, Any]:
 
     passed_count = sum(1 for item in results if item["passed"])
     failed_count = len(results) - passed_count
+    trace = _trace(events)
+    trace_persistence = (
+        _persist_trace(trace_file, events) if trace_file is not None else {"status": "skipped", "path": None}
+    )
     return {
         "schema": "cleanmac.ai-eval-run.v1",
         "scenario": scenario,
@@ -975,5 +1002,6 @@ def render_ai_eval_run(*, scenario: str, cli: Path) -> dict[str, Any]:
         "passed_count": passed_count,
         "failed_count": failed_count,
         "results": results,
-        "trace": _trace(events),
+        "trace": trace,
+        "trace_persistence": trace_persistence,
     }

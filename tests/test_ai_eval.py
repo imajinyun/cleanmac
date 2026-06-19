@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -91,6 +93,35 @@ class AIEvalTests(unittest.TestCase):
             ["AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN"],
         )
 
+    def test_ai_eval_run_smoke_covers_runner_in_process(self) -> None:
+        from cleancli.ai_eval import render_ai_eval_run
+
+        report = render_ai_eval_run(scenario="smoke", cli=CLI)
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["failed_count"], 0)
+        self.assertEqual(report["trace_persistence"], {"status": "skipped", "path": None})
+
+    def test_ai_eval_selection_helpers_cover_all_single_and_unknown_requests(self) -> None:
+        from cleancli.ai_eval import render_ai_eval_pack, scenario_ids, selected_scenario_ids
+
+        all_ids = scenario_ids(render_ai_eval_pack())
+
+        self.assertIn("discover_readiness", all_ids)
+        self.assertEqual(selected_scenario_ids("all", all_ids), all_ids)
+        self.assertEqual(selected_scenario_ids("discover_readiness", all_ids), ["discover_readiness"])
+        with self.assertRaisesRegex(ValueError, "Unknown AI eval scenario: not-real"):
+            selected_scenario_ids("not-real", all_ids)
+
+    def test_ai_eval_cli_helper_raises_structured_runtime_error_on_unexpected_failure(self) -> None:
+        from cleancli.ai_eval import _prepare_sandbox, _run_cli
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root, home = _prepare_sandbox(tmp)
+            with self.assertRaisesRegex(RuntimeError, "unknown-command"):
+                _run_cli(CLI, ["unknown-command"], root=root, home=home)
+
     def test_ai_eval_run_rejects_unknown_scenario(self) -> None:
         result = subprocess.run(
             [sys.executable, str(CLI), "--json", "ai-eval-run", "--scenario", "not-real"],
@@ -135,6 +166,149 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(result["passed"])
         self.assertEqual(result["observed_schema"], "cleanmac.mcp-smoke.v1")
         self.assertEqual(result["observed_blocking_codes"], [])
+
+
+class AITracePersistenceTests(unittest.TestCase):
+    def run_json(self, *args: str) -> dict:
+        result = subprocess.run(
+            [sys.executable, str(CLI), "--json", *args],
+            text=True,
+            capture_output=True,
+            check=True,
+            env={**os.environ, "CLEANMAC_TEST_MODE": "1", "CLEANMAC_TEST_NO_AUTH": "1"},
+        )
+        return json.loads(result.stdout)
+
+    def test_trace_file_writes_redacted_jsonl_when_writable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_file = Path(tmp) / "trace.jsonl"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "--json",
+                    "ai-eval-run",
+                    "--scenario",
+                    "discover_readiness",
+                    "--trace-file",
+                    str(trace_file),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+                env={**os.environ, "CLEANMAC_TEST_MODE": "1", "CLEANMAC_TEST_NO_AUTH": "1"},
+                timeout=120,
+            )
+            report = json.loads(result.stdout)
+            self.assertTrue(trace_file.exists())
+            lines = [json.loads(line) for line in trace_file.read_text(encoding="utf-8").splitlines() if line]
+            self.assertGreaterEqual(len(lines), 1)
+            for line in lines:
+                self.assertIn("schema", line)
+                joined_argv = " ".join(str(token) for token in line.get("argv", []))
+                self.assertNotIn("|", joined_argv)
+                self.assertNotIn(";", joined_argv)
+            self.assertEqual(report["trace_persistence"]["status"], "written")
+            self.assertEqual(report["trace_persistence"]["path"], str(trace_file))
+
+    def test_trace_persistence_helpers_redact_shell_like_tokens_in_process(self) -> None:
+        from cleancli.ai_eval import _persist_trace, _redact_event
+
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_file = Path(tmp) / "nested" / "trace.jsonl"
+            event = {
+                "argv": ["cleanmac", "--json", "safe", "bad|pipe", "bad;semicolon", "bad&and", "bad`tick", "bad$var"],
+                "schema": "cleanmac.ai-trace-test.v1",
+                "ok": True,
+            }
+
+            redacted = _redact_event(event)
+            self.assertEqual(redacted["argv"], ["cleanmac", "--json", "safe"])
+
+            persistence = _persist_trace(trace_file, [event])
+            self.assertEqual(persistence["status"], "written")
+            self.assertEqual(persistence["path"], str(trace_file))
+            self.assertEqual(persistence["event_count"], 1)
+            rows = [json.loads(line) for line in trace_file.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(rows[0]["argv"], ["cleanmac", "--json", "safe"])
+
+    def test_trace_persistence_helpers_fail_closed_for_directory_and_symlink_in_process(self) -> None:
+        from cleancli.ai_eval import _persist_trace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / "trace-dir"
+            directory.mkdir()
+            with self.assertRaisesRegex(RuntimeError, "trace-file-is-directory"):
+                _persist_trace(directory, [])
+
+            target = Path(tmp) / "target.jsonl"
+            symlink = Path(tmp) / "trace-link.jsonl"
+            symlink.symlink_to(target)
+            with self.assertRaisesRegex(RuntimeError, "trace-file-is-symlink"):
+                _persist_trace(symlink, [])
+
+    def test_trace_persistence_helper_wraps_write_errors_in_process(self) -> None:
+        from cleancli.ai_eval import _persist_trace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            parent_file = Path(tmp) / "not-a-directory"
+            parent_file.write_text("occupied", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "trace-file-write-failed"):
+                _persist_trace(parent_file / "trace.jsonl", [])
+
+    def test_trace_file_fails_closed_when_path_is_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bad_path = Path(tmp) / "trace-as-dir"
+            bad_path.mkdir()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "--json",
+                    "ai-eval-run",
+                    "--scenario",
+                    "discover_readiness",
+                    "--trace-file",
+                    str(bad_path),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "CLEANMAC_TEST_MODE": "1", "CLEANMAC_TEST_NO_AUTH": "1"},
+                timeout=120,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(result.stderr or result.stdout)
+            self.assertEqual(report["schema"], "cleanmac.ai-error.v1")
+            self.assertIn("trace", report["error"]["code"].lower())
+
+    def test_trace_file_fails_closed_when_path_is_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "real-trace.jsonl"
+            symlink = Path(tmp) / "trace-link.jsonl"
+            symlink.symlink_to(target)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "--json",
+                    "ai-eval-run",
+                    "--scenario",
+                    "discover_readiness",
+                    "--trace-file",
+                    str(symlink),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "CLEANMAC_TEST_MODE": "1", "CLEANMAC_TEST_NO_AUTH": "1"},
+                timeout=120,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(result.stderr or result.stdout)
+            self.assertEqual(report["schema"], "cleanmac.ai-error.v1")
+            self.assertIn("trace", report["error"]["code"].lower())
 
     def test_ai_eval_run_confirmation_token_execution(self) -> None:
         report = self.run_json("ai-eval-run", "--scenario", "confirmation_token_execution")

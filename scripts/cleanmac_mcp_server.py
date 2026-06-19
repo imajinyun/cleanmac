@@ -109,6 +109,17 @@ def structured_error(tool_name: str, message: str) -> dict:
     }
 
 
+def resolve_tool_timeout() -> float:
+    raw = os.environ.get("CLEANMAC_MCP_TOOL_TIMEOUT")
+    if not raw:
+        return 120.0
+    try:
+        value = float(raw)
+    except ValueError:
+        return 120.0
+    return value if value > 0 else 120.0
+
+
 def mcp_resources() -> list[dict]:
     return [
         {
@@ -166,6 +177,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://ai/schema-registry",
+            "name": "cleanmac AI schema registry",
+            "description": "Inventory of cleanmac.*.v* schemas with stability and compatibility policy.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -185,6 +202,7 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli import ai_schema  # type: ignore[import-untyped]
     from cleancli.ai_readiness import render_ai_readiness  # type: ignore[import-untyped]
     from cleancli.ai_runbook import render_ai_runbook  # type: ignore[import-untyped]
+    from cleancli.ai_versioning import render_ai_schema_registry  # type: ignore[import-untyped]
     from cleancli.core import (  # type: ignore[import-untyped]
         render_ai_decision_matrix,
         render_ai_eval_pack,
@@ -214,6 +232,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_governance_advice_report()
     elif uri == "cleanmac://ai/host-policy":
         payload = render_ai_host_policy_report()
+    elif uri == "cleanmac://ai/schema-registry":
+        payload = render_ai_schema_registry()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":
@@ -412,14 +432,15 @@ def execute_tool(tool: dict, arguments: dict) -> str:
     cmd = CLEANMAC_CLI + argv[1:] if CLEANMAC_CLI[0].endswith(".py") else CLEANMAC_CLI + argv[1:]
 
     try:
+        timeout_seconds = resolve_tool_timeout()
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout_seconds,
         )
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"Tool {name} timed out after 120s") from exc
+        raise RuntimeError(f"Tool {name} timed out after {resolve_tool_timeout()}s") from exc
     except FileNotFoundError as exc:
         raise RuntimeError(f"cleanmac CLI not found: {exc}") from exc
 
@@ -442,8 +463,20 @@ def handle_request(request: dict) -> tuple[dict | None, list[dict]]:
     Returns (response, notifications) where notifications is a list of
     server-initiated messages to send after the response.
     """
-    method = request.get("method", "")
     req_id = request.get("id")
+    if request.get("jsonrpc") != "2.0":
+        return (
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {
+                    "code": -32600,
+                    "message": "Invalid Request: missing or unsupported jsonrpc version (must be 2.0)",
+                },
+            },
+            [],
+        )
+    method = request.get("method", "")
 
     if method == "initialize":
         tools = get_tool_definitions()

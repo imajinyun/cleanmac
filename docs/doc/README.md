@@ -692,6 +692,7 @@ Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `je
 python3 -m unittest -v                            # All tests
 python3 -m unittest tests.test_mcp_server -v      # MCP tests only
 make mcp-smoke                                     # MCP smoke test
+make ai-robustness-smoke                           # AI robustness regressions
 make local-test                                    # Full local suite
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # Doc validation
@@ -726,6 +727,7 @@ make no-cache-release-check                        # No-cache release validation
 | `governance-smoke` | Governance contracts |
 | `ai-governance-smoke` | AI governance route check |
 | `ai-host-smoke` | AI host integration test suite |
+| `ai-robustness-smoke` | AI concurrency, idempotency, protocol, and trace regressions |
 | `distribution-smoke` | wheel + sdist |
 | `release-artifacts-smoke` | SHA256SUMS + attestation |
 | `docker-test` | Debian container tests |
