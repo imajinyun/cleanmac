@@ -185,7 +185,7 @@ docker-test:
 no-cache-docker-test:
 	DOCKER_RUN_FLAGS="--pull=always" $(MAKE) docker-test
 
-release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test
+release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test
 
 no-cache-release-check:
 	PIP_NO_CACHE_DIR=1 $(MAKE) no-cache-check
