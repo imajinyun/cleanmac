@@ -9,7 +9,7 @@ from cleancli.ai_eval import render_ai_eval_pack
 from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_runbook import render_ai_runbook
-from cleancli.ai_versioning import render_ai_schema_registry
+from cleancli.ai_versioning import render_ai_contract_validation_summary, render_ai_schema_registry
 
 
 def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
@@ -43,6 +43,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
     host_policy_validation = validate_ai_host_policy(host_policy)
     host_policy_ready = bool(host_policy["valid"] and host_policy_validation["valid"])
     schema_registry = render_ai_schema_registry()
+    contract_validation = render_ai_contract_validation_summary()
     registry_entries = {str(entry["name"]): entry for entry in schema_registry["entries"]}
     required_contract_schemas = {
         "cleanmac.plan.v1",
@@ -77,6 +78,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             and governance_ready
             and host_policy_ready
             and schema_registry_ready
+            and contract_validation["valid"]
         ),
         "tool_count": provider_parity["tool_count"],
         "provider_exports": {
@@ -150,6 +152,12 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "latest_plan_schema": schema_registry["latest_plan_schema"],
             "supported_plan_schemas_registered": supported_plan_schemas_registered,
             "core_contract_schemas_present": core_contract_schemas_present,
+        },
+        "contract_validation": {
+            "schema": contract_validation["schema"],
+            "ready": bool(contract_validation["valid"]),
+            "validated_schema_count": contract_validation["validated_schema_count"],
+            "failure_count": contract_validation["failure_count"],
         },
         "recommended_starting_tools": [
             "cleanmac_capabilities",

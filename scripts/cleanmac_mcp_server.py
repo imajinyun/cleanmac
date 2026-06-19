@@ -183,6 +183,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://ai/contract-validation",
+            "name": "cleanmac AI contract validation",
+            "description": "Self-validation report for cleanmac AI/MCP machine-readable contracts.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -202,7 +208,10 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli import ai_schema  # type: ignore[import-untyped]
     from cleancli.ai_readiness import render_ai_readiness  # type: ignore[import-untyped]
     from cleancli.ai_runbook import render_ai_runbook  # type: ignore[import-untyped]
-    from cleancli.ai_versioning import render_ai_schema_registry  # type: ignore[import-untyped]
+    from cleancli.ai_versioning import (  # type: ignore[import-untyped]
+        render_ai_contract_validation_summary,
+        render_ai_schema_registry,
+    )
     from cleancli.core import (  # type: ignore[import-untyped]
         render_ai_decision_matrix,
         render_ai_eval_pack,
@@ -234,6 +243,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_host_policy_report()
     elif uri == "cleanmac://ai/schema-registry":
         payload = render_ai_schema_registry()
+    elif uri == "cleanmac://ai/contract-validation":
+        payload = render_ai_contract_validation_summary()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":

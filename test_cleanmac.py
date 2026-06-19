@@ -2014,6 +2014,22 @@ class CleanMacCLITests(unittest.TestCase):
                 report["ai_confirmation_summary"]["confirmation_token_embedded"].startswith("cleanmac-confirm-")
             )
 
+            plan_file = root / "contract-plan.json"
+            plan_file.write_text(json.dumps(report), encoding="utf-8")
+            validation = self.run_cli(
+                "--json",
+                "ai-validate-contract",
+                "--schema",
+                "cleanmac.plan.v1",
+                "--payload-file",
+                str(plan_file),
+            )
+            validation_report = json.loads(validation.stdout)
+            self.assertEqual(validation_report["schema"], "cleanmac.ai-contract-validation.v1")
+            self.assertTrue(validation_report["valid"], validation_report)
+            self.assertEqual(validation_report["target_schema"], "cleanmac.plan.v1")
+            self.assertEqual(validation_report["error_count"], 0)
+
     def test_plan_command_marks_ai_originated_plan(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
