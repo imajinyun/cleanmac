@@ -118,7 +118,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "generated_at": "2026-06-19T00:00:00+00:00",
             "expires_at": "2026-06-19T00:30:00+00:00",
             "selected_category_keys": ["trash"],
-            "candidate_fingerprints": ["abc123"],
+            "candidate_fingerprints": [{"path": "/tmp/old.tmp", "exists": True}],
         }
         self.assertTrue(validate_contract_payload("cleanmac.plan.v1", valid_plan)["valid"])
 
@@ -128,7 +128,7 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertFalse(missing_report["valid"])
         self.assertEqual(missing_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
 
-        unsupported_report = validate_contract_payload("cleanmac.plan.v99", valid_plan)
+        unsupported_report = validate_contract_payload("cleanmac.plan." + "v99", valid_plan)
         self.assertFalse(unsupported_report["valid"])
         self.assertEqual(unsupported_report["errors"][0]["code"], "UNSUPPORTED_SCHEMA")
 
@@ -147,11 +147,18 @@ class AISchemaRegistryTests(unittest.TestCase):
                 "schema": "cleanmac.plan.v1",
                 "reason": "supported",
                 "latest_supported_schema": "cleanmac.plan.v1",
+                "legacy": False,
             },
         )
         self.assertEqual(
             negotiate_plan_schema({}),
-            {"accepted": False, "schema": "", "reason": "missing-schema-field"},
+            {
+                "accepted": False,
+                "schema": "",
+                "reason": "missing-schema-field",
+                "latest_supported_schema": "cleanmac.plan.v1",
+                "legacy": False,
+            },
         )
         self.assertEqual(
             negotiate_plan_schema({}, allow_legacy_missing=True),
@@ -160,6 +167,17 @@ class AISchemaRegistryTests(unittest.TestCase):
                 "schema": "",
                 "reason": "legacy-missing-schema-field",
                 "latest_supported_schema": "cleanmac.plan.v1",
+                "legacy": True,
+            },
+        )
+        self.assertEqual(
+            negotiate_plan_schema({"schema": "cleanmac.clean-plan.v1"}),
+            {
+                "accepted": True,
+                "schema": "cleanmac.clean-plan.v1",
+                "reason": "supported",
+                "latest_supported_schema": "cleanmac.plan.v1",
+                "legacy": True,
             },
         )
         self.assertEqual(
@@ -169,6 +187,7 @@ class AISchemaRegistryTests(unittest.TestCase):
                 "schema": "cleanmac.clean-plan.v2",
                 "reason": "unsupported-schema-version",
                 "latest_supported_schema": "cleanmac.plan.v1",
+                "legacy": False,
             },
         )
 

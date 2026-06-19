@@ -62,6 +62,60 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "schema_registry_discovery",
+            "description": "Verify AI Hosts can discover the latest plan schema and contract validation metadata.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "ai-schema-registry"],
+                ["cleanmac", "--json", "ai-readiness"],
+            ],
+            "expected_final_schema": "cleanmac.ai-schema-registry.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "contract_validation_plan",
+            "description": "Generate a plan and validate it against the registered cleanmac.plan.v1 contract schema.",
+            "required_tools": ["cleanmac_generate_plan"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "clean", "plan", "--categories", "downloads", "--ai-origin"],
+                [
+                    "cleanmac",
+                    "--json",
+                    "ai-validate-contract",
+                    "--schema",
+                    "cleanmac.plan.v1",
+                    "--payload-file",
+                    "{plan_file}",
+                ],
+            ],
+            "expected_final_schema": "cleanmac.ai-contract-validation.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "unsupported_plan_schema_recovery",
+            "description": "Verify unsupported plan schemas return invalid validation metadata instead of proceeding.",
+            "required_tools": ["cleanmac_validate_plan"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "clean", "validate-plan", "--plan-file", "{unsupported_plan_file}"],
+            ],
+            "expected_final_schema": "cleanmac.validate-plan.v1",
+            "expected_blocking_codes": ["unsupported-schema-version"],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "legacy_plan_schema_warning",
+            "description": "Verify legacy plan schemas remain valid but produce machine-readable schema warnings.",
+            "required_tools": ["cleanmac_validate_plan"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "clean", "validate-plan", "--plan-file", "{legacy_plan_file}"],
+            ],
+            "expected_final_schema": "cleanmac.validate-plan.v1",
+            "expected_blocking_codes": ["LEGACY_PLAN_SCHEMA"],
+            "may_execute_delete": False,
+        },
+        {
             "id": "invalid_category_recovery",
             "description": "Show that invalid category errors are machine-readable and point back to discovery tools.",
             "required_tools": ["cleanmac_inspect", "cleanmac_list_categories"],
@@ -296,6 +350,10 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
     if requested == "smoke":
         return [
             "discover_readiness",
+            "schema_registry_discovery",
+            "contract_validation_plan",
+            "unsupported_plan_schema_recovery",
+            "legacy_plan_schema_warning",
             "safe_plan_to_dry_run",
             "invalid_category_recovery",
             "confirmation_token_policy",
@@ -472,6 +530,27 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 }
             )
 
+        if "schema_registry_discovery" in selected:
+            registry, event = _run_cli(cli, ["ai-schema-registry"], root=root, home=home)
+            events.append(event)
+            readiness, event = _run_cli(cli, ["ai-readiness"], root=root, home=home)
+            events.append(event)
+            registry_entries = {entry["name"]: entry for entry in registry["entries"]}
+            results.append(
+                {
+                    "id": "schema_registry_discovery",
+                    "passed": bool(
+                        registry["schema"] == "cleanmac.ai-schema-registry.v1"
+                        and registry["supported_plan_schemas"][0] == "cleanmac.plan.v1"
+                        and "cleanmac.plan.v1" in registry_entries
+                        and "json_schema" in registry_entries["cleanmac.plan.v1"]
+                        and readiness["contract_validation"]["ready"]
+                    ),
+                    "observed_schema": registry["schema"],
+                    "observed_blocking_codes": [],
+                }
+            )
+
         plan: dict[str, Any] | None = None
         dry_run: dict[str, Any] | None = None
         plan_required_scenarios = {
@@ -481,6 +560,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             "prompt_injection_boundary",
             "plan_context_mismatch_policy",
             "permanent_delete_deny_policy",
+            "contract_validation_plan",
         }
         if plan_required_scenarios.intersection(selected):
             plan, event = _run_cli(
@@ -491,6 +571,75 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             )
             events.append(event)
             plan_file.write_text(json.dumps(plan), encoding="utf-8")
+
+        if "contract_validation_plan" in selected:
+            validation, event = _run_cli(
+                cli,
+                [
+                    "ai-validate-contract",
+                    "--schema",
+                    "cleanmac.plan.v1",
+                    "--payload-file",
+                    str(plan_file),
+                ],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            results.append(
+                {
+                    "id": "contract_validation_plan",
+                    "passed": bool(validation["valid"] and validation["error_count"] == 0),
+                    "observed_schema": validation["schema"],
+                    "observed_blocking_codes": [],
+                }
+            )
+
+        if "unsupported_plan_schema_recovery" in selected:
+            unsupported_plan_file = Path(tmp) / "unsupported-plan.json"
+            unsupported_plan_file.write_text(
+                json.dumps({"schema": "cleanmac.plan." + "v99", "selected_category_keys": ["trash"]}),
+                encoding="utf-8",
+            )
+            validation, event = _run_cli(
+                cli,
+                ["clean", "validate-plan", "--plan-file", str(unsupported_plan_file)],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            reason = str(validation.get("schema_negotiation", {}).get("reason") or "")
+            results.append(
+                {
+                    "id": "unsupported_plan_schema_recovery",
+                    "passed": bool(not validation["valid"] and reason == "unsupported-schema-version"),
+                    "observed_schema": validation["schema"],
+                    "observed_blocking_codes": [reason] if reason else [],
+                }
+            )
+
+        if "legacy_plan_schema_warning" in selected:
+            legacy_plan_file = Path(tmp) / "legacy-plan.json"
+            legacy_plan_file.write_text(
+                json.dumps({"schema": "cleanmac.clean-plan.v1", "selected_category_keys": ["trash"]}),
+                encoding="utf-8",
+            )
+            validation, event = _run_cli(
+                cli,
+                ["clean", "validate-plan", "--plan-file", str(legacy_plan_file)],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            warning_codes = [row["code"] for row in validation.get("schema_warnings", [])]
+            results.append(
+                {
+                    "id": "legacy_plan_schema_warning",
+                    "passed": bool(validation["valid"] and "LEGACY_PLAN_SCHEMA" in warning_codes),
+                    "observed_schema": validation["schema"],
+                    "observed_blocking_codes": warning_codes,
+                }
+            )
 
         if "safe_plan_to_dry_run" in selected:
             validation, event = _run_cli(

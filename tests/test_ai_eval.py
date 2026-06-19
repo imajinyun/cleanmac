@@ -33,6 +33,10 @@ class AIEvalTests(unittest.TestCase):
         scenarios = {scenario["id"]: scenario for scenario in report["scenarios"]}
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
+        self.assertIn("schema_registry_discovery", scenarios)
+        self.assertIn("contract_validation_plan", scenarios)
+        self.assertIn("unsupported_plan_schema_recovery", scenarios)
+        self.assertIn("legacy_plan_schema_warning", scenarios)
         self.assertIn("invalid_category_recovery", scenarios)
         self.assertIn("confirmation_token_policy", scenarios)
         self.assertIn("mcp_resource_prompt_surface", scenarios)
@@ -48,6 +52,12 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("cleanmac_dry_run_plan", safe_plan["required_tools"])
         self.assertEqual(safe_plan["expected_final_schema"], "cleanmac.clean.v1")
         self.assertFalse(safe_plan["may_execute_delete"])
+        contract_validation = scenarios["contract_validation_plan"]
+        self.assertEqual(contract_validation["expected_final_schema"], "cleanmac.ai-contract-validation.v1")
+        unsupported_schema = scenarios["unsupported_plan_schema_recovery"]
+        self.assertIn("unsupported-schema-version", unsupported_schema["expected_blocking_codes"])
+        legacy_warning = scenarios["legacy_plan_schema_warning"]
+        self.assertIn("LEGACY_PLAN_SCHEMA", legacy_warning["expected_blocking_codes"])
 
         token_policy = scenarios["confirmation_token_policy"]
         self.assertIn("AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN", token_policy["expected_blocking_codes"])
@@ -79,6 +89,10 @@ class AIEvalTests(unittest.TestCase):
 
         scenario_results = {item["id"]: item for item in report["results"]}
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
+        self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
+        self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
+        self.assertTrue(scenario_results["unsupported_plan_schema_recovery"]["passed"])
+        self.assertTrue(scenario_results["legacy_plan_schema_warning"]["passed"])
         self.assertTrue(scenario_results["safe_plan_to_dry_run"]["passed"])
         self.assertTrue(scenario_results["invalid_category_recovery"]["passed"])
         self.assertTrue(scenario_results["confirmation_token_policy"]["passed"])
@@ -141,6 +155,10 @@ class AIEvalTests(unittest.TestCase):
         scenario_ids = {scenario["id"] for scenario in report["scenarios"]}
 
         self.assertIn("safe_plan_to_dry_run", scenario_ids)
+        self.assertIn("schema_registry_discovery", scenario_ids)
+        self.assertIn("contract_validation_plan", scenario_ids)
+        self.assertIn("unsupported_plan_schema_recovery", scenario_ids)
+        self.assertIn("legacy_plan_schema_warning", scenario_ids)
         self.assertIn("invalid_category_recovery", scenario_ids)
         self.assertIn("confirmation_token_policy", scenario_ids)
         self.assertIn("mcp_resource_prompt_surface", scenario_ids)
