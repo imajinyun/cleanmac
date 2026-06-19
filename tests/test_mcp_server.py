@@ -172,6 +172,50 @@ class MckServerTests(unittest.TestCase):
         data = json.loads(result["content"][0]["text"])
         self.assertEqual(data["schema"], "cleanmac.capabilities.v1")
         self.assertEqual(result["structuredContent"]["schema"], "cleanmac.capabilities.v1")
+        self.assertEqual(result["governanceDecision"]["schema"], "cleanmac.ai-host-tool-call-decision.v1")
+        self.assertTrue(result["governanceDecision"]["allowed"])
+
+    def test_tools_call_raw_command_argument_denied_by_runtime_policy(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 76,
+                "method": "tools/call",
+                "params": {
+                    "name": "cleanmac_capabilities",
+                    "arguments": {"raw_command": "rm -rf /"},
+                },
+            }
+        )
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        decision = result["governanceDecision"]
+        self.assertEqual(decision["schema"], "cleanmac.ai-host-tool-call-decision.v1")
+        self.assertFalse(decision["allowed"])
+        self.assertEqual(decision["blocking_reasons"][0]["code"], "RAW_COMMAND_ARGUMENT_DENIED")
+        structured = result["structuredContent"]
+        self.assertEqual(structured["schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertEqual(structured["policy_decision"], decision)
+
+    def test_tools_call_destructive_missing_runtime_gates_denied_by_policy(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 77,
+                "method": "tools/call",
+                "params": {
+                    "name": "cleanmac_execute_plan",
+                    "arguments": {"plan_file": "/tmp/cleanmac-plan.json"},
+                },
+            }
+        )
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        decision = result["governanceDecision"]
+        codes = {reason["code"] for reason in decision["blocking_reasons"]}
+        self.assertIn("HUMAN_CONFIRMATION_PHRASE_REQUIRED", codes)
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", codes)
+        self.assertFalse(decision["safe_to_auto_retry"])
 
     def test_resources_list_exposes_ai_governance_resources(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 21, "method": "resources/list"})
@@ -184,6 +228,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/contract-validation", uris)
         self.assertIn("cleanmac://ai/contract-samples", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
+        self.assertIn("cleanmac://ai/host-preflight", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -250,6 +295,22 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(payload["ready"], payload)
         self.assertEqual(payload["mcp"]["resource_uri"], "cleanmac://ai/host-integration-pack")
 
+    def test_resources_read_host_preflight(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 29,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/host-preflight"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/host-preflight")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-host-preflight.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["entrypoint"]["mcp_resource"], "cleanmac://ai/host-integration-pack")
+
     def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
         response = _mcp_request(
             {
@@ -293,6 +354,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/governance-advice", uris)
         self.assertIn("cleanmac://ai/host-policy", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
+        self.assertIn("cleanmac://ai/host-preflight", uris)
         self.assertIn("cleanmac://ai/eval-pack", uris)
         self.assertIn("cleanmac://ai/eval-run-smoke", uris)
 

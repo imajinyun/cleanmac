@@ -3812,6 +3812,7 @@ class CleanMacCLITests(unittest.TestCase):
             (("ai-governance-advice",), "cleanmac.ai-governance-advice.v1"),
             (("ai-host-policy",), "cleanmac.ai-host-policy.v1"),
             (("ai-host-integration-pack",), "cleanmac.ai-host-integration-pack.v1"),
+            (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
             (("ai-schema-registry",), "cleanmac.ai-schema-registry.v1"),
             (("ai-contract-samples",), "cleanmac.ai-contract-samples.v1"),
             (("ai-eval-pack",), "cleanmac.ai-eval-pack.v1"),

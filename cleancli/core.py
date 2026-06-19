@@ -30,7 +30,7 @@ from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run
 from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
-from cleancli.ai_host_integration import render_ai_host_integration_pack
+from cleancli.ai_host_integration import render_ai_host_integration_pack, render_ai_host_preflight
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
@@ -1139,6 +1139,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit one-stop AI Host integration metadata, policy, schemas, eval, and samples.",
     )
     subparsers.add_parser(
+        "ai-host-preflight",
+        help="Emit runtime AI Host preflight gate status before tool orchestration.",
+    )
+    subparsers.add_parser(
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
     )
@@ -1213,6 +1217,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-governance-advice",
         "ai-host-policy",
         "ai-host-integration-pack",
+        "ai-host-preflight",
         "ai-schema-registry",
         "ai-contract-samples",
         "ai-validate-contract",
@@ -2196,6 +2201,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_governance_advice": render_ai_governance_advice_report(),
         "ai_host_policy": render_ai_host_policy_report(),
         "ai_host_integration_pack": render_ai_host_integration_pack_report(),
+        "ai_host_preflight": render_ai_host_preflight_report(),
         "ai_schema_registry": render_ai_schema_registry(),
         "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
@@ -2242,6 +2248,13 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
         contract_validation=render_ai_contract_validation_summary(),
         contract_samples=render_ai_contract_samples(),
         critical_schemas=AI_HOST_CRITICAL_SCHEMAS,
+    )
+
+
+def render_ai_host_preflight_report() -> dict[str, Any]:
+    return render_ai_host_preflight(
+        integration_pack=render_ai_host_integration_pack_report(),
+        runtime_policy_schema_registered="cleanmac.ai-host-tool-call-decision.v1" in AI_HOST_CRITICAL_SCHEMAS,
     )
 
 
@@ -5971,6 +5984,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-host-integration-pack":
         print(json.dumps(render_ai_host_integration_pack_report(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-host-preflight":
+        print(json.dumps(render_ai_host_preflight_report(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-schema-registry":
         print(json.dumps(render_ai_schema_registry(), indent=2, ensure_ascii=False))

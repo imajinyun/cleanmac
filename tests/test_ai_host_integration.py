@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from cleancli.ai_versioning import AI_HOST_CRITICAL_SCHEMAS, validate_contract_payload
-from cleancli.core import render_ai_host_integration_pack_report
+from cleancli.core import render_ai_host_integration_pack_report, render_ai_host_preflight_report
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
@@ -70,13 +70,61 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             readiness["recommended_preflight_commands"],
         )
         self.assertIn(
+            ["cleanmac", "--json", "ai-host-preflight"],
+            readiness["recommended_preflight_commands"],
+        )
+        self.assertIn(
             ["cleanmac", "--json", "ai-host-integration-pack"],
+            governance["release_gate_commands"],
+        )
+        self.assertIn(
+            ["cleanmac", "--json", "ai-host-preflight"],
             governance["release_gate_commands"],
         )
         self.assertEqual(
             governance["recommended_call_sequence"][0],
             "read cleanmac://ai/host-integration-pack",
         )
+        self.assertEqual(
+            governance["recommended_call_sequence"][1],
+            "read cleanmac://ai/host-preflight",
+        )
+
+    def test_preflight_reports_runtime_governance_gate(self) -> None:
+        preflight = render_ai_host_preflight_report()
+
+        self.assertEqual(preflight["schema"], "cleanmac.ai-host-preflight.v1")
+        self.assertFalse(preflight["destructive"])
+        self.assertTrue(preflight["dry_run"])
+        self.assertTrue(preflight["ready"], preflight)
+        self.assertEqual(preflight["entrypoint"]["cli"], ["cleanmac", "--json", "ai-host-integration-pack"])
+        self.assertEqual(preflight["entrypoint"]["mcp_resource"], "cleanmac://ai/host-integration-pack")
+        checks = {check["id"]: check for check in preflight["checks"]}
+        self.assertTrue(checks["integration-pack-ready"]["passed"])
+        self.assertTrue(checks["host-policy-valid"]["passed"])
+        self.assertTrue(checks["contract-validation-valid"]["passed"])
+        self.assertTrue(checks["mcp-runtime-policy-present"]["passed"])
+        self.assertIn("matching_confirmation_token", preflight["required_before_destructive_tool"])
+
+    def test_preflight_validates_against_registered_contract_schema(self) -> None:
+        preflight = render_ai_host_preflight_report()
+
+        validation = validate_contract_payload("cleanmac.ai-host-preflight.v1", preflight)
+
+        self.assertTrue(validation["valid"], validation)
+        self.assertEqual(validation["error_count"], 0)
+
+    def test_cli_emits_host_preflight(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(CLI), "--json", "ai-host-preflight"],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        preflight = json.loads(result.stdout)
+
+        self.assertEqual(preflight["schema"], "cleanmac.ai-host-preflight.v1")
+        self.assertTrue(preflight["ready"], preflight)
 
 
 if __name__ == "__main__":
