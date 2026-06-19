@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 from typing import Any
 
@@ -1750,6 +1751,67 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(plan["uninstall_plan"]["official_uninstaller_required"])
             self.assertEqual(plan["uninstall_plan"]["official_uninstaller_vendor"], "CrowdStrike")
 
+    def test_permissions_preflight_reports_privilege_and_fda_requirements(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "permissions",
+                    "--categories",
+                    "imessage,systemLogs,trash",
+                ).stdout
+            )
+
+            by_key = {row["key"]: row for row in report["categories"]}
+            self.assertEqual(report["schema"], "cleanmac.permissions-preflight.v1")
+            self.assertFalse(report["destructive"])
+            self.assertTrue(by_key["imessage"]["full_disk_access"])
+            self.assertTrue(by_key["systemLogs"]["requires_privilege"])
+            self.assertFalse(by_key["trash"]["requires_privilege"])
+
+    def test_tool_plan_is_readonly_and_lists_manual_commands(self) -> None:
+        report = json.loads(self.run_cli("--json", "tool-plan", "--tool", "docker").stdout)
+        adapter = report["adapters"][0]
+
+        self.assertEqual(report["schema"], "cleanmac.tool-plan.v1")
+        self.assertFalse(report["destructive"])
+        self.assertFalse(report["safe_to_auto_execute"])
+        self.assertEqual(adapter["key"], "docker")
+        self.assertIn(["docker", "system", "df"], adapter["dry_run_commands"])
+        self.assertIn(["docker", "builder", "prune"], adapter["manual_execute_commands"])
+
+    def test_report_file_can_emit_html_audit_report(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report_file = root / "cleanmac-audit.html"
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "--report-file",
+                str(report_file),
+                "--report-format",
+                "html",
+                "inspect",
+                "--categories",
+                "trash",
+            )
+            report = json.loads(result.stdout)
+            html_text = report_file.read_text(encoding="utf-8")
+
+            self.assertEqual(report["report_file"], str(report_file))
+            self.assertEqual(report["report_format"], "html")
+            self.assertIn("<!doctype html>", html_text)
+            self.assertIn("cleanmac audit report", html_text)
+            self.assertIn("old.tmp", html_text)
+
     def test_clean_execute_persists_operation_log_entries(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
@@ -1843,6 +1905,66 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(any(row["trash_path"] for row in report["items"] if row["path"].endswith("download.bin")))
             deletion_log = root / "Users/tester/.cleanmac/deletions.log"
             self.assertIn("\ttrash\t", deletion_log.read_text(encoding="utf-8"))
+
+    def test_clean_execute_records_item_failures_and_continues_by_default(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            operation_log = root / "logs" / "operations.jsonl"
+            original_delete_path = cleancli.delete_path
+
+            def flaky_delete(path: Path, **kwargs: Any) -> Path | None:
+                if path.name == "download.bin":
+                    raise PermissionError("Operation not permitted")
+                return original_delete_path(path, **kwargs)
+
+            with mock.patch.object(cleancli, "delete_path", side_effect=flaky_delete):
+                report = cleancli.clean(
+                    [cleancli.CATEGORY_BY_KEY["downloads"]],
+                    root=root,
+                    home=home,
+                    execute=True,
+                    risk_policy="default",
+                    delete_mode="trash",
+                    operation_log=str(operation_log),
+                    command_argv=["clean", "--categories", "downloads", "--execute"],
+                )
+
+            records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+            failed = [row for row in report["items"] if row.get("status") == "failed"]
+            deleted = [row for row in report["items"] if row.get("status") == "deleted"]
+
+            self.assertEqual(report["failed_count"], 1)
+            self.assertEqual(report["deleted_count"], 1)
+            self.assertEqual(failed[0]["reason"], "permission-denied")
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
+            self.assertFalse((root / "Users/tester/Downloads/partial.crdownload").exists())
+            self.assertEqual({record["status"] for record in records}, {"failed", "deleted"})
+            self.assertEqual(len(deleted), 1)
+
+    def test_clean_execute_fail_fast_stops_on_item_failure(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_delete_path = cleancli.delete_path
+
+            def flaky_delete(path: Path, **kwargs: Any) -> Path | None:
+                if path.name == "download.bin":
+                    raise PermissionError("Operation not permitted")
+                return original_delete_path(path, **kwargs)
+
+            with mock.patch.object(cleancli, "delete_path", side_effect=flaky_delete):
+                with self.assertRaises(PermissionError):
+                    cleancli.clean(
+                        [cleancli.CATEGORY_BY_KEY["downloads"]],
+                        root=root,
+                        home=home,
+                        execute=True,
+                        risk_policy="default",
+                        delete_mode="trash",
+                        fail_fast=True,
+                        operation_log=str(root / "logs" / "operations.jsonl"),
+                    )
+
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 
     @unittest.skipIf(not hasattr(os, "symlink"), "symlink unsupported")
     def test_trash_delete_mode_rejects_symlink_candidates(self) -> None:

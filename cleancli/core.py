@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import glob
 import hashlib
+import html
 import json
 import os
 import re
@@ -705,6 +706,18 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
         "commands": ["software list", "software leftovers", "software startup-items", "software uninstall-plan"],
         "flat_command_aliases": [],
     },
+    "permissions": {
+        "title": "权限 / Permissions",
+        "description": "Read-only preflight for category privileges, Full Disk Access hints, sudo availability, and live-root execution gates.",
+        "commands": ["permissions"],
+        "flat_command_aliases": [],
+    },
+    "tools": {
+        "title": "工具语义计划 / Tool semantic plans",
+        "description": "Read-only semantic cleanup plans for external tools; never executes tool prune commands.",
+        "commands": ["tool-plan"],
+        "flat_command_aliases": [],
+    },
     "optimize": {
         "title": "优化 / Optimize",
         "description": "System maintenance task inventory and dry-run execution planning.",
@@ -1013,6 +1026,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--report-file",
         help="Write the command report to a JSON audit file while still printing the normal output.",
     )
+    parser.add_argument(
+        "--report-format",
+        choices=("json", "html"),
+        default="json",
+        help="Format used with --report-file. JSON is machine-readable; HTML is a human audit report.",
+    )
 
     subparsers = parser.add_subparsers(dest="command", required=True, parser_class=CleanMacArgumentParser)
 
@@ -1129,6 +1148,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     clean_cmd.add_argument("--require-plan-context", action="store_true")
     clean_cmd.add_argument("--fail-on-skipped", action="store_true")
     clean_cmd.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop execution on the first item-level delete failure. By default, failures are recorded and cleanup continues.",
+    )
+    clean_cmd.add_argument(
         "--bundle-allowlist",
         help="Comma-separated bundle IDs that may be cleaned; other bundle-owned candidates are skipped.",
     )
@@ -1163,6 +1187,23 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "action", nargs="?", choices=("list", "leftovers", "startup-items", "uninstall-plan"), default="list"
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
+
+    permissions_cmd = subparsers.add_parser(
+        "permissions",
+        help="Preflight category permissions, Full Disk Access hints, and live-root execution requirements.",
+    )
+    add_category_flags(permissions_cmd, default_scope="all")
+
+    tool_plan_cmd = subparsers.add_parser(
+        "tool-plan",
+        help="Render read-only semantic cleanup plans for external tools such as Docker, Homebrew, and Xcode.",
+    )
+    tool_plan_cmd.add_argument(
+        "--tool",
+        choices=("all", "docker", "homebrew", "xcode", "package-managers"),
+        default="all",
+        help="Tool adapter to describe. Plans are read-only and never execute external cleanup commands.",
+    )
 
     optimize_cmd = subparsers.add_parser("optimize", help="System maintenance planning.")
     optimize_cmd.add_argument("action", nargs="?", choices=("list", "plan", "run"), default="list")
@@ -2155,6 +2196,8 @@ def render_capabilities() -> dict[str, Any]:
             "links",
             "clean",
             "software",
+            "permissions",
+            "tool-plan",
             "optimize",
             "status",
             "completion",
@@ -2192,6 +2235,9 @@ def render_capabilities() -> dict[str, Any]:
             "bundle_blocklist_flag": "clean --bundle-blocklist",
             "trash_routing_flag": "clean --delete-mode trash",
             "operation_log_flag": "clean --operation-log",
+            "html_audit_report_flag": "--report-file <path> --report-format html",
+            "permissions_preflight_command": "permissions",
+            "tool_semantic_plan_command": "tool-plan",
             "default_operation_log_file": OPERATIONS_LOG_FILE,
             "bundle_drift_audit": {
                 "schema": "cleanmac.bundle-drift-audit.v1",
@@ -2578,6 +2624,135 @@ def render_doctor(*, root: Path, home: Path) -> dict[str, Any]:
                 "message": "System categories may require sudo; doctor only checks sudo -n and never prompts for a password.",
             },
         },
+    }
+
+
+def render_permissions_preflight(categories: list[Category], *, root: Path, home: Path) -> dict[str, Any]:
+    live_root = root == Path("/")
+    sudo_available = run_text_command(["sudo", "-n", "true"], timeout=1) is not None
+    rows: list[dict[str, Any]] = []
+    for category in categories:
+        blockers: list[str] = []
+        hints: list[str] = []
+        if category.requires_privilege and not sudo_available and live_root:
+            blockers.append("sudo-noninteractive-unavailable")
+            hints.append("Run a dry-run first, then rerun from a terminal with appropriate administrator privileges if required.")
+        if category.full_disk_access and sys.platform == "darwin" and live_root:
+            blockers.append("full-disk-access-may-be-required")
+            hints.append("Grant Full Disk Access to the terminal or wrapper app before scanning protected user data.")
+        if live_root:
+            blockers.append("live-root-execute-requires-allow-live-root")
+            hints.append("Destructive cleanup against '/' requires --allow-live-root after reviewing dry-run output.")
+        resolved_paths = [remap_path(pattern, root=root, home=home) for pattern in category.paths]
+        rows.append(
+            {
+                "key": category.key,
+                "title": category.title,
+                "risk": category.risk,
+                "requires_privilege": category.requires_privilege,
+                "full_disk_access": category.full_disk_access,
+                "process_guard": category.process_guard,
+                "provider": category.provider,
+                "execute_ready": not any(reason != "live-root-execute-requires-allow-live-root" for reason in blockers),
+                "blockers": blockers,
+                "hints": hints,
+                "paths": resolved_paths,
+            }
+        )
+    blocked = [row for row in rows if row["blockers"]]
+    return {
+        "schema": "cleanmac.permissions-preflight.v1",
+        "destructive": False,
+        "dry_run": True,
+        "root": display_path(root),
+        "home": display_path(home),
+        "platform": sys.platform,
+        "live_root": live_root,
+        "sudo_noninteractive": "available" if sudo_available else "not-available-or-needs-auth",
+        "full_disk_access_probe": "manual" if sys.platform == "darwin" else "not-darwin",
+        "category_count": len(rows),
+        "blocked_or_needs_attention_count": len(blocked),
+        "categories": rows,
+        "recommended_next_action": "review_blockers_before_execute" if blocked else "safe_to_dry_run_selected_categories",
+    }
+
+
+def tool_plan_adapters() -> dict[str, dict[str, Any]]:
+    return {
+        "docker": {
+            "title": "Docker semantic cleanup plan",
+            "detect_commands": [["docker", "system", "df"], ["docker", "builder", "du"]],
+            "dry_run_commands": [["docker", "system", "df"], ["docker", "builder", "du"]],
+            "manual_execute_commands": [
+                ["docker", "builder", "prune"],
+                ["docker", "image", "prune"],
+                ["docker", "container", "prune"],
+            ],
+            "preserve": ["volumes", "contexts", "auth", "daemon configuration"],
+            "risk": "medium",
+        },
+        "homebrew": {
+            "title": "Homebrew semantic cleanup plan",
+            "detect_commands": [["brew", "cleanup", "--dry-run"], ["brew", "--cache"]],
+            "dry_run_commands": [["brew", "cleanup", "--dry-run"]],
+            "manual_execute_commands": [["brew", "cleanup"]],
+            "preserve": ["installed formulae", "installed casks", "taps", "brew configuration"],
+            "risk": "medium",
+        },
+        "xcode": {
+            "title": "Xcode semantic cleanup plan",
+            "detect_commands": [["xcrun", "simctl", "list", "devices", "unavailable"]],
+            "dry_run_commands": [["xcrun", "simctl", "list", "devices", "unavailable"]],
+            "manual_execute_commands": [["xcrun", "simctl", "delete", "unavailable"]],
+            "preserve": ["active simulators", "current device support", "project archives unless explicitly selected"],
+            "risk": "medium",
+        },
+        "package-managers": {
+            "title": "Package manager cache semantic cleanup plan",
+            "detect_commands": [["npm", "cache", "verify"], ["yarn", "cache", "dir"], ["pip", "cache", "info"]],
+            "dry_run_commands": [["npm", "cache", "verify"], ["pip", "cache", "info"]],
+            "manual_execute_commands": [["npm", "cache", "clean", "--force"], ["pip", "cache", "purge"]],
+            "preserve": ["registry auth", "publishing tokens", "lock files", "project dependencies"],
+            "risk": "medium",
+        },
+    }
+
+
+def render_tool_plan(tool: str, *, root: Path, home: Path) -> dict[str, Any]:
+    adapters = tool_plan_adapters()
+    selected = adapters if tool == "all" else {tool: adapters[tool]}
+    rows: list[dict[str, Any]] = []
+    for key, adapter in selected.items():
+        commands = adapter["detect_commands"]
+        binaries = sorted({command[0] for command in commands})
+        rows.append(
+            {
+                "key": key,
+                "title": adapter["title"],
+                "risk": adapter["risk"],
+                "available": all(shutil.which(binary) is not None for binary in binaries),
+                "required_binaries": binaries,
+                "missing_binaries": [binary for binary in binaries if shutil.which(binary) is None],
+                "dry_run_commands": adapter["dry_run_commands"],
+                "manual_execute_commands": adapter["manual_execute_commands"],
+                "preserve": adapter["preserve"],
+                "auto_execute_allowed": False,
+                "notes": [
+                    "This adapter is read-only and does not run tool prune commands.",
+                    "Use cleanmac path-based categories for recoverable Trash-mode cleanup; use tool commands only after manual review.",
+                ],
+            }
+        )
+    return {
+        "schema": "cleanmac.tool-plan.v1",
+        "destructive": False,
+        "dry_run": True,
+        "root": display_path(root),
+        "home": display_path(home),
+        "selected_tool": tool,
+        "adapter_count": len(rows),
+        "safe_to_auto_execute": False,
+        "adapters": rows,
     }
 
 
@@ -4598,6 +4773,53 @@ def render_ai_execution_ledger(
     }
 
 
+def delete_failure_reason(exc: Exception) -> str:
+    text = str(exc)
+    if isinstance(exc, PermissionError) or "Operation not permitted" in text or "Lacking write permission" in text:
+        return "permission-denied"
+    if "symlink" in text.lower():
+        return "symlink-protected"
+    if "protected" in text.lower() or "Refusing to delete" in text:
+        return "protected-path"
+    if "Trash" in text or "trash" in text:
+        return "trash-routing-failed"
+    return "delete-failed"
+
+
+def operation_log_entry(
+    *,
+    session_id: str,
+    command_text: str,
+    action: str,
+    row: dict[str, Any],
+    delete_mode: str,
+    root: Path,
+    home: Path,
+    ai_operation_audit: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.operation-log-entry.v1",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id,
+        "command": command_text,
+        "action": action,
+        "category": row["category"],
+        "path": row["path"],
+        "bytes": row["bytes"],
+        "human": row["human"],
+        "bundle_id": row.get("bundle_id"),
+        "delete_mode": delete_mode,
+        "trash_path": row.get("trash_path"),
+        "deleted": bool(row.get("deleted")),
+        "status": row.get("status", action),
+        "reason": row.get("reason"),
+        "error": row.get("error"),
+        "root": display_path(root),
+        "home": display_path(home),
+        "ai": dict(ai_operation_audit),
+    }
+
+
 def clean(
     categories: list[Category],
     *,
@@ -4614,6 +4836,7 @@ def clean(
     name_regex: str | None = None,
     max_items: int | None = None,
     fail_on_skipped: bool = False,
+    fail_fast: bool = False,
     bundle_allowlist: Sequence[str] = (),
     bundle_blocklist: Sequence[str] = (),
     delete_mode: str = "permanent",
@@ -4691,6 +4914,7 @@ def clean(
         "candidate_human": human_size(candidate_bytes),
         "within_delete_budget": max_delete_bytes is None or candidate_bytes <= max_delete_bytes,
         "fail_on_skipped": fail_on_skipped,
+        "fail_fast": fail_fast,
         "skipped_count": len(skipped),
         "max_items": max_items,
         "within_max_items": max_items is None or len(rows) <= max_items,
@@ -4812,6 +5036,7 @@ def clean(
             except Exception as exc:
                 row["deleted"] = False
                 row["status"] = "failed"
+                row["reason"] = delete_failure_reason(exc)
                 row["error"] = str(exc)
                 append_deletion_log(
                     root=root,
@@ -4822,27 +5047,32 @@ def clean(
                     bytes_value=int(str(row["bytes"])),
                     detail=str(exc),
                 )
-                raise
+                operation_log_entries.append(
+                    operation_log_entry(
+                        session_id=session_id,
+                        command_text=command_text,
+                        action="failed",
+                        row=row,
+                        delete_mode=delete_mode,
+                        root=root,
+                        home=home,
+                        ai_operation_audit=ai_operation_audit,
+                    )
+                )
+                if fail_fast or row["reason"] in {"protected-path", "symlink-protected"}:
+                    raise
+                continue
             operation_log_entries.append(
-                {
-                    "schema": "cleanmac.operation-log-entry.v1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "session_id": session_id,
-                    "command": command_text,
-                    "action": "delete",
-                    "category": row["category"],
-                    "path": row["path"],
-                    "bytes": row["bytes"],
-                    "human": row["human"],
-                    "bundle_id": row.get("bundle_id"),
-                    "delete_mode": delete_mode,
-                    "trash_path": row.get("trash_path"),
-                    "deleted": True,
-                    "status": row.get("status", "deleted"),
-                    "root": display_path(root),
-                    "home": display_path(home),
-                    "ai": dict(ai_operation_audit),
-                }
+                operation_log_entry(
+                    session_id=session_id,
+                    command_text=command_text,
+                    action="delete",
+                    row=row,
+                    delete_mode=delete_mode,
+                    root=root,
+                    home=home,
+                    ai_operation_audit=ai_operation_audit,
+                )
             )
     elapsed_ms = debug_timer_end("clean", timer_start, root=root, home=home)
     operation_log_path = (
@@ -4947,6 +5177,10 @@ def clean(
         "by_category": rows_by_category(rows),
         "skipped_by_category": rows_by_category(skipped),
         "skipped_count": len(skipped),
+        "deleted_count": sum(1 for row in rows if row.get("deleted")),
+        "failed_count": sum(1 for row in rows if row.get("status") == "failed"),
+        "failed_by_category": rows_by_category([row for row in rows if row.get("status") == "failed"]),
+        "failed": [row for row in rows if row.get("status") == "failed"],
         "skipped_summary": skipped_summary(skipped),
         "skipped": skipped,
         "items": rows,
@@ -5993,8 +6227,55 @@ def print_report(report: dict[str, Any], *, as_json: bool, command: str, quiet: 
         print(f"  estimated reclaimed : {post_summary['estimated_reclaimed_human']}")
 
 
+def render_html_audit_report(audit_record: dict[str, Any]) -> str:
+    report = audit_record.get("report") if isinstance(audit_record.get("report"), dict) else {}
+    ai_summary = report.get("ai_summary") if isinstance(report.get("ai_summary"), dict) else {}
+    items = report.get("items") if isinstance(report.get("items"), list) else []
+    failed = report.get("failed") if isinstance(report.get("failed"), list) else []
+    skipped = report.get("skipped") if isinstance(report.get("skipped"), list) else []
+    rows = []
+    for row in items[:200]:
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.get('category', '')))}</td>"
+            f"<td>{html.escape(str(row.get('status', 'candidate')))}</td>"
+            f"<td>{html.escape(str(row.get('human', '')))}</td>"
+            f"<td>{html.escape(str(row.get('path', '')))}</td>"
+            "</tr>"
+        )
+    return "\n".join(
+        [
+            "<!doctype html>",
+            "<html><head><meta charset='utf-8'><title>cleanmac audit report</title>",
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:2rem;}code,td{font-family:ui-monospace,monospace;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ddd;padding:.4rem;}th{background:#f6f8fa;text-align:left;}.ok{color:#0969da}.bad{color:#cf222e}</style>",
+            "</head><body>",
+            "<h1>cleanmac audit report</h1>",
+            f"<p><strong>Generated:</strong> {html.escape(str(audit_record.get('generated_at')))}</p>",
+            f"<p><strong>Command:</strong> <code>{html.escape(str(audit_record.get('command')))}</code></p>",
+            f"<p><strong>Root:</strong> <code>{html.escape(str(audit_record.get('root')))}</code> <strong>Home:</strong> <code>{html.escape(str(audit_record.get('home')))}</code></p>",
+            f"<p><strong>Dry run:</strong> {html.escape(str(audit_record.get('dry_run')))} <strong>Total:</strong> {html.escape(str(report.get('total_human', ai_summary.get('estimated_reclaimable_human', 'n/a'))))}</p>",
+            f"<p><strong>Deleted:</strong> {html.escape(str(report.get('deleted_count', 0)))} <strong>Failed:</strong> <span class='bad'>{html.escape(str(len(failed)))}</span> <strong>Skipped:</strong> {html.escape(str(len(skipped)))}</p>",
+            f"<p><strong>Headline:</strong> {html.escape(str(ai_summary.get('headline', '')))}</p>",
+            "<h2>Items (first 200)</h2>",
+            "<table><thead><tr><th>Category</th><th>Status</th><th>Size</th><th>Path</th></tr></thead><tbody>",
+            *rows,
+            "</tbody></table>",
+            "<h2>Machine-readable payload</h2>",
+            f"<pre>{html.escape(json.dumps(audit_record, indent=2, ensure_ascii=False))}</pre>",
+            "</body></html>",
+        ]
+    )
+
+
 def write_report_file(
-    report_file: str, *, command: str, root: Path, home: Path, argv: Sequence[str], report: dict[str, Any]
+    report_file: str,
+    *,
+    command: str,
+    root: Path,
+    home: Path,
+    argv: Sequence[str],
+    report: dict[str, Any],
+    report_format: str = "json",
 ) -> dict[str, Any]:
     path = Path(report_file).expanduser().resolve(strict=False)
     selected_categories = report.get("selected_categories")
@@ -6011,13 +6292,17 @@ def write_report_file(
         "root": display_path(root),
         "home": display_path(home),
         "report_file": display_path(path),
+        "report_format": report_format,
         "dry_run": report.get("dry_run"),
         "safety_gate": report.get("safety_gate"),
         "selected_category_keys": selected_category_keys,
         "selected_categories": selected_categories,
         "report": report,
     }
-    path.write_text(json.dumps(audit_record, indent=2, ensure_ascii=False), encoding="utf-8")
+    if report_format == "html":
+        path.write_text(render_html_audit_report(audit_record), encoding="utf-8")
+    else:
+        path.write_text(json.dumps(audit_record, indent=2, ensure_ascii=False), encoding="utf-8")
     return audit_record
 
 
@@ -6026,9 +6311,16 @@ def emit_report(
 ) -> None:
     if args.report_file:
         audit_record = write_report_file(
-            args.report_file, command=command, root=root, home=home, argv=argv, report=report
+            args.report_file,
+            command=command,
+            root=root,
+            home=home,
+            argv=argv,
+            report=report,
+            report_format=args.report_format,
         )
         report["report_file"] = audit_record["report_file"]
+        report["report_format"] = audit_record["report_format"]
     print_report(report, as_json=args.json, command=command, quiet=getattr(args, "quiet", False))
 
 
@@ -6233,6 +6525,27 @@ def _main_impl(argv: Sequence[str]) -> int:
             argv=actual_argv,
         )
         return 0
+    if args.command == "permissions":
+        categories = select_categories(args)
+        emit_report(
+            render_permissions_preflight(categories, root=root, home=home),
+            args=args,
+            command="permissions",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "tool-plan":
+        emit_report(
+            render_tool_plan(args.tool, root=root, home=home),
+            args=args,
+            command="tool-plan",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
     if args.command == "optimize":
         emit_report(
             render_optimize(args.action, execute=args.execute),
@@ -6391,6 +6704,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             name_regex=args.name_regex,
             max_items=args.max_items,
             fail_on_skipped=args.fail_on_skipped,
+            fail_fast=args.fail_fast,
             bundle_allowlist=parse_csv(args.bundle_allowlist),
             bundle_blocklist=parse_csv(args.bundle_blocklist),
             delete_mode=args.delete_mode,
