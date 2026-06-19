@@ -34,6 +34,24 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "host_evidence_discovery",
+            "description": "Verify AI Hosts can load the auditable runtime governance evidence pack.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "ai-host-evidence"]],
+            "expected_final_schema": "cleanmac.ai-host-evidence.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "host_evidence_runtime_denial_coverage",
+            "description": "Verify AI Host evidence includes raw-command and destructive denial proof.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "ai-host-evidence"]],
+            "expected_final_schema": "cleanmac.ai-host-evidence.v1",
+            "expected_blocking_codes": ["RAW_COMMAND_ARGUMENT_DENIED", "CONFIRMATION_TOKEN_REQUIRED"],
+            "may_execute_delete": False,
+        },
+        {
             "id": "discover_readiness",
             "description": "Verify an AI Host can discover capabilities, readiness, runbook, and decision metadata.",
             "required_tools": ["cleanmac_capabilities"],
@@ -400,6 +418,8 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
         return [
             "host_integration_pack_discovery",
             "host_preflight_discovery",
+            "host_evidence_discovery",
+            "host_evidence_runtime_denial_coverage",
             "discover_readiness",
             "schema_registry_discovery",
             "contract_validation_plan",
@@ -631,6 +651,38 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and "matching_confirmation_token" in preflight["required_before_destructive_tool"]
                     ),
                     observed_schema=preflight["schema"],
+                )
+            )
+
+        if "host_evidence_discovery" in selected:
+            evidence, event = _run_cli(cli, ["ai-host-evidence"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "host_evidence_discovery",
+                    passed=bool(
+                        evidence["schema"] == "cleanmac.ai-host-evidence.v1"
+                        and evidence["ready"]
+                        and evidence["preflight"]["ready"]
+                        and evidence["contract_validation"]["valid"]
+                    ),
+                    observed_schema=evidence["schema"],
+                )
+            )
+
+        if "host_evidence_runtime_denial_coverage" in selected:
+            evidence, event = _run_cli(cli, ["ai-host-evidence"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "host_evidence_runtime_denial_coverage",
+                    passed=bool(
+                        evidence["schema"] == "cleanmac.ai-host-evidence.v1"
+                        and "RAW_COMMAND_ARGUMENT_DENIED" in evidence["observed_blocking_codes"]
+                        and "CONFIRMATION_TOKEN_REQUIRED" in evidence["observed_blocking_codes"]
+                    ),
+                    observed_schema=evidence["schema"],
+                    observed_blocking_codes=evidence["observed_blocking_codes"],
                 )
             )
 

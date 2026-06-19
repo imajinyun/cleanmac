@@ -33,6 +33,8 @@ class AIEvalTests(unittest.TestCase):
         scenarios = {scenario["id"]: scenario for scenario in report["scenarios"]}
         self.assertIn("host_integration_pack_discovery", scenarios)
         self.assertIn("host_preflight_discovery", scenarios)
+        self.assertIn("host_evidence_discovery", scenarios)
+        self.assertIn("host_evidence_runtime_denial_coverage", scenarios)
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
         self.assertIn("schema_registry_discovery", scenarios)
@@ -68,6 +70,13 @@ class AIEvalTests(unittest.TestCase):
         preflight = scenarios["host_preflight_discovery"]
         self.assertEqual(preflight["expected_final_schema"], "cleanmac.ai-host-preflight.v1")
         self.assertFalse(preflight["may_execute_delete"])
+        evidence = scenarios["host_evidence_discovery"]
+        self.assertEqual(evidence["expected_final_schema"], "cleanmac.ai-host-evidence.v1")
+        self.assertFalse(evidence["may_execute_delete"])
+        evidence_denials = scenarios["host_evidence_runtime_denial_coverage"]
+        self.assertEqual(evidence_denials["expected_final_schema"], "cleanmac.ai-host-evidence.v1")
+        self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", evidence_denials["expected_blocking_codes"])
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", evidence_denials["expected_blocking_codes"])
         raw_denial = scenarios["mcp_raw_command_argument_denial"]
         self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", raw_denial["expected_blocking_codes"])
         destructive_denial = scenarios["mcp_destructive_policy_denial"]
@@ -108,6 +117,8 @@ class AIEvalTests(unittest.TestCase):
         scenario_results = {item["id"]: item for item in report["results"]}
         self.assertTrue(scenario_results["host_integration_pack_discovery"]["passed"])
         self.assertTrue(scenario_results["host_preflight_discovery"]["passed"])
+        self.assertTrue(scenario_results["host_evidence_discovery"]["passed"])
+        self.assertTrue(scenario_results["host_evidence_runtime_denial_coverage"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
@@ -185,6 +196,8 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("safe_plan_to_dry_run", scenario_ids)
         self.assertIn("host_integration_pack_discovery", scenario_ids)
         self.assertIn("host_preflight_discovery", scenario_ids)
+        self.assertIn("host_evidence_discovery", scenario_ids)
+        self.assertIn("host_evidence_runtime_denial_coverage", scenario_ids)
         self.assertIn("mcp_raw_command_argument_denial", scenario_ids)
         self.assertIn("mcp_destructive_policy_denial", scenario_ids)
         self.assertIn("schema_registry_discovery", scenario_ids)
@@ -260,6 +273,28 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(result["id"], "host_preflight_discovery")
         self.assertTrue(result["passed"])
         self.assertEqual(result["observed_schema"], "cleanmac.ai-host-preflight.v1")
+
+    def test_ai_eval_run_host_evidence_discovery(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "host_evidence_discovery")
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["selected_scenarios"], ["host_evidence_discovery"])
+        self.assertEqual(report["passed_count"], 1)
+
+        result = report["results"][0]
+        self.assertEqual(result["id"], "host_evidence_discovery")
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["observed_schema"], "cleanmac.ai-host-evidence.v1")
+
+    def test_ai_eval_run_host_evidence_runtime_denial_coverage(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "host_evidence_runtime_denial_coverage")
+
+        self.assertTrue(report["passed"], report)
+        result = report["results"][0]
+        self.assertEqual(result["observed_schema"], "cleanmac.ai-host-evidence.v1")
+        self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", result["observed_blocking_codes"])
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", result["observed_blocking_codes"])
 
     def test_ai_eval_run_mcp_runtime_policy_denials(self) -> None:
         raw_report = self.run_json("ai-eval-run", "--scenario", "mcp_raw_command_argument_denial")

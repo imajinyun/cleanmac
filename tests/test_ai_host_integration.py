@@ -7,7 +7,11 @@ import unittest
 from pathlib import Path
 
 from cleancli.ai_versioning import AI_HOST_CRITICAL_SCHEMAS, validate_contract_payload
-from cleancli.core import render_ai_host_integration_pack_report, render_ai_host_preflight_report
+from cleancli.core import (
+    render_ai_host_evidence_report,
+    render_ai_host_integration_pack_report,
+    render_ai_host_preflight_report,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
@@ -37,6 +41,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             pack["recommended_preflight_commands"],
         )
         self.assertIn("cleanmac://ai/host-integration-pack", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://ai/host-evidence", pack["mcp"]["resources"])
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
     def test_pack_validates_against_registered_contract_schema(self) -> None:
@@ -74,11 +79,19 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             readiness["recommended_preflight_commands"],
         )
         self.assertIn(
+            ["cleanmac", "--json", "ai-host-evidence"],
+            readiness["recommended_preflight_commands"],
+        )
+        self.assertIn(
             ["cleanmac", "--json", "ai-host-integration-pack"],
             governance["release_gate_commands"],
         )
         self.assertIn(
             ["cleanmac", "--json", "ai-host-preflight"],
+            governance["release_gate_commands"],
+        )
+        self.assertIn(
+            ["cleanmac", "--json", "ai-host-evidence"],
             governance["release_gate_commands"],
         )
         self.assertEqual(
@@ -89,6 +102,20 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             governance["recommended_call_sequence"][1],
             "read cleanmac://ai/host-preflight",
         )
+        self.assertEqual(
+            governance["recommended_call_sequence"][2],
+            "read cleanmac://ai/host-evidence",
+        )
+
+    def test_evidence_reports_runtime_governance_audit_pack(self) -> None:
+        evidence = render_ai_host_evidence_report()
+
+        self.assertEqual(evidence["schema"], "cleanmac.ai-host-evidence.v1")
+        self.assertFalse(evidence["destructive"])
+        self.assertTrue(evidence["dry_run"])
+        self.assertTrue(evidence["ready"], evidence)
+        self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", evidence["observed_blocking_codes"])
+        self.assertIn("CONFIRMATION_TOKEN_REQUIRED", evidence["observed_blocking_codes"])
 
     def test_preflight_reports_runtime_governance_gate(self) -> None:
         preflight = render_ai_host_preflight_report()

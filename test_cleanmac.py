@@ -2042,8 +2042,26 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(report["sample_count"], len(report["samples"]))
         schemas = {sample["target_schema"] for sample in report["samples"]}
         self.assertIn("cleanmac.ai-host-policy.v1", schemas)
+        self.assertIn("cleanmac.ai-host-evidence.v1", schemas)
         self.assertIn("cleanmac.ai-eval-run.v1", schemas)
         self.assertTrue(all(sample["valid"] for sample in report["samples"]), report)
+
+    def test_ai_host_evidence_command_emits_registered_schema(self) -> None:
+        result = self.run_cli("--json", "ai-host-evidence")
+        report = json.loads(result.stdout)
+
+        self.assertEqual(report["schema"], "cleanmac.ai-host-evidence.v1")
+        self.assertTrue(report["ready"], report)
+
+        registry_result = self.run_cli("--json", "ai-schema-registry")
+        registry = json.loads(registry_result.stdout)
+        names = {entry["name"] for entry in registry["entries"]}
+        self.assertIn("cleanmac.ai-host-evidence.v1", names)
+
+        samples_result = self.run_cli("--json", "ai-contract-samples")
+        samples = json.loads(samples_result.stdout)
+        sample_names = {sample["target_schema"] for sample in samples["samples"]}
+        self.assertIn("cleanmac.ai-host-evidence.v1", sample_names)
 
     def test_plan_command_marks_ai_originated_plan(self) -> None:
         tmp, root, home = self.make_sandbox()
