@@ -2103,6 +2103,8 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertTrue(report["valid"])
             self.assertEqual(report["plan"]["category_keys"], ["trash"])
+            self.assertEqual(report["schema_negotiation"]["schema"], "cleanmac.plan.v1")
+            self.assertTrue(report["schema_negotiation"]["accepted"])
             self.assertEqual(report["unknown_categories"], [])
             self.assertEqual(report["context_warnings"], [])
             self.assertIn("clean", report["replay_clean_command"])
@@ -2129,6 +2131,76 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["unknown_categories"], ["ghost"])
             self.assertIn("trash", report["replay_clean_command"])
             self.assertNotIn("ghost", report["replay_clean_command"])
+
+    def test_validate_plan_rejects_unsupported_schema_version(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "unsupported-plan.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.plan.v99",
+                        "selected_category_keys": ["trash"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "validate-plan",
+                "--plan-file",
+                str(plan_file),
+            )
+            report = json.loads(result.stdout)
+
+            self.assertFalse(report["valid"])
+            self.assertEqual(report["schema_negotiation"]["schema"], "cleanmac.plan.v99")
+            self.assertEqual(report["schema_negotiation"]["reason"], "unsupported-schema-version")
+            self.assertEqual(report["schema_negotiation"]["latest_supported_schema"], "cleanmac.plan.v1")
+
+    def test_plan_schema_negotiation_is_exposed_in_process_for_coverage(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            supported_plan = root / "supported-plan.json"
+            supported_plan.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.plan.v1",
+                        "selected_category_keys": ["trash"],
+                        "risk_policy": "default",
+                        "root": str(root),
+                        "home": str(home),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            loaded = cleancli.load_clean_plan(str(supported_plan))
+            self.assertEqual(loaded["source_schema"], "cleanmac.plan.v1")
+            self.assertTrue(loaded["schema_negotiation"]["accepted"])
+
+            validation = cleancli.validate_clean_plan(str(supported_plan), root=root, home=home)
+            self.assertTrue(validation["valid"])
+            self.assertEqual(validation["schema_negotiation"]["latest_supported_schema"], "cleanmac.plan.v1")
+
+            legacy_plan = root / "legacy-plan.json"
+            legacy_plan.write_text(json.dumps({"selected_category_keys": ["trash"]}), encoding="utf-8")
+            legacy = cleancli.load_clean_plan(str(legacy_plan))
+            self.assertEqual(legacy["source_schema"], "")
+            self.assertEqual(legacy["schema_negotiation"]["reason"], "legacy-missing-schema-field")
+
+            unsupported_plan = root / "unsupported-in-process-plan.json"
+            unsupported_plan.write_text(
+                json.dumps({"schema": "cleanmac.plan.v99", "selected_category_keys": ["trash"]}),
+                encoding="utf-8",
+            )
+            unsupported = cleancli.load_clean_plan(str(unsupported_plan))
+            with self.assertRaisesRegex(SystemExit, "Unsupported plan schema cleanmac.plan.v99"):
+                cleancli.ensure_supported_plan_schema(unsupported)
 
     def test_clean_can_replay_categories_from_audit_report_file(self) -> None:
         tmp, root, home = self.make_sandbox()

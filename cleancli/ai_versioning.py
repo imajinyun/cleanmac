@@ -79,7 +79,12 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.workflow.v1", 1, "cleancli.core", "stable"),
 )
 
-SUPPORTED_PLAN_SCHEMAS: tuple[str, ...] = ("cleanmac.clean-plan.v1",)
+LATEST_PLAN_SCHEMA = "cleanmac.plan.v1"
+SUPPORTED_PLAN_SCHEMAS: tuple[str, ...] = (
+    LATEST_PLAN_SCHEMA,
+    "cleanmac.clean.v1",
+    "cleanmac.clean-plan.v1",
+)
 
 
 def render_ai_schema_registry() -> dict[str, Any]:
@@ -102,11 +107,28 @@ def render_ai_schema_registry() -> dict[str, Any]:
     }
 
 
-def negotiate_plan_schema(plan: dict[str, Any]) -> dict[str, Any]:
+def negotiate_plan_schema(plan: dict[str, Any], *, allow_legacy_missing: bool = False) -> dict[str, Any]:
     """Return {accepted, schema, reason} for a plan dict's schema field."""
     schema = str(plan.get("schema") or "")
     if not schema:
+        if allow_legacy_missing:
+            return {
+                "accepted": True,
+                "schema": "",
+                "reason": "legacy-missing-schema-field",
+                "latest_supported_schema": LATEST_PLAN_SCHEMA,
+            }
         return {"accepted": False, "schema": "", "reason": "missing-schema-field"}
     if schema in SUPPORTED_PLAN_SCHEMAS:
-        return {"accepted": True, "schema": schema, "reason": "supported"}
-    return {"accepted": False, "schema": schema, "reason": "unsupported-schema-version"}
+        return {
+            "accepted": True,
+            "schema": schema,
+            "reason": "supported",
+            "latest_supported_schema": LATEST_PLAN_SCHEMA,
+        }
+    return {
+        "accepted": False,
+        "schema": schema,
+        "reason": "unsupported-schema-version",
+        "latest_supported_schema": LATEST_PLAN_SCHEMA,
+    }
