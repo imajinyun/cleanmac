@@ -2636,7 +2636,9 @@ def render_permissions_preflight(categories: list[Category], *, root: Path, home
         hints: list[str] = []
         if category.requires_privilege and not sudo_available and live_root:
             blockers.append("sudo-noninteractive-unavailable")
-            hints.append("Run a dry-run first, then rerun from a terminal with appropriate administrator privileges if required.")
+            hints.append(
+                "Run a dry-run first, then rerun from a terminal with appropriate administrator privileges if required."
+            )
         if category.full_disk_access and sys.platform == "darwin" and live_root:
             blockers.append("full-disk-access-may-be-required")
             hints.append("Grant Full Disk Access to the terminal or wrapper app before scanning protected user data.")
@@ -2673,7 +2675,9 @@ def render_permissions_preflight(categories: list[Category], *, root: Path, home
         "category_count": len(rows),
         "blocked_or_needs_attention_count": len(blocked),
         "categories": rows,
-        "recommended_next_action": "review_blockers_before_execute" if blocked else "safe_to_dry_run_selected_categories",
+        "recommended_next_action": "review_blockers_before_execute"
+        if blocked
+        else "safe_to_dry_run_selected_categories",
     }
 
 
@@ -6228,11 +6232,16 @@ def print_report(report: dict[str, Any], *, as_json: bool, command: str, quiet: 
 
 
 def render_html_audit_report(audit_record: dict[str, Any]) -> str:
-    report = audit_record.get("report") if isinstance(audit_record.get("report"), dict) else {}
-    ai_summary = report.get("ai_summary") if isinstance(report.get("ai_summary"), dict) else {}
-    items = report.get("items") if isinstance(report.get("items"), list) else []
-    failed = report.get("failed") if isinstance(report.get("failed"), list) else []
-    skipped = report.get("skipped") if isinstance(report.get("skipped"), list) else []
+    report_value = audit_record.get("report")
+    report: dict[str, Any] = report_value if isinstance(report_value, dict) else {}
+    ai_summary_value = report.get("ai_summary")
+    ai_summary: dict[str, Any] = ai_summary_value if isinstance(ai_summary_value, dict) else {}
+    items_value = report.get("items")
+    items: list[Any] = items_value if isinstance(items_value, list) else []
+    failed_value = report.get("failed")
+    failed: list[Any] = failed_value if isinstance(failed_value, list) else []
+    skipped_value = report.get("skipped")
+    skipped: list[Any] = skipped_value if isinstance(skipped_value, list) else []
     rows = []
     for row in items[:200]:
         rows.append(

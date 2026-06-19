@@ -13,11 +13,12 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest import mock
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import cleancli.core as cleancli
+from cleancli.ai_versioning import validate_contract_payload
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 CLI = PROJECT_ROOT / "cleanmac.py"
@@ -1774,6 +1775,25 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(by_key["systemLogs"]["requires_privilege"])
             self.assertFalse(by_key["trash"]["requires_privilege"])
 
+    def test_permissions_preflight_validates_against_contract_schema(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "permissions",
+                    "--categories",
+                    "imessage,systemLogs,trash",
+                ).stdout
+            )
+            validation = validate_contract_payload("cleanmac.permissions-preflight.v1", report)
+
+            self.assertTrue(validation["valid"], validation)
+
     def test_tool_plan_is_readonly_and_lists_manual_commands(self) -> None:
         report = json.loads(self.run_cli("--json", "tool-plan", "--tool", "docker").stdout)
         adapter = report["adapters"][0]
@@ -1784,6 +1804,34 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(adapter["key"], "docker")
         self.assertIn(["docker", "system", "df"], adapter["dry_run_commands"])
         self.assertIn(["docker", "builder", "prune"], adapter["manual_execute_commands"])
+
+    def test_tool_plan_validates_against_contract_schema(self) -> None:
+        report = json.loads(self.run_cli("--json", "tool-plan", "--tool", "docker").stdout)
+        validation = validate_contract_payload("cleanmac.tool-plan.v1", report)
+
+        self.assertTrue(validation["valid"], validation)
+        self.assertFalse(report["safe_to_auto_execute"])
+        self.assertFalse(any(adapter["auto_execute_allowed"] for adapter in report["adapters"]))
+
+    def test_clean_safety_gate_exposes_single_fail_fast_flag(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "--categories",
+                    "trash",
+                    "--fail-fast",
+                ).stdout
+            )
+
+            self.assertEqual(list(report["safety_gate"]).count("fail_fast"), 1)
+            self.assertTrue(report["safety_gate"]["fail_fast"])
 
     def test_report_file_can_emit_html_audit_report(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -1811,6 +1859,56 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("<!doctype html>", html_text)
             self.assertIn("cleanmac audit report", html_text)
             self.assertIn("old.tmp", html_text)
+
+    def test_report_file_html_escapes_audit_content(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            unsafe = root / "Users/tester/.Trash/<script>alert(1).tmp"
+            unsafe.parent.mkdir(parents=True, exist_ok=True)
+            unsafe.write_text("unsafe", encoding="utf-8")
+            report_file = root / "cleanmac-audit.html"
+            self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "--report-file",
+                str(report_file),
+                "--report-format",
+                "html",
+                "inspect",
+                "--categories",
+                "trash",
+            )
+            html_text = report_file.read_text(encoding="utf-8")
+
+            self.assertNotIn("<script>alert(1).tmp", html_text)
+            self.assertIn("&lt;script&gt;alert(1).tmp", html_text)
+
+    def test_report_file_defaults_to_json_audit_report(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report_file = root / "cleanmac-audit.json"
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "--report-file",
+                str(report_file),
+                "inspect",
+                "--categories",
+                "trash",
+            )
+            report = json.loads(result.stdout)
+            audit_record = json.loads(report_file.read_text(encoding="utf-8"))
+
+            self.assertEqual(report["report_format"], "json")
+            self.assertEqual(audit_record["schema"], "cleanmac.audit.v1")
+            self.assertEqual(audit_record["report_format"], "json")
+            self.assertEqual(audit_record["report"]["schema"], "cleanmac.inspect.v1")
 
     def test_clean_execute_persists_operation_log_entries(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -1965,6 +2063,40 @@ class CleanMacCLITests(unittest.TestCase):
                     )
 
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
+
+    def test_clean_execute_protected_path_failure_is_fail_closed(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+
+            def protected_delete(path: Path, **kwargs: Any) -> Path | None:
+                raise RuntimeError(f"Refusing to delete protected path: {path}")
+
+            with mock.patch.object(cleancli, "delete_path", side_effect=protected_delete):
+                with self.assertRaisesRegex(RuntimeError, "Refusing to delete protected path"):
+                    cleancli.clean(
+                        [cleancli.CATEGORY_BY_KEY["downloads"]],
+                        root=root,
+                        home=home,
+                        execute=True,
+                        risk_policy="default",
+                        delete_mode="trash",
+                        fail_fast=False,
+                        operation_log=str(root / "logs" / "operations.jsonl"),
+                    )
+
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
+            self.assertTrue((root / "Users/tester/Downloads/partial.crdownload").exists())
+
+    def test_delete_failure_reason_maps_safety_and_recoverable_failures(self) -> None:
+        self.assertEqual(
+            cleancli.delete_failure_reason(PermissionError("Operation not permitted")), "permission-denied"
+        )
+        self.assertEqual(
+            cleancli.delete_failure_reason(RuntimeError("symlink target is protected")), "symlink-protected"
+        )
+        self.assertEqual(cleancli.delete_failure_reason(RuntimeError("Refusing to delete /System")), "protected-path")
+        self.assertEqual(cleancli.delete_failure_reason(RuntimeError("Trash routing failed")), "trash-routing-failed")
+        self.assertEqual(cleancli.delete_failure_reason(RuntimeError("unexpected")), "delete-failed")
 
     @unittest.skipIf(not hasattr(os, "symlink"), "symlink unsupported")
     def test_trash_delete_mode_rejects_symlink_candidates(self) -> None:
