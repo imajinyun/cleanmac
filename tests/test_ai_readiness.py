@@ -5,6 +5,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
@@ -67,6 +68,53 @@ class AIReadinessTests(unittest.TestCase):
         )
         self.assertIn("cleanmac_capabilities", report["recommended_starting_tools"])
         self.assertIn("cleanmac_policy_simulate", report["mandatory_before_execute"])
+
+    def test_ai_readiness_fails_closed_when_contract_validation_fails(self) -> None:
+        from cleancli.ai_readiness import render_ai_readiness
+
+        failed_contract = {
+            "schema": "cleanmac.ai-contract-validation-summary.v1",
+            "valid": False,
+            "validated_schema_count": 1,
+            "failure_count": 1,
+            "contract_schema_coverage": {
+                "registered_schema_count": 1,
+                "json_schema_fragment_count": 0,
+                "critical_schemas": ["cleanmac.plan.v1"],
+                "critical_schema_count": 1,
+                "stable_ai_schema_count": 1,
+                "stable_ai_schema_fragment_count": 0,
+                "missing_stable_ai_schema_fragments": ["cleanmac.plan.v1"],
+            },
+        }
+
+        with patch("cleancli.ai_readiness.render_ai_contract_validation_summary", return_value=failed_contract):
+            report = render_ai_readiness({"schema": "cleanmac.ai-tool-contract.v1"})
+
+        self.assertEqual(report["schema"], "cleanmac.ai-readiness.v1")
+        self.assertFalse(report["ready"])
+        self.assertFalse(report["contract_validation"]["ready"])
+        self.assertEqual(report["contract_validation"]["failure_count"], 1)
+        coverage = report["contract_validation"]["contract_schema_coverage"]
+        self.assertEqual(coverage["missing_stable_ai_schema_fragments"], ["cleanmac.plan.v1"])
+
+    def test_ai_readiness_fails_closed_when_host_policy_validation_fails(self) -> None:
+        from cleancli.ai_readiness import render_ai_readiness
+
+        with patch(
+            "cleancli.ai_readiness.validate_ai_host_policy",
+            return_value={
+                "schema": "cleanmac.ai-host-policy-validation.v1",
+                "valid": False,
+                "errors": ["bad-policy"],
+            },
+        ):
+            report = render_ai_readiness({"schema": "cleanmac.ai-tool-contract.v1"})
+
+        self.assertEqual(report["schema"], "cleanmac.ai-readiness.v1")
+        self.assertFalse(report["ready"])
+        self.assertFalse(report["host_policy"]["ready"])
+        self.assertEqual(report["host_policy"]["validation"]["errors"], ["bad-policy"])
 
 
 if __name__ == "__main__":

@@ -206,6 +206,60 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
         self.assertGreaterEqual(coverage["json_schema_fragment_count"], len(coverage["critical_schemas"]))
 
+    def test_contract_validator_reports_nested_array_item_type_mismatch(self) -> None:
+        from cleancli.ai_versioning import validate_contract_payload
+
+        payload = {
+            "schema": "cleanmac.ai-contract-samples.v1",
+            "destructive": False,
+            "dry_run": True,
+            "sample_count": 1,
+            "samples": ["not-an-object"],
+        }
+
+        report = validate_contract_payload("cleanmac.ai-contract-samples.v1", payload)
+
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["error_count"], 1)
+        self.assertEqual(report["errors"][0]["code"], "TYPE_MISMATCH")
+        self.assertEqual(report["errors"][0]["path"], "$.samples[0]")
+
+    def test_contract_validator_rejects_boolean_for_integer(self) -> None:
+        from cleancli.ai_versioning import validate_contract_payload
+
+        payload = {
+            "schema": "cleanmac.ai-contract-samples.v1",
+            "destructive": False,
+            "dry_run": True,
+            "sample_count": True,
+            "samples": [],
+        }
+
+        report = validate_contract_payload("cleanmac.ai-contract-samples.v1", payload)
+
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["error_count"], 1)
+        self.assertEqual(report["errors"][0]["code"], "TYPE_MISMATCH")
+        self.assertEqual(report["errors"][0]["path"], "$.sample_count")
+
+    def test_contract_validator_reports_const_mismatch_before_type_walk(self) -> None:
+        from cleancli.ai_versioning import validate_contract_payload
+
+        payload = {
+            "schema": "cleanmac.ai-contract-samples.v2",
+            "destructive": False,
+            "dry_run": True,
+            "sample_count": 0,
+            "samples": [],
+        }
+
+        report = validate_contract_payload("cleanmac.ai-contract-samples.v1", payload)
+
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["error_count"], 1)
+        self.assertEqual(report["errors"][0]["code"], "CONST_MISMATCH")
+        self.assertEqual(report["errors"][0]["path"], "$.schema")
+
     def test_plan_schema_negotiation_accepts_only_supported_schema_versions(self) -> None:
         from cleancli.ai_versioning import negotiate_plan_schema
 

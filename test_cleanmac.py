@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import json
 import os
 import shlex
@@ -3709,6 +3711,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("ai-contract-smoke:", makefile)
         self.assertIn('run("ai-contract-samples")', makefile)
         self.assertIn('samples["schema"] == "cleanmac.ai-contract-samples.v1"', makefile)
+        self.assertIn("contract_samples_roundtrip", makefile)
+        self.assertIn('run("ai-eval-run", "--scenario", "contract_samples_roundtrip")', makefile)
         self.assertIn("open-source-smoke:", makefile)
         self.assertIn("ai-host-smoke:", makefile)
         self.assertIn("ai-robustness-smoke:", makefile)
@@ -3782,6 +3786,190 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("trash_routing_flag", makefile)
         self.assertIn("README.CN.md", makefile)
         self.assertIn("-m json.tool", makefile)
+
+    def test_core_main_ai_dispatches_are_covered_in_process(self) -> None:
+        from unittest.mock import patch
+
+        def run_main_json(*args: str) -> dict[str, Any]:
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = cleancli.main(["--json", *args])
+            self.assertEqual(exit_code, 0, stdout.getvalue())
+            return json.loads(stdout.getvalue())
+
+        commands = [
+            (("list",), "cleanmac.category-list.v1"),
+            (("capabilities",), "cleanmac.capabilities.v1"),
+            (("completion", "bash"), "cleanmac.completion-script.v1"),
+            (("ai-tools",), "cleanmac.ai-tools.v1"),
+            (("ai-tools", "--format", "openai"), "cleanmac.ai-openai-functions.v1"),
+            (("ai-tools", "--format", "anthropic"), "cleanmac.ai-anthropic-tools.v1"),
+            (("ai-tools", "--format", "mcp"), "cleanmac.mcp-tool-catalog.v1"),
+            (("ai-readiness",), "cleanmac.ai-readiness.v1"),
+            (("ai-runbook",), "cleanmac.ai-runbook.v1"),
+            (("ai-self-test",), "cleanmac.ai-self-test.v1"),
+            (("ai-decision-matrix",), "cleanmac.ai-tool-decision-matrix.v1"),
+            (("ai-governance-advice",), "cleanmac.ai-governance-advice.v1"),
+            (("ai-host-policy",), "cleanmac.ai-host-policy.v1"),
+            (("ai-schema-registry",), "cleanmac.ai-schema-registry.v1"),
+            (("ai-contract-samples",), "cleanmac.ai-contract-samples.v1"),
+            (("ai-eval-pack",), "cleanmac.ai-eval-pack.v1"),
+        ]
+
+        for args, expected_schema in commands:
+            with self.subTest(args=args):
+                self.assertEqual(run_main_json(*args)["schema"], expected_schema)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload_file = Path(tmp) / "payload.json"
+            payload_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.ai-contract-samples.v1",
+                        "destructive": False,
+                        "dry_run": True,
+                        "sample_count": 0,
+                        "samples": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            validation = run_main_json(
+                "ai-validate-contract",
+                "--schema",
+                "cleanmac.ai-contract-samples.v1",
+                "--payload-file",
+                str(payload_file),
+            )
+            self.assertTrue(validation["valid"], validation)
+
+        eval_report = {
+            "schema": "cleanmac.ai-eval-run.v1",
+            "scenario": "contract_samples_roundtrip",
+            "passed": True,
+            "passed_count": 1,
+            "failed_count": 0,
+            "results": [],
+            "trace": {"schema": "cleanmac.ai-trace.v1", "event_count": 0},
+            "trace_persistence": {"status": "skipped", "path": None},
+        }
+        with patch("cleancli.core.render_ai_eval_run", return_value=eval_report):
+            self.assertEqual(
+                run_main_json("ai-eval-run", "--scenario", "contract_samples_roundtrip"),
+                eval_report,
+            )
+
+    def test_core_contract_validation_reports_file_failures_in_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "missing.json"
+            missing_report = cleancli.render_ai_contract_validation("cleanmac.plan.v1", str(missing))
+            self.assertFalse(missing_report["valid"])
+            self.assertEqual(missing_report["errors"][0]["code"], "PAYLOAD_FILE_READ_FAILED")
+
+            invalid_json = Path(tmp) / "invalid.json"
+            invalid_json.write_text("{", encoding="utf-8")
+            invalid_report = cleancli.render_ai_contract_validation("cleanmac.plan.v1", str(invalid_json))
+            self.assertFalse(invalid_report["valid"])
+            self.assertEqual(invalid_report["errors"][0]["code"], "PAYLOAD_INVALID_JSON")
+
+    def test_core_print_report_human_branches_are_covered_in_process(self) -> None:
+        reports: list[tuple[str, dict[str, Any]]] = [
+            ("analyze", {"total_human": "1 B", "categories": [{"key": "trash", "human": "1 B", "risk": "low"}]}),
+            (
+                "diagnose",
+                {
+                    "total_human": "1 B",
+                    "recommended_clean_categories": ["trash"],
+                    "caution_clean_categories": ["systemLogs"],
+                },
+            ),
+            (
+                "capabilities",
+                {
+                    "name": "cleanmac",
+                    "model": "safe-cli",
+                    "category_count": 1,
+                    "active_path_count": 1,
+                    "commands": ["list"],
+                },
+            ),
+            ("doctor", {"platform": "darwin", "checks": {"dry_run": {"status": "enabled", "message": "safe"}}}),
+            ("plan", {"categories": ["trash"], "risk_policy": "default", "replay_command": ["cleanmac"]}),
+            ("validate-plan", {"valid": True, "replay_clean_command": ["cleanmac"]}),
+            ("policy-simulate", {"allowed": False, "recommended_next_action": "dry_run"}),
+            ("workflow", {"workflow_name": "safe", "dry_run_scope": "selected"}),
+            (
+                "inspect",
+                {
+                    "shown_candidates": 1,
+                    "total_candidates": 1,
+                    "total_human": "1 B",
+                    "items": [{"category": "trash", "path": "/tmp/a", "human": "1 B"}],
+                },
+            ),
+            (
+                "scripts",
+                {
+                    "groups": {"clean": {"destructive": False, "commands": ["cleanmac --json capabilities"]}},
+                    "categories": [
+                        {
+                            "key": "trash",
+                            "title": "Trash",
+                            "risk": "low",
+                            "commands": {"analyze": ["inspect"], "delete": ["clean"]},
+                        }
+                    ],
+                },
+            ),
+            ("software", {"action": "list", "status": "ok"}),
+            ("optimize", {"action": "list", "tasks": ["rotate"]}),
+            ("analyze-tree", {"path": ".", "shown_entries": 1, "total_entries": 1}),
+            ("status", {"disk": {"free_human": "1 GB"}}),
+            (
+                "links",
+                {"dry_run": True, "mode": "preview", "kind": "all", "targets": []},
+            ),
+            (
+                "open",
+                {
+                    "dry_run": True,
+                    "targets": [
+                        {
+                            "category": "trash",
+                            "special_case": False,
+                            "status": "preview",
+                            "command": "open",
+                            "exists": True,
+                        }
+                    ],
+                },
+            ),
+            (
+                "clean",
+                {
+                    "dry_run": True,
+                    "total_human": "1 B",
+                    "items": [{"category": "trash", "deleted": False, "path": "/tmp/a", "human": "1 B"}],
+                    "pre_clean_report": {
+                        "summary": {
+                            "selected_category_count": 1,
+                            "candidate_count": 1,
+                            "estimated_reclaimable_human": "1 B",
+                            "high_risk_categories": [],
+                            "delete_semantics": "dry-run",
+                        }
+                    },
+                    "post_clean_report": {"summary": {"deleted_item_count": 0, "estimated_reclaimed_human": "0 B"}},
+                },
+            ),
+        ]
+
+        for command, report in reports:
+            with self.subTest(command=command):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    cleancli.print_report(report, as_json=False, command=command)
+                self.assertTrue(stdout.getvalue())
 
     def test_readme_audit_examples_keep_global_flags_before_command(self) -> None:
         for path, heading in (
@@ -3935,7 +4123,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("--no-cache-dir", makefile)
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
         fail_under_line = next(line for line in pyproject.splitlines() if line.startswith("fail_under = "))
-        self.assertGreaterEqual(int(fail_under_line.split("=", 1)[1].strip()), 50)
+        self.assertGreaterEqual(int(fail_under_line.split("=", 1)[1].strip()), 55)
         self.assertIn("actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # pinned from actions/cache@v4.2.3", ci)
 
     def test_release_workflow_generates_checksums_attestation_and_pypi_publish(self) -> None:
