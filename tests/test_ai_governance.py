@@ -46,6 +46,7 @@ class AIGovernanceTests(unittest.TestCase):
 
     def test_governance_advice_release_gate_commands(self) -> None:
         self.assertIn(["make", "ai-governance-smoke"], self.report["release_gate_commands"])
+        self.assertIn(["make", "ai-contract-smoke"], self.report["release_gate_commands"])
         self.assertIn(["make", "ai-host-smoke"], self.report["release_gate_commands"])
         self.assertIn(["cleanmac", "--json", "ai-host-policy"], self.report["release_gate_commands"])
 

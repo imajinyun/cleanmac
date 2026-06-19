@@ -216,6 +216,7 @@ def render_ai_governance_advice(
             ["cleanmac", "--json", "ai-host-policy"],
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
             ["make", "ai-governance-smoke"],
+            ["make", "ai-contract-smoke"],
             ["make", "ai-host-smoke"],
             ["make", "mcp-smoke"],
         ],
