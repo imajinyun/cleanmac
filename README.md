@@ -2,7 +2,8 @@
 
 > **macOS cleanup tool · Dry-run first · AI-native MCP integration**
 
-[![📗 English Docs](docs/doc/README.md)](/docs/doc/README.md) · [![📕 中文文档](docs/doc/README.CN.md)](/docs/doc/README.CN.md)
+- [📗 English Docs](/docs/doc/README.md)
+- [📕 中文文档](/docs/doc/README.CN.md)
 
 ---
 

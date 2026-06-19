@@ -2,7 +2,8 @@
 
 > **macOS 清理工具 · Dry-run 优先 · AI 原生集成**
 
-[![📗 English Docs](README.md)](README.md) · [![📕 中文文档](docs/doc/README.CN.md)](docs/doc/README.CN.md)
+- [📗 English Docs](/docs/doc/README.md)
+- [📕 中文文档](/docs/doc/README.CN.md)
 
 ---
 
