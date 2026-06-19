@@ -301,6 +301,47 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "software", "uninstall-plan"],
     },
     {
+        "name": "cleanmac_software_inspect",
+        "description": "Inspect app uninstall candidates without making changes.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({"app": string_schema("Application name or bundle ID to inspect.")}),
+        "argv_template": ["cleanmac", "--json", "software", "inspect"],
+    },
+    {
+        "name": "cleanmac_tool_plan",
+        "description": "Render read-only semantic cleanup plans for external tools.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({"tool": string_schema("Tool adapter: all, docker, homebrew, xcode, package-managers.")}),
+        "argv_template": ["cleanmac", "--json", "tool-plan"],
+    },
+    {
+        "name": "cleanmac_tool_execute_dry_run",
+        "description": "Run allowlisted external tool dry-run commands without cleanup.",
+        "risk": "dry-run",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "tool": string_schema("Tool adapter: all, docker, homebrew, xcode, package-managers."),
+                "operation_log": string_schema("JSONL operation log path."),
+            }
+        ),
+        "argv_template": ["cleanmac", "--json", "tool-execute"],
+    },
+    {
+        "name": "cleanmac_review",
+        "description": "Normalize a plan or report into reviewable item selections.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({"input_file": string_schema("JSON plan/report path to review.")}, required=("input_file",)),
+        "argv_template": ["cleanmac", "--json", "review"],
+    },
+    {
         "name": "cleanmac_scripts",
         "description": "List shell command templates for cleanup categories without executing anything.",
         "risk": "readonly",
@@ -494,6 +535,14 @@ def representative_args(name: str) -> dict[str, Any]:
         return {"categories": ["trash"], "inspect_limit": 10, "dry_run_scope": "selected"}
     if name == "cleanmac_software_uninstall_plan":
         return {"app": "Example.app"}
+    if name == "cleanmac_software_inspect":
+        return {"app": "Example.app"}
+    if name == "cleanmac_tool_plan":
+        return {"tool": "docker"}
+    if name == "cleanmac_tool_execute_dry_run":
+        return {"tool": "docker", "operation_log": DEFAULT_OPERATION_LOG}
+    if name == "cleanmac_review":
+        return {"input_file": "/tmp/cleanmac-plan.json"}
     if name == "cleanmac_execute_plan":
         return {
             "plan_file": "/tmp/cleanmac-plan.json",
@@ -879,6 +928,24 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         argv = ["cleanmac", "--json", "software", "uninstall-plan"]
         append_option(argv, args, "app", "--app")
         return argv
+    if name == "cleanmac_software_inspect":
+        argv = ["cleanmac", "--json", "software", "inspect"]
+        append_option(argv, args, "app", "--app")
+        return argv
+    if name == "cleanmac_tool_plan":
+        argv = ["cleanmac", "--json", "tool-plan"]
+        append_option(argv, args, "tool", "--tool")
+        return argv
+    if name == "cleanmac_tool_execute_dry_run":
+        argv = ["cleanmac", "--json", "tool-execute"]
+        append_option(argv, args, "tool", "--tool")
+        append_option(argv, args, "operation_log", "--operation-log")
+        return argv
+    if name == "cleanmac_review":
+        input_file = str(args.get("input_file") or "")
+        if not input_file:
+            raise ValueError("input_file is required")
+        return ["cleanmac", "--json", "review", "--input-file", input_file]
     if name == "cleanmac_scripts":
         argv = ["cleanmac", "--json", "scripts", "--categories", categories_arg(args.get("categories"))]
         append_option(argv, args, "group", "--group")
