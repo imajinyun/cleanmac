@@ -108,6 +108,35 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(plan_schema["properties"]["destructive"]["const"], False)
         self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
 
+    def test_contract_validator_reports_valid_missing_and_unsupported_payloads(self) -> None:
+        from cleancli.ai_versioning import render_ai_contract_validation_summary, validate_contract_payload
+
+        valid_plan = {
+            "schema": "cleanmac.plan.v1",
+            "destructive": False,
+            "dry_run": True,
+            "generated_at": "2026-06-19T00:00:00+00:00",
+            "expires_at": "2026-06-19T00:30:00+00:00",
+            "selected_category_keys": ["trash"],
+            "candidate_fingerprints": ["abc123"],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.plan.v1", valid_plan)["valid"])
+
+        missing_required = dict(valid_plan)
+        del missing_required["candidate_fingerprints"]
+        missing_report = validate_contract_payload("cleanmac.plan.v1", missing_required)
+        self.assertFalse(missing_report["valid"])
+        self.assertEqual(missing_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+
+        unsupported_report = validate_contract_payload("cleanmac.plan.v99", valid_plan)
+        self.assertFalse(unsupported_report["valid"])
+        self.assertEqual(unsupported_report["errors"][0]["code"], "UNSUPPORTED_SCHEMA")
+
+        summary = render_ai_contract_validation_summary()
+        self.assertEqual(summary["schema"], "cleanmac.ai-contract-validation-summary.v1")
+        self.assertTrue(summary["valid"], summary)
+        self.assertEqual(summary["failure_count"], 0)
+
     def test_plan_schema_negotiation_accepts_only_supported_schema_versions(self) -> None:
         from cleancli.ai_versioning import negotiate_plan_schema
 

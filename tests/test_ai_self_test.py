@@ -31,6 +31,7 @@ class AISelfTestTests(unittest.TestCase):
         self.assertIn("ai-eval-pack", check_ids)
         self.assertIn("ai-governance-advice", check_ids)
         self.assertIn("ai-host-policy", check_ids)
+        self.assertIn("contract-validation-smoke", check_ids)
         self.assertIn("mcp-transport", check_ids)
         checks = {check["id"]: check for check in report["checks"]}
         self.assertTrue(checks["tool-decision-matrix"]["passed"])
@@ -41,6 +42,11 @@ class AISelfTestTests(unittest.TestCase):
         self.assertEqual(checks["ai-governance-advice"]["detail"]["schema"], "cleanmac.ai-governance-advice.v1")
         self.assertTrue(checks["ai-host-policy"]["passed"])
         self.assertEqual(checks["ai-host-policy"]["detail"]["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertTrue(checks["contract-validation-smoke"]["passed"])
+        self.assertEqual(
+            checks["contract-validation-smoke"]["detail"]["schema"],
+            "cleanmac.ai-contract-validation-summary.v1",
+        )
         self.assertTrue(all(check["passed"] for check in report["checks"]), report["checks"])
 
 

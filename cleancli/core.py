@@ -33,7 +33,12 @@ from cleancli.ai_governance import render_ai_governance_advice, validate_ai_gove
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
-from cleancli.ai_versioning import negotiate_plan_schema, render_ai_schema_registry
+from cleancli.ai_versioning import (
+    negotiate_plan_schema,
+    render_ai_contract_validation_summary,
+    render_ai_schema_registry,
+    validate_contract_payload,
+)
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 
 VERSION = "0.1.0"
@@ -1130,6 +1135,21 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
     )
+    ai_validate_contract_cmd = subparsers.add_parser(
+        "ai-validate-contract",
+        help="Validate a JSON payload against a registered cleanmac AI contract schema.",
+    )
+    ai_validate_contract_cmd.add_argument(
+        "--schema",
+        dest="schema_name",
+        required=True,
+        help="Schema name to validate, for example cleanmac.plan.v1.",
+    )
+    ai_validate_contract_cmd.add_argument(
+        "--payload-file",
+        required=True,
+        help="Path to a JSON payload file to validate.",
+    )
     subparsers.add_parser(
         "ai-eval-pack",
         help="Emit AI Host integration scenario definitions without running them.",
@@ -1182,6 +1202,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-governance-advice",
         "ai-host-policy",
         "ai-schema-registry",
+        "ai-validate-contract",
         "ai-eval-pack",
         "ai-eval-run",
     }
@@ -2197,6 +2218,45 @@ def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> 
     }
 
 
+def render_ai_contract_validation(schema_name: str, payload_file: str) -> dict[str, Any]:
+    payload_path = Path(payload_file)
+    try:
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return {
+            "schema": "cleanmac.ai-contract-validation.v1",
+            "destructive": False,
+            "dry_run": True,
+            "valid": False,
+            "target_schema": schema_name,
+            "error_count": 1,
+            "errors": [
+                {
+                    "code": "PAYLOAD_FILE_READ_FAILED",
+                    "path": display_path(payload_path),
+                    "message": str(exc),
+                }
+            ],
+        }
+    except json.JSONDecodeError as exc:
+        return {
+            "schema": "cleanmac.ai-contract-validation.v1",
+            "destructive": False,
+            "dry_run": True,
+            "valid": False,
+            "target_schema": schema_name,
+            "error_count": 1,
+            "errors": [
+                {
+                    "code": "PAYLOAD_INVALID_JSON",
+                    "path": display_path(payload_path),
+                    "message": str(exc),
+                }
+            ],
+        }
+    return validate_contract_payload(schema_name, payload)
+
+
 def render_ai_self_test() -> dict[str, Any]:
     ai_tool_contract = render_ai_tool_contract()
     schema_validation = ai_schema.validate_ai_tool_definitions()
@@ -2210,6 +2270,7 @@ def render_ai_self_test() -> dict[str, Any]:
     host_policy = render_ai_host_policy_report()
     host_policy_validation = validate_ai_host_policy(host_policy)
     schema_registry = render_ai_schema_registry()
+    contract_validation = render_ai_contract_validation_summary()
     checks = [
         {
             "id": "schema-validation",
@@ -2269,6 +2330,11 @@ def render_ai_self_test() -> dict[str, Any]:
                 schema_registry["schema"] == "cleanmac.ai-schema-registry.v1" and schema_registry["entry_count"] >= 20
             ),
             "detail": {"schema": schema_registry["schema"], "entry_count": schema_registry["entry_count"]},
+        },
+        {
+            "id": "contract-validation-smoke",
+            "passed": bool(contract_validation["valid"]),
+            "detail": contract_validation,
         },
         {
             "id": "mcp-transport",
@@ -5858,6 +5924,15 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-schema-registry":
         print(json.dumps(render_ai_schema_registry(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-validate-contract":
+        print(
+            json.dumps(
+                render_ai_contract_validation(args.schema_name, args.payload_file),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return 0
     if args.command == "ai-eval-pack":
         print(json.dumps(render_ai_eval_pack(), indent=2, ensure_ascii=False))

@@ -48,6 +48,8 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.ai-eval-pack.v1", 1, "cleancli.ai_eval", "stable"),
     ("cleanmac.ai-eval-run.v1", 1, "cleancli.ai_eval", "stable"),
     ("cleanmac.ai-trace.v1", 1, "cleancli.ai_eval", "stable"),
+    ("cleanmac.ai-contract-validation.v1", 1, "cleancli.ai_versioning", "stable"),
+    ("cleanmac.ai-contract-validation-summary.v1", 1, "cleancli.ai_versioning", "stable"),
     ("cleanmac.mcp-response.v1", 1, "cleancli.ai_eval", "internal"),
     ("cleanmac.ai-tool-contract.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-self-test.v1", 1, "cleancli.core", "stable"),
@@ -187,6 +189,42 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.ai-contract-validation.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "valid", "target_schema", "error_count", "errors"],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-contract-validation.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "valid": {"type": "boolean"},
+            "target_schema": {"type": "string"},
+            "error_count": {"type": "integer"},
+            "errors": {"type": "array", "items": {"type": "object"}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.ai-contract-validation-summary.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "valid",
+            "validated_schema_count",
+            "failure_count",
+            "results",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-contract-validation-summary.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "valid": {"type": "boolean"},
+            "validated_schema_count": {"type": "integer"},
+            "failure_count": {"type": "integer"},
+            "results": {"type": "array", "items": {"type": "object"}},
+        },
+        "additionalProperties": True,
+    },
 }
 
 
@@ -203,6 +241,8 @@ def _schema_producer(name: str) -> str:
         "cleanmac.plan.v1": "clean plan",
         "cleanmac.validate-plan.v1": "validate-plan",
         "cleanmac.ai-policy-simulation.v1": "policy-simulate",
+        "cleanmac.ai-contract-validation.v1": "ai-validate-contract",
+        "cleanmac.ai-contract-validation-summary.v1": "ai contract validation summary",
         "cleanmac.ai-schema-registry.v1": "ai-schema-registry",
         "cleanmac.ai-readiness.v1": "ai-readiness",
         "cleanmac.clean.v1": "clean run",
@@ -217,6 +257,8 @@ def _schema_producer(name: str) -> str:
 def _schema_consumers(name: str) -> tuple[str, ...]:
     if name in SUPPORTED_PLAN_SCHEMAS:
         return ("validate-plan", "policy-simulate", "clean run --plan-file", "mcp")
+    if name in {"cleanmac.ai-contract-validation.v1", "cleanmac.ai-contract-validation-summary.v1"}:
+        return ("ai-self-test", "ai-readiness", "mcp")
     if name == "cleanmac.ai-schema-registry.v1":
         return ("ai-readiness", "ai-self-test", "mcp")
     if name.startswith("cleanmac.ai-"):
@@ -275,6 +317,141 @@ def render_ai_schema_registry() -> dict[str, Any]:
             "preview": "May change without a major bump while marked preview.",
             "internal": "Not part of the public AI host contract; subject to change.",
         },
+    }
+
+
+def _contract_type_matches(expected_type: str, value: Any) -> bool:
+    if expected_type == "object":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return True
+
+
+def _validate_schema_fragment(schema_fragment: dict[str, Any], value: Any, path: str) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    expected_const = schema_fragment.get("const")
+    if "const" in schema_fragment and value != expected_const:
+        errors.append(
+            {
+                "code": "CONST_MISMATCH",
+                "path": path,
+                "message": f"Expected const {expected_const!r} at {path}.",
+            }
+        )
+        return errors
+    expected_type = schema_fragment.get("type")
+    if isinstance(expected_type, str) and not _contract_type_matches(expected_type, value):
+        errors.append(
+            {
+                "code": "TYPE_MISMATCH",
+                "path": path,
+                "message": f"Expected type {expected_type} at {path}.",
+            }
+        )
+        return errors
+    if expected_type == "object" and isinstance(value, dict):
+        required = schema_fragment.get("required", [])
+        if isinstance(required, list):
+            for field in required:
+                if isinstance(field, str) and field not in value:
+                    field_path = f"{path}.{field}" if path != "$" else f"$.{field}"
+                    errors.append(
+                        {
+                            "code": "MISSING_REQUIRED_FIELD",
+                            "path": field_path,
+                            "message": f"Missing required field {field!r}.",
+                        }
+                    )
+        properties = schema_fragment.get("properties", {})
+        if isinstance(properties, dict):
+            for field, property_schema in properties.items():
+                if field in value and isinstance(property_schema, dict):
+                    field_path = f"{path}.{field}" if path != "$" else f"$.{field}"
+                    errors.extend(_validate_schema_fragment(property_schema, value[field], field_path))
+    if expected_type == "array" and isinstance(value, list):
+        item_schema = schema_fragment.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(value):
+                errors.extend(_validate_schema_fragment(item_schema, item, f"{path}[{index}]"))
+    return errors
+
+
+def validate_contract_payload(schema_name: str, payload: Any) -> dict[str, Any]:
+    schema_fragment = CORE_CONTRACT_SCHEMAS.get(schema_name)
+    if schema_fragment is None:
+        errors = [
+            {
+                "code": "UNSUPPORTED_SCHEMA",
+                "path": "$",
+                "message": f"Unsupported schema: {schema_name}",
+            }
+        ]
+    else:
+        errors = _validate_schema_fragment(schema_fragment, payload, "$.")
+    return {
+        "schema": "cleanmac.ai-contract-validation.v1",
+        "destructive": False,
+        "dry_run": True,
+        "valid": not errors,
+        "target_schema": schema_name,
+        "error_count": len(errors),
+        "errors": errors,
+    }
+
+
+def render_ai_contract_validation_summary() -> dict[str, Any]:
+    schema_registry_validation = validate_contract_payload(
+        "cleanmac.ai-schema-registry.v1",
+        render_ai_schema_registry(),
+    )
+    result_by_schema = {schema_registry_validation["target_schema"]: schema_registry_validation}
+    missing_schema_fragments = [
+        schema_name
+        for schema_name in (
+            "cleanmac.plan.v1",
+            "cleanmac.validate-plan.v1",
+            "cleanmac.ai-policy-simulation.v1",
+            "cleanmac.ai-schema-registry.v1",
+            "cleanmac.ai-readiness.v1",
+        )
+        if schema_name not in CORE_CONTRACT_SCHEMAS
+    ]
+    coverage_result = {
+        "schema": "cleanmac.ai-contract-validation.v1",
+        "destructive": False,
+        "dry_run": True,
+        "valid": not missing_schema_fragments,
+        "target_schema": "core-contract-schema-coverage",
+        "error_count": len(missing_schema_fragments),
+        "errors": [
+            {
+                "code": "MISSING_JSON_SCHEMA_FRAGMENT",
+                "path": "$.entries",
+                "message": f"Missing JSON Schema fragment for {schema_name}.",
+            }
+            for schema_name in missing_schema_fragments
+        ],
+    }
+    result_by_schema[coverage_result["target_schema"]] = coverage_result
+    results = list(result_by_schema.values())
+    failure_count = sum(1 for result in results if not result["valid"])
+    return {
+        "schema": "cleanmac.ai-contract-validation-summary.v1",
+        "destructive": False,
+        "dry_run": True,
+        "valid": failure_count == 0,
+        "validated_schema_count": len(results),
+        "failure_count": failure_count,
+        "results": results,
     }
 
 
