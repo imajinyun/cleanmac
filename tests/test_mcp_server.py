@@ -182,6 +182,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/function-schemas", uris)
         self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
         self.assertIn("cleanmac://ai/contract-validation", uris)
+        self.assertIn("cleanmac://ai/contract-samples", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -215,6 +216,22 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.ai-contract-validation-summary.v1")
         self.assertTrue(payload["valid"], payload)
         self.assertEqual(payload["failure_count"], 0)
+
+    def test_resources_read_contract_samples(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 27,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/contract-samples"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/contract-samples")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-contract-samples.v1")
+        self.assertEqual(payload["sample_count"], len(payload["samples"]))
+        self.assertTrue(all(sample["valid"] for sample in payload["samples"]), payload)
 
     def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
         response = _mcp_request(

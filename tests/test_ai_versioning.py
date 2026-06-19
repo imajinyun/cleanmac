@@ -103,7 +103,12 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
-        from cleancli.ai_versioning import AI_HOST_CRITICAL_SCHEMAS, CORE_CONTRACT_SCHEMAS, validate_contract_payload
+        from cleancli.ai_versioning import (
+            AI_HOST_CRITICAL_SCHEMAS,
+            CORE_CONTRACT_SCHEMAS,
+            render_ai_contract_samples,
+            validate_contract_payload,
+        )
 
         self.assertLessEqual(set(AI_HOST_CRITICAL_SCHEMAS), set(CORE_CONTRACT_SCHEMAS))
         host_policy = {
@@ -159,6 +164,15 @@ class AISchemaRegistryTests(unittest.TestCase):
             "results": [{"id": "discover_readiness", "passed": True}],
         }
         self.assertTrue(validate_contract_payload("cleanmac.ai-eval-run.v1", eval_run)["valid"])
+
+        samples = render_ai_contract_samples()
+        self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
+        self.assertEqual(samples["sample_count"], len(samples["samples"]))
+        self.assertEqual({sample["target_schema"] for sample in samples["samples"]}, set(AI_HOST_CRITICAL_SCHEMAS))
+        for sample in samples["samples"]:
+            self.assertTrue(sample["valid"], sample)
+            validation = validate_contract_payload(sample["target_schema"], sample["payload"])
+            self.assertTrue(validation["valid"], validation)
 
     def test_contract_validator_reports_valid_missing_and_unsupported_payloads(self) -> None:
         from cleancli.ai_versioning import render_ai_contract_validation_summary, validate_contract_payload

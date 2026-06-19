@@ -2030,6 +2030,19 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(validation_report["target_schema"], "cleanmac.plan.v1")
             self.assertEqual(validation_report["error_count"], 0)
 
+    def test_ai_contract_samples_expose_valid_payloads(self) -> None:
+        result = self.run_cli("--json", "ai-contract-samples")
+        report = json.loads(result.stdout)
+
+        self.assertEqual(report["schema"], "cleanmac.ai-contract-samples.v1")
+        self.assertFalse(report["destructive"])
+        self.assertTrue(report["dry_run"])
+        self.assertEqual(report["sample_count"], len(report["samples"]))
+        schemas = {sample["target_schema"] for sample in report["samples"]}
+        self.assertIn("cleanmac.ai-host-policy.v1", schemas)
+        self.assertIn("cleanmac.ai-eval-run.v1", schemas)
+        self.assertTrue(all(sample["valid"] for sample in report["samples"]), report)
+
     def test_plan_command_marks_ai_originated_plan(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:

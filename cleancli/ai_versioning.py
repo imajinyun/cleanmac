@@ -50,6 +50,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.ai-trace.v1", 1, "cleancli.ai_eval", "stable"),
     ("cleanmac.ai-contract-validation.v1", 1, "cleancli.ai_versioning", "stable"),
     ("cleanmac.ai-contract-validation-summary.v1", 1, "cleancli.ai_versioning", "stable"),
+    ("cleanmac.ai-contract-samples.v1", 1, "cleancli.ai_versioning", "stable"),
     ("cleanmac.mcp-response.v1", 1, "cleancli.ai_eval", "internal"),
     ("cleanmac.ai-tool-contract.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-self-test.v1", 1, "cleancli.core", "stable"),
@@ -310,6 +311,18 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.ai-contract-samples.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "sample_count", "samples"],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-contract-samples.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "sample_count": {"type": "integer"},
+            "samples": {"type": "array", "items": {"type": "object"}},
+        },
+        "additionalProperties": True,
+    },
 }
 
 
@@ -490,6 +503,128 @@ def validate_contract_payload(schema_name: str, payload: Any) -> dict[str, Any]:
         "target_schema": schema_name,
         "error_count": len(errors),
         "errors": errors,
+    }
+
+
+def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
+    samples: dict[str, dict[str, Any]] = {
+        "cleanmac.plan.v1": {
+            "schema": "cleanmac.plan.v1",
+            "destructive": False,
+            "dry_run": True,
+            "generated_at": "2026-06-19T00:00:00+00:00",
+            "expires_at": "2026-06-19T00:30:00+00:00",
+            "selected_category_keys": ["trash"],
+            "candidate_fingerprints": [{"path": "/tmp/old.tmp", "exists": True}],
+        },
+        "cleanmac.validate-plan.v1": {
+            "schema": "cleanmac.validate-plan.v1",
+            "destructive": False,
+            "dry_run": True,
+            "valid": True,
+            "plan": {"schema": "cleanmac.plan.v1", "selected_category_keys": ["trash"]},
+            "schema_negotiation": {
+                "accepted": True,
+                "schema": "cleanmac.plan.v1",
+                "reason": "supported",
+                "latest_supported_schema": "cleanmac.plan.v1",
+                "legacy": False,
+            },
+        },
+        "cleanmac.ai-policy-simulation.v1": {
+            "schema": "cleanmac.ai-policy-simulation.v1",
+            "destructive": False,
+            "dry_run": True,
+            "allowed": False,
+            "blocking_reasons": [{"code": "AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN"}],
+        },
+        "cleanmac.ai-schema-registry.v1": render_ai_schema_registry(),
+        "cleanmac.ai-readiness.v1": {
+            "schema": "cleanmac.ai-readiness.v1",
+            "ready": True,
+            "tool_count": 1,
+            "contracts": {"schema_validation": {"valid": True}},
+            "schema_registry": {"ready": True},
+        },
+        "cleanmac.ai-host-policy.v1": {
+            "schema": "cleanmac.ai-host-policy.v1",
+            "valid": True,
+            "default_decision": "deny",
+            "auto_call": {"allow": [], "deny": ["cleanmac_execute_plan"]},
+            "execution_gate": {"auto_call_allowed": False},
+        },
+        "cleanmac.ai-governance-advice.v1": {
+            "schema": "cleanmac.ai-governance-advice.v1",
+            "ready_for_llm_calling": True,
+            "governance_score": {"level": "strong"},
+            "default_policy": {"shell_allowed": False},
+            "required_host_controls": ["Load host policy before execution."],
+            "recommended_call_sequence": ["cleanmac_capabilities"],
+            "anti_patterns": ["Calling execute directly."],
+            "governance_route": [{"id": "entrypoint-governance", "status": "satisfied"}],
+            "release_gate_commands": [["make", "ai-governance-smoke"]],
+            "recommendations": [{"id": "preflight-first"}],
+        },
+        "cleanmac.ai-eval-pack.v1": {
+            "schema": "cleanmac.ai-eval-pack.v1",
+            "scenario_count": 1,
+            "scenarios": [{"id": "discover_readiness"}],
+            "allows_destructive_execution": False,
+            "recommended_runner_command": ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
+        },
+        "cleanmac.ai-eval-run.v1": {
+            "schema": "cleanmac.ai-eval-run.v1",
+            "scenario": "smoke",
+            "passed": True,
+            "passed_count": 1,
+            "failed_count": 0,
+            "results": [{"id": "discover_readiness", "passed": True}],
+        },
+        "cleanmac.ai-contract-validation.v1": {
+            "schema": "cleanmac.ai-contract-validation.v1",
+            "destructive": False,
+            "dry_run": True,
+            "valid": True,
+            "target_schema": "cleanmac.plan.v1",
+            "error_count": 0,
+            "errors": [],
+        },
+    }
+    if schema_name == "cleanmac.ai-contract-validation-summary.v1":
+        result = samples["cleanmac.ai-contract-validation.v1"]
+        return {
+            "schema": "cleanmac.ai-contract-validation-summary.v1",
+            "destructive": False,
+            "dry_run": True,
+            "valid": True,
+            "validated_schema_count": 1,
+            "failure_count": 0,
+            "results": [result],
+        }
+    if schema_name not in samples:
+        return {"schema": schema_name}
+    return samples[schema_name]
+
+
+def render_ai_contract_samples() -> dict[str, Any]:
+    samples = []
+    for schema_name in AI_HOST_CRITICAL_SCHEMAS:
+        payload = _sample_payload_for_schema(schema_name)
+        validation = validate_contract_payload(schema_name, payload)
+        samples.append(
+            {
+                "target_schema": schema_name,
+                "valid": validation["valid"],
+                "payload": payload,
+                "validation": validation,
+            }
+        )
+    return {
+        "schema": "cleanmac.ai-contract-samples.v1",
+        "destructive": False,
+        "dry_run": True,
+        "sample_count": len(samples),
+        "samples": samples,
     }
 
 

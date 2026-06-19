@@ -35,6 +35,7 @@ from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.ai_versioning import (
     negotiate_plan_schema,
+    render_ai_contract_samples,
     render_ai_contract_validation_summary,
     render_ai_schema_registry,
     validate_contract_payload,
@@ -1135,6 +1136,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
     )
+    subparsers.add_parser(
+        "ai-contract-samples",
+        help="Emit sample payloads for critical cleanmac AI contract schemas.",
+    )
     ai_validate_contract_cmd = subparsers.add_parser(
         "ai-validate-contract",
         help="Validate a JSON payload against a registered cleanmac AI contract schema.",
@@ -1202,6 +1207,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-governance-advice",
         "ai-host-policy",
         "ai-schema-registry",
+        "ai-contract-samples",
         "ai-validate-contract",
         "ai-eval-pack",
         "ai-eval-run",
@@ -5937,6 +5943,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-schema-registry":
         print(json.dumps(render_ai_schema_registry(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-contract-samples":
+        print(json.dumps(render_ai_contract_samples(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-validate-contract":
         print(
