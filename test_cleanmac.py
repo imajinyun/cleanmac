@@ -3802,7 +3802,10 @@ class CleanMacCLITests(unittest.TestCase):
             ".github/workflows/ci.yml",
             ".github/workflows/bundle_audit.yml",
             ".github/workflows/codeql.yml",
+            ".github/workflows/dependency-review.yml",
+            ".github/workflows/nightly.yml",
             ".github/workflows/release.yml",
+            ".github/workflows/scorecards.yml",
             ".github/ISSUE_TEMPLATE/bug_report.yml",
             ".github/ISSUE_TEMPLATE/feature_request.yml",
             ".github/ISSUE_TEMPLATE/config.yml",
@@ -3817,6 +3820,9 @@ class CleanMacCLITests(unittest.TestCase):
         contributing = (PROJECT_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
         security = (PROJECT_ROOT / "SECURITY.md").read_text(encoding="utf-8")
         codeql = (PROJECT_ROOT / ".github/workflows/codeql.yml").read_text(encoding="utf-8")
+        dependency_review = (PROJECT_ROOT / ".github/workflows/dependency-review.yml").read_text(encoding="utf-8")
+        nightly = (PROJECT_ROOT / ".github/workflows/nightly.yml").read_text(encoding="utf-8")
+        scorecards = (PROJECT_ROOT / ".github/workflows/scorecards.yml").read_text(encoding="utf-8")
         dependabot = (PROJECT_ROOT / ".github/dependabot.yml").read_text(encoding="utf-8")
         gitleaks = (PROJECT_ROOT / ".gitleaks.toml").read_text(encoding="utf-8")
         agents = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8")
@@ -3829,6 +3835,13 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("make open-source-smoke", contributing)
         self.assertIn("path traversal", security.lower())
         self.assertIn("github/codeql-action/init@v3", codeql)
+        self.assertIn("actions/dependency-review-action", dependency_review)
+        self.assertIn("fail-on-severity: high", dependency_review)
+        self.assertIn("make release-check", nightly)
+        self.assertIn("make no-cache-check", nightly)
+        self.assertIn("ossf/scorecard-action", scorecards)
+        self.assertIn("results_format: sarif", scorecards)
+        self.assertIn("github/codeql-action/upload-sarif", scorecards)
         uses_lines: list[str] = []
         for workflow in (PROJECT_ROOT / ".github/workflows").glob("*.yml"):
             uses_lines.extend(

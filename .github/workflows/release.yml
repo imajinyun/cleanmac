@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
   build:
     name: Build release artifacts
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     env:
       PYTHON: .venv/bin/python
@@ -99,6 +99,8 @@ jobs:
   verify-release-artifacts:
     name: Verify release artifacts (${{ matrix.os }})
     needs: build
+    permissions:
+      contents: read
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -156,6 +158,10 @@ jobs:
   publish:
     name: Attest and publish release artifacts
     needs: verify-release-artifacts
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     environment: release
     steps:
