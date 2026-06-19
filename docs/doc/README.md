@@ -321,6 +321,7 @@ For release or integration gates, run the governance route check before broad sm
 
 ```bash
 make ai-governance-smoke
+make ai-contract-smoke
 make ai-host-smoke
 make mcp-smoke
 ```

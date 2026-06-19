@@ -33,7 +33,7 @@ jobs:
           .venv/bin/python -m pip install -e '.[dev,build]'
 
       - name: Run release quality gates
-        run: make local-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke open-source-smoke mcp-smoke ai-host-smoke distribution-smoke release-artifacts-smoke
+        run: make local-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke open-source-smoke mcp-smoke ai-host-smoke distribution-smoke release-artifacts-smoke
 
       - name: Build distributions
         run: $PYTHON -m build --wheel --sdist --outdir dist

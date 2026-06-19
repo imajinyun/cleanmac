@@ -103,6 +103,9 @@ jobs:
       - name: Run AI governance smoke
         run: make ai-governance-smoke
 
+      - name: Run AI contract smoke
+        run: make ai-contract-smoke
+
       - name: Run open source governance smoke
         run: make open-source-smoke
 
@@ -166,6 +169,7 @@ jobs:
             test_cleanmac.CleanMacCLITests.test_capabilities_describes_commands_and_safety_model \
             -v
           make governance-smoke
+          make ai-contract-smoke
           make package-smoke
           make build-check
           make dependency-audit-smoke

@@ -319,6 +319,7 @@ make ai-host-smoke
 
 ```bash
 make ai-governance-smoke
+make ai-contract-smoke
 make ai-host-smoke
 make mcp-smoke
 ```

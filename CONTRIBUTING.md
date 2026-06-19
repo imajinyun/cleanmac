@@ -22,6 +22,7 @@ make docs-smoke
 make mcp-smoke
 make governance-smoke
 make ai-governance-smoke
+make ai-contract-smoke
 make open-source-smoke
 ```
 
@@ -50,6 +51,7 @@ If Docker is not available locally, include that limitation in the pull request 
 - [ ] `make mcp-smoke` passes (if MCP server touched).
 - [ ] `make governance-smoke` passes.
 - [ ] `make ai-governance-smoke` passes.
+- [ ] `make ai-contract-smoke` passes.
 - [ ] `make open-source-smoke` passes.
 - [ ] AGENTS.md is updated when project map, security rules, or build commands change.
 - [ ] Documentation is updated in both English and Chinese when behavior changes.
