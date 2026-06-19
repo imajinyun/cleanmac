@@ -19,7 +19,9 @@ make quality-check
 make local-test
 make dependency-audit-smoke
 make docs-smoke
+make mcp-smoke
 make governance-smoke
+make ai-governance-smoke
 make open-source-smoke
 ```
 
@@ -45,7 +47,10 @@ If Docker is not available locally, include that limitation in the pull request 
 - [ ] `make quality-check` passes.
 - [ ] `make dependency-audit-smoke` passes for supply-chain changes.
 - [ ] `make docs-smoke` passes.
+- [ ] `make mcp-smoke` passes (if MCP server touched).
 - [ ] `make governance-smoke` passes.
+- [ ] `make ai-governance-smoke` passes.
 - [ ] `make open-source-smoke` passes.
+- [ ] AGENTS.md is updated when project map, security rules, or build commands change.
 - [ ] Documentation is updated in both English and Chinese when behavior changes.
 - [ ] The change does not weaken destructive-operation guardrails.

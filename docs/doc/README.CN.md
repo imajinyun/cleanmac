@@ -106,7 +106,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI 工具定义
 
-导出 **23 个工具**，支持三种格式：
+导出 **24 个工具**，支持三种格式：
 
 ```bash
 # 🧠 Anthropic 格式（Claude）
@@ -146,6 +146,7 @@ python3 cleanmac.py --json ai-tools --format mcp | jq '.tools | length'
 | `cleanmac_dry_run_plan` | Dry-run 计划（Trash 模式） | dry-run |
 | `cleanmac_execute_plan` | 执行清理（需确认） | destructive |
 | `cleanmac_ai_governance_advice` | AI 治理建议与反模式 | readonly |
+| `cleanmac_ai_host_policy` | AI 主机允许/拒绝策略 | readonly |
 
 ### 📄 AI 合约自省
 
@@ -439,8 +440,8 @@ python3 cleanmac.py clean run \
 | 命令组 | 子命令 | 说明 |
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 清理操作 |
-| `software` | `list`, `startup-items`, `uninstall-plan` | 📦 应用清单（只读） |
-| `optimize` | `list`, `plan` | ⚙️ 维护任务（仅 dry-run） |
+| `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 应用清单（只读） |
+| `optimize` | `list`, `plan`, `run` | ⚙️ 维护任务（仅 dry-run） |
 | `analyze` | `categories`, `tree`, `scan` | 📊 空间分析 |
 | `status` | `snapshot` | 🩺 系统健康 |
 
@@ -543,6 +544,7 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean links \
 ```bash
 python3 cleanmac.py --json optimize list
 python3 cleanmac.py --json optimize plan
+python3 cleanmac.py --json optimize run
 ```
 
 ### `status`
@@ -555,6 +557,7 @@ python3 cleanmac.py --json status snapshot
 
 ```bash
 python3 cleanmac.py --json software list
+python3 cleanmac.py --json software leftovers
 python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
 ```
@@ -565,6 +568,37 @@ python3 cleanmac.py --json software uninstall-plan --app DemoApp
 python3 cleanmac.py --json analyze categories --all
 python3 cleanmac.py --json analyze tree --path ~/Library --depth 2 --top 20
 python3 cleanmac.py --json analyze scan --path ~/Downloads --depth 1 --top 10
+```
+
+### `list`（`clean list` 的扁平别名）
+
+```bash
+python3 cleanmac.py --json list
+python3 cleanmac.py list
+```
+
+### `policy-simulate`（`clean policy-simulate` 的扁平别名）
+
+```bash
+python3 cleanmac.py --json policy-simulate --plan-file /tmp/plan.json --execute --delete-mode trash
+```
+
+### `completion`
+
+```bash
+python3 cleanmac.py completion bash       # Bash 补全脚本
+python3 cleanmac.py completion zsh        # Zsh 补全脚本
+python3 cleanmac.py completion fish       # Fish 补全脚本
+python3 cleanmac.py --json completion bash  # 机器可读（含 schema）
+```
+
+### `ai-tools`
+
+```bash
+python3 cleanmac.py --json ai-tools                          # 全部格式
+python3 cleanmac.py --json ai-tools --format anthropic        # Anthropic/Claude 格式
+python3 cleanmac.py --json ai-tools --format openai           # OpenAI/GPT 格式
+python3 cleanmac.py --json ai-tools --format mcp              # MCP 工具目录格式
 ```
 
 ### 5. 生成审计报告文件
@@ -676,18 +710,26 @@ make no-cache-release-check                        # 无缓存发布验证
 | `quality-check` | lint → type-check → coverage |
 | `local-test` | No-auth 测试 |
 | `pytest-test` | 隔离 venv pytest |
+| `format` | 用 ruff 自动格式化代码 |
 | `package-smoke` | Editable 安装 |
 | `script-smoke` | 模板治理 |
 | `mcp-smoke` | MCP tools/list + tools/call |
 | `bundle-audit-smoke` | Bundle drift 审计 |
+| `build-check` | 构建 wheel/sdist + twine 检查 |
 | `macos-smoke` | macOS 专项测试 |
+| `real-macos-smoke` | 真实 macOS 只读测试 |
 | `security-smoke` | 静态安全扫描 |
 | `dependency-audit-smoke` | pip-audit + SBOM.json |
 | `docs-smoke` | README 覆盖检查 |
 | `governance-smoke` | 治理合约检查 |
+| `ai-governance-smoke` | AI 治理路线检查 |
+| `ai-host-smoke` | AI 主机集成测试套件 |
 | `distribution-smoke` | wheel + sdist |
 | `release-artifacts-smoke` | SHA256SUMS + 证明 |
 | `docker-test` | Debian 容器测试 |
+| `no-cache-check` | 无缓存全量验证 |
+| `no-cache-release-check` | 无缓存发布验证 |
+| `no-cache-docker-test` | Docker 测试（--pull=always） |
 | `release-check` | 全部门禁串联 |
 
 ### 🤖 CI 配置

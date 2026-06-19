@@ -108,7 +108,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI Tool Definitions
 
-Export **23 tools** in three formats:
+Export **24 tools** in three formats:
 
 ```bash
 # 🧠 Anthropic format (Claude)
@@ -148,6 +148,7 @@ Tool categories:
 | `cleanmac_dry_run_plan` | Dry-run a plan with Trash routing | dry-run |
 | `cleanmac_execute_plan` | Execute cleanup (requires confirmation) | destructive |
 | `cleanmac_ai_governance_advice` | AI host governance & anti-patterns | readonly |
+| `cleanmac_ai_host_policy` | AI host allow/deny policy | readonly |
 
 ### 📄 AI Contract Introspection
 
@@ -441,8 +442,8 @@ python3 cleanmac.py clean run \
 | Group | Commands | Description |
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 Cleanup operations |
-| `software` | `list`, `startup-items`, `uninstall-plan` | 📦 App inventory (read-only) |
-| `optimize` | `list`, `plan` | ⚙️ Maintenance tasks (dry-run only) |
+| `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 App inventory (read-only) |
+| `optimize` | `list`, `plan`, `run` | ⚙️ Maintenance tasks (dry-run only) |
 | `analyze` | `categories`, `tree`, `scan` | 📊 Space analysis |
 | `status` | `snapshot` | 🩺 System health |
 
@@ -545,6 +546,7 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean links \
 ```bash
 python3 cleanmac.py --json optimize list
 python3 cleanmac.py --json optimize plan
+python3 cleanmac.py --json optimize run
 ```
 
 ### `status`
@@ -557,6 +559,7 @@ python3 cleanmac.py --json status snapshot
 
 ```bash
 python3 cleanmac.py --json software list
+python3 cleanmac.py --json software leftovers
 python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
 ```
@@ -567,6 +570,37 @@ python3 cleanmac.py --json software uninstall-plan --app DemoApp
 python3 cleanmac.py --json analyze categories --all
 python3 cleanmac.py --json analyze tree --path ~/Library --depth 2 --top 20
 python3 cleanmac.py --json analyze scan --path ~/Downloads --depth 1 --top 10
+```
+
+### `list` (flat alias for `clean list`)
+
+```bash
+python3 cleanmac.py --json list
+python3 cleanmac.py list
+```
+
+### `policy-simulate` (flat alias for `clean policy-simulate`)
+
+```bash
+python3 cleanmac.py --json policy-simulate --plan-file /tmp/plan.json --execute --delete-mode trash
+```
+
+### `completion`
+
+```bash
+python3 cleanmac.py completion bash       # Bash completion script
+python3 cleanmac.py completion zsh        # Zsh completion script
+python3 cleanmac.py completion fish       # Fish completion script
+python3 cleanmac.py --json completion bash  # Machine-readable with schema
+```
+
+### `ai-tools`
+
+```bash
+python3 cleanmac.py --json ai-tools                          # All formats
+python3 cleanmac.py --json ai-tools --format anthropic        # Anthropic/Claude format
+python3 cleanmac.py --json ai-tools --format openai           # OpenAI/GPT format
+python3 cleanmac.py --json ai-tools --format mcp              # MCP tool catalog format
 ```
 
 ### 5. Generate audit report files
@@ -678,18 +712,26 @@ make no-cache-release-check                        # No-cache release validation
 | `quality-check` | lint → type-check → coverage |
 | `local-test` | No-auth test runner |
 | `pytest-test` | Isolated venv pytest |
+| `format` | Auto-format code with ruff |
 | `package-smoke` | Editable install |
 | `script-smoke` | Template governance |
 | `mcp-smoke` | MCP tools/list + tools/call |
 | `bundle-audit-smoke` | Bundle drift audit |
+| `build-check` | Build wheel/sdist + twine check |
 | `macos-smoke` | macOS-specific tests |
+| `real-macos-smoke` | Real macOS readonly tests |
 | `security-smoke` | Static security scan |
 | `dependency-audit-smoke` | pip-audit + SBOM.json |
 | `docs-smoke` | README coverage |
 | `governance-smoke` | Governance contracts |
+| `ai-governance-smoke` | AI governance route check |
+| `ai-host-smoke` | AI host integration test suite |
 | `distribution-smoke` | wheel + sdist |
 | `release-artifacts-smoke` | SHA256SUMS + attestation |
 | `docker-test` | Debian container tests |
+| `no-cache-check` | No-cache full validation |
+| `no-cache-release-check` | No-cache release validation |
+| `no-cache-docker-test` | Docker test with --pull=always |
 | `release-check` | All gates combined |
 
 ### 🤖 CI Configuration

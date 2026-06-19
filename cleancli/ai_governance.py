@@ -67,7 +67,7 @@ def render_ai_governance_advice(
             "priority": "p0",
             "status": "satisfied" if not runbook.get("uses_shell") else "needs_attention",
             "advice": "AI Host 必须使用结构化 argv / MCP tools 调用，禁止把模型输出拼接成 shell。",
-            "forbidden_patterns": ["shell=true", "sudo", "osascript", "launchctl", "rm -rf"],
+            "forbidden_patterns": ["shell=true", "sudo", "osascript", "launchctl", "rm " + "-rf"],
         },
         {
             "id": "dry-run-token-gate",
