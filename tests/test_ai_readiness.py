@@ -61,6 +61,7 @@ class AIReadinessTests(unittest.TestCase):
         self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-governance-advice"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-host-policy"], report["recommended_preflight_commands"])
+        self.assertIn(["cleanmac", "--json", "ai-host-evidence"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-eval-pack"], report["recommended_preflight_commands"])
         self.assertIn(
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
