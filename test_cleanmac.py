@@ -18,6 +18,7 @@ from typing import Any
 from unittest import mock
 
 import cleancli.core as cleancli
+import cleancli.tool_adapters as tool_adapters
 from cleancli.ai_versioning import validate_contract_payload
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -344,7 +345,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 24
+        EXPECTED_TOOL_COUNT = 28
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -1109,7 +1110,7 @@ class CleanMacCLITests(unittest.TestCase):
             optimize = json.loads(self.run_cli("--json", "optimize", "plan").stdout)
             status = json.loads(self.run_cli("--root", str(root), "--json", "status", "snapshot").stdout)
 
-            self.assertEqual(software["schema"], "cleanmac.software.v1")
+            self.assertEqual(software["schema"], "cleanmac.software-uninstall-plan.v1")
             self.assertFalse(software["destructive"])
             self.assertEqual(software["uninstall_plan"]["app"], "Demo")
             self.assertEqual(optimize["schema"], "cleanmac.optimize.v1")
@@ -1812,6 +1813,124 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(validation["valid"], validation)
         self.assertFalse(report["safe_to_auto_execute"])
         self.assertFalse(any(adapter["auto_execute_allowed"] for adapter in report["adapters"]))
+
+    def test_tool_execute_dry_run_uses_allowlisted_commands(self) -> None:
+        completed = subprocess.CompletedProcess(["docker", "system", "df"], 0, stdout="TYPE TOTAL", stderr="")
+        calls: list[list[str]] = []
+
+        def fake_runner(argv: Any, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(list(argv))
+            return completed
+
+        with mock.patch.object(tool_adapters.shutil, "which", return_value="/usr/local/bin/docker"):
+            report = tool_adapters.execute_tool(
+                "docker",
+                execute=False,
+                yes=False,
+                root=Path("/tmp/cleanmac-sandbox"),
+                home=Path("/Users/tester"),
+                runner=fake_runner,
+            )
+
+        self.assertEqual(report["schema"], "cleanmac.tool-execution-result.v1")
+        self.assertFalse(report["destructive"])
+        self.assertIn(["docker", "system", "df"], calls)
+        self.assertNotIn(["docker", "builder", "prune", "--force"], calls)
+        self.assertEqual(report["failed_count"], 0)
+
+    def test_tool_execute_blocks_destructive_without_yes(self) -> None:
+        with mock.patch.object(tool_adapters.shutil, "which", return_value="/usr/local/bin/docker"):
+            report = tool_adapters.execute_tool(
+                "docker", execute=True, yes=False, root=Path("/tmp/root"), home=Path("/Users/tester")
+            )
+
+        self.assertTrue(report["destructive"])
+        self.assertIn("explicit-yes-required", report["blocked_reasons"])
+        self.assertTrue(all(result["status"] == "blocked" for result in report["results"]))
+
+    def test_software_inspect_reports_uninstall_candidates(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            app = root / "Applications/Example.app/Contents"
+            app.mkdir(parents=True)
+            (app / "Info.plist").write_bytes(
+                b'<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.example.app</string></dict></plist>'
+            )
+            report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "software", "inspect", "--app", "Example"
+                ).stdout
+            )
+
+            self.assertEqual(report["schema"], "cleanmac.software-inspect.v1")
+            self.assertTrue(report["found"])
+            self.assertIn("app-bundle", {candidate["kind"] for candidate in report["candidates"]})
+            self.assertIn("cache", {candidate["kind"] for candidate in report["candidates"]})
+            self.assertTrue(validate_contract_payload("cleanmac.software-inspect.v1", report)["valid"])
+
+    def test_software_uninstall_plan_blocks_official_uninstallers_with_structured_schema(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "software", "uninstall-plan", "--app", "Falcon"
+                ).stdout
+            )
+
+            self.assertEqual(report["schema"], "cleanmac.software-uninstall-plan.v1")
+            self.assertIn("official-uninstaller-required", report["blocked_reasons"])
+            self.assertTrue(report["uninstall_plan"]["official_uninstaller_required"])
+            self.assertTrue(validate_contract_payload("cleanmac.software-uninstall-plan.v1", report)["valid"])
+
+    def test_review_generates_selection_file_from_plan(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.software-uninstall-plan.v1",
+                        "uninstall_plan": {
+                            "candidates": [
+                                {
+                                    "id": "cache:/tmp/cache",
+                                    "path": "/tmp/cache",
+                                    "kind": "cache",
+                                    "risk": "low",
+                                    "default_selected": True,
+                                }
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = json.loads(
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
+            )
+            selection = json.loads(selection_file.read_text(encoding="utf-8"))
+
+            self.assertEqual(report["schema"], "cleanmac.review.v1")
+            self.assertEqual(selection["schema"], "cleanmac.review-selection.v1")
+            self.assertEqual(selection["selected_item_ids"], ["cache:/tmp/cache"])
+            self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
+            self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
+
+    def test_review_html_escapes_paths(self) -> None:
+        tmp, root, _home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            plan_file.write_text(
+                json.dumps({"schema": "cleanmac.test.v1", "items": [{"path": "<script>alert(1)</script>"}]}),
+                encoding="utf-8",
+            )
+            result = self.run_cli("review", "--input-file", str(plan_file), "--format", "html")
+
+            self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", result.stdout)
+            self.assertNotIn("<script>alert(1)</script>", result.stdout)
 
     def test_clean_safety_gate_exposes_single_fail_fast_flag(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -4143,7 +4262,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)

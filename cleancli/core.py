@@ -45,6 +45,9 @@ from cleancli.ai_versioning import (
     validate_contract_payload,
 )
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
+from cleancli.review import load_json_file, render_review, render_review_html
+from cleancli.software_uninstall import render_software as render_software_report
+from cleancli.tool_adapters import execute_tool, render_tool_plan as render_tool_adapter_plan
 
 VERSION = "0.1.0"
 
@@ -703,7 +706,13 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
     "software": {
         "title": "软件 / Software",
         "description": "Read-only app inventory, startup-item review, and uninstall-plan placeholders for app cleanup governance.",
-        "commands": ["software list", "software leftovers", "software startup-items", "software uninstall-plan"],
+        "commands": [
+            "software list",
+            "software leftovers",
+            "software startup-items",
+            "software inspect",
+            "software uninstall-plan",
+        ],
         "flat_command_aliases": [],
     },
     "permissions": {
@@ -715,7 +724,13 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
     "tools": {
         "title": "工具语义计划 / Tool semantic plans",
         "description": "Read-only semantic cleanup plans for external tools; never executes tool prune commands.",
-        "commands": ["tool-plan"],
+        "commands": ["tool-plan", "tool-execute"],
+        "flat_command_aliases": [],
+    },
+    "review": {
+        "title": "审查 / Review",
+        "description": "Normalize reports and plans into reviewable item selections.",
+        "commands": ["review"],
         "flat_command_aliases": [],
     },
     "optimize": {
@@ -1184,7 +1199,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     software_cmd = subparsers.add_parser("software", help="Software inventory and app cleanup planning.")
     software_cmd.add_argument(
-        "action", nargs="?", choices=("list", "leftovers", "startup-items", "uninstall-plan"), default="list"
+        "action",
+        nargs="?",
+        choices=("list", "leftovers", "startup-items", "inspect", "uninstall-plan"),
+        default="list",
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
 
@@ -1204,6 +1222,29 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default="all",
         help="Tool adapter to describe. Plans are read-only and never execute external cleanup commands.",
     )
+
+    tool_execute_cmd = subparsers.add_parser(
+        "tool-execute",
+        help="Run allowlisted external tool dry-run or cleanup commands with explicit execution gates.",
+    )
+    tool_execute_cmd.add_argument(
+        "--tool",
+        choices=("all", "docker", "homebrew", "xcode", "package-managers"),
+        default="all",
+    )
+    tool_execute_cmd.add_argument("--execute", action="store_true", help="Run destructive adapter commands.")
+    tool_execute_cmd.add_argument("--yes", action="store_true", help="Confirm destructive adapter execution.")
+    tool_execute_cmd.add_argument(
+        "--operation-log",
+        default=OPERATIONS_LOG_FILE,
+        help="Append JSONL audit records when adapter commands are evaluated.",
+    )
+    tool_execute_cmd.add_argument("--timeout", type=float, default=30.0, help="Per-command timeout in seconds.")
+
+    review_cmd = subparsers.add_parser("review", help="Normalize a JSON report or plan into reviewable selections.")
+    review_cmd.add_argument("--input-file", required=True, help="JSON plan/report to review.")
+    review_cmd.add_argument("--format", choices=("json", "html"), default="json")
+    review_cmd.add_argument("--selection-file", help="Write the generated review selection JSON to this path.")
 
     optimize_cmd = subparsers.add_parser("optimize", help="System maintenance planning.")
     optimize_cmd.add_argument("action", nargs="?", choices=("list", "plan", "run"), default="list")
@@ -2198,6 +2239,8 @@ def render_capabilities() -> dict[str, Any]:
             "software",
             "permissions",
             "tool-plan",
+            "tool-execute",
+            "review",
             "optimize",
             "status",
             "completion",
@@ -2238,6 +2281,8 @@ def render_capabilities() -> dict[str, Any]:
             "html_audit_report_flag": "--report-file <path> --report-format html",
             "permissions_preflight_command": "permissions",
             "tool_semantic_plan_command": "tool-plan",
+            "tool_controlled_execution_command": "tool-execute",
+            "review_selection_command": "review",
             "default_operation_log_file": OPERATIONS_LOG_FILE,
             "bundle_drift_audit": {
                 "schema": "cleanmac.bundle-drift-audit.v1",
@@ -2682,82 +2727,16 @@ def render_permissions_preflight(categories: list[Category], *, root: Path, home
 
 
 def tool_plan_adapters() -> dict[str, dict[str, Any]]:
-    return {
-        "docker": {
-            "title": "Docker semantic cleanup plan",
-            "detect_commands": [["docker", "system", "df"], ["docker", "builder", "du"]],
-            "dry_run_commands": [["docker", "system", "df"], ["docker", "builder", "du"]],
-            "manual_execute_commands": [
-                ["docker", "builder", "prune"],
-                ["docker", "image", "prune"],
-                ["docker", "container", "prune"],
-            ],
-            "preserve": ["volumes", "contexts", "auth", "daemon configuration"],
-            "risk": "medium",
-        },
-        "homebrew": {
-            "title": "Homebrew semantic cleanup plan",
-            "detect_commands": [["brew", "cleanup", "--dry-run"], ["brew", "--cache"]],
-            "dry_run_commands": [["brew", "cleanup", "--dry-run"]],
-            "manual_execute_commands": [["brew", "cleanup"]],
-            "preserve": ["installed formulae", "installed casks", "taps", "brew configuration"],
-            "risk": "medium",
-        },
-        "xcode": {
-            "title": "Xcode semantic cleanup plan",
-            "detect_commands": [["xcrun", "simctl", "list", "devices", "unavailable"]],
-            "dry_run_commands": [["xcrun", "simctl", "list", "devices", "unavailable"]],
-            "manual_execute_commands": [["xcrun", "simctl", "delete", "unavailable"]],
-            "preserve": ["active simulators", "current device support", "project archives unless explicitly selected"],
-            "risk": "medium",
-        },
-        "package-managers": {
-            "title": "Package manager cache semantic cleanup plan",
-            "detect_commands": [["npm", "cache", "verify"], ["yarn", "cache", "dir"], ["pip", "cache", "info"]],
-            "dry_run_commands": [["npm", "cache", "verify"], ["pip", "cache", "info"]],
-            "manual_execute_commands": [["npm", "cache", "clean", "--force"], ["pip", "cache", "purge"]],
-            "preserve": ["registry auth", "publishing tokens", "lock files", "project dependencies"],
-            "risk": "medium",
-        },
-    }
+    from cleancli.tool_adapters import tool_adapters
+
+    return tool_adapters()
 
 
 def render_tool_plan(tool: str, *, root: Path, home: Path) -> dict[str, Any]:
-    adapters = tool_plan_adapters()
-    selected = adapters if tool == "all" else {tool: adapters[tool]}
-    rows: list[dict[str, Any]] = []
-    for key, adapter in selected.items():
-        commands = adapter["detect_commands"]
-        binaries = sorted({command[0] for command in commands})
-        rows.append(
-            {
-                "key": key,
-                "title": adapter["title"],
-                "risk": adapter["risk"],
-                "available": all(shutil.which(binary) is not None for binary in binaries),
-                "required_binaries": binaries,
-                "missing_binaries": [binary for binary in binaries if shutil.which(binary) is None],
-                "dry_run_commands": adapter["dry_run_commands"],
-                "manual_execute_commands": adapter["manual_execute_commands"],
-                "preserve": adapter["preserve"],
-                "auto_execute_allowed": False,
-                "notes": [
-                    "This adapter is read-only and does not run tool prune commands.",
-                    "Use cleanmac path-based categories for recoverable Trash-mode cleanup; use tool commands only after manual review.",
-                ],
-            }
-        )
-    return {
-        "schema": "cleanmac.tool-plan.v1",
-        "destructive": False,
-        "dry_run": True,
-        "root": display_path(root),
-        "home": display_path(home),
-        "selected_tool": tool,
-        "adapter_count": len(rows),
-        "safe_to_auto_execute": False,
-        "adapters": rows,
-    }
+    report = render_tool_adapter_plan(tool, root=root, home=home)
+    report["root"] = display_path(root)
+    report["home"] = display_path(home)
+    return report
 
 
 def path_size_bytes(path: Path) -> int:
@@ -6526,13 +6505,45 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "software":
         emit_report(
-            render_software(args.action, app=args.app, root=root, home=home),
+            render_software_report(args.action, app=args.app, root=root, home=home),
             args=args,
             command="software",
             root=root,
             home=home,
             argv=actual_argv,
         )
+        return 0
+    if args.command == "tool-execute":
+        operation_log_status = preflight_operation_log(args.operation_log, root=root, home=home)
+        if operation_log_status["status"] != "ready":
+            raise SystemExit(
+                f"Refusing to execute tool adapter because operation log preflight failed: {operation_log_status['error']}"
+            )
+        report = execute_tool(
+            args.tool,
+            execute=args.execute,
+            yes=args.yes,
+            root=root,
+            home=home,
+            timeout=args.timeout,
+        )
+        if report["operation_log_entries"]:
+            report["operation_log"] = append_operation_log(
+                args.operation_log, report.pop("operation_log_entries"), root=root, home=home, rotate=False
+            )
+        emit_report(report, args=args, command="tool-execute", root=root, home=home, argv=actual_argv)
+        return 0
+    if args.command == "review":
+        review_report = render_review(load_json_file(args.input_file))
+        if args.selection_file:
+            Path(args.selection_file).expanduser().write_text(
+                json.dumps(review_report["selection"], indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            review_report["selection_file"] = display_path(Path(args.selection_file).expanduser())
+        if args.format == "html":
+            print(render_review_html(review_report))
+        else:
+            print(json.dumps(review_report, indent=2, ensure_ascii=False) if args.json else review_report)
         return 0
     if args.command == "permissions":
         categories = select_categories(args)

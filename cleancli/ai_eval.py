@@ -1162,7 +1162,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     .get("text", "")
                 )
                 mcp_passed = bool(
-                    len(tools) == 24
+                    len(tools) == 28
                     and "cleanmac_capabilities" in tool_names
                     and "cleanmac_execute_plan" in tool_names
                     and "cleanmac://capabilities" in resource_uris
