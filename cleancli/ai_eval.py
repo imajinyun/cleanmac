@@ -498,6 +498,21 @@ def _persist_trace(trace_file: Path, events: list[dict[str, Any]]) -> dict[str, 
     return {"status": "written", "path": str(trace_file), "event_count": len(redacted)}
 
 
+def _scenario_result(
+    scenario_id: str,
+    *,
+    passed: bool,
+    observed_schema: str,
+    observed_blocking_codes: Sequence[str] = (),
+) -> dict[str, Any]:
+    return {
+        "id": scenario_id,
+        "passed": passed,
+        "observed_schema": observed_schema,
+        "observed_blocking_codes": list(observed_blocking_codes),
+    }
+
+
 def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = None) -> dict[str, Any]:
     pack = render_ai_eval_pack()
     selected = selected_scenario_ids(scenario, scenario_ids(pack))
@@ -517,17 +532,16 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             host_policy, event = _run_cli(cli, ["ai-host-policy"], root=root, home=home)
             events.append(event)
             results.append(
-                {
-                    "id": "discover_readiness",
-                    "passed": bool(
+                _scenario_result(
+                    "discover_readiness",
+                    passed=bool(
                         readiness["ready"]
                         and matrix["violation_count"] == 0
                         and host_policy["valid"]
                         and "cleanmac_execute_plan" in host_policy["auto_call"]["deny"]
                     ),
-                    "observed_schema": host_policy["schema"],
-                    "observed_blocking_codes": [],
-                }
+                    observed_schema=host_policy["schema"],
+                )
             )
 
         if "schema_registry_discovery" in selected:
@@ -537,18 +551,17 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             events.append(event)
             registry_entries = {entry["name"]: entry for entry in registry["entries"]}
             results.append(
-                {
-                    "id": "schema_registry_discovery",
-                    "passed": bool(
+                _scenario_result(
+                    "schema_registry_discovery",
+                    passed=bool(
                         registry["schema"] == "cleanmac.ai-schema-registry.v1"
                         and registry["supported_plan_schemas"][0] == "cleanmac.plan.v1"
                         and "cleanmac.plan.v1" in registry_entries
                         and "json_schema" in registry_entries["cleanmac.plan.v1"]
                         and readiness["contract_validation"]["ready"]
                     ),
-                    "observed_schema": registry["schema"],
-                    "observed_blocking_codes": [],
-                }
+                    observed_schema=registry["schema"],
+                )
             )
 
         plan: dict[str, Any] | None = None
@@ -587,12 +600,11 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             )
             events.append(event)
             results.append(
-                {
-                    "id": "contract_validation_plan",
-                    "passed": bool(validation["valid"] and validation["error_count"] == 0),
-                    "observed_schema": validation["schema"],
-                    "observed_blocking_codes": [],
-                }
+                _scenario_result(
+                    "contract_validation_plan",
+                    passed=bool(validation["valid"] and validation["error_count"] == 0),
+                    observed_schema=validation["schema"],
+                )
             )
 
         if "unsupported_plan_schema_recovery" in selected:
@@ -610,12 +622,12 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             events.append(event)
             reason = str(validation.get("schema_negotiation", {}).get("reason") or "")
             results.append(
-                {
-                    "id": "unsupported_plan_schema_recovery",
-                    "passed": bool(not validation["valid"] and reason == "unsupported-schema-version"),
-                    "observed_schema": validation["schema"],
-                    "observed_blocking_codes": [reason] if reason else [],
-                }
+                _scenario_result(
+                    "unsupported_plan_schema_recovery",
+                    passed=bool(not validation["valid"] and reason == "unsupported-schema-version"),
+                    observed_schema=validation["schema"],
+                    observed_blocking_codes=[reason] if reason else [],
+                )
             )
 
         if "legacy_plan_schema_warning" in selected:
@@ -633,12 +645,12 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             events.append(event)
             warning_codes = [row["code"] for row in validation.get("schema_warnings", [])]
             results.append(
-                {
-                    "id": "legacy_plan_schema_warning",
-                    "passed": bool(validation["valid"] and "LEGACY_PLAN_SCHEMA" in warning_codes),
-                    "observed_schema": validation["schema"],
-                    "observed_blocking_codes": warning_codes,
-                }
+                _scenario_result(
+                    "legacy_plan_schema_warning",
+                    passed=bool(validation["valid"] and "LEGACY_PLAN_SCHEMA" in warning_codes),
+                    observed_schema=validation["schema"],
+                    observed_blocking_codes=warning_codes,
+                )
             )
 
         if "safe_plan_to_dry_run" in selected:

@@ -108,7 +108,7 @@ class AIEvalTests(unittest.TestCase):
         )
 
     def test_ai_eval_run_smoke_covers_runner_in_process(self) -> None:
-        from cleancli.ai_eval import render_ai_eval_run
+        from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run, scenario_ids, selected_scenario_ids
 
         report = render_ai_eval_run(scenario="smoke", cli=CLI)
 
@@ -116,6 +116,11 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(report["passed"], report)
         self.assertEqual(report["failed_count"], 0)
         self.assertEqual(report["trace_persistence"], {"status": "skipped", "path": None})
+
+        pack = render_ai_eval_pack()
+        selected_ids = set(selected_scenario_ids("smoke", scenario_ids(pack)))
+        result_ids = {item["id"] for item in report["results"]}
+        self.assertEqual(result_ids, selected_ids)
 
     def test_ai_eval_selection_helpers_cover_all_single_and_unknown_requests(self) -> None:
         from cleancli.ai_eval import render_ai_eval_pack, scenario_ids, selected_scenario_ids
