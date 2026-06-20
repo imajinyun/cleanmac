@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import plistlib
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,16 +58,35 @@ def _load_plist(path: Path) -> dict[str, Any]:
         return {}
 
 
-def _write_disabled_plist(path: Path) -> str:
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _backup_plist(path: Path) -> dict[str, str]:
+    backup = path.with_suffix(path.suffix + ".cleanmac.bak")
+    index = 1
+    while backup.exists():
+        backup = path.with_suffix(path.suffix + f".cleanmac.{index}.bak")
+        index += 1
+    backup.write_bytes(path.read_bytes())
+    return {"backup_path": str(backup), "backup_sha256": _sha256_file(backup)}
+
+
+def _write_disabled_plist(path: Path) -> dict[str, Any]:
     plist = _load_plist(path)
     if not plist:
-        return "invalid-plist"
+        return {"status": "invalid-plist", "backup_path": None, "backup_sha256": None}
     if plist.get("Disabled") is True:
-        return "already-disabled"
+        return {"status": "already-disabled", "backup_path": None, "backup_sha256": None}
+    backup = _backup_plist(path)
     plist["Disabled"] = True
     with path.open("wb") as handle:
         plistlib.dump(plist, handle)
-    return "disabled"
+    return {"status": "disabled", **backup}
 
 
 def _startup_locations(root: Path, home: Path) -> list[tuple[str, Path, bool]]:
@@ -209,6 +229,7 @@ def plan_startup(*, root: Path, home: Path) -> dict[str, Any]:
         "blocked_reasons": [],
         "source_audit_item_count": audit["item_count"],
         "disable_plan": {
+            "requires_explicit_execute": True,
             "requires_explicit_future_execute": True,
             "safe_to_auto_execute": False,
             "candidate_count": len(candidates),
@@ -242,7 +263,8 @@ def disable_startup_items(
     if execute and not yes:
         raise SystemExit("Refusing to disable startup items without --yes. Review startup plan and selection first.")
 
-    selected_paths = {str(path) for path in review_selection.get("selected_paths", [])}
+    selected_ids = {str(item) for item in review_selection.get("selected_item_ids", []) if item is not None}
+    selected_paths = {str(path) for path in review_selection.get("selected_paths", []) if path is not None}
     disable_plan_value = plan.get("disable_plan")
     disable_plan: dict[str, Any] = disable_plan_value if isinstance(disable_plan_value, dict) else {}
     candidates = [item for item in disable_plan.get("candidates", []) if isinstance(item, dict)]
@@ -251,11 +273,18 @@ def disable_startup_items(
 
     for item in candidates:
         path = Path(str(item.get("path") or ""))
+        item_id = str(item.get("id") or "")
+        path_text = str(path)
         reason = None
         status = "planned"
-        if str(path) not in selected_paths:
+        backup_path = None
+        backup_sha256 = None
+        if item_id not in selected_ids:
             status = "skipped"
             reason = "not-in-review-selection"
+        elif selected_paths and path_text not in selected_paths:
+            status = "blocked"
+            reason = "selection-id-path-mismatch"
         elif item.get("protected") or protection.should_protect_path(path):
             status = "blocked"
             reason = "protected-startup-item"
@@ -275,7 +304,10 @@ def disable_startup_items(
             status = "blocked"
             reason = "unsupported-disable-method"
         elif execute:
-            status = _write_disabled_plist(path)
+            write_result = _write_disabled_plist(path)
+            status = str(write_result["status"])
+            backup_path = write_result.get("backup_path")
+            backup_sha256 = write_result.get("backup_sha256")
             if status == "invalid-plist":
                 reason = "invalid-plist"
 
@@ -288,6 +320,8 @@ def disable_startup_items(
             "status": status,
             "reason": reason,
             "executed": bool(execute and status in {"disabled", "already-disabled"}),
+            "backup_path": backup_path,
+            "backup_sha256": backup_sha256,
         }
         results.append(result)
         operation_log_entries.append(
@@ -303,6 +337,8 @@ def disable_startup_items(
                 "deleted": False,
                 "status": status,
                 "reason": reason,
+                "backup_path": backup_path,
+                "backup_sha256": backup_sha256,
                 "root": _display_path(root),
                 "home": _display_path(home),
                 "ai": {

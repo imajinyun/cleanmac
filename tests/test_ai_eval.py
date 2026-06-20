@@ -214,6 +214,25 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("confirmation_token_execution", scenario_ids)
         self.assertIn("confirmation_token_validation", scenario_ids)
         self.assertIn("bundle_protection_enforcement", scenario_ids)
+        self.assertIn("governed_privacy_execute_blocks_unsafe_paths", scenario_ids)
+        self.assertIn("governed_startup_disable_requires_backup", scenario_ids)
+
+    def test_eval_pack_includes_governed_execution_hardening_scenarios(self) -> None:
+        from cleancli.ai_eval import render_ai_eval_pack
+
+        pack = render_ai_eval_pack()
+        scenarios = {scenario["id"]: scenario for scenario in pack["scenarios"]}
+        privacy = scenarios["governed_privacy_execute_blocks_unsafe_paths"]
+        startup = scenarios["governed_startup_disable_requires_backup"]
+
+        self.assertIn("cleanmac_privacy_execute", privacy["required_tools"])
+        self.assertIn("outside-privacy-locations", privacy["expected_blocking_codes"])
+        self.assertFalse(privacy["may_execute_delete"])
+        self.assertFalse(privacy["destructive_execution_allowed"])
+        self.assertIn("cleanmac_startup_disable", startup["required_tools"])
+        self.assertEqual(startup["expected_final_schema"], "cleanmac.startup-disable-result.v1")
+        self.assertFalse(startup["may_execute_delete"])
+        self.assertFalse(startup["destructive_execution_allowed"])
 
     def test_ai_eval_run_mcp_resource_prompt_surface(self) -> None:
         report = self.run_json("ai-eval-run", "--scenario", "mcp_resource_prompt_surface")

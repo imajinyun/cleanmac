@@ -211,6 +211,19 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
         self.assertGreaterEqual(coverage["json_schema_fragment_count"], len(coverage["critical_schemas"]))
 
+    def test_operational_plan_samples_expose_current_execute_gate_name(self) -> None:
+        from cleancli.ai_versioning import render_ai_contract_samples, validate_contract_payload
+
+        payloads = {sample["target_schema"]: sample["payload"] for sample in render_ai_contract_samples()["samples"]}
+        startup = payloads["cleanmac.startup-plan.v1"]
+        privacy = payloads["cleanmac.privacy-plan.v1"]
+        self.assertTrue(startup["disable_plan"]["requires_explicit_execute"])
+        self.assertTrue(privacy["privacy_plan"]["requires_explicit_execute"])
+        self.assertTrue(startup["disable_plan"]["requires_explicit_future_execute"])
+        self.assertTrue(privacy["privacy_plan"]["requires_explicit_future_execute"])
+        self.assertTrue(validate_contract_payload("cleanmac.startup-plan.v1", startup)["valid"])
+        self.assertTrue(validate_contract_payload("cleanmac.privacy-plan.v1", privacy)["valid"])
+
     def test_contract_validator_reports_nested_array_item_type_mismatch(self) -> None:
         from cleancli.ai_versioning import validate_contract_payload
 

@@ -425,7 +425,15 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "home": {"type": "string"},
             "valid": {"type": "boolean"},
             "blocked_reasons": {"type": "array", "items": {"type": "string"}},
-            "disable_plan": {"type": "object"},
+            "disable_plan": {
+                "type": "object",
+                "properties": {
+                    "requires_explicit_execute": {"type": "boolean"},
+                    "requires_explicit_future_execute": {"type": "boolean"},
+                    "safe_to_auto_execute": {"type": "boolean"},
+                },
+                "additionalProperties": True,
+            },
         },
         "additionalProperties": True,
     },
@@ -439,7 +447,17 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "root": {"type": "string"},
             "home": {"type": "string"},
             "review_selection": {"type": "object"},
-            "results": {"type": "array", "items": {"type": "object"}},
+            "results": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "backup_path": {"type": ["string", "null"]},
+                        "backup_sha256": {"type": ["string", "null"]},
+                    },
+                    "additionalProperties": True,
+                },
+            },
         },
         "additionalProperties": True,
     },
@@ -480,7 +498,15 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "scope": {"type": "string"},
             "valid": {"type": "boolean"},
             "blocked_reasons": {"type": "array", "items": {"type": "string"}},
-            "privacy_plan": {"type": "object"},
+            "privacy_plan": {
+                "type": "object",
+                "properties": {
+                    "requires_explicit_execute": {"type": "boolean"},
+                    "requires_explicit_future_execute": {"type": "boolean"},
+                    "safe_to_auto_execute": {"type": "boolean"},
+                },
+                "additionalProperties": True,
+            },
         },
         "additionalProperties": True,
     },
@@ -1267,6 +1293,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "valid": True,
             "blocked_reasons": [],
             "disable_plan": {
+                "requires_explicit_execute": True,
                 "requires_explicit_future_execute": True,
                 "safe_to_auto_execute": False,
                 "candidate_count": 1,
@@ -1298,6 +1325,8 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     "path": "/Users/tester/Library/LaunchAgents/com.example.agent.plist",
                     "status": "disabled",
                     "executed": True,
+                    "backup_path": "/Users/tester/Library/LaunchAgents/com.example.agent.plist.cleanmac.bak",
+                    "backup_sha256": "b" * 64,
                 }
             ],
         },
@@ -1331,6 +1360,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "valid": True,
             "blocked_reasons": [],
             "privacy_plan": {
+                "requires_explicit_execute": True,
                 "requires_explicit_future_execute": True,
                 "safe_to_auto_execute": False,
                 "candidate_count": 1,
