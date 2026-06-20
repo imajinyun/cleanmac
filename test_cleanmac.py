@@ -5413,7 +5413,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5512,6 +5512,7 @@ class CleanMacCLITests(unittest.TestCase):
             (("release-rollback-plan",), "cleanmac.release-rollback-plan.v1"),
             (("release-post-publish-verification",), "cleanmac.release-post-publish-verification.v1"),
             (("release-post-publish-result",), "cleanmac.release-post-publish-result.v1"),
+            (("release-post-publish-evidence-template",), "cleanmac.release-post-publish-evidence-template.v1"),
             (("ai-contract-samples",), "cleanmac.ai-contract-samples.v1"),
             (("ai-eval-pack",), "cleanmac.ai-eval-pack.v1"),
         ]
@@ -5923,6 +5924,10 @@ class CleanMacCLITests(unittest.TestCase):
             "cleanmac.py --json release-post-publish-result --dist-dir dist --assets-dir release-assets", release
         )
         self.assertIn(
+            "cleanmac.py --json release-post-publish-evidence-template --dist-dir dist --assets-dir release-assets",
+            release,
+        )
+        self.assertIn(
             "scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets --evidence", release
         )
         self.assertIn("release-assets/RELEASE-READINESS.json", release)
@@ -5931,6 +5936,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.release-promotion-decision.v1", release)
         self.assertIn("cleanmac.release-post-publish-verification.v1", release)
         self.assertIn("cleanmac.release-post-publish-result.v1", release)
+        self.assertIn("cleanmac.release-post-publish-evidence-template.v1", release)
+        self.assertIn("RELEASE-POST-PUBLISH-EVIDENCE.example.json", release)
         self.assertIn('assert payloads["RELEASE-EVIDENCE.json"]["ready"] is True', release)
         self.assertIn('assert payloads["RELEASE-REHEARSAL.json"]["ready"] is True', release)
         self.assertIn('assert decision["safe_to_publish"] is True', release)

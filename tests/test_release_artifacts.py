@@ -209,6 +209,7 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
             self.assertTrue((assets / "RELEASE-PROMOTION-DECISION.json").is_file())
             self.assertTrue((assets / "RELEASE-POST-PUBLISH-VERIFICATION.json").is_file())
             self.assertTrue((assets / "RELEASE-POST-PUBLISH-RESULT.json").is_file())
+            self.assertTrue((assets / "RELEASE-POST-PUBLISH-EVIDENCE.example.json").is_file())
             self.assertTrue((assets / "RELEASE-ROLLBACK-PLAN.json").is_file())
             self.assertEqual(stdout["release_rehearsal"]["schema"], "cleanmac.release-rehearsal.v1")
             self.assertTrue(stdout["release_rehearsal"]["ready"], stdout)
@@ -219,6 +220,14 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
             )
             self.assertEqual(stdout["post_publish_result"]["schema"], "cleanmac.release-post-publish-result.v1")
             self.assertFalse(stdout["post_publish_result"]["ready"])
+            self.assertEqual(
+                stdout["post_publish_evidence_template"]["schema"],
+                "cleanmac.release-post-publish-evidence-template.v1",
+            )
+            self.assertEqual(
+                stdout["post_publish_evidence_template"]["target_input_schema"],
+                "cleanmac.release-post-publish-evidence-input.v1",
+            )
             self.assertEqual(stdout["rollback_plan"]["schema"], "cleanmac.release-rollback-plan.v1")
 
     def test_homebrew_formula_script_writes_formula(self) -> None:

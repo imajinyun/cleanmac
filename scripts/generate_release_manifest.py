@@ -29,6 +29,7 @@ def main() -> int:
     from cleancli.core import render_release_diagnostics_report
     from cleancli.release_artifacts import write_release_artifact_outputs, write_release_evidence_bundle_output
     from cleancli.release_orchestration import (
+        render_release_post_publish_evidence_template,
         render_release_post_publish_result,
         render_release_post_publish_verification,
         render_release_promotion_decision,
@@ -73,6 +74,13 @@ def main() -> int:
         (assets_dir / "RELEASE-POST-PUBLISH-RESULT.json").write_text(
             json.dumps(post_publish_result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+        post_publish_evidence_template = render_release_post_publish_evidence_template(
+            dist_dir=resolved_dist_dir,
+            assets_dir=assets_dir,
+        )
+        (assets_dir / "RELEASE-POST-PUBLISH-EVIDENCE.example.json").write_text(
+            json.dumps(post_publish_evidence_template, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         (assets_dir / "RELEASE-REHEARSAL.json").write_text("{}\n", encoding="utf-8")
         release_rehearsal = render_release_rehearsal(
             dist_dir=resolved_dist_dir,
@@ -96,6 +104,7 @@ def main() -> int:
             promotion_decision=promotion_decision,
             post_publish_verification=post_publish_verification,
             post_publish_result=post_publish_result,
+            post_publish_evidence_template=post_publish_evidence_template,
             rollback_plan=rollback_plan,
         )
     print(json.dumps(manifest, indent=2, sort_keys=True))

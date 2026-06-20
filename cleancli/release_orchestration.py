@@ -13,6 +13,8 @@ RELEASE_PROMOTION_DECISION_SCHEMA = "cleanmac.release-promotion-decision.v1"
 RELEASE_ROLLBACK_PLAN_SCHEMA = "cleanmac.release-rollback-plan.v1"
 RELEASE_POST_PUBLISH_VERIFICATION_SCHEMA = "cleanmac.release-post-publish-verification.v1"
 RELEASE_POST_PUBLISH_RESULT_SCHEMA = "cleanmac.release-post-publish-result.v1"
+RELEASE_POST_PUBLISH_EVIDENCE_INPUT_SCHEMA = "cleanmac.release-post-publish-evidence-input.v1"
+RELEASE_POST_PUBLISH_EVIDENCE_TEMPLATE_SCHEMA = "cleanmac.release-post-publish-evidence-template.v1"
 
 PROMOTION_REQUIRED_ASSET_NAMES = (
     "SBOM.json",
@@ -32,6 +34,7 @@ POST_PUBLISH_SURFACE_REQUIREMENTS = {
     "pypi": ["PyPI release page version and file hashes"],
     "homebrew-tap": ["Homebrew tap formula commit"],
 }
+POST_PUBLISH_VALID_STATUSES = {"verified", "failed", "pending"}
 
 
 def _json_payload(path: Path) -> dict[str, Any] | None:
@@ -286,14 +289,64 @@ def _post_publish_evidence_payload(evidence_file: Path | str | None) -> tuple[di
         return {}, {"path": str(path), "valid_json": False, "error": str(exc)}
     if not isinstance(payload, dict):
         return {}, {"path": str(path), "valid_json": False, "error": "Evidence input must be a JSON object."}
+    schema = payload.get("schema")
+    if schema != RELEASE_POST_PUBLISH_EVIDENCE_INPUT_SCHEMA:
+        return {}, {
+            "path": str(path),
+            "valid_json": True,
+            "schema": schema,
+            "valid_schema": False,
+            "error": f"Evidence input schema must be {RELEASE_POST_PUBLISH_EVIDENCE_INPUT_SCHEMA}.",
+        }
     surfaces = payload.get("surfaces", {})
     if not isinstance(surfaces, dict):
-        surfaces = {}
+        return {}, {
+            "path": str(path),
+            "valid_json": True,
+            "schema": schema,
+            "valid_schema": False,
+            "error": "Evidence input surfaces must be an object keyed by surface id.",
+        }
     return surfaces, {
         "path": str(path),
         "valid_json": True,
-        "schema": payload.get("schema"),
+        "schema": schema,
+        "valid_schema": True,
         "surface_count": len(surfaces),
+    }
+
+
+def render_release_post_publish_evidence_template(*, dist_dir: Path | str, assets_dir: Path | str) -> dict[str, Any]:
+    template = {
+        "schema": RELEASE_POST_PUBLISH_EVIDENCE_INPUT_SCHEMA,
+        "surfaces": {
+            surface_id: {
+                "status": "pending",
+                "evidence_refs": [],
+                "notes": "",
+                "required_evidence": list(required_evidence),
+            }
+            for surface_id, required_evidence in POST_PUBLISH_SURFACE_REQUIREMENTS.items()
+        },
+    }
+    return {
+        "schema": RELEASE_POST_PUBLISH_EVIDENCE_TEMPLATE_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "manual_only": True,
+        "dist_dir": str(Path(dist_dir)),
+        "assets_dir": str(Path(assets_dir)),
+        "target_input_schema": RELEASE_POST_PUBLISH_EVIDENCE_INPUT_SCHEMA,
+        "template": template,
+        "operator_instructions": [
+            "Copy this template to post-publish-evidence.json after publishing completes.",
+            "Fill evidence_refs with manually reviewed release URLs, asset lists, or tap commits.",
+            "Run release-post-publish-result with --evidence-file to close post-publish verification.",
+        ],
+        "recommended_commands": [
+            ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"],
+            ["make", "release-post-publish-evidence-template-smoke"],
+        ],
     }
 
 
@@ -304,6 +357,29 @@ def render_release_post_publish_result(
     evidence_file: Path | str | None = None,
 ) -> dict[str, Any]:
     evidence_by_surface, evidence_input = _post_publish_evidence_payload(evidence_file)
+    evidence_validation_errors = []
+    if evidence_input and evidence_input.get("valid_json") is False:
+        evidence_validation_errors.append(
+            {
+                "code": "EVIDENCE_FILE_INVALID_JSON",
+                "message": str(evidence_input.get("error") or "Evidence input is not valid JSON."),
+            }
+        )
+    if evidence_input and evidence_input.get("valid_schema") is False:
+        evidence_validation_errors.append(
+            {
+                "code": "EVIDENCE_SCHEMA_MISMATCH",
+                "message": str(evidence_input.get("error") or "Evidence input schema is not supported."),
+            }
+        )
+    for surface_id in sorted(set(evidence_by_surface) - set(POST_PUBLISH_SURFACE_REQUIREMENTS)):
+        evidence_validation_errors.append(
+            {
+                "code": "UNKNOWN_POST_PUBLISH_SURFACE",
+                "surface_id": str(surface_id),
+                "message": f"Unknown post-publish surface: {surface_id}",
+            }
+        )
     surfaces = []
     failed_surface_ids = []
     pending_surface_ids = []
@@ -312,12 +388,25 @@ def render_release_post_publish_result(
         raw_surface = evidence_by_surface.get(surface_id, {})
         raw_surface = raw_surface if isinstance(raw_surface, dict) else {}
         status = str(raw_surface.get("status") or "pending")
-        if status not in {"verified", "failed", "pending"}:
+        surface_validation_errors = []
+        if status not in POST_PUBLISH_VALID_STATUSES:
+            surface_validation_errors.append(
+                {
+                    "code": "INVALID_POST_PUBLISH_STATUS",
+                    "message": f"Invalid post-publish status for {surface_id}: {status}",
+                }
+            )
             status = "failed"
         evidence_refs = raw_surface.get("evidence_refs", [])
         if not isinstance(evidence_refs, list):
             evidence_refs = []
         if status == "verified" and not evidence_refs:
+            surface_validation_errors.append(
+                {
+                    "code": "POST_PUBLISH_EVIDENCE_REF_MISSING",
+                    "message": f"Verified surface {surface_id} must include at least one evidence_ref.",
+                }
+            )
             status = "failed"
         blocking_code = None
         if status == "failed":
@@ -336,8 +425,13 @@ def render_release_post_publish_result(
         }
         if blocking_code:
             row["blocking_code"] = blocking_code
+        if surface_validation_errors:
+            row["validation_errors"] = surface_validation_errors
+            evidence_validation_errors.extend(
+                {"surface_id": surface_id, **error} for error in surface_validation_errors
+            )
         surfaces.append(row)
-    ready = bool(surfaces and not failed_surface_ids and not pending_surface_ids)
+    ready = bool(surfaces and not failed_surface_ids and not pending_surface_ids and not evidence_validation_errors)
     return {
         "schema": RELEASE_POST_PUBLISH_RESULT_SCHEMA,
         "destructive": False,
@@ -348,6 +442,7 @@ def render_release_post_publish_result(
         "assets_dir": str(Path(assets_dir)),
         "verification_plan_schema": RELEASE_POST_PUBLISH_VERIFICATION_SCHEMA,
         "evidence_input": evidence_input or {},
+        "evidence_validation_errors": evidence_validation_errors,
         "surfaces": surfaces,
         "verified_surface_ids": verified_surface_ids,
         "failed_surface_ids": failed_surface_ids,

@@ -104,6 +104,8 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.release-promotion-decision.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.release-rollback-plan.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.release-post-publish-verification.v1", 1, "cleancli.release_orchestration", "stable"),
+    ("cleanmac.release-post-publish-evidence-input.v1", 1, "cleancli.release_orchestration", "stable"),
+    ("cleanmac.release-post-publish-evidence-template.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.release-post-publish-result.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.review-selection-constraint.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.review-selection-validation.v1", 1, "cleancli.review", "stable"),
@@ -173,6 +175,8 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.release-promotion-decision.v1",
     "cleanmac.release-rollback-plan.v1",
     "cleanmac.release-post-publish-verification.v1",
+    "cleanmac.release-post-publish-evidence-input.v1",
+    "cleanmac.release-post-publish-evidence-template.v1",
     "cleanmac.release-post-publish-result.v1",
     "cleanmac.ai-governance-advice.v1",
     "cleanmac.ai-eval-pack.v1",
@@ -191,6 +195,8 @@ RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.release-promotion-decision.v1",
     "cleanmac.release-rollback-plan.v1",
     "cleanmac.release-post-publish-verification.v1",
+    "cleanmac.release-post-publish-evidence-input.v1",
+    "cleanmac.release-post-publish-evidence-template.v1",
     "cleanmac.release-post-publish-result.v1",
 )
 
@@ -1164,6 +1170,36 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.release-post-publish-evidence-input.v1": {
+        "type": "object",
+        "required": ["schema", "surfaces"],
+        "properties": {
+            "schema": {"const": "cleanmac.release-post-publish-evidence-input.v1"},
+            "surfaces": {
+                "type": "object",
+                "properties": {
+                    "github-release": {"type": "object"},
+                    "pypi": {"type": "object"},
+                    "homebrew-tap": {"type": "object"},
+                },
+            },
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.release-post-publish-evidence-template.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "manual_only", "target_input_schema", "template"],
+        "properties": {
+            "schema": {"const": "cleanmac.release-post-publish-evidence-template.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "manual_only": {"const": True},
+            "target_input_schema": {"const": "cleanmac.release-post-publish-evidence-input.v1"},
+            "template": {"type": "object"},
+            "recommended_commands": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+        },
+        "additionalProperties": True,
+    },
     "cleanmac.release-post-publish-result.v1": {
         "type": "object",
         "required": [
@@ -1173,6 +1209,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "manual_only",
             "ready",
             "surfaces",
+            "evidence_validation_errors",
             "failed_surface_ids",
             "pending_surface_ids",
             "incident_response_entrypoints",
@@ -1185,6 +1222,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "manual_only": {"const": True},
             "ready": {"type": "boolean"},
             "surfaces": {"type": "array", "items": {"type": "object"}},
+            "evidence_validation_errors": {"type": "array", "items": {"type": "object"}},
             "failed_surface_ids": {"type": "array", "items": {"type": "string"}},
             "pending_surface_ids": {"type": "array", "items": {"type": "string"}},
             "incident_response_entrypoints": {
@@ -1258,6 +1296,18 @@ def _schema_producer_command(name: str) -> list[str]:
         "cleanmac.release-promotion-decision.v1": ["cleanmac", "--json", "release-promotion-decision"],
         "cleanmac.release-rollback-plan.v1": ["cleanmac", "--json", "release-rollback-plan"],
         "cleanmac.release-post-publish-verification.v1": ["cleanmac", "--json", "release-post-publish-verification"],
+        "cleanmac.release-post-publish-evidence-input.v1": [
+            "cleanmac",
+            "--json",
+            "release-post-publish-result",
+            "--evidence-file",
+            "post-publish-evidence.json",
+        ],
+        "cleanmac.release-post-publish-evidence-template.v1": [
+            "cleanmac",
+            "--json",
+            "release-post-publish-evidence-template",
+        ],
         "cleanmac.release-post-publish-result.v1": ["cleanmac", "--json", "release-post-publish-result"],
         "cleanmac.release-artifact-manifest.v1": ["python", "scripts/generate_release_manifest.py"],
         "cleanmac.ai-schema-registry.v1": ["cleanmac", "--json", "ai-schema-registry"],
@@ -2102,6 +2152,32 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "incident_response_entrypoints": [["cleanmac", "--json", "release-diagnostics"]],
             "recommended_commands": [["make", "release-post-publish-smoke"]],
         },
+        "cleanmac.release-post-publish-evidence-input.v1": {
+            "schema": "cleanmac.release-post-publish-evidence-input.v1",
+            "surfaces": {
+                "github-release": {"status": "verified", "evidence_refs": ["GitHub release asset list"]},
+                "pypi": {"status": "verified", "evidence_refs": ["PyPI release page version and file hashes"]},
+                "homebrew-tap": {"status": "verified", "evidence_refs": ["Homebrew tap formula commit"]},
+            },
+        },
+        "cleanmac.release-post-publish-evidence-template.v1": {
+            "schema": "cleanmac.release-post-publish-evidence-template.v1",
+            "destructive": False,
+            "dry_run": True,
+            "manual_only": True,
+            "target_input_schema": "cleanmac.release-post-publish-evidence-input.v1",
+            "template": {
+                "schema": "cleanmac.release-post-publish-evidence-input.v1",
+                "surfaces": {
+                    "github-release": {"status": "pending", "evidence_refs": [], "notes": ""},
+                    "pypi": {"status": "pending", "evidence_refs": [], "notes": ""},
+                    "homebrew-tap": {"status": "pending", "evidence_refs": [], "notes": ""},
+                },
+            },
+            "recommended_commands": [
+                ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"]
+            ],
+        },
         "cleanmac.release-post-publish-result.v1": {
             "schema": "cleanmac.release-post-publish-result.v1",
             "destructive": False,
@@ -2109,6 +2185,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "manual_only": True,
             "ready": False,
             "surfaces": [{"id": "github-release", "status": "pending"}],
+            "evidence_validation_errors": [],
             "failed_surface_ids": [],
             "pending_surface_ids": ["github-release"],
             "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],

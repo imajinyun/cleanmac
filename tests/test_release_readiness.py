@@ -10,6 +10,7 @@ from cleancli.core import (
     render_release_evidence_report,
     render_release_manifest_evidence,
     render_release_operator_summary,
+    render_release_post_publish_evidence_template_report,
     render_release_post_publish_result_report,
     render_release_post_publish_verification_report,
     render_release_promotion_decision_report,
@@ -164,6 +165,12 @@ class ReleaseReadinessTests(unittest.TestCase):
             (assets / "RELEASE-POST-PUBLISH-VERIFICATION.json").write_text(json.dumps(post_publish), encoding="utf-8")
             post_publish_result = render_release_post_publish_result_report(dist_dir=dist, assets_dir=assets)
             (assets / "RELEASE-POST-PUBLISH-RESULT.json").write_text(json.dumps(post_publish_result), encoding="utf-8")
+            post_publish_template = render_release_post_publish_evidence_template_report(
+                dist_dir=dist, assets_dir=assets
+            )
+            (assets / "RELEASE-POST-PUBLISH-EVIDENCE.example.json").write_text(
+                json.dumps(post_publish_template), encoding="utf-8"
+            )
             (assets / "RELEASE-REHEARSAL.json").write_text("{}", encoding="utf-8")
             (assets / "RELEASE-PROMOTION-DECISION.json").write_text("{}", encoding="utf-8")
             rehearsal = render_release_rehearsal_report(dist_dir=dist, assets_dir=assets)
@@ -181,6 +188,10 @@ class ReleaseReadinessTests(unittest.TestCase):
         )
         self.assertEqual(evidence["post_publish_result"]["schema"], "cleanmac.release-post-publish-result.v1")
         self.assertFalse(evidence["post_publish_result"]["ready"])
+        self.assertEqual(
+            evidence["post_publish_evidence_template"]["schema"],
+            "cleanmac.release-post-publish-evidence-template.v1",
+        )
 
 
 def test_pytest_release_readiness_fixture_roundtrip_preserves_unittest_gate(tmp_path: Path) -> None:
