@@ -41,9 +41,9 @@
 | 🗺️ | **Plans** | Reusable `cleanmac.plan.v1` JSON |
 | 📄 | **Reports** | Pre-clean, dry-run, post-execution, audit |
 | 🧪 | **Sandbox** | `--root` / `--home` path remapping |
-| 🤖 | **AI tools** | 33 tools in Anthropic / OpenAI / MCP formats |
+| 🤖 | **AI tools** | 34 tools in Anthropic / OpenAI / MCP formats |
 | 🏗️ | **MCP Server** | stdio-based Model Context Protocol server |
-| 🧾 | **Review selections** | `cleanmac.review-selection.v1` files constrain plan replay |
+| 🧾 | **Review selections** | `cleanmac.review-selection.v1` files constrain clean, startup, and privacy execution |
 | 🔍 | **Operational preflight** | Permissions, startup, privacy, and external-tool dry-run planning |
 | 🔐 | **Confirmation token** | SHA-256 bound AI execution authorization |
 | 🛡️ | **Execution guards** | Budget, risk policy, live-root protection |
@@ -116,7 +116,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI Tool Definitions
 
-Export **33 tools** in three formats:
+Export **34 tools** in three formats:
 
 ```bash
 # 🧠 Anthropic format (Claude)
@@ -156,8 +156,10 @@ Tool categories:
 | `cleanmac_software_inspect` | Inspect app cleanup candidates | readonly |
 | `cleanmac_startup_audit` | Audit LaunchAgents/Daemons and StartupItems | readonly |
 | `cleanmac_startup_plan` | Plan startup item disable actions without execution | planning |
+| `cleanmac_startup_disable` | Disable reviewed user startup plists (requires confirmation) | destructive |
 | `cleanmac_privacy_inspect` | Inspect browser/app privacy cleanup candidates | readonly |
 | `cleanmac_privacy_plan` | Plan privacy cleanup without deleting data | planning |
+| `cleanmac_privacy_execute` | Permanently delete reviewed privacy data (requires confirmation) | destructive |
 | `cleanmac_tool_plan` | Render semantic plans for external tools | planning |
 | `cleanmac_tool_execute_dry_run` | Dry-run allowlisted external tool commands | dry-run |
 | `cleanmac_review` | Normalize reports/plans into review selections | planning |
@@ -195,7 +197,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 protocol example:**
 
 ```bash
-# 📋 List all 33 tools
+# 📋 List all 34 tools
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -245,7 +247,7 @@ The `workflow` command is the **recommended AI entry point** — it runs inspect
 
 ### 🧾 Review-to-execution contract
 
-Use `review` to convert a plan/report into `cleanmac.review.v1` plus `cleanmac.review-selection.v1`. Passing that selection into `clean run` or `policy-simulate` validates the source fingerprint and restricts replay to reviewed selected paths only:
+Use `review` to convert a clean, startup, privacy, tool, or software plan/report into `cleanmac.review.v1` plus `cleanmac.review-selection.v1`. Passing that selection into `clean run`, `policy-simulate`, `startup disable`, or `privacy execute` validates the source fingerprint and restricts execution to reviewed selected items only:
 
 ```bash
 # 1️⃣ Generate a stable plan
@@ -271,7 +273,7 @@ python3 cleanmac.py --json policy-simulate \
   --delete-mode trash
 ```
 
-If the selection was generated from a different or stale plan, the command fails before cleanup with `SELECTION_VALIDATION_FAILED`. The resulting reports include `cleanmac.review-selection-constraint.v1` for auditability.
+If the selection was generated from a different or stale plan, the command fails before cleanup or disablement with `SELECTION_VALIDATION_FAILED`. The resulting reports include `cleanmac.review-selection-constraint.v1` for auditability. Destructive AI/MCP tools (`cleanmac_execute_plan`, `cleanmac_startup_disable`, and `cleanmac_privacy_execute`) are denied for auto-call and require explicit confirmation.
 
 ### 🔐 AI Confirmation Token
 
@@ -501,8 +503,8 @@ python3 cleanmac.py clean run \
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 Cleanup operations |
 | `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 App inventory (read-only) |
-| `startup` | `audit`, `plan` | 🚀 Startup item audit and non-destructive disable planning |
-| `privacy` | `inspect`, `plan` | 🔐 Browser/app privacy candidate inspection and planning |
+| `startup` | `audit`, `plan`, `disable` | 🚀 Startup item audit, disable planning, and reviewed disable execution |
+| `privacy` | `inspect`, `plan`, `execute` | 🔐 Browser/app privacy candidate inspection, planning, and reviewed execution |
 | `permissions` | preflight | 🔎 Permission and Full Disk Access readiness |
 | `tool-plan` / `tool-execute` | external tool adapters | 🧰 Allowlisted Docker/Homebrew/Xcode dry-run and gated execution |
 | `review` | review normalization | 🧾 Reviewable items, selections, HTML audit output |
@@ -641,18 +643,34 @@ python3 cleanmac.py --json software uninstall-plan --app DemoApp
 ```bash
 python3 cleanmac.py --json startup audit
 python3 cleanmac.py --json startup plan
+python3 cleanmac.py --json startup disable \
+  --plan-file /tmp/startup-plan.json \
+  --review-selection-file /tmp/startup-selection.json
+python3 cleanmac.py startup disable \
+  --plan-file /tmp/startup-plan.json \
+  --review-selection-file /tmp/startup-selection.json \
+  --operation-log /tmp/ops.jsonl \
+  --execute --yes
 ```
 
-`startup audit` is read-only. `startup plan` emits non-destructive disable plans for LaunchAgents, LaunchDaemons, and StartupItems; cleanmac does not execute those disable actions directly.
+`startup audit` is read-only. `startup plan` emits non-destructive disable plans for LaunchAgents, LaunchDaemons, and StartupItems. `startup disable` consumes a `cleanmac.startup-plan.v1` plus matching `cleanmac.review-selection.v1`; without `--execute` it is a dry-run, and with `--execute --yes` it disables only reviewed selected user startup plists and records `cleanmac.startup-disable-result.v1` / operation-log audit data. Stale or mismatched selections fail closed with `SELECTION_VALIDATION_FAILED`.
 
 ### `privacy`
 
 ```bash
 python3 cleanmac.py --json privacy inspect --scope cache
 python3 cleanmac.py --json privacy plan --scope history
+python3 cleanmac.py --json privacy execute \
+  --plan-file /tmp/privacy-plan.json \
+  --review-selection-file /tmp/privacy-selection.json
+python3 cleanmac.py privacy execute \
+  --plan-file /tmp/privacy-plan.json \
+  --review-selection-file /tmp/privacy-selection.json \
+  --operation-log /tmp/ops.jsonl \
+  --execute --yes
 ```
 
-Privacy commands inspect and plan browser/app data cleanup while preserving sensitive scopes by default. They do not delete privacy data directly.
+Privacy commands inspect and plan browser/app data cleanup while preserving sensitive scopes by default. `privacy execute` consumes a `cleanmac.privacy-plan.v1` plus matching `cleanmac.review-selection.v1`; without `--execute` it is a dry-run, and with `--execute --yes` it permanently deletes only reviewed selected privacy candidates and records `cleanmac.privacy-execute-result.v1` / operation-log audit data. Stale or mismatched selections fail closed with `SELECTION_VALIDATION_FAILED`.
 
 ### `permissions`
 

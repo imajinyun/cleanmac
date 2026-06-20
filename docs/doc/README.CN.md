@@ -41,9 +41,9 @@
 | 🗺️ | **清理计划** | 可复用的 `cleanmac.plan.v1` JSON |
 | 📄 | **清理报告** | 清理前报告、dry-run 明细、执行后报告 |
 | 🧪 | **沙箱模式** | `--root` / `--home` 路径重映射 |
-| 🤖 | **AI 工具** | 33 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
+| 🤖 | **AI 工具** | 34 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
 | 🏗️ | **MCP Server** | 基于 stdio 的 Model Context Protocol 服务器 |
-| 🧾 | **审查选择** | `cleanmac.review-selection.v1` 文件可约束计划 replay |
+| 🧾 | **审查选择** | `cleanmac.review-selection.v1` 文件可约束 clean、startup 和 privacy 执行 |
 | 🔍 | **运营预检** | permissions、startup、privacy、外部工具 dry-run 计划 |
 | 🔐 | **确认令牌** | SHA-256 绑定的 AI 执行授权 |
 | 🛡️ | **执行保护** | 预算上限、风险策略、真实根目录保护 |
@@ -114,7 +114,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI 工具定义
 
-导出 **33 个工具**，支持三种格式：
+导出 **34 个工具**，支持三种格式：
 
 ```bash
 # 🧠 Anthropic 格式（Claude）
@@ -154,8 +154,10 @@ python3 cleanmac.py --json ai-tools --format mcp | jq '.tools | length'
 | `cleanmac_software_inspect` | 检查应用清理候选项 | readonly |
 | `cleanmac_startup_audit` | 审计 LaunchAgents/Daemons 和 StartupItems | readonly |
 | `cleanmac_startup_plan` | 计划启动项禁用动作，不执行 | planning |
+| `cleanmac_startup_disable` | 禁用已审查的用户启动 plist（需确认） | destructive |
 | `cleanmac_privacy_inspect` | 检查浏览器/应用隐私清理候选项 | readonly |
 | `cleanmac_privacy_plan` | 生成隐私清理计划，不删除数据 | planning |
+| `cleanmac_privacy_execute` | 永久删除已审查的隐私数据（需确认） | destructive |
 | `cleanmac_tool_plan` | 为外部工具生成语义计划 | planning |
 | `cleanmac_tool_execute_dry_run` | Dry-run allowlisted 外部工具命令 | dry-run |
 | `cleanmac_review` | 将报告/计划归一化为审查选择 | planning |
@@ -193,7 +195,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 协议示例：**
 
 ```bash
-# 📋 列出全部 33 个工具
+# 📋 列出全部 34 个工具
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -243,7 +245,7 @@ python3 cleanmac.py --json workflow \
 
 ### 🧾 审查到执行契约
 
-使用 `review` 可把 plan/report 转成 `cleanmac.review.v1` 和 `cleanmac.review-selection.v1`。把 selection 传给 `clean run` 或 `policy-simulate` 时，cleanmac 会校验 source fingerprint，并只 replay 已审查选中的路径：
+使用 `review` 可把 clean、startup、privacy、tool 或 software 的 plan/report 转成 `cleanmac.review.v1` 和 `cleanmac.review-selection.v1`。把 selection 传给 `clean run`、`policy-simulate`、`startup disable` 或 `privacy execute` 时，cleanmac 会校验 source fingerprint，并只执行已审查选中的条目：
 
 ```bash
 # 1️⃣ 生成稳定计划
@@ -269,7 +271,7 @@ python3 cleanmac.py --json policy-simulate \
   --delete-mode trash
 ```
 
-如果 selection 来自其他计划或已过期，命令会在清理前失败并返回 `SELECTION_VALIDATION_FAILED`。报告中会包含 `cleanmac.review-selection-constraint.v1`，用于审计留痕。
+如果 selection 来自其他计划或已过期，命令会在清理或禁用前失败并返回 `SELECTION_VALIDATION_FAILED`。报告中会包含 `cleanmac.review-selection-constraint.v1`，用于审计留痕。破坏性 AI/MCP 工具（`cleanmac_execute_plan`、`cleanmac_startup_disable`、`cleanmac_privacy_execute`）都会 deny auto-call 且 require explicit confirmation。
 
 ### 🔐 AI 确认令牌
 
@@ -499,8 +501,8 @@ python3 cleanmac.py clean run \
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 清理操作 |
 | `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 应用清单（只读） |
-| `startup` | `audit`, `plan` | 🚀 启动项审计和非破坏性禁用计划 |
-| `privacy` | `inspect`, `plan` | 🔐 浏览器/应用隐私候选项检查和计划 |
+| `startup` | `audit`, `plan`, `disable` | 🚀 启动项审计、禁用计划和已审查禁用执行 |
+| `privacy` | `inspect`, `plan`, `execute` | 🔐 浏览器/应用隐私候选项检查、计划和已审查执行 |
 | `permissions` | preflight | 🔎 权限和 Full Disk Access 就绪预检 |
 | `tool-plan` / `tool-execute` | 外部工具适配器 | 🧰 Docker/Homebrew/Xcode allowlist dry-run 和门禁执行 |
 | `review` | 审查归一化 | 🧾 可审查条目、selection、HTML 审计输出 |
@@ -639,18 +641,34 @@ python3 cleanmac.py --json software uninstall-plan --app DemoApp
 ```bash
 python3 cleanmac.py --json startup audit
 python3 cleanmac.py --json startup plan
+python3 cleanmac.py --json startup disable \
+  --plan-file /tmp/startup-plan.json \
+  --review-selection-file /tmp/startup-selection.json
+python3 cleanmac.py startup disable \
+  --plan-file /tmp/startup-plan.json \
+  --review-selection-file /tmp/startup-selection.json \
+  --operation-log /tmp/ops.jsonl \
+  --execute --yes
 ```
 
-`startup audit` 是只读审计。`startup plan` 为 LaunchAgents、LaunchDaemons 和 StartupItems 输出非破坏性禁用计划；cleanmac 不直接执行这些禁用动作。
+`startup audit` 是只读审计。`startup plan` 为 LaunchAgents、LaunchDaemons 和 StartupItems 输出非破坏性禁用计划。`startup disable` 消费 `cleanmac.startup-plan.v1` 和匹配的 `cleanmac.review-selection.v1`；不加 `--execute` 时是 dry-run，加上 `--execute --yes` 后只禁用已审查选中的用户启动 plist，并记录 `cleanmac.startup-disable-result.v1` / operation-log 审计数据。过期或不匹配的 selection 会以 `SELECTION_VALIDATION_FAILED` fail closed。
 
 ### `privacy`
 
 ```bash
 python3 cleanmac.py --json privacy inspect --scope cache
 python3 cleanmac.py --json privacy plan --scope history
+python3 cleanmac.py --json privacy execute \
+  --plan-file /tmp/privacy-plan.json \
+  --review-selection-file /tmp/privacy-selection.json
+python3 cleanmac.py privacy execute \
+  --plan-file /tmp/privacy-plan.json \
+  --review-selection-file /tmp/privacy-selection.json \
+  --operation-log /tmp/ops.jsonl \
+  --execute --yes
 ```
 
-Privacy 命令用于检查和规划浏览器/应用隐私数据清理，默认保留敏感范围，不直接删除隐私数据。
+Privacy 命令用于检查和规划浏览器/应用隐私数据清理，默认保留敏感范围。`privacy execute` 消费 `cleanmac.privacy-plan.v1` 和匹配的 `cleanmac.review-selection.v1`；不加 `--execute` 时是 dry-run，加上 `--execute --yes` 后会永久删除已审查选中的隐私候选项，并记录 `cleanmac.privacy-execute-result.v1` / operation-log 审计数据。过期或不匹配的 selection 会以 `SELECTION_VALIDATION_FAILED` fail closed。
 
 ### `permissions`
 

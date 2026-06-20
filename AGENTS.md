@@ -91,13 +91,13 @@ rm -R "$tmpdir"
 
 ## AI & MCP 安全规则
 - MCP server（`scripts/cleanmac_mcp_server.py`）不接受 shell/raw command 输入；所有工具调用必须走 argv_template
-- 破坏性工具（`cleanmac_execute_plan`）必须同时 deny auto_call 且 require confirmation
+- 破坏性工具（`cleanmac_execute_plan`、`cleanmac_startup_disable`、`cleanmac_privacy_execute`）必须同时 deny auto_call 且 require confirmation
 - 确认令牌是 SHA-256 绑定的上下文令牌，不匹配时拒绝执行
 - MCP resources 不能暴露敏感路径或凭证信息
 - 修改 MCP server 后必须运行 `make mcp-smoke` 和 `make ai-host-smoke`
 - AI 工具定义修改后必须运行 `python3 cleanmac.py --json ai-tools` 验证 provider 导出 parity
 - `review` 选择文件只能作为约束输入；`--review-selection-file` 必须搭配 `--plan-file`，校验 source fingerprint 后才允许进入 dry-run / execute 路径，失败必须映射为 `SELECTION_VALIDATION_FAILED`。
-- AI/MCP 的 `cleanmac_dry_run_plan`、`cleanmac_execute_plan`、`cleanmac_policy_simulate` 如暴露 `review_selection_file`，argv_template 必须保留 `--require-plan-context`、Trash 路由和确认门禁，不能绕过 review selection 校验。
+- AI/MCP 的 `cleanmac_dry_run_plan`、`cleanmac_execute_plan`、`cleanmac_policy_simulate`、`cleanmac_startup_disable`、`cleanmac_privacy_execute` 如暴露 `review_selection_file`，argv_template 必须保留对应执行门禁，不能绕过 review selection 校验。Clean 执行路径还必须保留 `--require-plan-context`、Trash 路由和确认令牌门禁。
 
 ## 高风险模块所有权与必跑测试
 
