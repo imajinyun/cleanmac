@@ -1942,8 +1942,15 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["schema"], "cleanmac.review.v1")
             self.assertEqual(selection["schema"], "cleanmac.review-selection.v1")
             self.assertEqual(selection["selected_item_ids"], ["cache:/tmp/cache"])
+            self.assertEqual(report["selection_summary"], selection["summary"])
+            self.assertEqual(selection["summary"]["schema"], "cleanmac.review-selection-summary.v1")
+            self.assertEqual(selection["summary"]["selected_count"], 1)
+            self.assertEqual(selection["summary"]["excluded_count"], 0)
+            self.assertEqual(selection["summary"]["selected_risk_counts"], {"low": 1})
+            self.assertFalse(selection["summary"]["requires_sensitive_review"])
             self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
+            self.assertTrue(validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"])
 
     def test_review_selection_supports_explicit_include_and_exclude(self) -> None:
         tmp, root, _home = self.make_sandbox()
@@ -2015,8 +2022,13 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(selection["explicit_excluded_item_ids"], ["cache:/tmp/cache"])
             self.assertEqual(selection["protected_item_ids"], ["protected:/System/Library"])
             self.assertEqual(selection["unknown_item_ids"], ["missing:item"])
+            self.assertEqual(selection["summary"]["selected_risk_counts"], {"medium": 1})
+            self.assertEqual(selection["summary"]["excluded_risk_counts"], {"critical": 1, "low": 1})
+            self.assertEqual(selection["summary"]["protected_count"], 1)
+            self.assertEqual(selection["summary"]["unknown_item_count"], 1)
             self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
+            self.assertTrue(validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"])
 
     def test_review_validates_existing_selection_fingerprint_and_ids(self) -> None:
         tmp, root, _home = self.make_sandbox()
