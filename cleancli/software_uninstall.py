@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import plistlib
 from pathlib import Path
 from typing import Any
 
@@ -73,7 +72,9 @@ def _find_app(app: str, *, root: Path, home: Path) -> dict[str, Any] | None:
     return None
 
 
-def _candidate(path: Path, *, kind: str, confidence: str, match_reason: str, risk: str, default_selected: bool) -> dict[str, Any]:
+def _candidate(
+    path: Path, *, kind: str, confidence: str, match_reason: str, risk: str, default_selected: bool
+) -> dict[str, Any]:
     protected = protection.should_protect_path(path)
     return {
         "id": f"{kind}:{_display_path(path)}",
@@ -96,7 +97,14 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
     home_root = _home_root(root, home)
     candidates: list[dict[str, Any]] = []
     candidates.append(
-        _candidate(app_path, kind="app-bundle", confidence="high", match_reason="selected-app", risk="high", default_selected=True)
+        _candidate(
+            app_path,
+            kind="app-bundle",
+            confidence="high",
+            match_reason="selected-app",
+            risk="high",
+            default_selected=True,
+        )
     )
     if bundle_id:
         patterns = [
@@ -127,7 +135,9 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
     for path, kind in name_patterns:
         if path.exists() or path.is_symlink():
             candidates.append(
-                _candidate(path, kind=kind, confidence="medium", match_reason="app-name", risk="medium", default_selected=False)
+                _candidate(
+                    path, kind=kind, confidence="medium", match_reason="app-name", risk="medium", default_selected=False
+                )
             )
     return candidates
 
@@ -165,7 +175,9 @@ def plan_software_uninstall(app: str | None, *, root: Path, home: Path) -> dict[
         }
     inspection = inspect_software_uninstall(app, root=root, home=home)
     identity = inspection.get("app_identity") if isinstance(inspection.get("app_identity"), dict) else None
-    vendor = identity.get("official_uninstaller_vendor") if identity else protection.official_uninstaller_vendor(name=app)
+    vendor = (
+        identity.get("official_uninstaller_vendor") if identity else protection.official_uninstaller_vendor(name=app)
+    )
     protected = bool(identity and identity.get("protected_from_uninstall"))
     blocked_reasons: list[str] = []
     if not inspection["found"]:

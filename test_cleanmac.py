@@ -1958,7 +1958,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(selection["summary"]["requires_sensitive_review"])
             self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
-            self.assertTrue(validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"])
+            self.assertTrue(
+                validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"]
+            )
 
     def test_review_selection_supports_explicit_include_and_exclude(self) -> None:
         tmp, root, _home = self.make_sandbox()
@@ -2036,7 +2038,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(selection["summary"]["unknown_item_count"], 1)
             self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
-            self.assertTrue(validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"])
+            self.assertTrue(
+                validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"]
+            )
 
     def test_review_validates_existing_selection_fingerprint_and_ids(self) -> None:
         tmp, root, _home = self.make_sandbox()
@@ -2071,7 +2075,9 @@ class CleanMacCLITests(unittest.TestCase):
                 encoding="utf-8",
             )
             generated = json.loads(
-                self.run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)).stdout
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
             )
             selection = json.loads(selection_file.read_text(encoding="utf-8"))
 
@@ -2236,9 +2242,15 @@ class CleanMacCLITests(unittest.TestCase):
             )
 
             self.assertEqual(risk_sorted["item_view"]["sort"], "risk-desc")
-            self.assertEqual([item["id"] for item in risk_sorted["items"]], ["critical-medium:/tmp/b", "medium-large:/tmp/c", "low-small:/tmp/a"])
+            self.assertEqual(
+                [item["id"] for item in risk_sorted["items"]],
+                ["critical-medium:/tmp/b", "medium-large:/tmp/c", "low-small:/tmp/a"],
+            )
             self.assertEqual(bytes_sorted["item_view"]["sort"], "bytes-desc")
-            self.assertEqual([item["id"] for item in bytes_sorted["items"]], ["medium-large:/tmp/c", "critical-medium:/tmp/b", "low-small:/tmp/a"])
+            self.assertEqual(
+                [item["id"] for item in bytes_sorted["items"]],
+                ["medium-large:/tmp/c", "critical-medium:/tmp/b", "low-small:/tmp/a"],
+            )
             self.assertEqual(selected_first["item_view"]["sort"], "selected-first")
             self.assertEqual(selected_first["items"][0]["id"], "low-small:/tmp/a")
             self.assertEqual(selected_first["selection"]["selected_item_ids"], ["low-small:/tmp/a"])
@@ -2309,9 +2321,7 @@ class CleanMacCLITests(unittest.TestCase):
                 self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout
             )
             startup_plan_file.write_text(json.dumps(startup_plan), encoding="utf-8")
-            startup_review = json.loads(
-                self.run_cli("--json", "review", "--input-file", str(startup_plan_file)).stdout
-            )
+            startup_review = json.loads(self.run_cli("--json", "review", "--input-file", str(startup_plan_file)).stdout)
 
             self.assertEqual(startup_review["schema"], "cleanmac.review.v1")
             self.assertEqual(startup_review["source_schema"], "cleanmac.startup-plan.v1")
@@ -3385,7 +3395,9 @@ class CleanMacCLITests(unittest.TestCase):
             trash_item_id = next(item["id"] for item in review_report["items"] if item["category"] == "trash")
             selection = dict(review_report["selection"])
             selection["selected_item_ids"] = [trash_item_id]
-            selection["excluded_item_ids"] = [item["id"] for item in review_report["items"] if item["id"] != trash_item_id]
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] != trash_item_id
+            ]
             selection_file.write_text(json.dumps(selection), encoding="utf-8")
 
             result = self.run_cli(
@@ -3445,6 +3457,68 @@ class CleanMacCLITests(unittest.TestCase):
             error_report = json.loads(result.stderr)
             self.assertEqual(error_report["error"]["code"], "SELECTION_VALIDATION_FAILED")
             self.assertIn("source-fingerprint-mismatch", error_report["error"]["message"])
+
+    def test_clean_execute_operation_log_records_review_selection_constraint(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            operation_log = root / "logs" / "review-selection-operations.jsonl"
+            plan_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "plan",
+                "--categories",
+                "trash,downloads",
+            )
+            plan_file.write_text(plan_result.stdout, encoding="utf-8")
+            review_report = json.loads(self.run_cli("--json", "review", "--input-file", str(plan_file)).stdout)
+            trash_item_id = next(item["id"] for item in review_report["items"] if item["category"] == "trash")
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = [trash_item_id]
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] != trash_item_id
+            ]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--delete-mode",
+                "trash",
+                "--execute",
+                "--yes",
+                "--operation-log",
+                str(operation_log),
+            )
+            report = json.loads(result.stdout)
+            records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+            self.assertEqual(report["operation_log_entry_count"], len(records))
+            self.assertEqual(
+                {record["ai"]["review_selection"]["schema"] for record in records},
+                {"cleanmac.operation-log-review-selection.v1"},
+            )
+            self.assertEqual(
+                {record["ai"]["review_selection"]["selection_file"] for record in records}, {str(selection_file)}
+            )
+            self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
+            self.assertEqual({record["ai"]["review_selection"]["validation_valid"] for record in records}, {True})
+            self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 
     def test_policy_simulate_includes_review_selection_in_safe_argv(self) -> None:
         tmp, root, home = self.make_sandbox()

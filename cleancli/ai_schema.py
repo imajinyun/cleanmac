@@ -173,7 +173,9 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema(
             {
                 "plan_file": string_schema("Path to a cleanmac plan JSON file."),
-                "review_selection_file": string_schema("Optional cleanmac.review-selection.v1 file to constrain dry-run items."),
+                "review_selection_file": string_schema(
+                    "Optional cleanmac.review-selection.v1 file to constrain dry-run items."
+                ),
             },
             ("plan_file",),
         ),
@@ -345,7 +347,9 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
-        "parameters": object_schema({"scope": string_schema("Privacy scope: all, cache, cookies, history, local-storage, credentials.")}),
+        "parameters": object_schema(
+            {"scope": string_schema("Privacy scope: all, cache, cookies, history, local-storage, credentials.")}
+        ),
         "argv_template": ["cleanmac", "--json", "privacy", "inspect"],
     },
     {
@@ -354,7 +358,9 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "risk": "planning",
         "auto_call_allowed": True,
         "requires_confirmation": False,
-        "parameters": object_schema({"scope": string_schema("Privacy scope: all, cache, cookies, history, local-storage, credentials.")}),
+        "parameters": object_schema(
+            {"scope": string_schema("Privacy scope: all, cache, cookies, history, local-storage, credentials.")}
+        ),
         "argv_template": ["cleanmac", "--json", "privacy", "plan"],
     },
     {
@@ -363,7 +369,9 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
-        "parameters": object_schema({"tool": string_schema("Tool adapter: all, docker, homebrew, xcode, package-managers.")}),
+        "parameters": object_schema(
+            {"tool": string_schema("Tool adapter: all, docker, homebrew, xcode, package-managers.")}
+        ),
         "argv_template": ["cleanmac", "--json", "tool-plan"],
     },
     {
@@ -389,9 +397,13 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema(
             {
                 "input_file": string_schema("JSON plan/report path to review."),
-                "selection_input_file": string_schema("Existing cleanmac.review-selection.v1 JSON file to validate/replay."),
+                "selection_input_file": string_schema(
+                    "Existing cleanmac.review-selection.v1 JSON file to validate/replay."
+                ),
                 "item_scope": string_schema("Review item output scope: all, selected, or excluded."),
-                "item_sort": string_schema("Review item output sort: source, risk-desc, bytes-desc, selected-first, or path."),
+                "item_sort": string_schema(
+                    "Review item output sort: source, risk-desc, bytes-desc, selected-first, or path."
+                ),
             },
             required=("input_file",),
         ),
