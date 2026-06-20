@@ -83,6 +83,33 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "release_evidence_bundle_discovery",
+            "description": "Verify AI Hosts can discover the release evidence bundle contract.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-evidence"]],
+            "expected_final_schema": "cleanmac.release-evidence.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "release_diagnostics_explains_readiness_failure",
+            "description": "Verify release diagnostics explain readiness failures with blocking codes and recovery actions.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-diagnostics"]],
+            "expected_final_schema": "cleanmac.release-diagnostics.v1",
+            "expected_blocking_codes": ["RELEASE_ARTIFACT_MANIFEST_MISSING"],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "schema_registry_release_contract_coverage",
+            "description": "Verify release-critical schemas are registered with contract fragments and sample coverage.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "ai-schema-registry"]],
+            "expected_final_schema": "cleanmac.ai-schema-registry.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "discover_readiness",
             "description": "Verify an AI Host can discover capabilities, readiness, runbook, and decision metadata.",
             "required_tools": ["cleanmac_capabilities"],
@@ -478,6 +505,9 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "release_readiness_discovery",
             "release_readiness_artifact_missing_blocks",
             "release_readiness_artifact_present_ready",
+            "release_evidence_bundle_discovery",
+            "release_diagnostics_explains_readiness_failure",
+            "schema_registry_release_contract_coverage",
             "discover_readiness",
             "schema_registry_discovery",
             "contract_validation_plan",
@@ -806,6 +836,64 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     passed=bool(readiness["ready"] and readiness["failed_gate_ids"] == []),
                     observed_schema=readiness["schema"],
                     observed_blocking_codes=readiness["failed_gate_ids"],
+                )
+            )
+
+        if "release_evidence_bundle_discovery" in selected:
+            evidence, event = _run_cli(cli, ["release-evidence"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_evidence_bundle_discovery",
+                    passed=bool(
+                        evidence["schema"] == "cleanmac.release-evidence.v1"
+                        and evidence["destructive"] is False
+                        and evidence["dry_run"] is True
+                        and "artifact_manifest" in evidence
+                        and "release_readiness" in evidence
+                    ),
+                    observed_schema=evidence["schema"],
+                    observed_blocking_codes=evidence.get("assets", {}).get("missing", []),
+                )
+            )
+
+        if "release_diagnostics_explains_readiness_failure" in selected:
+            diagnostics, event = _run_cli(cli, ["release-diagnostics"], root=root, home=home)
+            events.append(event)
+            failed_codes = [gate.get("blocking_code") for gate in diagnostics.get("failed_gates", [])]
+            results.append(
+                _scenario_result(
+                    "release_diagnostics_explains_readiness_failure",
+                    passed=bool(
+                        diagnostics["schema"] == "cleanmac.release-diagnostics.v1"
+                        and diagnostics["ready"] is False
+                        and "release-artifact-manifest-valid" in diagnostics["failed_gate_ids"]
+                        and "RELEASE_ARTIFACT_MANIFEST_MISSING" in failed_codes
+                        and diagnostics.get("recommended_commands")
+                    ),
+                    observed_schema=diagnostics["schema"],
+                    observed_blocking_codes=[str(code) for code in failed_codes if code],
+                )
+            )
+
+        if "schema_registry_release_contract_coverage" in selected:
+            registry, event = _run_cli(cli, ["ai-schema-registry"], root=root, home=home)
+            events.append(event)
+            contract_summary, event = _run_cli(cli, ["ai-readiness"], root=root, home=home)
+            events.append(event)
+            entries = {entry["name"]: entry for entry in registry["entries"]}
+            release_schemas = registry.get("release_critical_schemas", [])
+            coverage = contract_summary["contract_validation"]["contract_schema_coverage"]
+            results.append(
+                _scenario_result(
+                    "schema_registry_release_contract_coverage",
+                    passed=bool(
+                        registry["schema"] == "cleanmac.ai-schema-registry.v1"
+                        and release_schemas
+                        and all(entries[schema]["release_critical"] for schema in release_schemas)
+                        and coverage["missing_release_critical_contract_fragments"] == []
+                    ),
+                    observed_schema=registry["schema"],
                 )
             )
 

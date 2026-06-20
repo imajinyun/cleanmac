@@ -5,7 +5,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cleancli.core import render_release_manifest_evidence
+from cleancli.core import (
+    render_release_diagnostics_report,
+    render_release_evidence_report,
+    render_release_manifest_evidence,
+    render_release_operator_summary,
+    render_release_readiness_report,
+)
 from cleancli.release_artifacts import build_release_artifact_manifest
 from cleancli.release_readiness import render_release_readiness
 
@@ -34,6 +40,8 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(report["readiness_score"], {"passed": 7, "total": 7, "level": "release-ready"})
         self.assertEqual(report["failed_gate_ids"], [])
         self.assertIn(["make", "governed-execution-smoke"], report["release_gate_commands"])
+        self.assertTrue(all(gate["severity"] == "none" for gate in report["gates"]))
+        self.assertTrue(all("next_actions" in gate for gate in report["gates"]))
 
     def test_release_readiness_fails_closed_when_evidence_is_missing(self) -> None:
         report = render_release_readiness(
@@ -60,6 +68,9 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertIn("ai-host-preflight-ready", report["failed_gate_ids"])
         self.assertIn("release-artifact-manifest-valid", report["failed_gate_ids"])
         self.assertTrue(report["manual_review_required"])
+        artifact_gate = {gate["id"]: gate for gate in report["gates"]}["release-artifact-manifest-valid"]
+        self.assertEqual(artifact_gate["blocking_code"], "RELEASE_ARTIFACT_MANIFEST_MISSING")
+        self.assertIn(["make", "release-artifacts-smoke"], artifact_gate["next_actions"])
 
     def test_release_readiness_invariants_match_gate_results(self) -> None:
         report = render_release_readiness(
@@ -76,7 +87,11 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(report["ready"], report["failed_gate_ids"] == [])
         self.assertEqual(report["readiness_score"]["total"], len(report["gates"]))
         self.assertEqual(set(report["failed_gate_ids"]), failed_gate_ids)
-        self.assertTrue(all({"id", "passed", "evidence_schema"} <= set(gate) for gate in report["gates"]))
+        self.assertTrue(
+            all(
+                {"id", "passed", "evidence_schema", "severity", "next_actions"} <= set(gate) for gate in report["gates"]
+            )
+        )
 
     def test_release_manifest_evidence_uses_explicit_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -100,6 +115,48 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(evidence["schema"], "cleanmac.release-artifact-manifest.v1")
         self.assertTrue(evidence["valid"], evidence)
         self.assertEqual(evidence["path"], str(assets / "ARTIFACT-MANIFEST.json"))
+
+    def test_release_diagnostics_and_operator_summary_explain_missing_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+
+            diagnostics = render_release_diagnostics_report(dist_dir=dist, assets_dir=assets)
+            summary = render_release_operator_summary(dist_dir=dist, assets_dir=assets)
+
+        self.assertEqual(diagnostics["schema"], "cleanmac.release-diagnostics.v1")
+        self.assertFalse(diagnostics["ready"])
+        self.assertIn("release-artifact-manifest-valid", diagnostics["failed_gate_ids"])
+        self.assertEqual(diagnostics["artifacts"]["error_code"], "RELEASE_ARTIFACT_MANIFEST_MISSING")
+        self.assertEqual(summary["schema"], "cleanmac.release-operator-summary.v1")
+        self.assertEqual(summary["status"], "blocked")
+        self.assertEqual(summary["must_fix_first"][0]["gate_id"], "release-artifact-manifest-valid")
+
+    def test_release_evidence_bundle_uses_readiness_and_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+            (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+            (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+            manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+            (assets / "SHA256SUMS").write_text("", encoding="utf-8")
+            (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
+            readiness = render_release_readiness_report(dist_dir=dist, assets_dir=assets)
+            (assets / "RELEASE-READINESS.json").write_text(json.dumps(readiness), encoding="utf-8")
+
+            evidence = render_release_evidence_report(dist_dir=dist, assets_dir=assets)
+
+        self.assertEqual(evidence["schema"], "cleanmac.release-evidence.v1")
+        self.assertTrue(evidence["ready"], evidence)
+        self.assertEqual(evidence["assets"]["missing"], [])
 
 
 if __name__ == "__main__":

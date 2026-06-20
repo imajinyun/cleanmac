@@ -74,7 +74,10 @@ jobs:
       - name: Verify release readiness
         run: |
           $PYTHON cleanmac.py --json release-readiness --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-READINESS.json
+          $PYTHON cleanmac.py --json release-diagnostics --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-DIAGNOSTICS.json
+          $PYTHON scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets --evidence > /tmp/cleanmac-release-evidence.json
           $PYTHON -c 'import json, pathlib; report=json.loads(pathlib.Path("release-assets/RELEASE-READINESS.json").read_text(encoding="utf-8")); assert report["schema"] == "cleanmac.release-readiness.v1"; assert report["ready"] is True, report; assert report["failed_gate_ids"] == [], report'
+          $PYTHON -c 'import json, pathlib; evidence=json.loads(pathlib.Path("release-assets/RELEASE-EVIDENCE.json").read_text(encoding="utf-8")); assert evidence["schema"] == "cleanmac.release-evidence.v1"; assert evidence["ready"] is True, evidence'
 
       - name: Verify installation from wheel on build runner
         run: |
@@ -185,6 +188,8 @@ jobs:
             release-assets/SHA256SUMS
             release-assets/ARTIFACT-MANIFEST.json
             release-assets/RELEASE-READINESS.json
+            release-assets/RELEASE-DIAGNOSTICS.json
+            release-assets/RELEASE-EVIDENCE.json
             release-assets/cleanmac.rb
 
       - name: Upload release artifacts
@@ -197,6 +202,8 @@ jobs:
             release-assets/SHA256SUMS
             release-assets/ARTIFACT-MANIFEST.json
             release-assets/RELEASE-READINESS.json
+            release-assets/RELEASE-DIAGNOSTICS.json
+            release-assets/RELEASE-EVIDENCE.json
             release-assets/cleanmac.rb
 
       - name: Publish to PyPI with trusted publishing

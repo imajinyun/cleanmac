@@ -9,6 +9,7 @@ from pathlib import Path
 
 from cleancli.release_artifacts import (
     build_release_artifact_manifest,
+    build_release_evidence_bundle,
     render_homebrew_formula,
     render_sha256sums,
     verify_release_artifact_manifest,
@@ -117,7 +118,21 @@ class ReleaseArtifactManifestTests(unittest.TestCase):
             first = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
             second = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
 
-            self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+    def test_release_evidence_bundle_tracks_missing_required_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+
+            bundle = build_release_evidence_bundle(dist_dir=dist, assets_dir=assets)
+
+        self.assertEqual(bundle["schema"], "cleanmac.release-evidence.v1")
+        self.assertFalse(bundle["ready"])
+        self.assertIn("RELEASE-READINESS.json", bundle["assets"]["missing"])
 
 
 class GenerateReleaseManifestScriptTests(unittest.TestCase):
@@ -149,6 +164,39 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
             self.assertEqual(stdout["schema"], "cleanmac.release-artifact-manifest.v1")
             self.assertTrue((assets / "SHA256SUMS").is_file())
             self.assertTrue((assets / "ARTIFACT-MANIFEST.json").is_file())
+
+    def test_script_can_write_release_evidence_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+            (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "RELEASE-READINESS.json").write_text(
+                json.dumps({"schema": "cleanmac.release-readiness.v1", "ready": True, "failed_gate_ids": []}),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "scripts/generate_release_manifest.py"),
+                    "--dist-dir",
+                    str(dist),
+                    "--assets-dir",
+                    str(assets),
+                    "--evidence",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            stdout = json.loads(result.stdout)
+            self.assertEqual(stdout["schema"], "cleanmac.release-evidence.v1")
+            self.assertTrue((assets / "RELEASE-EVIDENCE.json").is_file())
 
     def test_homebrew_formula_script_writes_formula(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

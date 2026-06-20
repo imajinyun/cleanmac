@@ -238,6 +238,24 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://release/diagnostics",
+            "name": "cleanmac release diagnostics",
+            "description": "Structured release readiness diagnostics with blocking codes and recovery commands.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "cleanmac://release/evidence",
+            "name": "cleanmac release evidence",
+            "description": "Release evidence bundle tying artifacts, readiness, contracts, eval, and AI Host evidence together.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "cleanmac://release/operator-summary",
+            "name": "cleanmac release operator summary",
+            "description": "Compact release operator summary with first-fix commands and asset checklist.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -271,10 +289,13 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_host_integration_pack_report,
         render_ai_host_policy_report,
         render_ai_host_preflight_report,
-        render_release_readiness_report,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
+        render_release_diagnostics_report,
+        render_release_evidence_report,
+        render_release_operator_summary,
+        render_release_readiness_report,
     )
 
     if uri == "cleanmac://capabilities":
@@ -309,6 +330,12 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_host_evidence_report()
     elif uri == "cleanmac://release/readiness":
         payload = render_release_readiness_report()
+    elif uri == "cleanmac://release/diagnostics":
+        payload = render_release_diagnostics_report()
+    elif uri == "cleanmac://release/evidence":
+        payload = render_release_evidence_report()
+    elif uri == "cleanmac://release/operator-summary":
+        payload = render_release_operator_summary()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":
