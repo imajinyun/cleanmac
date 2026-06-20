@@ -181,11 +181,22 @@ class AISchemaRegistryTests(unittest.TestCase):
             "manual_review_required": False,
             "readiness_score": {"passed": 7, "total": 7, "level": "release-ready"},
             "failed_gate_ids": [],
-            "gates": [{"id": "ai-host-preflight-ready", "passed": True}],
+            "gates": [
+                {
+                    "id": "ai-host-preflight-ready",
+                    "passed": True,
+                    "evidence_schema": "cleanmac.ai-host-preflight.v1",
+                }
+            ],
             "release_gate_commands": [["make", "ai-host-smoke"]],
             "review_questions": ["Did ai-host-preflight pass before tool orchestration?"],
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-readiness.v1", release_readiness)["valid"])
+        invalid_release_readiness = dict(release_readiness)
+        invalid_release_readiness["gates"] = [{"id": "ai-host-preflight-ready", "passed": True}]
+        invalid_gate_report = validate_contract_payload("cleanmac.release-readiness.v1", invalid_release_readiness)
+        self.assertFalse(invalid_gate_report["valid"])
+        self.assertEqual(invalid_gate_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")

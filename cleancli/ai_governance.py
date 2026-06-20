@@ -237,6 +237,7 @@ def render_ai_governance_advice(
             "Skipping ai-eval-run smoke after changing tool schemas, runbook, MCP resources, or policy gates.",
             "Running an AI Host without loading cleanmac.ai-host-policy.v1 allow/deny decisions.",
             "Treating release artifacts as ready without reading cleanmac.release-readiness.v1.",
+            "Treating ai-readiness.ready=true as release readiness; release review must inspect failed_gate_ids in cleanmac.release-readiness.v1.",
         ],
         "governance_route": governance_route,
         "release_gate_commands": [

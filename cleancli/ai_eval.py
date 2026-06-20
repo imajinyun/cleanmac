@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from cleancli.release_artifacts import build_release_artifact_manifest
+
 
 def render_ai_eval_pack() -> dict[str, Any]:
     scenarios = [
@@ -49,6 +51,35 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "required_cli_commands": [["cleanmac", "--json", "ai-host-evidence"]],
             "expected_final_schema": "cleanmac.ai-host-evidence.v1",
             "expected_blocking_codes": ["RAW_COMMAND_ARGUMENT_DENIED", "CONFIRMATION_TOKEN_REQUIRED"],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "release_readiness_discovery",
+            "description": "Verify AI Hosts can discover release readiness as a first-class release-review contract.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-readiness"]],
+            "expected_final_schema": "cleanmac.release-readiness.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "release_readiness_artifact_missing_blocks",
+            "description": "Verify release readiness fails closed when release artifact manifest evidence is absent.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-readiness"]],
+            "expected_final_schema": "cleanmac.release-readiness.v1",
+            "expected_blocking_codes": ["release-artifact-manifest-valid"],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "release_readiness_artifact_present_ready",
+            "description": "Verify explicit dist/assets paths can make release readiness pass with generated artifact evidence.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "release-readiness", "--dist-dir", "{dist_dir}", "--assets-dir", "{assets_dir}"]
+            ],
+            "expected_final_schema": "cleanmac.release-readiness.v1",
+            "expected_blocking_codes": [],
             "may_execute_delete": False,
         },
         {
@@ -444,6 +475,9 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "host_preflight_discovery",
             "host_evidence_discovery",
             "host_evidence_runtime_denial_coverage",
+            "release_readiness_discovery",
+            "release_readiness_artifact_missing_blocks",
+            "release_readiness_artifact_present_ready",
             "discover_readiness",
             "schema_registry_discovery",
             "contract_validation_plan",
@@ -709,6 +743,69 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     ),
                     observed_schema=evidence["schema"],
                     observed_blocking_codes=evidence["observed_blocking_codes"],
+                )
+            )
+
+        if "release_readiness_discovery" in selected:
+            readiness, event = _run_cli(cli, ["release-readiness"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_readiness_discovery",
+                    passed=bool(
+                        readiness["schema"] == "cleanmac.release-readiness.v1"
+                        and readiness["destructive"] is False
+                        and readiness["dry_run"] is True
+                        and readiness["readiness_score"]["total"] == len(readiness["gates"])
+                    ),
+                    observed_schema=readiness["schema"],
+                    observed_blocking_codes=readiness["failed_gate_ids"],
+                )
+            )
+
+        if "release_readiness_artifact_missing_blocks" in selected:
+            readiness, event = _run_cli(cli, ["release-readiness"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_readiness_artifact_missing_blocks",
+                    passed=bool(
+                        readiness["schema"] == "cleanmac.release-readiness.v1"
+                        and readiness["ready"] is False
+                        and "release-artifact-manifest-valid" in readiness["failed_gate_ids"]
+                    ),
+                    observed_schema=readiness["schema"],
+                    observed_blocking_codes=readiness["failed_gate_ids"],
+                )
+            )
+
+        if "release_readiness_artifact_present_ready" in selected:
+            dist_dir = Path(tmp) / "dist"
+            assets_dir = Path(tmp) / "release-assets"
+            dist_dir.mkdir()
+            assets_dir.mkdir()
+            (dist_dir / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (dist_dir / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+            (assets_dir / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets_dir / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+            manifest = build_release_artifact_manifest(dist_dir=dist_dir, assets_dir=assets_dir)
+            (assets_dir / "ARTIFACT-MANIFEST.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            readiness, event = _run_cli(
+                cli,
+                ["release-readiness", "--dist-dir", str(dist_dir), "--assets-dir", str(assets_dir)],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_readiness_artifact_present_ready",
+                    passed=bool(readiness["ready"] and readiness["failed_gate_ids"] == []),
+                    observed_schema=readiness["schema"],
+                    observed_blocking_codes=readiness["failed_gate_ids"],
                 )
             )
 

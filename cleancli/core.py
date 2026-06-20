@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1438,9 +1438,21 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "ai-host-evidence",
         help="Emit auditable AI Host runtime governance evidence pack.",
     )
-    subparsers.add_parser(
+    release_readiness_parser = subparsers.add_parser(
         "release-readiness",
         help="Emit AI Host release readiness gates, evidence status, and review checklist.",
+    )
+    release_readiness_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for release artifact verification.",
+    )
+    release_readiness_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for manifest verification.",
     )
     subparsers.add_parser(
         "ai-schema-registry",
@@ -2558,7 +2570,10 @@ def render_capabilities() -> dict[str, Any]:
         "ai_schema_registry": render_ai_schema_registry(),
         "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
-        "ai_readiness": render_ai_readiness(ai_tool_contract),
+        "ai_readiness": render_ai_readiness(
+            ai_tool_contract,
+            release_readiness=render_runtime_release_readiness_summary(),
+        ),
     }
 
 
@@ -2566,12 +2581,49 @@ def render_ai_decision_matrix() -> dict[str, Any]:
     return render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, render_ai_runbook())
 
 
+def render_release_readiness_summary(report: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": report.get("schema"),
+        "ready": bool(report.get("ready")),
+        "failed_gate_ids": list(report.get("failed_gate_ids", [])),
+        "readiness_score": dict(report.get("readiness_score", {})),
+        "required_for": "release-review",
+        "not_required_for": "runtime-readonly-ai-host-discovery",
+    }
+
+
+def render_runtime_release_readiness_summary() -> dict[str, Any]:
+    contract_validation = render_ai_contract_validation_summary()
+    contract_validation["ready"] = bool(contract_validation.get("valid"))
+    return render_release_readiness_summary(
+        render_release_readiness(
+            ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
+            ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
+            ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            contract_validation=contract_validation,
+            eval_smoke=render_ai_eval_smoke_evidence(),
+            release_manifest=render_release_manifest_evidence(),
+            required_make_targets=[
+                "quality-check",
+                "governed-execution-smoke",
+                "ai-contract-smoke",
+                "mcp-smoke",
+                "ai-host-smoke",
+                "release-artifacts-smoke",
+            ],
+        )
+    )
+
+
 def render_ai_governance_advice_report() -> dict[str, Any]:
     runbook = render_ai_runbook()
     decision_matrix = render_ai_decision_matrix()
     eval_pack = render_ai_eval_pack()
     return render_ai_governance_advice(
-        readiness=render_ai_readiness(render_ai_tool_contract()),
+        readiness=render_ai_readiness(
+            render_ai_tool_contract(),
+            release_readiness=render_runtime_release_readiness_summary(),
+        ),
         runbook=runbook,
         decision_matrix=decision_matrix,
         eval_pack=eval_pack,
@@ -2585,13 +2637,15 @@ def render_ai_host_policy_report() -> dict[str, Any]:
 
 
 def render_ai_host_integration_pack_report() -> dict[str, Any]:
-    readiness = render_ai_readiness(render_ai_tool_contract())
+    release_readiness = render_runtime_release_readiness_summary()
+    readiness = render_ai_readiness(render_ai_tool_contract(), release_readiness=release_readiness)
     runbook = render_ai_runbook()
     decision_matrix = render_ai_decision_matrix()
     governance_advice = render_ai_governance_advice_report()
     host_policy = render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
     return render_ai_host_integration_pack(
         readiness=readiness,
+        release_readiness=release_readiness,
         runbook=runbook,
         decision_matrix=decision_matrix,
         governance_advice=governance_advice,
@@ -2631,6 +2685,7 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
         integration_pack=render_ai_host_integration_pack_report(),
         preflight=render_ai_host_preflight_report(),
         contract_validation=render_ai_contract_validation_summary(),
+        release_readiness=render_runtime_release_readiness_summary(),
         runtime_policy_evidence=[
             {"id": "raw-command-argument-denied", "decision": raw_denial},
             {"id": "destructive-missing-confirmation-denied", "decision": destructive_denial},
@@ -2639,9 +2694,11 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
     )
 
 
-def render_release_manifest_evidence() -> dict[str, Any]:
+def render_release_manifest_evidence(*, dist_dir: Path | None = None, assets_dir: Path | None = None) -> dict[str, Any]:
     project_root = Path(__file__).resolve().parent.parent
-    manifest_path = project_root / "release-assets" / "ARTIFACT-MANIFEST.json"
+    resolved_dist_dir = dist_dir or project_root / "dist"
+    resolved_assets_dir = assets_dir or project_root / "release-assets"
+    manifest_path = resolved_assets_dir / "ARTIFACT-MANIFEST.json"
     if not manifest_path.is_file():
         return {
             "schema": "cleanmac.release-artifact-manifest.v1",
@@ -2653,8 +2710,8 @@ def render_release_manifest_evidence() -> dict[str, Any]:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         verify_release_artifact_manifest(
             manifest,
-            dist_dir=project_root / "dist",
-            assets_dir=project_root / "release-assets",
+            dist_dir=resolved_dist_dir,
+            assets_dir=resolved_assets_dir,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return {
@@ -2686,7 +2743,11 @@ def render_ai_eval_smoke_evidence() -> dict[str, Any]:
     }
 
 
-def render_release_readiness_report() -> dict[str, Any]:
+def render_release_readiness_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
     contract_validation = render_ai_contract_validation_summary()
     contract_validation["ready"] = bool(contract_validation.get("valid"))
     required_make_targets = [
@@ -2703,7 +2764,7 @@ def render_release_readiness_report() -> dict[str, Any]:
         ai_host_evidence=render_ai_host_evidence_report(),
         contract_validation=contract_validation,
         eval_smoke=render_ai_eval_smoke_evidence(),
-        release_manifest=render_release_manifest_evidence(),
+        release_manifest=render_release_manifest_evidence(dist_dir=dist_dir, assets_dir=assets_dir),
         required_make_targets=required_make_targets,
     )
 
@@ -6649,7 +6710,16 @@ def _main_impl(argv: Sequence[str]) -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-readiness":
-        print(json.dumps(render_ai_readiness(render_ai_tool_contract()), indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                render_ai_readiness(
+                    render_ai_tool_contract(),
+                    release_readiness=render_runtime_release_readiness_summary(),
+                ),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return 0
     if args.command == "ai-runbook":
         print(json.dumps(render_ai_runbook(), indent=2, ensure_ascii=False))
@@ -6676,7 +6746,13 @@ def _main_impl(argv: Sequence[str]) -> int:
         print(json.dumps(render_ai_host_evidence_report(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "release-readiness":
-        print(json.dumps(render_release_readiness_report(), indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                render_release_readiness_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return 0
     if args.command == "ai-schema-registry":
         print(json.dumps(render_ai_schema_registry(), indent=2, ensure_ascii=False))

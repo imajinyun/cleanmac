@@ -33,6 +33,14 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["eval_pack"]["schema"], "cleanmac.ai-eval-pack.v1")
         self.assertEqual(pack["contract_validation"]["schema"], "cleanmac.ai-contract-validation-summary.v1")
         self.assertEqual(pack["contract_samples"]["schema"], "cleanmac.ai-contract-samples.v1")
+        self.assertEqual(pack["release_readiness"]["schema"], "cleanmac.release-readiness.v1")
+        self.assertIn("failed_gate_ids", pack["release_readiness"])
+        self.assertEqual(pack["release_readiness"]["required_for"], "release-review")
+        self.assertEqual(
+            pack["release_readiness"]["not_required_for"],
+            "runtime-readonly-ai-host-discovery",
+        )
+        self.assertEqual(pack["readiness"]["release_readiness"], pack["release_readiness"])
 
         self.assertIn("cleanmac.ai-host-integration-pack.v1", AI_HOST_CRITICAL_SCHEMAS)
         self.assertIn("cleanmac.ai-host-integration-pack.v1", pack["critical_schemas"])

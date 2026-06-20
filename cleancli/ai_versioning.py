@@ -945,7 +945,19 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
                 "additionalProperties": True,
             },
             "failed_gate_ids": {"type": "array", "items": {"type": "string"}},
-            "gates": {"type": "array", "items": {"type": "object"}},
+            "gates": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "passed", "evidence_schema"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "passed": {"type": "boolean"},
+                        "evidence_schema": {"type": "string"},
+                    },
+                    "additionalProperties": True,
+                },
+            },
             "release_gate_commands": {
                 "type": "array",
                 "items": {"type": "array", "items": {"type": "string"}},

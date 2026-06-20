@@ -12,7 +12,11 @@ from cleancli.ai_runbook import render_ai_runbook
 from cleancli.ai_versioning import render_ai_contract_validation_summary, render_ai_schema_registry
 
 
-def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
+def render_ai_readiness(
+    contract: Mapping[str, Any],
+    *,
+    release_readiness: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     schema_validation = ai_schema.validate_ai_tool_definitions()
     compatibility = ai_schema.render_contract_compatibility(contract)
     provider_parity = ai_schema.render_provider_export_parity()
@@ -160,6 +164,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             "failure_count": contract_validation["failure_count"],
             "contract_schema_coverage": contract_validation["contract_schema_coverage"],
         },
+        "release_readiness": dict(release_readiness or {}),
         "recommended_starting_tools": [
             "cleanmac_capabilities",
             "cleanmac_list_categories",
