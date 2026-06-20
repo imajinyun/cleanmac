@@ -1271,6 +1271,18 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     review_cmd.add_argument("--input-file", required=True, help="JSON plan/report to review.")
     review_cmd.add_argument("--format", choices=("json", "html"), default="json")
     review_cmd.add_argument("--selection-file", help="Write the generated review selection JSON to this path.")
+    review_cmd.add_argument(
+        "--select-item",
+        action="append",
+        default=[],
+        help="Explicitly include a review item ID in the generated selection. May be repeated.",
+    )
+    review_cmd.add_argument(
+        "--exclude-item",
+        action="append",
+        default=[],
+        help="Explicitly exclude a review item ID from the generated selection. May be repeated.",
+    )
 
     optimize_cmd = subparsers.add_parser("optimize", help="System maintenance planning.")
     optimize_cmd.add_argument("action", nargs="?", choices=("list", "plan", "run"), default="list")
@@ -6584,7 +6596,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         emit_report(report, args=args, command="tool-execute", root=root, home=home, argv=actual_argv)
         return 0
     if args.command == "review":
-        review_report = render_review(load_json_file(args.input_file))
+        review_report = render_review(
+            load_json_file(args.input_file), selected_item_ids=args.select_item, excluded_item_ids=args.exclude_item
+        )
         if args.selection_file:
             Path(args.selection_file).expanduser().write_text(
                 json.dumps(review_report["selection"], indent=2, ensure_ascii=False), encoding="utf-8"
