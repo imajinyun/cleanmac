@@ -215,6 +215,7 @@ def build_release_evidence_bundle(
     dist_dir: Path,
     assets_dir: Path,
     release_readiness: dict[str, Any] | None = None,
+    release_diagnostics: dict[str, Any] | None = None,
     contract_validation: dict[str, Any] | None = None,
     ai_host_evidence: dict[str, Any] | None = None,
     eval_smoke: dict[str, Any] | None = None,
@@ -271,6 +272,7 @@ def build_release_evidence_bundle(
             if isinstance(release_readiness, dict)
             else [],
         },
+        "release_diagnostics": dict(release_diagnostics or {}),
         "assets": {
             "required": list(REQUIRED_RELEASE_ASSET_NAMES),
             "missing": missing_assets,
@@ -293,6 +295,7 @@ def write_release_evidence_bundle_output(
     dist_dir: Path,
     assets_dir: Path,
     release_readiness: dict[str, Any] | None = None,
+    release_diagnostics: dict[str, Any] | None = None,
     contract_validation: dict[str, Any] | None = None,
     ai_host_evidence: dict[str, Any] | None = None,
     eval_smoke: dict[str, Any] | None = None,
@@ -308,6 +311,7 @@ def write_release_evidence_bundle_output(
         dist_dir=dist_dir,
         assets_dir=assets_dir,
         release_readiness=release_readiness,
+        release_diagnostics=release_diagnostics,
         contract_validation=contract_validation,
         ai_host_evidence=ai_host_evidence,
         eval_smoke=eval_smoke,

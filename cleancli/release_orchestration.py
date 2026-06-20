@@ -103,14 +103,30 @@ def _readiness_phase(*, assets_dir: Path) -> dict[str, Any]:
             "next_actions": [["make", "release-readiness-smoke"]],
         }
     if payload.get("ready") is not True:
+        failed_gate_ids = list(payload.get("failed_gate_ids", []))
+        failed_gates = [
+            gate
+            for gate in payload.get("gates", [])
+            if isinstance(gate, dict) and gate.get("id") in failed_gate_ids and gate.get("passed") is not True
+        ]
+        gate_blocking_codes = [str(gate.get("blocking_code")) for gate in failed_gates if gate.get("blocking_code")]
+        gate_next_actions = [
+            list(action) for gate in failed_gates for action in gate.get("next_actions", []) if isinstance(action, list)
+        ]
         return {
             "id": "release-readiness",
             "status": "blocked",
             "evidence_schema": "cleanmac.release-readiness.v1",
             "blocking_code": "RELEASE_READINESS_BLOCKED",
             "diagnostic": "Release readiness report is not ready.",
-            "failed_gate_ids": list(payload.get("failed_gate_ids", [])),
-            "next_actions": [["make", "release-readiness-smoke"], ["make", "release-diagnostics-smoke"]],
+            "failed_gate_ids": failed_gate_ids,
+            "failed_gates": failed_gates,
+            "gate_blocking_codes": gate_blocking_codes,
+            "next_actions": [
+                ["make", "release-readiness-smoke"],
+                ["make", "release-diagnostics-smoke"],
+                *gate_next_actions,
+            ],
         }
     return {
         "id": "release-readiness",
@@ -160,6 +176,19 @@ def render_release_promotion_decision(*, dist_dir: Path | str, assets_dir: Path 
         for phase in rehearsal.get("phases", [])
         if phase.get("status") != "passed" and phase.get("blocking_code")
     ]
+    gate_blocking_codes = [
+        str(code)
+        for phase in rehearsal.get("phases", [])
+        if phase.get("status") != "passed"
+        for code in phase.get("gate_blocking_codes", [])
+    ]
+    blocking_codes = list(dict.fromkeys([*blocking_codes, *gate_blocking_codes]))
+    failed_gate_ids = [
+        str(gate_id)
+        for phase in rehearsal.get("phases", [])
+        if phase.get("status") != "passed"
+        for gate_id in phase.get("failed_gate_ids", [])
+    ]
     safe_to_publish = bool(rehearsal.get("ready"))
     return {
         "schema": RELEASE_PROMOTION_DECISION_SCHEMA,
@@ -177,6 +206,7 @@ def render_release_promotion_decision(*, dist_dir: Path | str, assets_dir: Path 
             "schema": rehearsal.get("schema"),
             "ready": rehearsal.get("ready"),
             "failed_phase_ids": list(rehearsal.get("failed_phase_ids", [])),
+            "failed_gate_ids": failed_gate_ids,
         },
         "recommended_commands": [["make", "release-rehearsal-smoke"], ["make", "release-check"]],
     }
