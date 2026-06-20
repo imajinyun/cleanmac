@@ -55,7 +55,7 @@ from cleancli.review import (
     validate_review_selection,
 )
 from cleancli.software_uninstall import render_software as render_software_report
-from cleancli.startup import render_startup
+from cleancli.startup import disable_startup_items, render_startup
 from cleancli.tool_adapters import execute_tool
 from cleancli.tool_adapters import render_tool_plan as render_tool_adapter_plan
 
@@ -998,7 +998,11 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
         code = "OPERATION_LOG_UNAVAILABLE"
     elif "exceeds --max-items budget" in message or "exceed --max-delete-mb budget" in message:
         code = "SAFETY_BUDGET_EXCEEDED"
-    elif "Review selection is invalid" in message or "--review-selection-file requires --plan-file" in message:
+    elif (
+        "Review selection is invalid" in message
+        or "--review-selection-file requires --plan-file" in message
+        or "startup disable requires --review-selection-file" in message
+    ):
         code = "SELECTION_VALIDATION_FAILED"
     elif "live root '/'" in message:
         code = "LIVE_ROOT_REFUSED"
@@ -1249,8 +1253,22 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
 
-    startup_cmd = subparsers.add_parser("startup", help="Startup item audit and disable planning.")
-    startup_cmd.add_argument("action", nargs="?", choices=("audit", "plan"), default="audit")
+    startup_cmd = subparsers.add_parser("startup", help="Startup item audit, disable planning, and governed disable.")
+    startup_cmd.add_argument("action", nargs="?", choices=("audit", "plan", "disable"), default="audit")
+    startup_cmd.add_argument("--plan-file", help="cleanmac.startup-plan.v1 file to execute or dry-run disable against.")
+    startup_cmd.add_argument(
+        "--review-selection-file",
+        help="cleanmac.review-selection.v1 file that selects startup items from the plan.",
+    )
+    startup_cmd.add_argument(
+        "--execute", action="store_true", help="Disable selected startup items by editing user plists."
+    )
+    startup_cmd.add_argument("--yes", action="store_true", help="Confirm governed startup disable execution.")
+    startup_cmd.add_argument(
+        "--operation-log",
+        default=OPERATIONS_LOG_FILE,
+        help="Append JSONL audit records when startup disable is evaluated.",
+    )
 
     privacy_cmd = subparsers.add_parser("privacy", help="Privacy data inspection and cleanup planning.")
     privacy_cmd.add_argument("action", nargs="?", choices=("inspect", "plan"), default="inspect")
@@ -6670,6 +6688,31 @@ def _main_impl(argv: Sequence[str]) -> int:
         )
         return 0
     if args.command == "startup":
+        if args.action == "disable":
+            if not args.plan_file:
+                raise SystemExit("startup disable requires --plan-file.")
+            if not args.review_selection_file:
+                raise SystemExit("startup disable requires --review-selection-file.")
+            review_selection = review_selection_constraints(args.plan_file, args.review_selection_file)
+            operation_log_status = preflight_operation_log(args.operation_log, root=root, home=home)
+            if operation_log_status["status"] != "ready":
+                raise SystemExit(
+                    f"Refusing to disable startup items because operation log preflight failed: {operation_log_status['error']}"
+                )
+            report = disable_startup_items(
+                load_json_file(args.plan_file),
+                review_selection=review_selection or {},
+                execute=args.execute,
+                yes=args.yes,
+                root=root,
+                home=home,
+            )
+            if report["operation_log_entries"]:
+                report["operation_log"] = append_operation_log(
+                    args.operation_log, report.pop("operation_log_entries"), root=root, home=home, rotate=False
+                )
+            emit_report(report, args=args, command="startup", root=root, home=home, argv=actual_argv)
+            return 0
         emit_report(
             render_startup(args.action, root=root, home=home),
             args=args,

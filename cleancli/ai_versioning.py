@@ -107,6 +107,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.software-uninstall-plan.v1", 1, "cleancli.software_uninstall", "stable"),
     ("cleanmac.software.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.startup-audit.v1", 1, "cleancli.startup", "stable"),
+    ("cleanmac.startup-disable-result.v1", 1, "cleancli.startup", "stable"),
     ("cleanmac.startup-plan.v1", 1, "cleancli.startup", "stable"),
     ("cleanmac.status.snapshot.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.tool-execution-result.v1", 1, "cleancli.tool_adapters", "stable"),
@@ -135,6 +136,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.software-inspect.v1",
     "cleanmac.software-uninstall-plan.v1",
     "cleanmac.startup-audit.v1",
+    "cleanmac.startup-disable-result.v1",
     "cleanmac.startup-plan.v1",
     "cleanmac.privacy-inspect.v1",
     "cleanmac.privacy-plan.v1",
@@ -422,6 +424,20 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "valid": {"type": "boolean"},
             "blocked_reasons": {"type": "array", "items": {"type": "string"}},
             "disable_plan": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.startup-disable-result.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "root", "home", "review_selection", "results"],
+        "properties": {
+            "schema": {"const": "cleanmac.startup-disable-result.v1"},
+            "destructive": {"type": "boolean"},
+            "dry_run": {"type": "boolean"},
+            "root": {"type": "string"},
+            "home": {"type": "string"},
+            "review_selection": {"type": "object"},
+            "results": {"type": "array", "items": {"type": "object"}},
         },
         "additionalProperties": True,
     },
@@ -1246,6 +1262,27 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     }
                 ],
             },
+        },
+        "cleanmac.startup-disable-result.v1": {
+            "schema": "cleanmac.startup-disable-result.v1",
+            "destructive": True,
+            "dry_run": False,
+            "root": "/tmp/cleanmac-sandbox",
+            "home": "/Users/tester",
+            "review_selection": {
+                "schema": "cleanmac.review-selection-constraint.v1",
+                "selected_item_ids": [
+                    "startup:user-launch-agent:com.example.agent:/Users/tester/Library/LaunchAgents/com.example.agent.plist"
+                ],
+            },
+            "results": [
+                {
+                    "id": "startup:user-launch-agent:com.example.agent:/Users/tester/Library/LaunchAgents/com.example.agent.plist",
+                    "path": "/Users/tester/Library/LaunchAgents/com.example.agent.plist",
+                    "status": "disabled",
+                    "executed": True,
+                }
+            ],
         },
         "cleanmac.privacy-inspect.v1": {
             "schema": "cleanmac.privacy-inspect.v1",
