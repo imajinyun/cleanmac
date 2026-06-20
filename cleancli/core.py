@@ -1144,6 +1144,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     policy_simulate.add_argument("--execute", action="store_true", help="Simulate destructive execution intent.")
     policy_simulate.add_argument("--delete-mode", choices=("permanent", "trash"), default="permanent")
     policy_simulate.add_argument("--operation-log")
+    policy_simulate.add_argument(
+        "--review-selection-file",
+        help="Validate and include a cleanmac.review-selection.v1 constraint in the recommended safe argv.",
+    )
     policy_simulate.add_argument("--require-plan-context", action="store_true")
     policy_simulate.add_argument("--require-confirmation-token", action="store_true")
     policy_simulate.add_argument("--confirmation-token")
@@ -5650,6 +5654,7 @@ def render_ai_policy_simulation(
     require_plan_context: bool,
     require_confirmation_token: bool,
     confirmation_token: str | None,
+    review_selection_file: str | None,
     original_argv: Sequence[str],
 ) -> dict[str, Any]:
     plan = load_clean_plan(plan_file)
@@ -5663,6 +5668,7 @@ def render_ai_policy_simulation(
     if plan.get("home") and not same_context_path(str(plan["home"]), home):
         context_warnings.append({"field": "home", "expected": plan["home"], "actual": display_path(home)})
     freshness = render_plan_freshness_report(plan)
+    review_selection = review_selection_constraints(plan_file, review_selection_file) if review_selection_file else None
     if execute and plan.get("ai_origin"):
         checks = [
             ("ai_origin_requires_trash", delete_mode == "trash", "--delete-mode trash"),
@@ -5724,6 +5730,8 @@ def render_ai_policy_simulation(
         policy_decisions.append({"rule": "plan_freshness", "result": "fail"})
     else:
         policy_decisions.append({"rule": "plan_freshness", "result": "pass"})
+    if review_selection_file:
+        policy_decisions.append({"rule": "review_selection_valid", "result": "pass"})
     allowed = execute is False or not missing_requirements
     safe_argv = [
         "cleanmac",
@@ -5736,6 +5744,8 @@ def render_ai_policy_simulation(
         "--delete-mode",
         "trash",
     ]
+    if review_selection_file:
+        safe_argv.extend(["--review-selection-file", review_selection_file])
     if execute:
         safe_argv.extend(
             [
@@ -5756,6 +5766,7 @@ def render_ai_policy_simulation(
         "would_be_destructive": execute,
         "plan_file": plan_file,
         "plan": plan,
+        "review_selection": review_selection,
         "missing_requirements": missing_requirements,
         "blocking_reasons": blocking_reasons,
         "safe_to_auto_retry": bool(blocking_reasons) and all(row["safe_to_auto_fix"] for row in blocking_reasons),
@@ -6598,6 +6609,7 @@ def _main_impl(argv: Sequence[str]) -> int:
                 require_plan_context=args.require_plan_context,
                 require_confirmation_token=args.require_confirmation_token,
                 confirmation_token=args.confirmation_token,
+                review_selection_file=args.review_selection_file,
                 original_argv=original_argv,
             ),
             args=args,
