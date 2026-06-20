@@ -113,9 +113,11 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.release-promotion-decision.v1", entries)
         self.assertIn("cleanmac.release-rollback-plan.v1", entries)
         self.assertIn("cleanmac.release-post-publish-verification.v1", entries)
+        self.assertIn("cleanmac.release-post-publish-result.v1", entries)
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
+        self.assertTrue(entries["cleanmac.release-post-publish-result.v1"]["release_critical"])
         self.assertEqual(entries["cleanmac.release-evidence.v1"]["owner_area"], "release")
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
@@ -284,6 +286,22 @@ class AISchemaRegistryTests(unittest.TestCase):
         }
         self.assertTrue(
             validate_contract_payload("cleanmac.release-post-publish-verification.v1", post_publish)["valid"]
+        )
+
+        post_publish_result = {
+            "schema": "cleanmac.release-post-publish-result.v1",
+            "destructive": False,
+            "dry_run": True,
+            "manual_only": True,
+            "ready": False,
+            "surfaces": [{"id": "pypi", "status": "pending"}],
+            "failed_surface_ids": [],
+            "pending_surface_ids": ["pypi"],
+            "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],
+            "recommended_commands": [["make", "release-post-publish-result-smoke"]],
+        }
+        self.assertTrue(
+            validate_contract_payload("cleanmac.release-post-publish-result.v1", post_publish_result)["valid"]
         )
 
         samples = render_ai_contract_samples()

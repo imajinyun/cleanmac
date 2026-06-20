@@ -852,6 +852,7 @@ make release-rehearsal-smoke                       # Release rehearsal dry-run g
 make release-promotion-smoke                       # Fail-closed promotion decision
 make release-rollback-smoke                        # Manual-only rollback plan
 make release-post-publish-smoke                    # Manual-only post-publish verification plan
+make release-post-publish-result-smoke             # Manual-only post-publish closure evidence
 make no-cache-check                                # No-cache full validation
 make no-cache-release-check                        # No-cache release validation
 ```
@@ -893,13 +894,14 @@ make no-cache-release-check                        # No-cache release validation
 | `release-promotion-smoke` | Promotion decision blocks missing evidence fail-closed |
 | `release-rollback-smoke` | Manual-only rollback plan for PyPI, GitHub Release, and Homebrew tap |
 | `release-post-publish-smoke` | Manual-only post-publish verification for PyPI, GitHub Release, and Homebrew tap |
+| `release-post-publish-result-smoke` | Manual-only post-publish closure result for pending or verified distribution surfaces |
 | `docker-test` | Debian container tests |
 | `no-cache-check` | No-cache full validation |
 | `no-cache-release-check` | No-cache release validation |
 | `no-cache-docker-test` | Docker test with --pull=always |
 | `release-check` | All gates combined |
 
-Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions. `make pytest-governance-smoke` validates that pytest parity uses the explicit release-only safe target list instead of broad `test_cleanmac.py tests` collection. `make release-readiness-contract-smoke` validates release readiness contract shape, and `make release-readiness-smoke` validates the read-only `cleanmac.release-readiness.v1` bundle before `make release-check` and `make no-cache-release-check` proceed. `make release-diagnostics-smoke` additionally validates `cleanmac.release-diagnostics.v1`, `cleanmac.release-evidence.v1`, and `cleanmac.release-operator-summary.v1`. `make release-rehearsal-smoke`, `make release-promotion-smoke`, `make release-rollback-smoke`, and `make release-post-publish-smoke` cover `cleanmac.release-rehearsal.v1`, `cleanmac.release-promotion-decision.v1`, `cleanmac.release-rollback-plan.v1`, and `cleanmac.release-post-publish-verification.v1`; CI archives `RELEASE-REHEARSAL.json`, `RELEASE-PROMOTION-DECISION.json`, `RELEASE-ROLLBACK-PLAN.json`, and `RELEASE-POST-PUBLISH-VERIFICATION.json` with the release evidence.
+Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions. `make pytest-governance-smoke` validates that pytest parity uses the explicit release-only safe target list instead of broad `test_cleanmac.py tests` collection. `make release-readiness-contract-smoke` validates release readiness contract shape, and `make release-readiness-smoke` validates the read-only `cleanmac.release-readiness.v1` bundle before `make release-check` and `make no-cache-release-check` proceed. `make release-diagnostics-smoke` additionally validates `cleanmac.release-diagnostics.v1`, `cleanmac.release-evidence.v1`, and `cleanmac.release-operator-summary.v1`. `make release-rehearsal-smoke`, `make release-promotion-smoke`, `make release-rollback-smoke`, `make release-post-publish-smoke`, and `make release-post-publish-result-smoke` cover `cleanmac.release-rehearsal.v1`, `cleanmac.release-promotion-decision.v1`, `cleanmac.release-rollback-plan.v1`, `cleanmac.release-post-publish-verification.v1`, and `cleanmac.release-post-publish-result.v1`; CI archives `RELEASE-REHEARSAL.json`, `RELEASE-PROMOTION-DECISION.json`, `RELEASE-ROLLBACK-PLAN.json`, `RELEASE-POST-PUBLISH-VERIFICATION.json`, and `RELEASE-POST-PUBLISH-RESULT.json` with the release evidence.
 
 ### 🤖 CI Configuration
 

@@ -10,6 +10,7 @@ from pathlib import Path
 from cleancli.core import render_release_readiness_report
 from cleancli.release_artifacts import build_release_artifact_manifest
 from cleancli.release_orchestration import (
+    render_release_post_publish_result,
     render_release_post_publish_verification,
     render_release_promotion_decision,
     render_release_rehearsal,
@@ -45,6 +46,10 @@ def _write_ready_release_assets(root: Path) -> tuple[Path, Path]:
     )
     (assets / "RELEASE-POST-PUBLISH-VERIFICATION.json").write_text(
         json.dumps({"schema": "cleanmac.release-post-publish-verification.v1", "manual_only": True}),
+        encoding="utf-8",
+    )
+    (assets / "RELEASE-POST-PUBLISH-RESULT.json").write_text(
+        json.dumps({"schema": "cleanmac.release-post-publish-result.v1", "manual_only": True, "ready": False}),
         encoding="utf-8",
     )
     return dist, assets
@@ -114,12 +119,72 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertIn(["cleanmac", "--json", "release-rollback-plan"], plan["incident_response_entrypoints"])
         self.assertNotIn("rm -rf", json.dumps(plan))
 
+    def test_post_publish_result_defaults_to_pending_manual_only_without_destructive_commands(self) -> None:
+        result = render_release_post_publish_result(dist_dir="dist", assets_dir="release-assets")
+
+        self.assertEqual(result["schema"], "cleanmac.release-post-publish-result.v1")
+        self.assertTrue(result["manual_only"])
+        self.assertFalse(result["destructive"])
+        self.assertFalse(result["ready"])
+        self.assertEqual(set(result["pending_surface_ids"]), {"pypi", "github-release", "homebrew-tap"})
+        self.assertIn(["cleanmac", "--json", "release-rollback-plan"], result["incident_response_entrypoints"])
+        self.assertNotIn("rm -rf", json.dumps(result))
+
+    def test_post_publish_result_accepts_verified_evidence_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence = Path(tmp) / "post-publish-evidence.json"
+            evidence.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.release-post-publish-evidence-input.v1",
+                        "surfaces": {
+                            "github-release": {"status": "verified", "evidence_refs": ["release-assets"]},
+                            "pypi": {"status": "verified", "evidence_refs": ["pypi-page"]},
+                            "homebrew-tap": {"status": "verified", "evidence_refs": ["tap-commit"]},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = render_release_post_publish_result(
+                dist_dir="dist", assets_dir="release-assets", evidence_file=evidence
+            )
+
+        self.assertTrue(result["ready"], result)
+        self.assertEqual(set(result["verified_surface_ids"]), {"pypi", "github-release", "homebrew-tap"})
+        self.assertEqual(result["failed_surface_ids"], [])
+        self.assertEqual(result["pending_surface_ids"], [])
+
+    def test_post_publish_result_blocks_failed_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence = Path(tmp) / "post-publish-evidence.json"
+            evidence.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.release-post-publish-evidence-input.v1",
+                        "surfaces": {"pypi": {"status": "failed", "evidence_refs": ["pypi-page"]}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = render_release_post_publish_result(
+                dist_dir="dist", assets_dir="release-assets", evidence_file=evidence
+            )
+
+        self.assertFalse(result["ready"])
+        self.assertIn("pypi", result["failed_surface_ids"])
+        failed_surface = next(surface for surface in result["surfaces"] if surface["id"] == "pypi")
+        self.assertEqual(failed_surface["blocking_code"], "PYPI_POST_PUBLISH_FAILED")
+
     def test_cli_emits_release_orchestration_reports(self) -> None:
         commands = {
             "release-rehearsal": "cleanmac.release-rehearsal.v1",
             "release-promotion-decision": "cleanmac.release-promotion-decision.v1",
             "release-rollback-plan": "cleanmac.release-rollback-plan.v1",
             "release-post-publish-verification": "cleanmac.release-post-publish-verification.v1",
+            "release-post-publish-result": "cleanmac.release-post-publish-result.v1",
         }
         for command, schema in commands.items():
             with self.subTest(command=command):
