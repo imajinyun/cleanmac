@@ -837,6 +837,7 @@ make local-test                                    # 完整本地测试
 make quality-check                                 # lint + type + coverage
 make docs-smoke                                    # 文档校验
 make governance-smoke                              # 治理合约检查
+make pytest-governance-smoke                       # Pytest 安全目标策略
 make ai-contract-smoke                             # AI 合同样例与 schema fragment
 make governed-execution-smoke                      # Startup/privacy 治理执行加固
 make open-source-smoke                             # 开源治理检查
@@ -875,6 +876,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `dependency-audit-smoke` | pip-audit + SBOM.json |
 | `docs-smoke` | README 覆盖检查 |
 | `governance-smoke` | 治理合约检查 |
+| `pytest-governance-smoke` | Pytest 安全目标策略与 release-only parity 范围 |
 | `ai-governance-smoke` | AI 治理路线检查 |
 | `governed-execution-smoke` | Startup/privacy 治理执行加固 |
 | `ai-host-smoke` | AI 主机集成测试套件 |
@@ -895,7 +897,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `no-cache-docker-test` | Docker 测试（--pull=always） |
 | `release-check` | 全部门禁串联 |
 
-发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。`make release-readiness-contract-smoke` 校验发布 readiness contract 结构，`make release-readiness-smoke` 会在 `make release-check` 与 `make no-cache-release-check` 前校验只读 `cleanmac.release-readiness.v1` bundle。`make release-diagnostics-smoke` 会额外校验 `cleanmac.release-diagnostics.v1`、`cleanmac.release-evidence.v1` 和 `cleanmac.release-operator-summary.v1`。`make release-rehearsal-smoke`、`make release-promotion-smoke`、`make release-rollback-smoke`、`make release-post-publish-smoke` 覆盖 `cleanmac.release-rehearsal.v1`、`cleanmac.release-promotion-decision.v1`、`cleanmac.release-rollback-plan.v1` 与 `cleanmac.release-post-publish-verification.v1`；CI 会把 `RELEASE-REHEARSAL.json`、`RELEASE-PROMOTION-DECISION.json`、`RELEASE-ROLLBACK-PLAN.json`、`RELEASE-POST-PUBLISH-VERIFICATION.json` 随发布证据一起归档。
+发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。`make pytest-governance-smoke` 校验 pytest parity 使用显式 release-only 安全目标列表，而不是宽泛收集 `test_cleanmac.py tests`。`make release-readiness-contract-smoke` 校验发布 readiness contract 结构，`make release-readiness-smoke` 会在 `make release-check` 与 `make no-cache-release-check` 前校验只读 `cleanmac.release-readiness.v1` bundle。`make release-diagnostics-smoke` 会额外校验 `cleanmac.release-diagnostics.v1`、`cleanmac.release-evidence.v1` 和 `cleanmac.release-operator-summary.v1`。`make release-rehearsal-smoke`、`make release-promotion-smoke`、`make release-rollback-smoke`、`make release-post-publish-smoke` 覆盖 `cleanmac.release-rehearsal.v1`、`cleanmac.release-promotion-decision.v1`、`cleanmac.release-rollback-plan.v1` 与 `cleanmac.release-post-publish-verification.v1`；CI 会把 `RELEASE-REHEARSAL.json`、`RELEASE-PROMOTION-DECISION.json`、`RELEASE-ROLLBACK-PLAN.json`、`RELEASE-POST-PUBLISH-VERIFICATION.json` 随发布证据一起归档。
 
 ### 🤖 CI 配置
 
