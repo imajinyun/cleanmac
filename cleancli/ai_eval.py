@@ -63,6 +63,15 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "release_readiness_surface_audit_gate",
+            "description": "Verify release readiness exposes MCP surface audit as a first-class release gate.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-readiness"]],
+            "expected_final_schema": "cleanmac.release-readiness.v1",
+            "expected_blocking_codes": ["mcp-surface-audit-ready"],
+            "may_execute_delete": False,
+        },
+        {
             "id": "release_readiness_artifact_missing_blocks",
             "description": "Verify release readiness fails closed when release artifact manifest evidence is absent.",
             "required_tools": ["cleanmac_capabilities"],
@@ -557,6 +566,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "host_evidence_discovery",
             "host_evidence_runtime_denial_coverage",
             "release_readiness_discovery",
+            "release_readiness_surface_audit_gate",
             "release_readiness_artifact_missing_blocks",
             "release_readiness_artifact_present_ready",
             "release_evidence_bundle_discovery",
@@ -850,6 +860,25 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     ),
                     observed_schema=readiness["schema"],
                     observed_blocking_codes=readiness["failed_gate_ids"],
+                )
+            )
+
+        if "release_readiness_surface_audit_gate" in selected:
+            readiness, event = _run_cli(cli, ["release-readiness"], root=root, home=home)
+            events.append(event)
+            gates = {gate["id"]: gate for gate in readiness.get("gates", [])}
+            surface_gate = gates.get("mcp-surface-audit-ready", {})
+            results.append(
+                _scenario_result(
+                    "release_readiness_surface_audit_gate",
+                    passed=bool(
+                        readiness["schema"] == "cleanmac.release-readiness.v1"
+                        and surface_gate.get("passed") is True
+                        and surface_gate.get("evidence_schema") == "cleanmac.mcp-surface-audit.v1"
+                        and ["make", "mcp-surface-audit-smoke"] in surface_gate.get("next_actions", [])
+                    ),
+                    observed_schema=readiness["schema"],
+                    observed_blocking_codes=[] if surface_gate.get("passed") is True else ["mcp-surface-audit-ready"],
                 )
             )
 

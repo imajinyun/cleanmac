@@ -36,6 +36,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("host_evidence_discovery", scenarios)
         self.assertIn("host_evidence_runtime_denial_coverage", scenarios)
         self.assertIn("release_readiness_discovery", scenarios)
+        self.assertIn("release_readiness_surface_audit_gate", scenarios)
         self.assertIn("release_readiness_artifact_missing_blocks", scenarios)
         self.assertIn("release_readiness_artifact_present_ready", scenarios)
         self.assertIn("release_evidence_bundle_discovery", scenarios)
@@ -92,6 +93,9 @@ class AIEvalTests(unittest.TestCase):
         release_readiness = scenarios["release_readiness_discovery"]
         self.assertEqual(release_readiness["expected_final_schema"], "cleanmac.release-readiness.v1")
         self.assertFalse(release_readiness["may_execute_delete"])
+        surface_audit_gate = scenarios["release_readiness_surface_audit_gate"]
+        self.assertIn("mcp-surface-audit-ready", surface_audit_gate["expected_blocking_codes"])
+        self.assertFalse(surface_audit_gate["may_execute_delete"])
         missing_artifact = scenarios["release_readiness_artifact_missing_blocks"]
         self.assertIn("release-artifact-manifest-valid", missing_artifact["expected_blocking_codes"])
         artifact_present = scenarios["release_readiness_artifact_present_ready"]
@@ -161,6 +165,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["host_evidence_discovery"]["passed"])
         self.assertTrue(scenario_results["host_evidence_runtime_denial_coverage"]["passed"])
         self.assertTrue(scenario_results["release_readiness_discovery"]["passed"])
+        self.assertTrue(scenario_results["release_readiness_surface_audit_gate"]["passed"])
         self.assertTrue(scenario_results["release_readiness_artifact_missing_blocks"]["passed"])
         self.assertTrue(scenario_results["release_readiness_artifact_present_ready"]["passed"])
         self.assertTrue(scenario_results["release_evidence_bundle_discovery"]["passed"])
@@ -252,6 +257,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("host_evidence_discovery", scenario_ids)
         self.assertIn("host_evidence_runtime_denial_coverage", scenario_ids)
         self.assertIn("release_readiness_discovery", scenario_ids)
+        self.assertIn("release_readiness_surface_audit_gate", scenario_ids)
         self.assertIn("release_readiness_artifact_missing_blocks", scenario_ids)
         self.assertIn("release_readiness_artifact_present_ready", scenario_ids)
         self.assertIn("release_evidence_bundle_discovery", scenario_ids)
@@ -315,6 +321,21 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(result["observed_schema"], "cleanmac.mcp-smoke.v1")
         self.assertEqual(result["observed_blocking_codes"], [])
         self.assertGreaterEqual(report["trace"]["event_count"], 10)
+
+    def test_ai_eval_run_release_readiness_surface_audit_gate(self) -> None:
+        report = self.run_json("ai-eval-run", "--scenario", "release_readiness_surface_audit_gate")
+
+        self.assertEqual(report["schema"], "cleanmac.ai-eval-run.v1")
+        self.assertTrue(report["passed"], report)
+        self.assertEqual(report["selected_scenarios"], ["release_readiness_surface_audit_gate"])
+        self.assertEqual(report["passed_count"], 1)
+        self.assertEqual(report["failed_count"], 0)
+
+        result = report["results"][0]
+        self.assertEqual(result["id"], "release_readiness_surface_audit_gate")
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["observed_schema"], "cleanmac.release-readiness.v1")
+        self.assertEqual(result["observed_blocking_codes"], [])
 
     def test_ai_eval_run_contract_samples_roundtrip(self) -> None:
         report = self.run_json("ai-eval-run", "--scenario", "contract_samples_roundtrip")
