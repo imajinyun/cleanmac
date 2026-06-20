@@ -71,9 +71,32 @@ def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def render_review(payload: dict[str, Any]) -> dict[str, Any]:
+def _string_list(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        item = str(value)
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def render_review(
+    payload: dict[str, Any], *, selected_item_ids: list[str] | None = None, excluded_item_ids: list[str] | None = None
+) -> dict[str, Any]:
     items = normalize_review_items(payload)
-    selected = [item["id"] for item in items if item["default_selected"] and not item["protected"]]
+    known_ids = {str(item["id"]) for item in items}
+    protected_ids = {str(item["id"]) for item in items if item["protected"]}
+    explicit_selected = _string_list(selected_item_ids)
+    explicit_excluded = _string_list(excluded_item_ids)
+    selected_set = {str(item["id"]) for item in items if item["default_selected"] and not item["protected"]}
+    selected_set.update(item_id for item_id in explicit_selected if item_id in known_ids and item_id not in protected_ids)
+    selected_set.difference_update(item_id for item_id in explicit_excluded if item_id in known_ids)
+    selected = [str(item["id"]) for item in items if str(item["id"]) in selected_set and str(item["id"]) not in protected_ids]
+    unknown_item_ids = [item_id for item_id in [*explicit_selected, *explicit_excluded] if item_id not in known_ids]
     return {
         "schema": "cleanmac.review.v1",
         "destructive": False,
@@ -89,6 +112,10 @@ def render_review(payload: dict[str, Any]) -> dict[str, Any]:
             "source_fingerprint": source_fingerprint(payload),
             "selected_item_ids": selected,
             "excluded_item_ids": [item["id"] for item in items if item["id"] not in selected],
+            "explicit_selected_item_ids": explicit_selected,
+            "explicit_excluded_item_ids": explicit_excluded,
+            "unknown_item_ids": _string_list(unknown_item_ids),
+            "protected_item_ids": [item_id for item_id in explicit_selected if item_id in protected_ids],
         },
     }
 

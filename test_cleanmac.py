@@ -1945,6 +1945,79 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
 
+    def test_review_selection_supports_explicit_include_and_exclude(self) -> None:
+        tmp, root, _home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.software-uninstall-plan.v1",
+                        "uninstall_plan": {
+                            "candidates": [
+                                {
+                                    "id": "cache:/tmp/cache",
+                                    "path": "/tmp/cache",
+                                    "kind": "cache",
+                                    "risk": "low",
+                                    "default_selected": True,
+                                },
+                                {
+                                    "id": "history:/tmp/history",
+                                    "path": "/tmp/history",
+                                    "kind": "history",
+                                    "risk": "medium",
+                                    "default_selected": False,
+                                },
+                                {
+                                    "id": "protected:/System/Library",
+                                    "path": "/System/Library",
+                                    "kind": "system",
+                                    "risk": "critical",
+                                    "default_selected": False,
+                                    "protected": True,
+                                },
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = json.loads(
+                self.run_cli(
+                    "--json",
+                    "review",
+                    "--input-file",
+                    str(plan_file),
+                    "--selection-file",
+                    str(selection_file),
+                    "--exclude-item",
+                    "cache:/tmp/cache",
+                    "--select-item",
+                    "history:/tmp/history",
+                    "--select-item",
+                    "protected:/System/Library",
+                    "--select-item",
+                    "missing:item",
+                ).stdout
+            )
+            selection = json.loads(selection_file.read_text(encoding="utf-8"))
+
+            self.assertEqual(report["selection"], selection)
+            self.assertEqual(selection["selected_item_ids"], ["history:/tmp/history"])
+            self.assertIn("cache:/tmp/cache", selection["excluded_item_ids"])
+            self.assertEqual(
+                selection["explicit_selected_item_ids"],
+                ["history:/tmp/history", "protected:/System/Library", "missing:item"],
+            )
+            self.assertEqual(selection["explicit_excluded_item_ids"], ["cache:/tmp/cache"])
+            self.assertEqual(selection["protected_item_ids"], ["protected:/System/Library"])
+            self.assertEqual(selection["unknown_item_ids"], ["missing:item"])
+            self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
+            self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
+
     def test_review_html_escapes_paths(self) -> None:
         tmp, root, _home = self.make_sandbox()
         with tmp:
