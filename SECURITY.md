@@ -29,7 +29,7 @@ Preferred private channels are GitHub private vulnerability reporting on the rep
 - Path remapping with `--root` / `--home`.
 - Symlink target validation.
 - Live-root execution gates.
-- `--execute`, `--yes`, and `--allow-live-root` behavior.
+- `--execute`, `--yes`, `--allow-live-root`, and `--review-selection-file` behavior.
 - Bundle allow/block policy.
 - Trash routing and operation-log persistence.
 - Dependency audit, generated `SBOM.json`, release checksums, and artifact attestation.
@@ -38,9 +38,10 @@ Preferred private channels are GitHub private vulnerability reporting on the rep
 
 - **MCP Server Attack Surface**: The stdio MCP server (`scripts/cleanmac_mcp_server.py`)
   processes JSON-RPC requests from LLM clients. It does not expose a network socket.
-- **Tool Definition Safety**: All 24 AI tools are read-only or planning by default;
+- **Tool Definition Safety**: All 32 AI tools are read-only, planning, or dry-run by default;
   only `cleanmac_execute_plan` is destructive and requires explicit user confirmation.
 - **Confirmation Token**: SHA-256 bound tokens prevent unauthorized plan execution.
+- **Review Selection Constraint**: `cleanmac.review-selection.v1` files must match the source plan fingerprint before they can constrain dry-run or execution. Stale or mismatched selections fail closed with `SELECTION_VALIDATION_FAILED`.
 - **Prompt Injection Prevention**: File and category names are treated as data,
   not instructions. MCP prompts include explicit guardrails against tool misuse.
 - **Host Policy**: The `ai-host-policy` command defines machine-readable allow/deny

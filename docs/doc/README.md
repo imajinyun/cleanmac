@@ -28,7 +28,7 @@
 
 ## ✨ Capabilities
 
-`cleanmac` provides **20+ capabilities** for macOS cleanup:
+`cleanmac` provides **30+ capabilities** for macOS cleanup, operational review, and AI-host integration:
 
 | # | Capability | Description |
 |---|---|---|
@@ -41,8 +41,10 @@
 | 🗺️ | **Plans** | Reusable `cleanmac.plan.v1` JSON |
 | 📄 | **Reports** | Pre-clean, dry-run, post-execution, audit |
 | 🧪 | **Sandbox** | `--root` / `--home` path remapping |
-| 🤖 | **AI tools** | 23 tools in Anthropic / OpenAI / MCP formats |
+| 🤖 | **AI tools** | 32 tools in Anthropic / OpenAI / MCP formats |
 | 🏗️ | **MCP Server** | stdio-based Model Context Protocol server |
+| 🧾 | **Review selections** | `cleanmac.review-selection.v1` files constrain plan replay |
+| 🔍 | **Operational preflight** | Permissions, startup, privacy, and external-tool dry-run planning |
 | 🔐 | **Confirmation token** | SHA-256 bound AI execution authorization |
 | 🛡️ | **Execution guards** | Budget, risk policy, live-root protection |
 | 🎯 | **Filters** | Include, exclude, age, size, regex |
@@ -89,9 +91,15 @@ python3 cleanmac.py --json clean run \
   --plan-file /tmp/plan.json \
   --require-plan-context
 
+# 5b️⃣ Optional: normalize the plan into reviewable selections
+python3 cleanmac.py --json review \
+  --input-file /tmp/plan.json \
+  --selection-file /tmp/selection.json
+
 # 6️⃣ Execute (after review!)
 python3 cleanmac.py clean run \
   --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
   --require-plan-context \
   --delete-mode trash \
   --operation-log /tmp/ops.jsonl \
@@ -108,7 +116,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI Tool Definitions
 
-Export **24 tools** in three formats:
+Export **32 tools** in three formats:
 
 ```bash
 # 🧠 Anthropic format (Claude)
@@ -145,6 +153,14 @@ Tool categories:
 | `cleanmac_software_leftovers` | Inspect app leftovers | readonly |
 | `cleanmac_software_startup_items` | List startup items | readonly |
 | `cleanmac_software_uninstall_plan` | Plan uninstall (no execution) | planning |
+| `cleanmac_software_inspect` | Inspect app cleanup candidates | readonly |
+| `cleanmac_startup_audit` | Audit LaunchAgents/Daemons and StartupItems | readonly |
+| `cleanmac_startup_plan` | Plan startup item disable actions without execution | planning |
+| `cleanmac_privacy_inspect` | Inspect browser/app privacy cleanup candidates | readonly |
+| `cleanmac_privacy_plan` | Plan privacy cleanup without deleting data | planning |
+| `cleanmac_tool_plan` | Render semantic plans for external tools | planning |
+| `cleanmac_tool_execute_dry_run` | Dry-run allowlisted external tool commands | dry-run |
+| `cleanmac_review` | Normalize reports/plans into review selections | planning |
 | `cleanmac_dry_run_plan` | Dry-run a plan with Trash routing | dry-run |
 | `cleanmac_execute_plan` | Execute cleanup (requires confirmation) | destructive |
 | `cleanmac_ai_governance_advice` | AI host governance & anti-patterns | readonly |
@@ -179,7 +195,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 protocol example:**
 
 ```bash
-# 📋 List all 23 tools
+# 📋 List all 32 tools
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -207,8 +223,9 @@ graph LR
     B -->|2. diagnose| C[🩺 Analyze system]
     C -->|3. inspect| D[👀 Preview candidates]
     D -->|4. plan| E[🗺️ Generate plan]
-    E -->|5. validate| F[✅ Verify plan]
-    F -->|6. run --execute| G[🛡️ Execute with token]
+    E -->|5. review| F[🧾 Select reviewed items]
+    F -->|6. validate| G[✅ Verify plan + selection]
+    G -->|7. run --execute| H[🛡️ Execute with token]
 ```
 
 **Step-by-step for AI:**
@@ -225,6 +242,36 @@ python3 cleanmac.py --json workflow \
 ```
 
 The `workflow` command is the **recommended AI entry point** — it runs inspect → diagnose → plan in one non-destructive call.
+
+### 🧾 Review-to-execution contract
+
+Use `review` to convert a plan/report into `cleanmac.review.v1` plus `cleanmac.review-selection.v1`. Passing that selection into `clean run` or `policy-simulate` validates the source fingerprint and restricts replay to reviewed selected paths only:
+
+```bash
+# 1️⃣ Generate a stable plan
+python3 cleanmac.py --json clean plan --categories trash,downloads > /tmp/plan.json
+
+# 2️⃣ Produce a review report and default selection file
+python3 cleanmac.py --json review \
+  --input-file /tmp/plan.json \
+  --selection-file /tmp/selection.json \
+  > /tmp/review.json
+
+# 3️⃣ Dry-run only the selected reviewed items
+python3 cleanmac.py --json clean run \
+  --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
+  --require-plan-context
+
+# 4️⃣ Ask the policy simulator for the safe argv before execution
+python3 cleanmac.py --json policy-simulate \
+  --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
+  --execute \
+  --delete-mode trash
+```
+
+If the selection was generated from a different or stale plan, the command fails before cleanup with `SELECTION_VALIDATION_FAILED`. The resulting reports include `cleanmac.review-selection-constraint.v1` for auditability.
 
 ### 🔐 AI Confirmation Token
 
@@ -444,6 +491,11 @@ python3 cleanmac.py clean run \
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 Cleanup operations |
 | `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 App inventory (read-only) |
+| `startup` | `audit`, `plan` | 🚀 Startup item audit and non-destructive disable planning |
+| `privacy` | `inspect`, `plan` | 🔐 Browser/app privacy candidate inspection and planning |
+| `permissions` | preflight | 🔎 Permission and Full Disk Access readiness |
+| `tool-plan` / `tool-execute` | external tool adapters | 🧰 Allowlisted Docker/Homebrew/Xcode dry-run and gated execution |
+| `review` | review normalization | 🧾 Reviewable items, selections, HTML audit output |
 | `optimize` | `list`, `plan`, `run` | ⚙️ Maintenance tasks (dry-run only) |
 | `analyze` | `categories`, `tree`, `scan` | 📊 Space analysis |
 | `status` | `snapshot` | 🩺 System health |
@@ -503,6 +555,15 @@ python3 cleanmac.py clean run \
   --operation-log /tmp/ops.jsonl \
   --execute
 ```
+
+Key replay options:
+
+| Option | Description |
+|---|---|
+| `--plan-file <path>` | Replay an existing `cleanmac.plan.v1` file instead of discovering fresh candidates |
+| `--review-selection-file <path>` | Validate a `cleanmac.review-selection.v1` file and skip plan items not selected for review |
+| `--require-plan-context` | Require the replayed plan root/home to match the current command context |
+| `--require-confirmation-token` | Require a matching AI confirmation token before execution |
 
 ### `diagnose`
 
@@ -565,6 +626,50 @@ python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
 ```
 
+### `startup`
+
+```bash
+python3 cleanmac.py --json startup audit
+python3 cleanmac.py --json startup plan
+```
+
+`startup audit` is read-only. `startup plan` emits non-destructive disable plans for LaunchAgents, LaunchDaemons, and StartupItems; cleanmac does not execute those disable actions directly.
+
+### `privacy`
+
+```bash
+python3 cleanmac.py --json privacy inspect --scope cache
+python3 cleanmac.py --json privacy plan --scope history
+```
+
+Privacy commands inspect and plan browser/app data cleanup while preserving sensitive scopes by default. They do not delete privacy data directly.
+
+### `permissions`
+
+```bash
+python3 cleanmac.py --json permissions --categories trash,systemLogs
+```
+
+This preflight reports Full Disk Access hints, category permissions, live-root requirements, and execution readiness without changing files.
+
+### `tool-plan` / `tool-execute`
+
+```bash
+python3 cleanmac.py --json tool-plan --tool docker
+python3 cleanmac.py --json tool-execute --tool docker
+```
+
+External-tool integration is allowlisted and dry-run first. `tool-execute` only runs known argv templates and still requires explicit `--execute --yes` for real execution.
+
+### `review`
+
+```bash
+python3 cleanmac.py --json review --input-file /tmp/plan.json --selection-file /tmp/selection.json
+python3 cleanmac.py --json review --input-file /tmp/plan.json --format html > /tmp/review.html
+```
+
+The review command normalizes clean plans, reports, startup/privacy/tool plans, and software uninstall plans into reviewable items. It emits source fingerprints so selections can be validated before dry-run or execution.
+
 ### `analyze`
 
 ```bash
@@ -584,6 +689,11 @@ python3 cleanmac.py list
 
 ```bash
 python3 cleanmac.py --json policy-simulate --plan-file /tmp/plan.json --execute --delete-mode trash
+python3 cleanmac.py --json policy-simulate \
+  --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
+  --execute \
+  --delete-mode trash
 ```
 
 ### `completion`

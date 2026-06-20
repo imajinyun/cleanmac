@@ -24,6 +24,7 @@
 - `cleancli/ai_governance.py`：AI 治理建议与路线验证
 - `cleancli/ai_host_policy.py`：AI 主机允许/拒绝策略
 - `cleancli/ai_eval.py`：AI 评估场景编排与 runner
+- `cleancli/review.py`：把 plan/report/startup/privacy/tool/software 输出归一化为 `cleanmac.review.v1`，生成和校验 `cleanmac.review-selection.v1`，为执行前 selection handoff 提供 source fingerprint。
 - `tests/test_ai_readiness.py`、`tests/test_ai_runbook.py`、`tests/test_ai_self_test.py`、
   `tests/test_ai_decision_matrix.py`、`tests/test_ai_governance.py`、`tests/test_ai_eval.py`、
   `tests/test_ai_host_scenarios.py`、`tests/test_mcp_server.py`：AI/MCP 专项测试
@@ -95,6 +96,8 @@ rm -R "$tmpdir"
 - MCP resources 不能暴露敏感路径或凭证信息
 - 修改 MCP server 后必须运行 `make mcp-smoke` 和 `make ai-host-smoke`
 - AI 工具定义修改后必须运行 `python3 cleanmac.py --json ai-tools` 验证 provider 导出 parity
+- `review` 选择文件只能作为约束输入；`--review-selection-file` 必须搭配 `--plan-file`，校验 source fingerprint 后才允许进入 dry-run / execute 路径，失败必须映射为 `SELECTION_VALIDATION_FAILED`。
+- AI/MCP 的 `cleanmac_dry_run_plan`、`cleanmac_execute_plan`、`cleanmac_policy_simulate` 如暴露 `review_selection_file`，argv_template 必须保留 `--require-plan-context`、Trash 路由和确认门禁，不能绕过 review selection 校验。
 
 ## 高风险模块所有权与必跑测试
 
@@ -128,7 +131,7 @@ python3 -m unittest tests.test_group_containers tests.test_app_protection -v
 
 ### `cleancli/core.py` clean execution
 
-职责：分类选择、候选过滤、budget/max-items、plan replay、execute 前置检查、operation log 汇总。
+职责：分类选择、候选过滤、budget/max-items、plan replay、review-selection constraint、execute 前置检查、operation log 汇总。
 
 修改后必须运行：
 
@@ -138,6 +141,9 @@ python3 -m unittest test_cleanmac.CleanMacCLITests.test_clean_max_delete_budget_
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_clean_max_items_blocks_execute_before_deleting -v
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_require_plan_context_rejects_root_mismatch -v
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_require_plan_context_rejects_home_mismatch -v
+python3 -m unittest test_cleanmac.CleanMacCLITests.test_clean_plan_dry_run_can_be_constrained_by_review_selection -v
+python3 -m unittest test_cleanmac.CleanMacCLITests.test_clean_review_selection_file_must_match_plan_fingerprint -v
+python3 -m unittest test_cleanmac.CleanMacCLITests.test_policy_simulate_includes_review_selection_in_safe_argv -v
 python3 -m unittest tests.test_operation_log -v
 make local-test
 ```

@@ -38,9 +38,10 @@ If Docker is not available locally, include that limitation in the pull request 
 
 - Keep cleanup dry-run by default.
 - Do not add automation that runs `clean --execute` without explicit human action.
-- Keep `--yes`, `--allow-live-root`, budgets, skipped-item gates, bundle policy, Trash routing, and operation logs covered by tests when changing cleanup behavior.
+- Keep `--yes`, `--allow-live-root`, budgets, skipped-item gates, bundle policy, Trash routing, operation logs, plan context checks, and review-selection constraints covered by tests when changing cleanup behavior.
 - Prefer `--delete-mode trash` in examples that demonstrate real cleanup.
-- Update both `README.md` and `README.CN.md` when user-facing commands or safety behavior changes.
+- Update both root summaries (`README.md`, `README.CN.md`) and detailed guides (`docs/doc/README.md`, `docs/doc/README.CN.md`) when user-facing commands, AI/MCP tools, schema contracts, or safety behavior changes.
+- If a change bridges review output to execution (`review`, `--review-selection-file`, `policy-simulate`, or AI tool argv templates), document the source-fingerprint validation and fail-closed behavior.
 
 ## Pull request checklist
 
@@ -54,6 +55,7 @@ If Docker is not available locally, include that limitation in the pull request 
 - [ ] `make ai-governance-smoke` passes.
 - [ ] `make ai-contract-smoke` passes.
 - [ ] `make open-source-smoke` passes.
+- [ ] `make security-smoke` passes when docs or examples mention destructive shell patterns.
 - [ ] AGENTS.md is updated when project map, security rules, or build commands change.
 - [ ] Documentation is updated in both English and Chinese when behavior changes.
 - [ ] The change does not weaken destructive-operation guardrails.
