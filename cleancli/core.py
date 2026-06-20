@@ -46,7 +46,7 @@ from cleancli.ai_versioning import (
 )
 from cleancli.privacy import PRIVACY_SCOPES, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
-from cleancli.review import load_json_file, render_review, render_review_html, validate_review_selection
+from cleancli.review import apply_item_scope, load_json_file, render_review, render_review_html, validate_review_selection
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import render_startup
 from cleancli.tool_adapters import execute_tool, render_tool_plan as render_tool_adapter_plan
@@ -1272,6 +1272,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     review_cmd.add_argument("--selection-input-file", help="Existing review selection JSON to validate and replay.")
     review_cmd.add_argument("--format", choices=("json", "html"), default="json")
     review_cmd.add_argument("--selection-file", help="Write the generated review selection JSON to this path.")
+    review_cmd.add_argument(
+        "--item-scope",
+        choices=("all", "selected", "excluded"),
+        default="all",
+        help="Filter review output items while preserving full selection metadata.",
+    )
     review_cmd.add_argument(
         "--require-valid-selection",
         action="store_true",
@@ -6615,6 +6621,7 @@ def _main_impl(argv: Sequence[str]) -> int:
         )
         if selection_payload:
             review_report["selection_validation"] = validate_review_selection(source_payload, selection_payload)
+        review_report = apply_item_scope(review_report, args.item_scope)
         if args.selection_file:
             Path(args.selection_file).expanduser().write_text(
                 json.dumps(review_report["selection"], indent=2, ensure_ascii=False), encoding="utf-8"

@@ -2106,6 +2106,72 @@ class CleanMacCLITests(unittest.TestCase):
                 ["source-fingerprint-mismatch", "unknown-item-id"],
             )
 
+    def test_review_item_scope_filters_display_items_without_changing_selection(self) -> None:
+        tmp, root, _home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.software-uninstall-plan.v1",
+                        "uninstall_plan": {
+                            "candidates": [
+                                {
+                                    "id": "cache:/tmp/cache",
+                                    "path": "/tmp/cache",
+                                    "kind": "cache",
+                                    "risk": "low",
+                                    "default_selected": True,
+                                },
+                                {
+                                    "id": "history:/tmp/history",
+                                    "path": "/tmp/history",
+                                    "kind": "history",
+                                    "risk": "medium",
+                                    "default_selected": False,
+                                },
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file))
+
+            selected = json.loads(
+                self.run_cli(
+                    "--json",
+                    "review",
+                    "--input-file",
+                    str(plan_file),
+                    "--selection-input-file",
+                    str(selection_file),
+                    "--item-scope",
+                    "selected",
+                ).stdout
+            )
+            excluded = json.loads(
+                self.run_cli(
+                    "--json",
+                    "review",
+                    "--input-file",
+                    str(plan_file),
+                    "--selection-input-file",
+                    str(selection_file),
+                    "--item-scope",
+                    "excluded",
+                ).stdout
+            )
+
+            self.assertEqual(selected["item_view"], {"scope": "selected", "item_count": 1, "source_item_count": 2})
+            self.assertEqual([item["id"] for item in selected["items"]], ["cache:/tmp/cache"])
+            self.assertEqual(selected["selection"]["selected_item_ids"], ["cache:/tmp/cache"])
+            self.assertEqual(selected["selection_summary"]["item_count"], 2)
+            self.assertEqual(excluded["item_view"], {"scope": "excluded", "item_count": 1, "source_item_count": 2})
+            self.assertEqual([item["id"] for item in excluded["items"]], ["history:/tmp/history"])
+            self.assertEqual(excluded["selection"]["selected_item_ids"], ["cache:/tmp/cache"])
+
     def test_review_html_escapes_paths(self) -> None:
         tmp, root, _home = self.make_sandbox()
         with tmp:
