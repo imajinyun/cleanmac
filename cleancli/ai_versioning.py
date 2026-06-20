@@ -97,6 +97,9 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.prompt-injection-policy.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.release-artifact-manifest.v1", 1, "cleancli.release_artifacts", "stable"),
     ("cleanmac.release-readiness.v1", 1, "cleancli.release_readiness", "stable"),
+    ("cleanmac.release-diagnostics.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.release-evidence.v1", 1, "cleancli.release_artifacts", "stable"),
+    ("cleanmac.release-operator-summary.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.review-selection-constraint.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.review-selection-validation.v1", 1, "cleancli.review", "stable"),
     ("cleanmac.review-selection-summary.v1", 1, "cleancli.review", "stable"),
@@ -158,11 +161,22 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.ai-host-tool-call-decision.v1",
     "cleanmac.release-artifact-manifest.v1",
     "cleanmac.release-readiness.v1",
+    "cleanmac.release-diagnostics.v1",
+    "cleanmac.release-evidence.v1",
+    "cleanmac.release-operator-summary.v1",
     "cleanmac.ai-governance-advice.v1",
     "cleanmac.ai-eval-pack.v1",
     "cleanmac.ai-eval-run.v1",
     "cleanmac.ai-contract-validation.v1",
     "cleanmac.ai-contract-validation-summary.v1",
+)
+
+RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
+    "cleanmac.release-artifact-manifest.v1",
+    "cleanmac.release-readiness.v1",
+    "cleanmac.release-diagnostics.v1",
+    "cleanmac.release-evidence.v1",
+    "cleanmac.release-operator-summary.v1",
 )
 
 CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
@@ -949,11 +963,17 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "required": ["id", "passed", "evidence_schema"],
+                    "required": ["id", "passed", "evidence_schema", "severity", "next_actions"],
                     "properties": {
                         "id": {"type": "string"},
                         "passed": {"type": "boolean"},
                         "evidence_schema": {"type": "string"},
+                        "severity": {"type": "string"},
+                        "blocking_code": {"type": "string"},
+                        "next_actions": {
+                            "type": "array",
+                            "items": {"type": "array", "items": {"type": "string"}},
+                        },
                     },
                     "additionalProperties": True,
                 },
@@ -963,6 +983,78 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
                 "items": {"type": "array", "items": {"type": "string"}},
             },
             "review_questions": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.release-diagnostics.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "ready",
+            "failed_gate_ids",
+            "environment",
+            "artifacts",
+            "recommended_commands",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.release-diagnostics.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "failed_gate_ids": {"type": "array", "items": {"type": "string"}},
+            "environment": {"type": "object"},
+            "artifacts": {"type": "object"},
+            "recommended_commands": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.release-evidence.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "ready",
+            "artifact_manifest",
+            "release_readiness",
+            "assets",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.release-evidence.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "artifact_manifest": {"type": "object"},
+            "release_readiness": {"type": "object"},
+            "assets": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.release-operator-summary.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "status",
+            "headline",
+            "failed_gate_count",
+            "must_fix_first",
+            "safe_copy_paste_commands",
+            "release_asset_checklist",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.release-operator-summary.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "status": {"type": "string"},
+            "headline": {"type": "string"},
+            "failed_gate_count": {"type": "integer"},
+            "must_fix_first": {"type": "array", "items": {"type": "object"}},
+            "safe_copy_paste_commands": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+            "release_asset_checklist": {"type": "array", "items": {"type": "string"}},
         },
         "additionalProperties": True,
     },
@@ -1007,6 +1099,43 @@ def _schema_consumers(name: str) -> tuple[str, ...]:
     return ("cli", "mcp")
 
 
+def _schema_owner_area(name: str) -> str:
+    if name in RELEASE_CRITICAL_SCHEMAS or name.startswith("cleanmac.release-"):
+        return "release"
+    if name.startswith("cleanmac.ai-host") or name.startswith("cleanmac.ai-"):
+        return "ai-host"
+    if name.startswith("cleanmac.mcp-"):
+        return "mcp"
+    if "review" in name:
+        return "review"
+    return "execution"
+
+
+def _schema_producer_command(name: str) -> list[str]:
+    commands = {
+        "cleanmac.release-readiness.v1": ["cleanmac", "--json", "release-readiness"],
+        "cleanmac.release-diagnostics.v1": ["cleanmac", "--json", "release-diagnostics"],
+        "cleanmac.release-evidence.v1": ["cleanmac", "--json", "release-evidence"],
+        "cleanmac.release-operator-summary.v1": ["cleanmac", "--json", "release-operator-summary"],
+        "cleanmac.release-artifact-manifest.v1": ["python", "scripts/generate_release_manifest.py"],
+        "cleanmac.ai-schema-registry.v1": ["cleanmac", "--json", "ai-schema-registry"],
+        "cleanmac.ai-contract-samples.v1": ["cleanmac", "--json", "ai-contract-samples"],
+        "cleanmac.ai-contract-validation-summary.v1": ["cleanmac", "--json", "ai-readiness"],
+    }
+    if name in commands:
+        return commands[name]
+    stem = name.removeprefix("cleanmac.").removesuffix(".v1")
+    return ["cleanmac", "--json", stem.replace(".", "-")]
+
+
+def _schema_contract_tests(name: str) -> list[list[str]]:
+    if name in RELEASE_CRITICAL_SCHEMAS:
+        return [["make", "ai-contract-smoke"], ["make", "release-readiness-contract-smoke"]]
+    if name.startswith("cleanmac.ai-") or name.startswith("cleanmac.mcp-"):
+        return [["make", "ai-contract-smoke"]]
+    return []
+
+
 def _schema_entry(name: str, version: int, module: str, stability: str) -> SchemaEntry:
     return SchemaEntry(
         name=name,
@@ -1039,6 +1168,11 @@ def render_ai_schema_registry() -> dict[str, Any]:
                 "unknown_fields": "allowed",
                 "missing_required_fields": "invalid",
             },
+            "owner_area": _schema_owner_area(row.name),
+            "producer_command": _schema_producer_command(row.name),
+            "release_critical": row.name in RELEASE_CRITICAL_SCHEMAS,
+            "sample_covered": row.name in AI_HOST_CRITICAL_SCHEMAS,
+            "contract_tests": _schema_contract_tests(row.name),
         }
         if row.name in CORE_CONTRACT_SCHEMAS:
             entry["json_schema"] = CORE_CONTRACT_SCHEMAS[row.name]
@@ -1058,6 +1192,7 @@ def render_ai_schema_registry() -> dict[str, Any]:
             "preview": "May change without a major bump while marked preview.",
             "internal": "Not part of the public AI host contract; subject to change.",
         },
+        "release_critical_schemas": list(RELEASE_CRITICAL_SCHEMAS),
     }
 
 
@@ -1704,11 +1839,22 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     "id": "ai-host-integration-pack-ready",
                     "passed": True,
                     "evidence_schema": "cleanmac.ai-host-integration-pack.v1",
+                    "severity": "none",
+                    "evidence_ref": {"producer": "cleanmac --json ai-host-integration-pack"},
+                    "diagnostic": "passed",
+                    "next_actions": [["make", "ai-host-smoke"]],
                 },
                 {
                     "id": "release-artifact-manifest-valid",
                     "passed": True,
                     "evidence_schema": "cleanmac.release-artifact-manifest.v1",
+                    "severity": "none",
+                    "evidence_ref": {
+                        "path": "release-assets/ARTIFACT-MANIFEST.json",
+                        "producer": "scripts/generate_release_manifest.py",
+                    },
+                    "diagnostic": "passed",
+                    "next_actions": [["make", "release-artifacts-smoke"]],
                 },
             ],
             "release_gate_commands": [
@@ -1721,6 +1867,43 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 "Did ai-host-preflight pass before tool orchestration?",
                 "Did release artifacts include manifest, SHA256SUMS, SBOM, and Homebrew formula evidence?",
             ],
+        },
+        "cleanmac.release-diagnostics.v1": {
+            "schema": "cleanmac.release-diagnostics.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": False,
+            "failed_gate_ids": ["release-artifact-manifest-valid"],
+            "environment": {"python_version": "3.12.0", "platform": "darwin", "test_mode": True},
+            "artifacts": {
+                "dist_dir": "dist",
+                "assets_dir": "release-assets",
+                "manifest_present": False,
+                "manifest_valid": False,
+                "error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING",
+                "missing_files": ["ARTIFACT-MANIFEST.json"],
+            },
+            "recommended_commands": [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]],
+        },
+        "cleanmac.release-evidence.v1": {
+            "schema": "cleanmac.release-evidence.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "artifact_manifest": {"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
+            "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True, "failed_gate_ids": []},
+            "assets": {"required": ["SBOM.json"], "missing": [], "items": []},
+        },
+        "cleanmac.release-operator-summary.v1": {
+            "schema": "cleanmac.release-operator-summary.v1",
+            "destructive": False,
+            "dry_run": True,
+            "status": "ready",
+            "headline": "Release ready for governed publish",
+            "failed_gate_count": 0,
+            "must_fix_first": [],
+            "safe_copy_paste_commands": [["make", "release-readiness-smoke"], ["make", "release-check"]],
+            "release_asset_checklist": ["SBOM.json", "SHA256SUMS", "ARTIFACT-MANIFEST.json"],
         },
     }
     if schema_name == "cleanmac.ai-contract-validation-summary.v1":
@@ -1770,6 +1953,9 @@ def render_ai_contract_validation_summary() -> dict[str, Any]:
     missing_schema_fragments = [
         schema_name for schema_name in AI_HOST_CRITICAL_SCHEMAS if schema_name not in CORE_CONTRACT_SCHEMAS
     ]
+    release_critical_missing_fragments = [
+        schema_name for schema_name in RELEASE_CRITICAL_SCHEMAS if schema_name not in CORE_CONTRACT_SCHEMAS
+    ]
     registry = render_ai_schema_registry()
     stable_ai_schemas = [
         entry["name"]
@@ -1814,6 +2000,14 @@ def render_ai_contract_validation_summary() -> dict[str, Any]:
             "stable_ai_schema_count": len(stable_ai_schemas),
             "stable_ai_schema_fragment_count": len(stable_ai_schema_fragments),
             "missing_stable_ai_schema_fragments": missing_schema_fragments,
+            "release_critical_schemas": list(RELEASE_CRITICAL_SCHEMAS),
+            "release_critical_schema_count": len(RELEASE_CRITICAL_SCHEMAS),
+            "missing_release_critical_contract_fragments": release_critical_missing_fragments,
+            "schemas_without_sample_payload": [
+                schema_name
+                for schema_name in AI_HOST_CRITICAL_SCHEMAS
+                if _sample_payload_for_schema(schema_name) == {"schema": schema_name}
+            ],
         },
         "results": results,
     }

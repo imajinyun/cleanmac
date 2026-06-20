@@ -51,6 +51,9 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/host-integration-pack", pack["mcp"]["resources"])
         self.assertIn("cleanmac://ai/host-evidence", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/readiness", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://release/diagnostics", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://release/evidence", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://release/operator-summary", pack["mcp"]["resources"])
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
     def test_pack_validates_against_registered_contract_schema(self) -> None:

@@ -106,6 +106,11 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("json_schema", entries["cleanmac.release-artifact-manifest.v1"])
         self.assertIn("cleanmac.release-readiness.v1", entries)
         self.assertIn("json_schema", entries["cleanmac.release-readiness.v1"])
+        self.assertIn("cleanmac.release-diagnostics.v1", entries)
+        self.assertIn("cleanmac.release-evidence.v1", entries)
+        self.assertIn("cleanmac.release-operator-summary.v1", entries)
+        self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
+        self.assertEqual(entries["cleanmac.release-evidence.v1"]["owner_area"], "release")
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
         from cleancli.ai_versioning import (
@@ -186,6 +191,8 @@ class AISchemaRegistryTests(unittest.TestCase):
                     "id": "ai-host-preflight-ready",
                     "passed": True,
                     "evidence_schema": "cleanmac.ai-host-preflight.v1",
+                    "severity": "none",
+                    "next_actions": [["make", "ai-host-smoke"]],
                 }
             ],
             "release_gate_commands": [["make", "ai-host-smoke"]],
@@ -197,6 +204,29 @@ class AISchemaRegistryTests(unittest.TestCase):
         invalid_gate_report = validate_contract_payload("cleanmac.release-readiness.v1", invalid_release_readiness)
         self.assertFalse(invalid_gate_report["valid"])
         self.assertEqual(invalid_gate_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+
+        release_diagnostics = {
+            "schema": "cleanmac.release-diagnostics.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": False,
+            "failed_gate_ids": ["release-artifact-manifest-valid"],
+            "environment": {"platform": "darwin"},
+            "artifacts": {"error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING"},
+            "recommended_commands": [["make", "release-artifacts-smoke"]],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.release-diagnostics.v1", release_diagnostics)["valid"])
+
+        release_evidence = {
+            "schema": "cleanmac.release-evidence.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "artifact_manifest": {"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
+            "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True},
+            "assets": {"required": ["SBOM.json"], "missing": []},
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"])
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")

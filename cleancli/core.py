@@ -46,7 +46,7 @@ from cleancli.ai_versioning import (
 )
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
-from cleancli.release_artifacts import verify_release_artifact_manifest
+from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
 from cleancli.release_readiness import render_release_readiness
 from cleancli.review import (
     apply_item_scope,
@@ -1454,6 +1454,54 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=None,
         help="Override the release assets directory used for manifest verification.",
     )
+    release_diagnostics_parser = subparsers.add_parser(
+        "release-diagnostics",
+        help="Emit release readiness diagnostics and recommended recovery commands.",
+    )
+    release_diagnostics_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for release diagnostics.",
+    )
+    release_diagnostics_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for diagnostics.",
+    )
+    release_evidence_parser = subparsers.add_parser(
+        "release-evidence",
+        help="Emit release evidence bundle tying artifacts, readiness, contracts, and AI Host evidence together.",
+    )
+    release_evidence_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for release evidence.",
+    )
+    release_evidence_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for evidence.",
+    )
+    release_operator_summary_parser = subparsers.add_parser(
+        "release-operator-summary",
+        help="Emit a compact release operator summary with first-fix commands.",
+    )
+    release_operator_summary_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for the operator summary.",
+    )
+    release_operator_summary_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for the operator summary.",
+    )
     subparsers.add_parser(
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
@@ -1534,6 +1582,9 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-preflight",
         "ai-host-evidence",
         "release-readiness",
+        "release-diagnostics",
+        "release-evidence",
+        "release-operator-summary",
         "ai-schema-registry",
         "ai-contract-samples",
         "ai-validate-contract",
@@ -2704,6 +2755,9 @@ def render_release_manifest_evidence(*, dist_dir: Path | None = None, assets_dir
             "schema": "cleanmac.release-artifact-manifest.v1",
             "valid": False,
             "path": str(manifest_path),
+            "dist_dir": str(resolved_dist_dir),
+            "assets_dir": str(resolved_assets_dir),
+            "error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING",
             "error": "release artifact manifest is missing; run make release-artifacts-smoke before release review",
         }
     try:
@@ -2718,10 +2772,15 @@ def render_release_manifest_evidence(*, dist_dir: Path | None = None, assets_dir
             "schema": "cleanmac.release-artifact-manifest.v1",
             "valid": False,
             "path": str(manifest_path),
+            "dist_dir": str(resolved_dist_dir),
+            "assets_dir": str(resolved_assets_dir),
+            "error_code": "RELEASE_ARTIFACT_MANIFEST_INVALID",
             "error": str(exc),
         }
     manifest["valid"] = True
     manifest["path"] = str(manifest_path)
+    manifest["dist_dir"] = str(resolved_dist_dir)
+    manifest["assets_dir"] = str(resolved_assets_dir)
     return manifest
 
 
@@ -2767,6 +2826,107 @@ def render_release_readiness_report(
         release_manifest=render_release_manifest_evidence(dist_dir=dist_dir, assets_dir=assets_dir),
         required_make_targets=required_make_targets,
     )
+
+
+def _release_dirs(dist_dir: Path | None = None, assets_dir: Path | None = None) -> tuple[Path, Path]:
+    project_root = Path(__file__).resolve().parent.parent
+    return dist_dir or project_root / "dist", assets_dir or project_root / "release-assets"
+
+
+def render_release_evidence_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    contract_validation = render_ai_contract_validation_summary()
+    contract_validation["ready"] = bool(contract_validation.get("valid"))
+    return build_release_evidence_bundle(
+        dist_dir=resolved_dist_dir,
+        assets_dir=resolved_assets_dir,
+        release_readiness=render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir),
+        contract_validation=contract_validation,
+        ai_host_evidence=render_ai_host_evidence_report(),
+        eval_smoke=render_ai_eval_smoke_evidence(),
+    )
+
+
+def render_release_diagnostics_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+    manifest = render_release_manifest_evidence(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+    failed_gates = [gate for gate in readiness.get("gates", []) if not gate.get("passed")]
+    return {
+        "schema": "cleanmac.release-diagnostics.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": bool(readiness.get("ready")),
+        "failed_gate_ids": list(readiness.get("failed_gate_ids", [])),
+        "environment": {
+            "python_version": sys.version.split()[0],
+            "platform": sys.platform,
+            "test_mode": is_test_mode(),
+        },
+        "artifacts": {
+            "dist_dir": str(resolved_dist_dir),
+            "assets_dir": str(resolved_assets_dir),
+            "manifest_present": Path(
+                str(manifest.get("path", resolved_assets_dir / "ARTIFACT-MANIFEST.json"))
+            ).is_file(),
+            "manifest_valid": bool(manifest.get("valid")),
+            "error_code": manifest.get("error_code"),
+            "error": manifest.get("error"),
+            "missing_files": ["ARTIFACT-MANIFEST.json"]
+            if manifest.get("error_code") == "RELEASE_ARTIFACT_MANIFEST_MISSING"
+            else [],
+        },
+        "readiness_summary": render_release_readiness_summary(readiness),
+        "failed_gates": failed_gates,
+        "recommended_commands": [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]],
+    }
+
+
+def render_release_operator_summary(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    readiness = render_release_readiness_report(dist_dir=dist_dir, assets_dir=assets_dir)
+    failed_gates = [gate for gate in readiness.get("gates", []) if not gate.get("passed")]
+    first_gate = failed_gates[0] if failed_gates else None
+    return {
+        "schema": "cleanmac.release-operator-summary.v1",
+        "destructive": False,
+        "dry_run": True,
+        "status": "ready" if readiness.get("ready") else "blocked",
+        "headline": "Release ready for governed publish"
+        if readiness.get("ready")
+        else f"Release blocked by {first_gate['id'] if first_gate else 'unknown gate'}",
+        "failed_gate_count": len(failed_gates),
+        "must_fix_first": []
+        if first_gate is None
+        else [
+            {
+                "gate_id": first_gate["id"],
+                "blocking_code": first_gate.get("blocking_code"),
+                "command": (first_gate.get("next_actions") or [["make", "release-readiness-smoke"]])[0],
+            }
+        ],
+        "safe_copy_paste_commands": [["make", "release-readiness-smoke"], ["make", "release-check"]],
+        "release_asset_checklist": [
+            "SBOM.json",
+            "SHA256SUMS",
+            "ARTIFACT-MANIFEST.json",
+            "RELEASE-READINESS.json",
+            "RELEASE-EVIDENCE.json",
+            "cleanmac.rb",
+        ],
+        "readiness_summary": render_release_readiness_summary(readiness),
+    }
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
@@ -6277,7 +6437,10 @@ def render_completion_shell(shell: str) -> str:
         "ai-host-integration-pack": "",
         "ai-host-preflight": "",
         "ai-host-evidence": "",
-        "release-readiness": "",
+        "release-readiness": "--dist-dir --assets-dir",
+        "release-diagnostics": "--dist-dir --assets-dir",
+        "release-evidence": "--dist-dir --assets-dir",
+        "release-operator-summary": "--dist-dir --assets-dir",
         "ai-schema-registry": "",
         "ai-eval-pack": "",
         "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
@@ -6749,6 +6912,33 @@ def _main_impl(argv: Sequence[str]) -> int:
         print(
             json.dumps(
                 render_release_readiness_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-diagnostics":
+        print(
+            json.dumps(
+                render_release_diagnostics_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-evidence":
+        print(
+            json.dumps(
+                render_release_evidence_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-operator-summary":
+        print(
+            json.dumps(
+                render_release_operator_summary(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
                 indent=2,
                 ensure_ascii=False,
             )

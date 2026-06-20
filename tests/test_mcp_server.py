@@ -236,6 +236,9 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/host-preflight", uris)
         self.assertIn("cleanmac://ai/host-evidence", uris)
         self.assertIn("cleanmac://release/readiness", uris)
+        self.assertIn("cleanmac://release/diagnostics", uris)
+        self.assertIn("cleanmac://release/evidence", uris)
+        self.assertIn("cleanmac://release/operator-summary", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -350,6 +353,40 @@ class MckServerTests(unittest.TestCase):
         self.assertFalse(payload["destructive"])
         self.assertTrue(payload["dry_run"])
         self.assertIn(["make", "governed-execution-smoke"], payload["release_gate_commands"])
+
+    def test_resources_read_release_diagnostics_and_evidence(self) -> None:
+        diagnostics = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 80,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://release/diagnostics"},
+            }
+        )
+        diagnostics_payload = json.loads(diagnostics["result"]["contents"][0]["text"])
+        self.assertEqual(diagnostics_payload["schema"], "cleanmac.release-diagnostics.v1")
+
+        evidence = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 81,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://release/evidence"},
+            }
+        )
+        evidence_payload = json.loads(evidence["result"]["contents"][0]["text"])
+        self.assertEqual(evidence_payload["schema"], "cleanmac.release-evidence.v1")
+
+        summary = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 82,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://release/operator-summary"},
+            }
+        )
+        summary_payload = json.loads(summary["result"]["contents"][0]["text"])
+        self.assertEqual(summary_payload["schema"], "cleanmac.release-operator-summary.v1")
 
     def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
         response = _mcp_request(
