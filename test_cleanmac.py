@@ -1991,6 +1991,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(by_label["com.example.agent"]["default_selected"])
             self.assertTrue(by_label["com.example.daemon"]["requires_privilege"])
             self.assertFalse(by_label["com.example.daemon"]["default_selected"])
+            self.assertEqual(audit["recommendation_counts"]["review-disable"], 2)
+            self.assertEqual(audit["risk_counts"], {"high": 1, "medium": 1})
+            self.assertEqual(audit["recommended_next_action"], "review_disable_plan")
             self.assertTrue(validate_contract_payload("cleanmac.startup-audit.v1", audit)["valid"])
 
             plan = json.loads(
@@ -2000,6 +2003,8 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(plan["disable_plan"]["safe_to_auto_execute"])
             self.assertEqual(plan["disable_plan"]["candidate_count"], 2)
             self.assertEqual(plan["disable_plan"]["default_selected_count"], 1)
+            self.assertEqual(plan["disable_plan"]["requires_privilege_count"], 1)
+            self.assertEqual(plan["disable_plan"]["risk_counts"], {"high": 1, "medium": 1})
             self.assertTrue(validate_contract_payload("cleanmac.startup-plan.v1", plan)["valid"])
 
     def test_privacy_inspect_and_plan_preserve_sensitive_scopes_by_default(self) -> None:
@@ -2015,6 +2020,10 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(any(item["application"] == "Chrome" for item in cache_report["candidates"]))
             self.assertTrue(all(item["scope"] == "cache" for item in cache_report["candidates"]))
             self.assertTrue(any(item["default_selected"] for item in cache_report["candidates"]))
+            self.assertEqual(cache_report["scope_counts"], {"cache": cache_report["candidate_count"]})
+            self.assertGreaterEqual(cache_report["application_counts"]["Chrome"], 1)
+            self.assertEqual(cache_report["privacy_risk_counts"], {"low": cache_report["candidate_count"]})
+            self.assertEqual(cache_report["recommended_next_action"], "review_privacy_plan")
             self.assertTrue(validate_contract_payload("cleanmac.privacy-inspect.v1", cache_report)["valid"])
 
             credentials_report = json.loads(
@@ -2026,6 +2035,11 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(credentials_report["privacy_plan"]["safe_to_auto_execute"])
             self.assertGreaterEqual(credentials_report["privacy_plan"]["candidate_count"], 3)
             self.assertEqual(credentials_report["privacy_plan"]["default_selected_count"], 0)
+            self.assertEqual(
+                credentials_report["privacy_plan"]["scope_counts"],
+                {"credentials": credentials_report["privacy_plan"]["candidate_count"]},
+            )
+            self.assertGreaterEqual(credentials_report["privacy_plan"]["privacy_risk_counts"]["critical"], 1)
             self.assertTrue(
                 all(not item["default_selected"] for item in credentials_report["privacy_plan"]["candidates"])
             )

@@ -28,6 +28,14 @@ def _path_size(path: Path) -> int:
         return 0
 
 
+def _count_by(items: list[dict[str, Any]], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        key = str(item.get(field) or "unknown")
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _candidate(
     path: Path,
     *,
@@ -174,6 +182,10 @@ def inspect_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
     home_root = _home_root(root, home)
     all_candidates = _chromium_candidates(home_root) + _firefox_candidates(home_root) + _electron_candidates(home_root)
     candidates = [item for item in all_candidates if normalized_scope == "all" or item["scope"] == normalized_scope]
+    scope_counts = _count_by(candidates, "scope")
+    application_counts = _count_by(candidates, "application")
+    privacy_risk_counts = _count_by(candidates, "privacy_risk")
+    default_selected_count = sum(1 for item in candidates if item["default_selected"])
     return {
         "schema": "cleanmac.privacy-inspect.v1",
         "destructive": False,
@@ -185,6 +197,11 @@ def inspect_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
         "estimated_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
         "candidates": candidates,
         "credential_candidate_count": sum(1 for item in candidates if item["scope"] == "credentials"),
+        "default_selected_count": default_selected_count,
+        "scope_counts": scope_counts,
+        "application_counts": application_counts,
+        "privacy_risk_counts": privacy_risk_counts,
+        "recommended_next_action": "review_privacy_plan" if candidates else "no_action_needed",
     }
 
 
@@ -194,6 +211,9 @@ def plan_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
     for item in candidates:
         if item["scope"] in {"credentials", "history", "cookies", "local-storage"}:
             item["default_selected"] = False
+    scope_counts = _count_by(candidates, "scope")
+    application_counts = _count_by(candidates, "application")
+    privacy_risk_counts = _count_by(candidates, "privacy_risk")
     return {
         "schema": "cleanmac.privacy-plan.v1",
         "destructive": False,
@@ -209,6 +229,9 @@ def plan_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
             "candidate_count": len(candidates),
             "default_selected_count": sum(1 for item in candidates if item["default_selected"]),
             "candidate_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
+            "scope_counts": scope_counts,
+            "application_counts": application_counts,
+            "privacy_risk_counts": privacy_risk_counts,
             "candidates": candidates,
             "preserve_scopes": ["credentials", "cookies", "history", "local-storage"],
         },

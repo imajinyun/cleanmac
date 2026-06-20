@@ -52,6 +52,14 @@ def _startup_locations(root: Path, home: Path) -> list[tuple[str, Path, bool]]:
     ]
 
 
+def _count_by(items: list[dict[str, Any]], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        key = str(item.get(field) or "unknown")
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _item_from_plist(path: Path, *, kind: str, requires_privilege: bool) -> dict[str, Any]:
     plist = _load_plist(path)
     label = str(plist.get("Label") or path.stem)
@@ -133,6 +141,9 @@ def audit_startup(*, root: Path, home: Path) -> dict[str, Any]:
         else:
             entries = sorted(path for path in location.iterdir() if path.exists() or path.is_symlink())
             items.extend(_item_from_directory(path, kind=kind, requires_privilege=requires_privilege) for path in entries)
+    risk_counts = _count_by(items, "risk")
+    recommendation_counts = _count_by(items, "recommendation")
+    kind_counts = _count_by(items, "kind")
     return {
         "schema": "cleanmac.startup-audit.v1",
         "destructive": False,
@@ -144,12 +155,18 @@ def audit_startup(*, root: Path, home: Path) -> dict[str, Any]:
         "items": items,
         "requires_privilege_count": sum(1 for item in items if item["requires_privilege"]),
         "review_disable_count": sum(1 for item in items if item["recommendation"] == "review-disable"),
+        "risk_counts": risk_counts,
+        "recommendation_counts": recommendation_counts,
+        "kind_counts": kind_counts,
+        "recommended_next_action": "review_disable_plan" if recommendation_counts.get("review-disable", 0) else "no_action_needed",
     }
 
 
 def plan_startup(*, root: Path, home: Path) -> dict[str, Any]:
     audit = audit_startup(root=root, home=home)
     candidates = [item for item in audit["items"] if item["recommendation"] == "review-disable"]
+    risk_counts = _count_by(candidates, "risk")
+    kind_counts = _count_by(candidates, "kind")
     return {
         "schema": "cleanmac.startup-plan.v1",
         "destructive": False,
@@ -164,6 +181,9 @@ def plan_startup(*, root: Path, home: Path) -> dict[str, Any]:
             "safe_to_auto_execute": False,
             "candidate_count": len(candidates),
             "default_selected_count": sum(1 for item in candidates if item["default_selected"]),
+            "requires_privilege_count": sum(1 for item in candidates if item["requires_privilege"]),
+            "risk_counts": risk_counts,
+            "kind_counts": kind_counts,
             "candidates": candidates,
             "preserve_recommendations": [
                 item for item in audit["items"] if item["recommendation"] in {"preserve", "already-disabled"}
