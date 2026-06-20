@@ -105,6 +105,17 @@ def _sum_bytes(items: list[dict[str, Any]]) -> int:
     return total
 
 
+def _item_bytes(item: dict[str, Any]) -> int:
+    try:
+        return int(item.get("bytes") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _risk_rank(item: dict[str, Any]) -> int:
+    return {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(str(item.get("risk") or "unknown"), 0)
+
+
 def _selection_summary(items: list[dict[str, Any]], selected_ids: list[str], unknown_item_ids: list[str]) -> dict[str, Any]:
     selected_id_set = set(selected_ids)
     selected_items = [item for item in items if str(item["id"]) in selected_id_set]
@@ -216,8 +227,21 @@ def render_review(
     }
 
 
-def apply_item_scope(review: dict[str, Any], scope: str) -> dict[str, Any]:
+def _sort_items(items: list[dict[str, Any]], selected_ids: set[str], sort: str) -> list[dict[str, Any]]:
+    if sort == "risk-desc":
+        return sorted(items, key=lambda item: (-_risk_rank(item), str(item.get("id") or "")))
+    if sort == "bytes-desc":
+        return sorted(items, key=lambda item: (-_item_bytes(item), str(item.get("id") or "")))
+    if sort == "selected-first":
+        return sorted(items, key=lambda item: (str(item.get("id")) not in selected_ids, str(item.get("id") or "")))
+    if sort == "path":
+        return sorted(items, key=lambda item: str(item.get("path") or item.get("id") or ""))
+    return items
+
+
+def apply_item_scope(review: dict[str, Any], scope: str, sort: str = "source") -> dict[str, Any]:
     normalized_scope = scope if scope in {"all", "selected", "excluded"} else "all"
+    normalized_sort = sort if sort in {"source", "risk-desc", "bytes-desc", "selected-first", "path"} else "source"
     items = [item for item in review.get("items", []) if isinstance(item, dict)]
     selection = review.get("selection") if isinstance(review.get("selection"), dict) else {}
     selected_ids = {str(item) for item in selection.get("selected_item_ids", []) if item is not None}
@@ -227,11 +251,13 @@ def apply_item_scope(review: dict[str, Any], scope: str) -> dict[str, Any]:
         scoped_items = [item for item in items if str(item.get("id")) not in selected_ids]
     else:
         scoped_items = items
+    scoped_items = _sort_items(scoped_items, selected_ids, normalized_sort)
     scoped = dict(review)
     scoped["items"] = scoped_items
     scoped["item_count"] = len(scoped_items)
     scoped["item_view"] = {
         "scope": normalized_scope,
+        "sort": normalized_sort,
         "item_count": len(scoped_items),
         "source_item_count": len(items),
     }

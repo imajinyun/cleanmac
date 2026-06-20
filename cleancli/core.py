@@ -1279,6 +1279,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Filter review output items while preserving full selection metadata.",
     )
     review_cmd.add_argument(
+        "--item-sort",
+        choices=("source", "risk-desc", "bytes-desc", "selected-first", "path"),
+        default="source",
+        help="Sort review output items without changing selection metadata.",
+    )
+    review_cmd.add_argument(
         "--require-valid-selection",
         action="store_true",
         help="Exit non-zero when --selection-input-file does not match the reviewed source or contains invalid IDs.",
@@ -6621,7 +6627,7 @@ def _main_impl(argv: Sequence[str]) -> int:
         )
         if selection_payload:
             review_report["selection_validation"] = validate_review_selection(source_payload, selection_payload)
-        review_report = apply_item_scope(review_report, args.item_scope)
+        review_report = apply_item_scope(review_report, args.item_scope, args.item_sort)
         if args.selection_file:
             Path(args.selection_file).expanduser().write_text(
                 json.dumps(review_report["selection"], indent=2, ensure_ascii=False), encoding="utf-8"

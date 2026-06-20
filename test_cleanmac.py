@@ -2164,13 +2164,76 @@ class CleanMacCLITests(unittest.TestCase):
                 ).stdout
             )
 
-            self.assertEqual(selected["item_view"], {"scope": "selected", "item_count": 1, "source_item_count": 2})
+            self.assertEqual(
+                selected["item_view"], {"scope": "selected", "sort": "source", "item_count": 1, "source_item_count": 2}
+            )
             self.assertEqual([item["id"] for item in selected["items"]], ["cache:/tmp/cache"])
             self.assertEqual(selected["selection"]["selected_item_ids"], ["cache:/tmp/cache"])
             self.assertEqual(selected["selection_summary"]["item_count"], 2)
-            self.assertEqual(excluded["item_view"], {"scope": "excluded", "item_count": 1, "source_item_count": 2})
+            self.assertEqual(
+                excluded["item_view"], {"scope": "excluded", "sort": "source", "item_count": 1, "source_item_count": 2}
+            )
             self.assertEqual([item["id"] for item in excluded["items"]], ["history:/tmp/history"])
             self.assertEqual(excluded["selection"]["selected_item_ids"], ["cache:/tmp/cache"])
+
+    def test_review_item_sort_orders_display_items_without_changing_selection(self) -> None:
+        tmp, root, _home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.software-uninstall-plan.v1",
+                        "uninstall_plan": {
+                            "candidates": [
+                                {
+                                    "id": "low-small:/tmp/a",
+                                    "path": "/tmp/a",
+                                    "kind": "cache",
+                                    "risk": "low",
+                                    "bytes": 1,
+                                    "default_selected": True,
+                                },
+                                {
+                                    "id": "critical-medium:/tmp/b",
+                                    "path": "/tmp/b",
+                                    "kind": "history",
+                                    "risk": "critical",
+                                    "bytes": 5,
+                                    "default_selected": False,
+                                },
+                                {
+                                    "id": "medium-large:/tmp/c",
+                                    "path": "/tmp/c",
+                                    "kind": "logs",
+                                    "risk": "medium",
+                                    "bytes": 9,
+                                    "default_selected": False,
+                                },
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            risk_sorted = json.loads(
+                self.run_cli("--json", "review", "--input-file", str(plan_file), "--item-sort", "risk-desc").stdout
+            )
+            bytes_sorted = json.loads(
+                self.run_cli("--json", "review", "--input-file", str(plan_file), "--item-sort", "bytes-desc").stdout
+            )
+            selected_first = json.loads(
+                self.run_cli("--json", "review", "--input-file", str(plan_file), "--item-sort", "selected-first").stdout
+            )
+
+            self.assertEqual(risk_sorted["item_view"]["sort"], "risk-desc")
+            self.assertEqual([item["id"] for item in risk_sorted["items"]], ["critical-medium:/tmp/b", "medium-large:/tmp/c", "low-small:/tmp/a"])
+            self.assertEqual(bytes_sorted["item_view"]["sort"], "bytes-desc")
+            self.assertEqual([item["id"] for item in bytes_sorted["items"]], ["medium-large:/tmp/c", "critical-medium:/tmp/b", "low-small:/tmp/a"])
+            self.assertEqual(selected_first["item_view"]["sort"], "selected-first")
+            self.assertEqual(selected_first["items"][0]["id"], "low-small:/tmp/a")
+            self.assertEqual(selected_first["selection"]["selected_item_ids"], ["low-small:/tmp/a"])
 
     def test_review_html_escapes_paths(self) -> None:
         tmp, root, _home = self.make_sandbox()
