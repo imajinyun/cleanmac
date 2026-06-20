@@ -195,6 +195,11 @@ def render_review(
         "source_fingerprint": source_fingerprint(payload),
         "item_count": len(items),
         "default_selected_count": len(selected),
+        "item_view": {
+            "scope": "all",
+            "item_count": len(items),
+            "source_item_count": len(items),
+        },
         "selection_summary": selection_summary,
         "items": items,
         "selection": {
@@ -209,6 +214,28 @@ def render_review(
             "protected_item_ids": [item_id for item_id in explicit_selected if item_id in protected_ids],
         },
     }
+
+
+def apply_item_scope(review: dict[str, Any], scope: str) -> dict[str, Any]:
+    normalized_scope = scope if scope in {"all", "selected", "excluded"} else "all"
+    items = [item for item in review.get("items", []) if isinstance(item, dict)]
+    selection = review.get("selection") if isinstance(review.get("selection"), dict) else {}
+    selected_ids = {str(item) for item in selection.get("selected_item_ids", []) if item is not None}
+    if normalized_scope == "selected":
+        scoped_items = [item for item in items if str(item.get("id")) in selected_ids]
+    elif normalized_scope == "excluded":
+        scoped_items = [item for item in items if str(item.get("id")) not in selected_ids]
+    else:
+        scoped_items = items
+    scoped = dict(review)
+    scoped["items"] = scoped_items
+    scoped["item_count"] = len(scoped_items)
+    scoped["item_view"] = {
+        "scope": normalized_scope,
+        "item_count": len(scoped_items),
+        "source_item_count": len(items),
+    }
+    return scoped
 
 
 def render_review_with_selection(
