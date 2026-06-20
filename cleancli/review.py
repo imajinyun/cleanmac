@@ -84,6 +84,45 @@ def _string_list(values: list[str] | None) -> list[str]:
     return result
 
 
+def validate_review_selection(payload: dict[str, Any], selection: dict[str, Any]) -> dict[str, Any]:
+    items = normalize_review_items(payload)
+    known_ids = {str(item["id"]) for item in items}
+    protected_ids = {str(item["id"]) for item in items if item["protected"]}
+    selected = _string_list([str(item) for item in selection.get("selected_item_ids", [])])
+    excluded = _string_list([str(item) for item in selection.get("excluded_item_ids", [])])
+    unknown_selected = [item_id for item_id in selected if item_id not in known_ids]
+    unknown_excluded = [item_id for item_id in excluded if item_id not in known_ids]
+    protected_selected = [item_id for item_id in selected if item_id in protected_ids]
+    overlap = [item_id for item_id in selected if item_id in set(excluded)]
+    fingerprint_matches = selection.get("source_fingerprint") == source_fingerprint(payload)
+    blocked_reasons = []
+    if not fingerprint_matches:
+        blocked_reasons.append("source-fingerprint-mismatch")
+    if unknown_selected or unknown_excluded:
+        blocked_reasons.append("unknown-item-id")
+    if protected_selected:
+        blocked_reasons.append("protected-item-selected")
+    if overlap:
+        blocked_reasons.append("item-both-selected-and-excluded")
+    return {
+        "schema": "cleanmac.review-selection-validation.v1",
+        "destructive": False,
+        "dry_run": True,
+        "valid": not blocked_reasons,
+        "source_fingerprint": source_fingerprint(payload),
+        "selection_source_fingerprint": selection.get("source_fingerprint"),
+        "fingerprint_matches": fingerprint_matches,
+        "item_count": len(items),
+        "selected_count": len(selected),
+        "excluded_count": len(excluded),
+        "unknown_selected_item_ids": unknown_selected,
+        "unknown_excluded_item_ids": unknown_excluded,
+        "protected_selected_item_ids": protected_selected,
+        "overlap_item_ids": overlap,
+        "blocked_reasons": blocked_reasons,
+    }
+
+
 def render_review(
     payload: dict[str, Any], *, selected_item_ids: list[str] | None = None, excluded_item_ids: list[str] | None = None
 ) -> dict[str, Any]:
@@ -118,6 +157,18 @@ def render_review(
             "protected_item_ids": [item_id for item_id in explicit_selected if item_id in protected_ids],
         },
     }
+
+
+def render_review_with_selection(
+    payload: dict[str, Any], selection: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    if selection is None:
+        return render_review(payload)
+    selected_ids = [str(item) for item in selection.get("selected_item_ids", [])]
+    excluded_ids = [str(item) for item in selection.get("excluded_item_ids", [])]
+    review = render_review(payload, selected_item_ids=selected_ids, excluded_item_ids=excluded_ids)
+    review["selection_validation"] = validate_review_selection(payload, selection)
+    return review
 
 
 def render_review_html(review: dict[str, Any]) -> str:

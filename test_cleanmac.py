@@ -2018,6 +2018,82 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(validate_contract_payload("cleanmac.review.v1", report)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"])
 
+    def test_review_validates_existing_selection_fingerprint_and_ids(self) -> None:
+        tmp, root, _home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            invalid_selection_file = root / "invalid-selection.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.software-uninstall-plan.v1",
+                        "uninstall_plan": {
+                            "candidates": [
+                                {
+                                    "id": "cache:/tmp/cache",
+                                    "path": "/tmp/cache",
+                                    "kind": "cache",
+                                    "risk": "low",
+                                    "default_selected": True,
+                                },
+                                {
+                                    "id": "logs:/tmp/logs",
+                                    "path": "/tmp/logs",
+                                    "kind": "logs",
+                                    "risk": "low",
+                                    "default_selected": False,
+                                },
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            generated = json.loads(
+                self.run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)).stdout
+            )
+            selection = json.loads(selection_file.read_text(encoding="utf-8"))
+
+            replayed = json.loads(
+                self.run_cli(
+                    "--json",
+                    "review",
+                    "--input-file",
+                    str(plan_file),
+                    "--selection-input-file",
+                    str(selection_file),
+                    "--select-item",
+                    "logs:/tmp/logs",
+                ).stdout
+            )
+
+            self.assertEqual(generated["source_fingerprint"], selection["source_fingerprint"])
+            self.assertTrue(replayed["selection_validation"]["valid"])
+            self.assertEqual(replayed["selection"]["selected_item_ids"], ["cache:/tmp/cache", "logs:/tmp/logs"])
+
+            selection["source_fingerprint"] = "stale"
+            selection["selected_item_ids"].append("missing:item")
+            invalid_selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            invalid = self.run_cli_unchecked(
+                "--json",
+                "review",
+                "--input-file",
+                str(plan_file),
+                "--selection-input-file",
+                str(invalid_selection_file),
+                "--require-valid-selection",
+            )
+            invalid_report = json.loads(invalid.stdout)
+
+            self.assertEqual(invalid.returncode, 1)
+            self.assertFalse(invalid_report["selection_validation"]["valid"])
+            self.assertEqual(
+                invalid_report["selection_validation"]["blocked_reasons"],
+                ["source-fingerprint-mismatch", "unknown-item-id"],
+            )
+
     def test_review_html_escapes_paths(self) -> None:
         tmp, root, _home = self.make_sandbox()
         with tmp:

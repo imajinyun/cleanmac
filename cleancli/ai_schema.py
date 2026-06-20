@@ -374,7 +374,13 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
-        "parameters": object_schema({"input_file": string_schema("JSON plan/report path to review.")}, required=("input_file",)),
+        "parameters": object_schema(
+            {
+                "input_file": string_schema("JSON plan/report path to review."),
+                "selection_input_file": string_schema("Existing cleanmac.review-selection.v1 JSON file to validate/replay."),
+            },
+            required=("input_file",),
+        ),
         "argv_template": ["cleanmac", "--json", "review"],
     },
     {
@@ -997,7 +1003,9 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         input_file = str(args.get("input_file") or "")
         if not input_file:
             raise ValueError("input_file is required")
-        return ["cleanmac", "--json", "review", "--input-file", input_file]
+        argv = ["cleanmac", "--json", "review", "--input-file", input_file]
+        append_option(argv, args, "selection_input_file", "--selection-input-file")
+        return argv
     if name == "cleanmac_scripts":
         argv = ["cleanmac", "--json", "scripts", "--categories", categories_arg(args.get("categories"))]
         append_option(argv, args, "group", "--group")
