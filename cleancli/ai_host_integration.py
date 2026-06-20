@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, mcp_prompt_names
 from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, mcp_resource_uris
 
 
@@ -33,12 +34,14 @@ def render_ai_host_integration_pack(
     recommended_call_sequence = []
     for step in [
         f"read {MCP_RESOURCE_INDEX_URI}",
+        f"read {MCP_PROMPT_INDEX_URI}",
         "read cleanmac://ai/host-integration-pack",
         *list(governance_advice.get("recommended_call_sequence", [])),
     ]:
         if step not in recommended_call_sequence:
             recommended_call_sequence.append(step)
     mcp_resources = mcp_resource_uris()
+    mcp_prompts = mcp_prompt_names()
     ready = bool(
         readiness.get("ready")
         and host_policy.get("valid")
@@ -56,6 +59,8 @@ def render_ai_host_integration_pack(
         "mcp": {
             "resource_uri": "cleanmac://ai/host-integration-pack",
             "resources": mcp_resources,
+            "prompt_index_uri": MCP_PROMPT_INDEX_URI,
+            "prompts": mcp_prompts,
             "transport": "stdio",
             "uses_shell": False,
         },
@@ -90,6 +95,7 @@ def render_ai_host_preflight(
     contract_validation = integration_pack.get("contract_validation", {})
     mcp = integration_pack.get("mcp", {})
     resources = mcp.get("resources", []) if isinstance(mcp, Mapping) else []
+    prompts = mcp.get("prompts", []) if isinstance(mcp, Mapping) else []
     checks = [
         {
             "id": "integration-pack-ready",
@@ -112,6 +118,9 @@ def render_ai_host_preflight(
                 runtime_policy_schema_registered
                 and isinstance(resources, list)
                 and MCP_RESOURCE_INDEX_URI in resources
+                and MCP_PROMPT_INDEX_URI in resources
+                and isinstance(prompts, list)
+                and "review-ai-host-policy" in prompts
                 and "cleanmac://ai/host-integration-pack" in resources
             ),
             "evidence": "cleanmac.ai-host-tool-call-decision.v1",
@@ -126,6 +135,7 @@ def render_ai_host_preflight(
         "entrypoint": {
             "cli": ["cleanmac", "--json", "ai-host-integration-pack"],
             "mcp_resource": "cleanmac://ai/host-integration-pack",
+            "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
         },
         "checks": checks,
         "required_before_destructive_tool": [

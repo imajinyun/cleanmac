@@ -61,8 +61,12 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertIn("cleanmac://release/post-publish-result", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", pack["mcp"]["resources"])
         self.assertIn("cleanmac://mcp/resource-index", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://mcp/prompt-index", pack["mcp"]["resources"])
+        self.assertEqual(pack["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
+        self.assertIn("review-ai-host-policy", pack["mcp"]["prompts"])
         self.assertEqual(pack["recommended_call_sequence"][0], "read cleanmac://mcp/resource-index")
-        self.assertEqual(pack["recommended_call_sequence"][1], "read cleanmac://ai/host-integration-pack")
+        self.assertEqual(pack["recommended_call_sequence"][1], "read cleanmac://mcp/prompt-index")
+        self.assertEqual(pack["recommended_call_sequence"][2], "read cleanmac://ai/host-integration-pack")
         self.assertEqual(len(pack["recommended_call_sequence"]), len(set(pack["recommended_call_sequence"])))
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
@@ -86,6 +90,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertTrue(pack["ready"])
         self.assertEqual(pack["mcp"]["resource_uri"], "cleanmac://ai/host-integration-pack")
+        self.assertEqual(pack["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
 
     def test_readiness_and_governance_recommend_integration_pack_entrypoint(self) -> None:
         pack = render_ai_host_integration_pack_report()
@@ -163,6 +168,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(preflight["ready"], preflight)
         self.assertEqual(preflight["entrypoint"]["cli"], ["cleanmac", "--json", "ai-host-integration-pack"])
         self.assertEqual(preflight["entrypoint"]["mcp_resource"], "cleanmac://ai/host-integration-pack")
+        self.assertEqual(preflight["entrypoint"]["mcp_prompt_index"], "cleanmac://mcp/prompt-index")
         checks = {check["id"]: check for check in preflight["checks"]}
         self.assertTrue(checks["integration-pack-ready"]["passed"])
         self.assertTrue(checks["host-policy-valid"]["passed"])

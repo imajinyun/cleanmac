@@ -314,6 +314,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(result["passed"])
         self.assertEqual(result["observed_schema"], "cleanmac.mcp-smoke.v1")
         self.assertEqual(result["observed_blocking_codes"], [])
+        self.assertGreaterEqual(report["trace"]["event_count"], 7)
 
     def test_ai_eval_run_contract_samples_roundtrip(self) -> None:
         report = self.run_json("ai-eval-run", "--scenario", "contract_samples_roundtrip")

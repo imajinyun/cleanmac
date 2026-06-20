@@ -216,9 +216,12 @@ make mcp-smoke
 
 make mcp-resource-index-smoke
 # ✅ Output: mcp-resource-index-smoke passed
+
+make mcp-prompt-index-smoke
+# ✅ Output: mcp-prompt-index-smoke passed
 ```
 
-AI Hosts should first read `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`). This governed MCP resource index lists every MCP resource URI, schema, category, and safety flag, and all resource payloads are sanitized to avoid leaking local paths or credentials.
+AI Hosts should first read `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`) and `cleanmac://mcp/prompt-index` (`cleanmac.mcp-prompt-index.v1`). These governed MCP indexes list every MCP resource URI, prompt name, schema, category, argument, denied tool, and safety flag; all payloads are sanitized to avoid leaking local paths or credentials.
 
 ### 🧭 AI Workflow Pipeline
 
@@ -840,6 +843,7 @@ Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `je
 python3 -m unittest -v                            # All tests
 python3 -m unittest tests.test_mcp_server -v      # MCP tests only
 make mcp-smoke                                     # MCP smoke test
+make mcp-prompt-index-smoke                       # MCP prompt index contract
 make ai-robustness-smoke                           # AI robustness regressions
 make local-test                                    # Full local suite
 make quality-check                                 # lint + type + coverage
@@ -878,6 +882,7 @@ make no-cache-release-check                        # No-cache release validation
 | `package-smoke` | Editable install |
 | `script-smoke` | Template governance |
 | `mcp-smoke` | MCP tools/list + tools/call |
+| `mcp-prompt-index-smoke` | MCP prompt index schema and safety metadata |
 | `bundle-audit-smoke` | Bundle drift audit |
 | `build-check` | Build wheel/sdist + twine check |
 | `macos-smoke` | macOS-specific tests |
