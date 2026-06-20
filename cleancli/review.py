@@ -32,6 +32,12 @@ def _item_source(payload: dict[str, Any]) -> list[Any]:
     uninstall_plan = report.get("uninstall_plan") if isinstance(report.get("uninstall_plan"), dict) else None
     if uninstall_plan and isinstance(uninstall_plan.get("candidates"), list):
         return list(uninstall_plan["candidates"])
+    disable_plan = report.get("disable_plan") if isinstance(report.get("disable_plan"), dict) else None
+    if disable_plan and isinstance(disable_plan.get("candidates"), list):
+        return list(disable_plan["candidates"])
+    privacy_plan = report.get("privacy_plan") if isinstance(report.get("privacy_plan"), dict) else None
+    if privacy_plan and isinstance(privacy_plan.get("candidates"), list):
+        return list(privacy_plan["candidates"])
     return []
 
 
@@ -48,12 +54,18 @@ def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "path": item.get("path"),
                 "category": item.get("category"),
                 "kind": item.get("kind"),
-                "risk": item.get("risk", "unknown"),
+                "risk": item.get("risk") or item.get("privacy_risk", "unknown"),
+                "privacy_risk": item.get("privacy_risk"),
+                "data_loss_risk": item.get("data_loss_risk"),
+                "recommendation": item.get("recommendation"),
+                "application": item.get("application"),
+                "profile": item.get("profile"),
+                "scope": item.get("scope"),
                 "bytes": item.get("bytes"),
                 "human": item.get("human"),
                 "default_selected": bool(item.get("default_selected", item.get("status") != "failed")),
                 "protected": bool(item.get("protected")),
-                "reason": item.get("reason") or item.get("match_reason"),
+                "reason": item.get("reason") or item.get("match_reason") or item.get("preserve_reason"),
             }
         )
     return rows
