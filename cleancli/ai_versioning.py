@@ -112,6 +112,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.status.snapshot.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.tool-execution-result.v1", 1, "cleancli.tool_adapters", "stable"),
     ("cleanmac.tool-plan.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.privacy-execute-result.v1", 1, "cleancli.privacy", "stable"),
     ("cleanmac.privacy-inspect.v1", 1, "cleancli.privacy", "stable"),
     ("cleanmac.privacy-plan.v1", 1, "cleancli.privacy", "stable"),
     ("cleanmac.validate-plan.v1", 1, "cleancli.core", "stable"),
@@ -138,6 +139,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.startup-audit.v1",
     "cleanmac.startup-disable-result.v1",
     "cleanmac.startup-plan.v1",
+    "cleanmac.privacy-execute-result.v1",
     "cleanmac.privacy-inspect.v1",
     "cleanmac.privacy-plan.v1",
     "cleanmac.review.v1",
@@ -479,6 +481,21 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "valid": {"type": "boolean"},
             "blocked_reasons": {"type": "array", "items": {"type": "string"}},
             "privacy_plan": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.privacy-execute-result.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "root", "home", "review_selection", "results"],
+        "properties": {
+            "schema": {"const": "cleanmac.privacy-execute-result.v1"},
+            "destructive": {"type": "boolean"},
+            "dry_run": {"type": "boolean"},
+            "root": {"type": "string"},
+            "home": {"type": "string"},
+            "scope": {"type": "string"},
+            "review_selection": {"type": "object"},
+            "results": {"type": "array", "items": {"type": "object"}},
         },
         "additionalProperties": True,
     },
@@ -1327,6 +1344,33 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 ],
             },
         },
+        "cleanmac.privacy-execute-result.v1": {
+            "schema": "cleanmac.privacy-execute-result.v1",
+            "destructive": True,
+            "dry_run": False,
+            "root": "/tmp/cleanmac-sandbox",
+            "home": "/Users/tester",
+            "scope": "cache",
+            "review_selection": {
+                "schema": "cleanmac.review-selection-constraint.v1",
+                "source_fingerprint": "a" * 64,
+                "selected_count": 1,
+                "selected_item_ids": [
+                    "privacy:Chrome:Default:cache:/Users/tester/Library/Caches/Google/Chrome/Default/Cache"
+                ],
+            },
+            "result_count": 1,
+            "deleted_count": 1,
+            "results": [
+                {
+                    "id": "privacy:Chrome:Default:cache:/Users/tester/Library/Caches/Google/Chrome/Default/Cache",
+                    "path": "/Users/tester/Library/Caches/Google/Chrome/Default/Cache",
+                    "scope": "cache",
+                    "status": "deleted",
+                    "executed": True,
+                }
+            ],
+        },
         "cleanmac.review.v1": {
             "schema": "cleanmac.review.v1",
             "destructive": False,
@@ -1420,7 +1464,10 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "schema": "cleanmac.ai-host-policy.v1",
             "valid": True,
             "default_decision": "deny",
-            "auto_call": {"allow": [], "deny": ["cleanmac_execute_plan"]},
+            "auto_call": {
+                "allow": [],
+                "deny": ["cleanmac_execute_plan", "cleanmac_startup_disable", "cleanmac_privacy_execute"],
+            },
             "execution_gate": {"auto_call_allowed": False},
         },
         "cleanmac.ai-governance-advice.v1": {

@@ -13,7 +13,7 @@
 # 🧪 安全预览
 python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 10
 
-# 🤖 AI 工具清单（33 个工具）
+# 🤖 AI 工具清单（34 个工具）
 python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 
 # 🧭 安全工作流（AI 推荐入口）
@@ -29,7 +29,7 @@ python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope
 | 🏷️ | 说明 |
 |---|---|
 | 🧹 **Dry-run 优先** | 所有清理命令默认只预览，不删除任何文件 |
-| 🤖 **AI 原生 · 33 个工具** | 输出 Anthropic / OpenAI / MCP 格式的完整工具定义 |
+| 🤖 **AI 原生 · 34 个工具** | 输出 Anthropic / OpenAI / MCP 格式的完整工具定义 |
 | 🏗️ **MCP Server** | 内置 Model Context Protocol stdio server，即开即用 |
 | 🔐 **多层安全门禁** | Bundle 保护、预算上限、Trash 可恢复、执行确认令牌 |
 | 🧾 **审查到执行契约** | `review` 选择文件可通过 `--review-selection-file` 约束计划 replay |

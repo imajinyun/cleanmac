@@ -1162,10 +1162,11 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     .get("text", "")
                 )
                 mcp_passed = bool(
-                    len(tools) == 33
+                    len(tools) == 34
                     and "cleanmac_capabilities" in tool_names
                     and "cleanmac_execute_plan" in tool_names
                     and "cleanmac_startup_disable" in tool_names
+                    and "cleanmac_privacy_execute" in tool_names
                     and "cleanmac://capabilities" in resource_uris
                     and "cleanmac://ai/host-policy" in resource_uris
                     and "safe-cleanup-review" in prompt_names
@@ -1175,6 +1176,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and host_policy.get("valid") is True
                     and "cleanmac_execute_plan" in host_policy.get("auto_call", {}).get("deny", [])
                     and "cleanmac_startup_disable" in host_policy.get("auto_call", {}).get("deny", [])
+                    and "cleanmac_privacy_execute" in host_policy.get("auto_call", {}).get("deny", [])
                     and "cleanmac://ai/host-policy" in policy_prompt_text
                     and "cleanmac_execute_plan" in policy_prompt_text
                 )

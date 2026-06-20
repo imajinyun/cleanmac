@@ -34,9 +34,15 @@ class AIGovernanceTests(unittest.TestCase):
         self.assertEqual(self.report["governance_score"]["level"], "strong")
         self.assertFalse(self.report["default_policy"]["shell_allowed"])
         self.assertIn("cleanmac_execute_plan", self.report["default_policy"]["auto_call_denied_tools"])
+        self.assertIn("cleanmac_startup_disable", self.report["default_policy"]["auto_call_denied_tools"])
+        self.assertIn("cleanmac_privacy_execute", self.report["default_policy"]["auto_call_denied_tools"])
         self.assertIn("cleanmac_capabilities", self.report["default_policy"]["auto_call_allowed_tools"])
         self.assertIn(
             "cleanmac_execute_plan",
+            self.report["default_policy"]["human_confirmation_required_for"],
+        )
+        self.assertIn(
+            "cleanmac_privacy_execute",
             self.report["default_policy"]["human_confirmation_required_for"],
         )
 
@@ -59,6 +65,10 @@ class AIGovernanceTests(unittest.TestCase):
         self.assertEqual(recommendations["deny-auto-destructive"]["status"], "satisfied")
         self.assertIn(
             "cleanmac_execute_plan",
+            recommendations["deny-auto-destructive"]["blocked_tools"],
+        )
+        self.assertIn(
+            "cleanmac_privacy_execute",
             recommendations["deny-auto-destructive"]["blocked_tools"],
         )
         self.assertEqual(recommendations["dry-run-token-gate"]["status"], "satisfied")

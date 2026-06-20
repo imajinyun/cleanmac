@@ -44,7 +44,7 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
-from cleancli.privacy import PRIVACY_SCOPES, render_privacy
+from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.review import (
     apply_item_scope,
@@ -1002,6 +1002,8 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
         "Review selection is invalid" in message
         or "--review-selection-file requires --plan-file" in message
         or "startup disable requires --review-selection-file" in message
+        or "privacy execute requires --plan-file" in message
+        or "privacy execute requires --review-selection-file" in message
     ):
         code = "SELECTION_VALIDATION_FAILED"
     elif "live root '/'" in message:
@@ -1270,13 +1272,29 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Append JSONL audit records when startup disable is evaluated.",
     )
 
-    privacy_cmd = subparsers.add_parser("privacy", help="Privacy data inspection and cleanup planning.")
-    privacy_cmd.add_argument("action", nargs="?", choices=("inspect", "plan"), default="inspect")
+    privacy_cmd = subparsers.add_parser(
+        "privacy", help="Privacy data inspection, cleanup planning, and governed cleanup."
+    )
+    privacy_cmd.add_argument("action", nargs="?", choices=("inspect", "plan", "execute"), default="inspect")
     privacy_cmd.add_argument(
         "--scope",
         choices=PRIVACY_SCOPES,
         default="all",
         help="Privacy data scope to inspect or plan: all, cache, cookies, history, local-storage, credentials.",
+    )
+    privacy_cmd.add_argument("--plan-file", help="cleanmac.privacy-plan.v1 file to execute or dry-run cleanup against.")
+    privacy_cmd.add_argument(
+        "--review-selection-file",
+        help="cleanmac.review-selection.v1 file that selects privacy cleanup items from the plan.",
+    )
+    privacy_cmd.add_argument(
+        "--execute", action="store_true", help="Permanently delete selected privacy cleanup candidates."
+    )
+    privacy_cmd.add_argument("--yes", action="store_true", help="Confirm governed privacy cleanup execution.")
+    privacy_cmd.add_argument(
+        "--operation-log",
+        default=OPERATIONS_LOG_FILE,
+        help="Append JSONL audit records when privacy cleanup is evaluated.",
     )
 
     permissions_cmd = subparsers.add_parser(
@@ -6726,6 +6744,32 @@ def _main_impl(argv: Sequence[str]) -> int:
         )
         return 0
     if args.command == "privacy":
+        if args.action == "execute":
+            if not args.plan_file:
+                raise SystemExit("privacy execute requires --plan-file.")
+            if not args.review_selection_file:
+                raise SystemExit("privacy execute requires --review-selection-file.")
+            review_selection = review_selection_constraints(args.plan_file, args.review_selection_file)
+            operation_log_status = preflight_operation_log(args.operation_log, root=root, home=home)
+            if operation_log_status["status"] != "ready":
+                raise SystemExit(
+                    f"Refusing to execute privacy cleanup because operation log preflight failed: {operation_log_status['error']}"
+                )
+            report = execute_privacy_cleanup(
+                load_json_file(args.plan_file),
+                review_selection=review_selection or {},
+                execute=args.execute,
+                yes=args.yes,
+                root=root,
+                home=home,
+                delete_path_func=lambda path: delete_path(path, root=root, home=home, delete_mode="permanent"),
+            )
+            if report["operation_log_entries"]:
+                report["operation_log"] = append_operation_log(
+                    args.operation_log, report.pop("operation_log_entries"), root=root, home=home, rotate=False
+                )
+            emit_report(report, args=args, command="privacy", root=root, home=home, argv=actual_argv)
+            return 0
         emit_report(
             render_privacy(args.action, scope=args.scope, root=root, home=home),
             args=args,

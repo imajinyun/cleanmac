@@ -117,7 +117,10 @@ class AISchemaRegistryTests(unittest.TestCase):
             "schema": "cleanmac.ai-host-policy.v1",
             "valid": True,
             "default_decision": "deny",
-            "auto_call": {"allow": [], "deny": ["cleanmac_execute_plan"]},
+            "auto_call": {
+                "allow": [],
+                "deny": ["cleanmac_execute_plan", "cleanmac_startup_disable", "cleanmac_privacy_execute"],
+            },
             "execution_gate": {"auto_call_allowed": False},
         }
         self.assertTrue(validate_contract_payload("cleanmac.ai-host-policy.v1", host_policy)["valid"])

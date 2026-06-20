@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -454,6 +456,126 @@ def plan_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
             "candidates": candidates,
             "preserve_scopes": ["credentials", "cookies", "history", "local-storage"],
         },
+    }
+
+
+def _review_selection_audit(review_selection: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.operation-log-review-selection.v1",
+        "selection_file": review_selection.get("selection_file"),
+        "source_plan_file": review_selection.get("source_plan_file"),
+        "source_fingerprint": review_selection.get("source_fingerprint"),
+        "selected_count": review_selection.get("selected_count"),
+        "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+        "validation_valid": review_selection.get("validation", {}).get("valid")
+        if isinstance(review_selection.get("validation"), dict)
+        else None,
+    }
+
+
+def execute_privacy_cleanup(
+    plan: dict[str, Any],
+    *,
+    review_selection: dict[str, Any],
+    execute: bool,
+    yes: bool,
+    root: Path,
+    home: Path,
+    delete_path_func: Callable[[Path], Path | None],
+) -> dict[str, Any]:
+    if plan.get("schema") != "cleanmac.privacy-plan.v1":
+        raise SystemExit("Privacy cleanup requires a cleanmac.privacy-plan.v1 plan file.")
+    if str(plan.get("root")) != _display_path(root):
+        raise SystemExit(f"Plan root mismatch: expected {plan.get('root')} actual {_display_path(root)}")
+    if str(plan.get("home")) != _display_path(home):
+        raise SystemExit(f"Plan home mismatch: expected {plan.get('home')} actual {_display_path(home)}")
+    if execute and not yes:
+        raise SystemExit("Refusing to execute privacy cleanup without --yes. Review privacy plan and selection first.")
+
+    selected_paths = {str(path) for path in review_selection.get("selected_paths", [])}
+    privacy_plan_value = plan.get("privacy_plan")
+    privacy_plan: dict[str, Any] = privacy_plan_value if isinstance(privacy_plan_value, dict) else {}
+    candidates = [item for item in privacy_plan.get("candidates", []) if isinstance(item, dict)]
+    results: list[dict[str, Any]] = []
+    operation_log_entries: list[dict[str, Any]] = []
+    review_audit = _review_selection_audit(review_selection)
+
+    for item in candidates:
+        path = Path(str(item.get("path") or ""))
+        bytes_value = int(item.get("bytes") or 0)
+        status = "planned"
+        reason = None
+        error = None
+        executed = False
+
+        if str(path) not in selected_paths:
+            status = "skipped"
+            reason = "not-in-review-selection"
+        elif execute:
+            try:
+                delete_path_func(path)
+                status = "deleted"
+                executed = True
+            except Exception as exc:
+                status = "failed"
+                reason = "delete-failed"
+                error = str(exc)
+
+        result = {
+            "id": item.get("id"),
+            "path": str(path),
+            "application": item.get("application"),
+            "profile": item.get("profile"),
+            "kind": item.get("kind"),
+            "scope": item.get("scope"),
+            "privacy_risk": item.get("privacy_risk"),
+            "data_loss_risk": item.get("data_loss_risk"),
+            "bytes": bytes_value,
+            "delete_mode": "permanent",
+            "status": status,
+            "reason": reason,
+            "error": error,
+            "executed": executed,
+        }
+        results.append(result)
+        operation_log_entries.append(
+            {
+                "schema": "cleanmac.operation-log-entry.v1",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "action": "privacy-cleanup" if execute else "privacy-cleanup-dry-run",
+                "category": "privacy",
+                "path": str(path),
+                "bytes": bytes_value,
+                "human": str(item.get("human") or ""),
+                "delete_mode": "permanent",
+                "deleted": executed,
+                "status": status,
+                "reason": reason,
+                "root": _display_path(root),
+                "home": _display_path(home),
+                "ai": {
+                    "schema": "cleanmac.operation-log-ai-audit.v1",
+                    "review_selection": review_audit,
+                },
+            }
+        )
+
+    return {
+        "schema": "cleanmac.privacy-execute-result.v1",
+        "destructive": bool(execute),
+        "dry_run": not execute,
+        "root": _display_path(root),
+        "home": _display_path(home),
+        "scope": plan.get("scope"),
+        "review_selection": review_selection,
+        "result_count": len(results),
+        "planned_count": sum(1 for item in results if item["status"] == "planned"),
+        "deleted_count": sum(1 for item in results if item["status"] == "deleted"),
+        "skipped_count": sum(1 for item in results if item["status"] == "skipped"),
+        "failed_count": sum(1 for item in results if item["status"] == "failed"),
+        "safe_to_auto_execute": False,
+        "results": results,
+        "operation_log_entries": operation_log_entries,
     }
 
 

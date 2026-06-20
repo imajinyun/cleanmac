@@ -129,7 +129,7 @@ jobs:
           python -m venv .venv
           $PYTHON -m pip install --upgrade pip
           $PYTHON -m pip install dist/cleanmac-*.whl
-          cleanmac --json capabilities | $PYTHON -m json.tool >/dev/null
+          .venv/bin/cleanmac --json capabilities | $PYTHON -m json.tool >/dev/null
           $PYTHON - <<'PY'
           import hashlib
           from pathlib import Path

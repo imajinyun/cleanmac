@@ -14,12 +14,21 @@ jobs:
     name: Full release and no-cache check
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      PYTHON: .venv/bin/python
+      CLEANMAC_TEST_MODE: "1"
+      CLEANMAC_TEST_NO_AUTH: "1"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # pinned from actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9fcd # pinned from actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Create venv and install release-check dependencies
+        run: |
+          python -m venv .venv
+          $PYTHON -m pip install --upgrade pip
+          $PYTHON -m pip install -e '.[dev,build]'
       - name: Run release check
         run: make release-check
       - name: Run no-cache check

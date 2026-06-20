@@ -383,6 +383,25 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "privacy", "plan"],
     },
     {
+        "name": "cleanmac_privacy_execute",
+        "description": "Permanently delete selected privacy data from a reviewed privacy plan. Requires explicit confirmation.",
+        "risk": "destructive",
+        "auto_call_allowed": False,
+        "requires_confirmation": True,
+        "parameters": object_schema(
+            {
+                "plan_file": string_schema("Path to a cleanmac.privacy-plan.v1 JSON file."),
+                "review_selection_file": string_schema(
+                    "Path to a cleanmac.review-selection.v1 file for this privacy plan."
+                ),
+                "confirmation_phrase": string_schema(f"Must exactly equal: {CONFIRMATION_PHRASE}"),
+                "operation_log": string_schema("JSONL operation log path."),
+            },
+            ("plan_file", "review_selection_file", "confirmation_phrase"),
+        ),
+        "argv_template": ["cleanmac", "--json", "privacy", "execute"],
+    },
+    {
         "name": "cleanmac_tool_plan",
         "description": "Render read-only semantic cleanup plans for external tools.",
         "risk": "readonly",
@@ -628,6 +647,13 @@ def representative_args(name: str) -> dict[str, Any]:
         return {"app": "Example.app"}
     if name in {"cleanmac_privacy_inspect", "cleanmac_privacy_plan"}:
         return {"scope": "cache"}
+    if name == "cleanmac_privacy_execute":
+        return {
+            "plan_file": "/tmp/cleanmac-privacy-plan.json",
+            "review_selection_file": "/tmp/cleanmac-privacy-selection.json",
+            "confirmation_phrase": CONFIRMATION_PHRASE,
+            "operation_log": DEFAULT_OPERATION_LOG,
+        }
     if name == "cleanmac_tool_plan":
         return {"tool": "docker"}
     if name == "cleanmac_tool_execute_dry_run":
@@ -1070,6 +1096,30 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         argv = ["cleanmac", "--json", "privacy", "plan"]
         append_option(argv, args, "scope", "--scope")
         return argv
+    if name == "cleanmac_privacy_execute":
+        if args.get("confirmation_phrase") != CONFIRMATION_PHRASE:
+            raise ValueError("cleanmac_privacy_execute requires explicit user confirmation phrase")
+        plan_file = str(args.get("plan_file") or "")
+        review_selection_file = str(args.get("review_selection_file") or "")
+        if not plan_file:
+            raise ValueError("plan_file is required")
+        if not review_selection_file:
+            raise ValueError("review_selection_file is required")
+        operation_log = str(args.get("operation_log") or DEFAULT_OPERATION_LOG)
+        return [
+            "cleanmac",
+            "--json",
+            "privacy",
+            "execute",
+            "--plan-file",
+            plan_file,
+            "--review-selection-file",
+            review_selection_file,
+            "--execute",
+            "--yes",
+            "--operation-log",
+            operation_log,
+        ]
     if name == "cleanmac_tool_plan":
         argv = ["cleanmac", "--json", "tool-plan"]
         append_option(argv, args, "tool", "--tool")
