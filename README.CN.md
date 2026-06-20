@@ -18,6 +18,9 @@ python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 
 # 🧭 安全工作流（AI 推荐入口）
 python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope selected
+
+# 🗂️ 受治理的 MCP 入口（meta → resource/prompt/tool）
+python3 cleanmac.py --json ai-host-integration-pack | jq '.recommended_call_sequence'
 ```
 
 > 🛡️ **安全原则：** 默认不删除。`clean run` 永远是 dry-run，只有显式 `--execute` 才会真正删除。
@@ -31,6 +34,7 @@ python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope
 | 🧹 **Dry-run 优先** | 所有清理命令默认只预览，不删除任何文件 |
 | 🤖 **AI 原生 · 34 个工具** | 输出 Anthropic / OpenAI / MCP 格式的完整工具定义 |
 | 🏗️ **MCP Server** | 内置 Model Context Protocol stdio server，即开即用 |
+| 🗂️ **受治理的 MCP 索引** | 通过 meta index 汇总 resource、prompt 与 tool 目录 |
 | 🔐 **多层安全门禁** | Bundle 保护、预算上限、Trash 可恢复、执行确认令牌 |
 | 🧾 **审查到执行契约** | `review` 选择文件可通过 `--review-selection-file` 约束 clean、startup 和 privacy 执行 |
 | 🧪 **沙箱演练** | `--root` / `--home` 路径重映射，安全测试清理效果 |

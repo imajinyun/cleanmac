@@ -214,14 +214,30 @@ Verify the server works:
 make mcp-smoke
 # ✅ Output: mcp-smoke passed
 
+make mcp-meta-index-smoke
+# ✅ Output: mcp-meta-index-smoke passed
+
 make mcp-resource-index-smoke
 # ✅ Output: mcp-resource-index-smoke passed
 
 make mcp-prompt-index-smoke
 # ✅ Output: mcp-prompt-index-smoke passed
+
+make mcp-tool-index-smoke
+# ✅ Output: mcp-tool-index-smoke passed
+
+make ai-host-smoke
+# ✅ Output: ai-host-smoke passed
 ```
 
-AI Hosts should first read `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`) and `cleanmac://mcp/prompt-index` (`cleanmac.mcp-prompt-index.v1`). These governed MCP indexes list every MCP resource URI, prompt name, schema, category, argument, denied tool, and safety flag; all payloads are sanitized to avoid leaking local paths or credentials.
+AI Hosts should start with `cleanmac://mcp/meta-index` (`cleanmac.mcp-meta-index.v1`), then follow the governed call sequence to `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`), `cleanmac://mcp/prompt-index` (`cleanmac.mcp-prompt-index.v1`), and `cleanmac://mcp/tool-index` (`cleanmac.mcp-tool-index.v1`).
+
+- `cleanmac://mcp/meta-index` aggregates the governed MCP discovery surface and advertises the recommended call order.
+- `cleanmac://mcp/resource-index` lists every MCP resource URI, schema, category, and safety marker.
+- `cleanmac://mcp/prompt-index` lists every governed prompt with arguments, categories, and MCP-safe flags.
+- `cleanmac://mcp/tool-index` lists every MCP tool with `invocation_mode`, `auto_call_allowed`, `requires_confirmation`, and destructive-policy metadata.
+
+All index payloads are sanitized to avoid leaking local paths or credentials.
 
 ### 🧭 AI Workflow Pipeline
 
@@ -843,7 +859,11 @@ Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `je
 python3 -m unittest -v                            # All tests
 python3 -m unittest tests.test_mcp_server -v      # MCP tests only
 make mcp-smoke                                     # MCP smoke test
+make mcp-meta-index-smoke                         # MCP meta index contract
+make mcp-resource-index-smoke                     # MCP resource index contract
 make mcp-prompt-index-smoke                       # MCP prompt index contract
+make mcp-tool-index-smoke                         # MCP tool index contract
+make ai-host-smoke                                 # AI host integration suite
 make ai-robustness-smoke                           # AI robustness regressions
 make local-test                                    # Full local suite
 make quality-check                                 # lint + type + coverage
@@ -882,7 +902,10 @@ make no-cache-release-check                        # No-cache release validation
 | `package-smoke` | Editable install |
 | `script-smoke` | Template governance |
 | `mcp-smoke` | MCP tools/list + tools/call |
+| `mcp-meta-index-smoke` | MCP meta index over resource, prompt, and tool indexes |
+| `mcp-resource-index-smoke` | MCP resource index schema and safety metadata |
 | `mcp-prompt-index-smoke` | MCP prompt index schema and safety metadata |
+| `mcp-tool-index-smoke` | MCP tool index schema, invocation metadata, and destructive auto-call denial |
 | `bundle-audit-smoke` | Bundle drift audit |
 | `build-check` | Build wheel/sdist + twine check |
 | `macos-smoke` | macOS-specific tests |
@@ -918,13 +941,11 @@ Release artifact verification also emits `cleanmac.release-artifact-manifest.v1`
 
 ### 🤖 CI Configuration
 
-Built-in `.github/workflows/ci.yml` runs on PR and push to `main`:
+Built-in workflow documentation lives directly in `.github/workflows/*.yml`:
 
-- **Quality**: lint, type-check, coverage (Python 3.10–3.13)
-- **Smoke**: local-test, build-check, package, script, docs, governance, open-source, distribution, dependency audit, **MCP smoke**
-- **Security**: unsafe delete patterns, high-risk regression tests, gitleaks
-- **No-cache**: `PIP_NO_CACHE_DIR=1` validation
-- **Docker**: Linux container tests
+- **`.github/workflows/ci.yml`** runs on PR and push to `main` with quality gates, repository smoke, explicit governed MCP index checks (`mcp-meta-index-smoke`, `mcp-resource-index-smoke`, `mcp-prompt-index-smoke`, `mcp-tool-index-smoke`), AI host smoke, security, no-cache validation, and Docker smoke.
+- **`.github/workflows/release.yml`** re-runs the release quality gates, including the governed MCP index smokes and AI host smoke, before building distributions, emitting release evidence, and publishing attestations.
+- **`.github/workflows/nightly.yml`** runs `make release-check` plus `make no-cache-check` on a daily schedule to catch drift outside the PR path.
 
 ---
 

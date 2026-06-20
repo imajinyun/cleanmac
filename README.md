@@ -19,6 +19,9 @@ python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 # 🧭 Safe workflow (recommended AI entry)
 python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope selected
 
+# 🗂️ Governed MCP entrypoint (meta → resource/prompt/tool)
+python3 cleanmac.py --json ai-host-integration-pack | jq '.recommended_call_sequence'
+
 # 🛡️ AI governance release gate
 make ai-governance-smoke
 
@@ -37,6 +40,7 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean run --categor
 | 🧹 **Dry-run first** | All cleanup commands preview only, no files deleted |
 | 🤖 **AI-native · 34 tools** | Full tool definitions in Anthropic / OpenAI / MCP formats |
 | 🏗️ **MCP Server** | Built-in Model Context Protocol stdio server |
+| 🗂️ **Governed MCP indexes** | Meta index leads hosts to resource, prompt, and tool catalogs |
 | 🔐 **Multi-layer safety** | Bundle protection, budgets, Trash recovery, confirmation tokens |
 | 🧾 **Review-to-execution contract** | `review` selections can constrain clean, startup, and privacy execution via `--review-selection-file` |
 | 🛡️ **AI governance gates** | Machine-readable LLM policy, release smoke, anti-pattern checks |

@@ -118,6 +118,18 @@ jobs:
       - name: Run MCP server smoke
         run: make mcp-smoke
 
+      - name: Run MCP meta index smoke
+        run: make mcp-meta-index-smoke
+
+      - name: Run MCP resource index smoke
+        run: make mcp-resource-index-smoke
+
+      - name: Run MCP prompt index smoke
+        run: make mcp-prompt-index-smoke
+
+      - name: Run MCP tool index smoke
+        run: make mcp-tool-index-smoke
+
       - name: Run AI host smoke
         run: make ai-host-smoke
 
