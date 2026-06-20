@@ -96,6 +96,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.plan.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.prompt-injection-policy.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.release-artifact-manifest.v1", 1, "cleancli.release_artifacts", "stable"),
+    ("cleanmac.release-readiness.v1", 1, "cleancli.release_readiness", "stable"),
     ("cleanmac.review-selection-constraint.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.review-selection-validation.v1", 1, "cleancli.review", "stable"),
     ("cleanmac.review-selection-summary.v1", 1, "cleancli.review", "stable"),
@@ -156,6 +157,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.ai-host-evidence.v1",
     "cleanmac.ai-host-tool-call-decision.v1",
     "cleanmac.release-artifact-manifest.v1",
+    "cleanmac.release-readiness.v1",
     "cleanmac.ai-governance-advice.v1",
     "cleanmac.ai-eval-pack.v1",
     "cleanmac.ai-eval-run.v1",
@@ -912,6 +914,46 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.release-readiness.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "ready",
+            "manual_review_required",
+            "readiness_score",
+            "failed_gate_ids",
+            "gates",
+            "release_gate_commands",
+            "review_questions",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.release-readiness.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "manual_review_required": {"type": "boolean"},
+            "readiness_score": {
+                "type": "object",
+                "required": ["passed", "total", "level"],
+                "properties": {
+                    "passed": {"type": "integer"},
+                    "total": {"type": "integer"},
+                    "level": {"type": "string"},
+                },
+                "additionalProperties": True,
+            },
+            "failed_gate_ids": {"type": "array", "items": {"type": "string"}},
+            "gates": {"type": "array", "items": {"type": "object"}},
+            "release_gate_commands": {
+                "type": "array",
+                "items": {"type": "array", "items": {"type": "string"}},
+            },
+            "review_questions": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": True,
+    },
 }
 
 
@@ -1636,6 +1678,37 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 "standalone_zipapp": "smoke-tested outside release upload",
                 "publish_after_cross_platform_verification": True,
             },
+        },
+        "cleanmac.release-readiness.v1": {
+            "schema": "cleanmac.release-readiness.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "manual_review_required": False,
+            "readiness_score": {"passed": 7, "total": 7, "level": "release-ready"},
+            "failed_gate_ids": [],
+            "gates": [
+                {
+                    "id": "ai-host-integration-pack-ready",
+                    "passed": True,
+                    "evidence_schema": "cleanmac.ai-host-integration-pack.v1",
+                },
+                {
+                    "id": "release-artifact-manifest-valid",
+                    "passed": True,
+                    "evidence_schema": "cleanmac.release-artifact-manifest.v1",
+                },
+            ],
+            "release_gate_commands": [
+                ["make", "quality-check"],
+                ["make", "governed-execution-smoke"],
+                ["make", "ai-host-smoke"],
+                ["make", "release-artifacts-smoke"],
+            ],
+            "review_questions": [
+                "Did ai-host-preflight pass before tool orchestration?",
+                "Did release artifacts include manifest, SHA256SUMS, SBOM, and Homebrew formula evidence?",
+            ],
         },
     }
     if schema_name == "cleanmac.ai-contract-validation-summary.v1":

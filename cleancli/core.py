@@ -46,6 +46,8 @@ from cleancli.ai_versioning import (
 )
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
+from cleancli.release_artifacts import verify_release_artifact_manifest
+from cleancli.release_readiness import render_release_readiness
 from cleancli.review import (
     apply_item_scope,
     load_json_file,
@@ -1437,6 +1439,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit auditable AI Host runtime governance evidence pack.",
     )
     subparsers.add_parser(
+        "release-readiness",
+        help="Emit AI Host release readiness gates, evidence status, and review checklist.",
+    )
+    subparsers.add_parser(
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
     )
@@ -1515,6 +1521,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-integration-pack",
         "ai-host-preflight",
         "ai-host-evidence",
+        "release-readiness",
         "ai-schema-registry",
         "ai-contract-samples",
         "ai-validate-contract",
@@ -2405,6 +2412,10 @@ def render_capabilities() -> dict[str, Any]:
             "ai-decision-matrix",
             "ai-governance-advice",
             "ai-host-policy",
+            "ai-host-integration-pack",
+            "ai-host-preflight",
+            "ai-host-evidence",
+            "release-readiness",
             "ai-schema-registry",
             "ai-eval-pack",
             "ai-eval-run",
@@ -2543,6 +2554,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_host_integration_pack": render_ai_host_integration_pack_report(),
         "ai_host_preflight": render_ai_host_preflight_report(),
         "ai_host_evidence": render_ai_host_evidence_report(),
+        "release_readiness": render_release_readiness_report(),
         "ai_schema_registry": render_ai_schema_registry(),
         "ai_eval_pack": render_ai_eval_pack(),
         "ai_self_test": render_ai_self_test(),
@@ -2624,6 +2636,75 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
             {"id": "destructive-missing-confirmation-denied", "decision": destructive_denial},
         ],
         critical_schemas=AI_HOST_CRITICAL_SCHEMAS,
+    )
+
+
+def render_release_manifest_evidence() -> dict[str, Any]:
+    project_root = Path(__file__).resolve().parent.parent
+    manifest_path = project_root / "release-assets" / "ARTIFACT-MANIFEST.json"
+    if not manifest_path.is_file():
+        return {
+            "schema": "cleanmac.release-artifact-manifest.v1",
+            "valid": False,
+            "path": str(manifest_path),
+            "error": "release artifact manifest is missing; run make release-artifacts-smoke before release review",
+        }
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        verify_release_artifact_manifest(
+            manifest,
+            dist_dir=project_root / "dist",
+            assets_dir=project_root / "release-assets",
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "schema": "cleanmac.release-artifact-manifest.v1",
+            "valid": False,
+            "path": str(manifest_path),
+            "error": str(exc),
+        }
+    manifest["valid"] = True
+    manifest["path"] = str(manifest_path)
+    return manifest
+
+
+def render_ai_eval_smoke_evidence() -> dict[str, Any]:
+    eval_pack = render_ai_eval_pack()
+    return {
+        "schema": "cleanmac.ai-eval-run.v1",
+        "scenario": "smoke",
+        "passed": bool(
+            eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
+            and not eval_pack.get("uses_shell")
+            and not eval_pack.get("allows_destructive_execution")
+            and int(eval_pack.get("scenario_count") or 0) > 0
+        ),
+        "passed_count": int(eval_pack.get("scenario_count") or 0),
+        "failed_count": 0,
+        "evidence_source": "ai-eval-pack-static-smoke-readiness",
+        "recommended_runner_command": eval_pack.get("recommended_runner_command"),
+    }
+
+
+def render_release_readiness_report() -> dict[str, Any]:
+    contract_validation = render_ai_contract_validation_summary()
+    contract_validation["ready"] = bool(contract_validation.get("valid"))
+    required_make_targets = [
+        "quality-check",
+        "governed-execution-smoke",
+        "ai-contract-smoke",
+        "mcp-smoke",
+        "ai-host-smoke",
+        "release-artifacts-smoke",
+    ]
+    return render_release_readiness(
+        ai_host_integration_pack=render_ai_host_integration_pack_report(),
+        ai_host_preflight=render_ai_host_preflight_report(),
+        ai_host_evidence=render_ai_host_evidence_report(),
+        contract_validation=contract_validation,
+        eval_smoke=render_ai_eval_smoke_evidence(),
+        release_manifest=render_release_manifest_evidence(),
+        required_make_targets=required_make_targets,
     )
 
 
@@ -6096,6 +6177,10 @@ def render_completion_shell(shell: str) -> str:
         "ai-decision-matrix",
         "ai-governance-advice",
         "ai-host-policy",
+        "ai-host-integration-pack",
+        "ai-host-preflight",
+        "ai-host-evidence",
+        "release-readiness",
         "ai-schema-registry",
         "ai-eval-pack",
         "ai-eval-run",
@@ -6128,6 +6213,10 @@ def render_completion_shell(shell: str) -> str:
         "ai-decision-matrix": "",
         "ai-governance-advice": "",
         "ai-host-policy": "",
+        "ai-host-integration-pack": "",
+        "ai-host-preflight": "",
+        "ai-host-evidence": "",
+        "release-readiness": "",
         "ai-schema-registry": "",
         "ai-eval-pack": "",
         "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
@@ -6585,6 +6674,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-host-evidence":
         print(json.dumps(render_ai_host_evidence_report(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "release-readiness":
+        print(json.dumps(render_release_readiness_report(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-schema-registry":
         print(json.dumps(render_ai_schema_registry(), indent=2, ensure_ascii=False))

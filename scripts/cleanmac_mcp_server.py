@@ -232,6 +232,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://release/readiness",
+            "name": "cleanmac release readiness",
+            "description": "Machine-readable release review bundle aggregating AI Host, contract, eval, and artifact gates.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -265,6 +271,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_host_integration_pack_report,
         render_ai_host_policy_report,
         render_ai_host_preflight_report,
+        render_release_readiness_report,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -300,6 +307,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_host_preflight_report()
     elif uri == "cleanmac://ai/host-evidence":
         payload = render_ai_host_evidence_report()
+    elif uri == "cleanmac://release/readiness":
+        payload = render_release_readiness_report()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":

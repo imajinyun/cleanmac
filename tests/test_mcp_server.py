@@ -235,6 +235,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/host-preflight", uris)
         self.assertIn("cleanmac://ai/host-evidence", uris)
+        self.assertIn("cleanmac://release/readiness", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -333,6 +334,23 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(payload["ready"], payload)
         self.assertIn("runtime_policy_evidence", payload)
 
+    def test_resources_read_release_readiness(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 79,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://release/readiness"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://release/readiness")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.release-readiness.v1")
+        self.assertFalse(payload["destructive"])
+        self.assertTrue(payload["dry_run"])
+        self.assertIn(["make", "governed-execution-smoke"], payload["release_gate_commands"])
+
     def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
         response = _mcp_request(
             {
@@ -381,6 +399,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/host-preflight", uris)
         self.assertIn("cleanmac://ai/host-evidence", uris)
+        self.assertIn("cleanmac://release/readiness", uris)
         self.assertIn("cleanmac://ai/eval-pack", uris)
         self.assertIn("cleanmac://ai/eval-run-smoke", uris)
 
