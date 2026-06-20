@@ -29,6 +29,7 @@ def main() -> int:
     from cleancli.core import render_release_diagnostics_report
     from cleancli.release_artifacts import write_release_artifact_outputs, write_release_evidence_bundle_output
     from cleancli.release_orchestration import (
+        render_release_post_publish_verification,
         render_release_promotion_decision,
         render_release_rehearsal,
         render_release_rollback_plan,
@@ -57,6 +58,13 @@ def main() -> int:
         (assets_dir / "RELEASE-ROLLBACK-PLAN.json").write_text(
             json.dumps(rollback_plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+        post_publish_verification = render_release_post_publish_verification(
+            dist_dir=resolved_dist_dir,
+            assets_dir=assets_dir,
+        )
+        (assets_dir / "RELEASE-POST-PUBLISH-VERIFICATION.json").write_text(
+            json.dumps(post_publish_verification, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         (assets_dir / "RELEASE-REHEARSAL.json").write_text("{}\n", encoding="utf-8")
         release_rehearsal = render_release_rehearsal(
             dist_dir=resolved_dist_dir,
@@ -78,6 +86,7 @@ def main() -> int:
             release_readiness=release_readiness,
             release_rehearsal=release_rehearsal,
             promotion_decision=promotion_decision,
+            post_publish_verification=post_publish_verification,
             rollback_plan=rollback_plan,
         )
     print(json.dumps(manifest, indent=2, sort_keys=True))

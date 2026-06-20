@@ -112,8 +112,10 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.release-rehearsal.v1", entries)
         self.assertIn("cleanmac.release-promotion-decision.v1", entries)
         self.assertIn("cleanmac.release-rollback-plan.v1", entries)
+        self.assertIn("cleanmac.release-post-publish-verification.v1", entries)
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
+        self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
         self.assertEqual(entries["cleanmac.release-evidence.v1"]["owner_area"], "release")
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
@@ -269,6 +271,20 @@ class AISchemaRegistryTests(unittest.TestCase):
             "pre_rollback_checks": [["cleanmac", "--json", "release-diagnostics"]],
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-rollback-plan.v1", rollback_plan)["valid"])
+
+        post_publish = {
+            "schema": "cleanmac.release-post-publish-verification.v1",
+            "destructive": False,
+            "dry_run": True,
+            "manual_only": True,
+            "verification_surfaces": [{"id": "pypi"}],
+            "required_evidence_after_publish": ["GitHub release asset list"],
+            "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],
+            "recommended_commands": [["make", "release-post-publish-smoke"]],
+        }
+        self.assertTrue(
+            validate_contract_payload("cleanmac.release-post-publish-verification.v1", post_publish)["valid"]
+        )
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")

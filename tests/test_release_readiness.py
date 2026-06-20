@@ -10,6 +10,7 @@ from cleancli.core import (
     render_release_evidence_report,
     render_release_manifest_evidence,
     render_release_operator_summary,
+    render_release_post_publish_verification_report,
     render_release_promotion_decision_report,
     render_release_readiness_report,
     render_release_rehearsal_report,
@@ -158,6 +159,8 @@ class ReleaseReadinessTests(unittest.TestCase):
             (assets / "RELEASE-DIAGNOSTICS.json").write_text(json.dumps(diagnostics), encoding="utf-8")
             rollback_plan = render_release_rollback_plan_report(dist_dir=dist, assets_dir=assets)
             (assets / "RELEASE-ROLLBACK-PLAN.json").write_text(json.dumps(rollback_plan), encoding="utf-8")
+            post_publish = render_release_post_publish_verification_report(dist_dir=dist, assets_dir=assets)
+            (assets / "RELEASE-POST-PUBLISH-VERIFICATION.json").write_text(json.dumps(post_publish), encoding="utf-8")
             (assets / "RELEASE-REHEARSAL.json").write_text("{}", encoding="utf-8")
             (assets / "RELEASE-PROMOTION-DECISION.json").write_text("{}", encoding="utf-8")
             rehearsal = render_release_rehearsal_report(dist_dir=dist, assets_dir=assets)
@@ -170,6 +173,9 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(evidence["schema"], "cleanmac.release-evidence.v1")
         self.assertTrue(evidence["ready"], evidence)
         self.assertEqual(evidence["assets"]["missing"], [])
+        self.assertEqual(
+            evidence["post_publish_verification"]["schema"], "cleanmac.release-post-publish-verification.v1"
+        )
 
 
 def test_pytest_release_readiness_fixture_roundtrip_preserves_unittest_gate(tmp_path: Path) -> None:

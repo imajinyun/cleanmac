@@ -274,6 +274,12 @@ def mcp_resources() -> list[dict]:
             "mimeType": "application/json",
         },
         {
+            "uri": "cleanmac://release/post-publish-verification",
+            "name": "cleanmac release post-publish verification",
+            "description": "Manual-only post-publish verification plan for distribution surfaces.",
+            "mimeType": "application/json",
+        },
+        {
             "uri": "cleanmac://ai/eval-pack",
             "name": "cleanmac AI eval pack",
             "description": "Static AI Host integration scenarios and expected safety assertions.",
@@ -313,6 +319,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_release_diagnostics_report,
         render_release_evidence_report,
         render_release_operator_summary,
+        render_release_post_publish_verification_report,
         render_release_promotion_decision_report,
         render_release_readiness_report,
         render_release_rehearsal_report,
@@ -363,6 +370,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_release_promotion_decision_report()
     elif uri == "cleanmac://release/rollback-plan":
         payload = render_release_rollback_plan_report()
+    elif uri == "cleanmac://release/post-publish-verification":
+        payload = render_release_post_publish_verification_report()
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":

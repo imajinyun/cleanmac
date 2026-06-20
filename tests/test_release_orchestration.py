@@ -10,6 +10,7 @@ from pathlib import Path
 from cleancli.core import render_release_readiness_report
 from cleancli.release_artifacts import build_release_artifact_manifest
 from cleancli.release_orchestration import (
+    render_release_post_publish_verification,
     render_release_promotion_decision,
     render_release_rehearsal,
     render_release_rollback_plan,
@@ -41,6 +42,10 @@ def _write_ready_release_assets(root: Path) -> tuple[Path, Path]:
     )
     (assets / "RELEASE-ROLLBACK-PLAN.json").write_text(
         json.dumps({"schema": "cleanmac.release-rollback-plan.v1", "manual_only": True}), encoding="utf-8"
+    )
+    (assets / "RELEASE-POST-PUBLISH-VERIFICATION.json").write_text(
+        json.dumps({"schema": "cleanmac.release-post-publish-verification.v1", "manual_only": True}),
+        encoding="utf-8",
     )
     return dist, assets
 
@@ -97,11 +102,24 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         )
         self.assertNotIn("rm -rf", json.dumps(plan))
 
+    def test_post_publish_verification_is_manual_only_without_destructive_commands(self) -> None:
+        plan = render_release_post_publish_verification(dist_dir="dist", assets_dir="release-assets")
+
+        self.assertEqual(plan["schema"], "cleanmac.release-post-publish-verification.v1")
+        self.assertTrue(plan["manual_only"])
+        self.assertEqual(
+            {surface["id"] for surface in plan["verification_surfaces"]},
+            {"pypi", "github-release", "homebrew-tap"},
+        )
+        self.assertIn(["cleanmac", "--json", "release-rollback-plan"], plan["incident_response_entrypoints"])
+        self.assertNotIn("rm -rf", json.dumps(plan))
+
     def test_cli_emits_release_orchestration_reports(self) -> None:
         commands = {
             "release-rehearsal": "cleanmac.release-rehearsal.v1",
             "release-promotion-decision": "cleanmac.release-promotion-decision.v1",
             "release-rollback-plan": "cleanmac.release-rollback-plan.v1",
+            "release-post-publish-verification": "cleanmac.release-post-publish-verification.v1",
         }
         for command, schema in commands.items():
             with self.subTest(command=command):
