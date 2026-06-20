@@ -1498,6 +1498,12 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "resources/read",
                     "params": {"uri": "cleanmac://ai/host-policy"},
                 },
+                "resources/read resource-index": {
+                    "jsonrpc": "2.0",
+                    "id": 6,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://mcp/resource-index"},
+                },
                 "prompts/get review-ai-host-policy": {
                     "jsonrpc": "2.0",
                     "id": 5,
@@ -1533,6 +1539,14 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     .get("text", "{}")
                 )
                 host_policy = json.loads(host_policy_text)
+                resource_index_text = (
+                    mcp_payloads.get("resources/read resource-index", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                resource_index = json.loads(resource_index_text)
+                indexed_uris = set(resource_index.get("resource_uris", []))
                 policy_prompt_text = (
                     mcp_payloads.get("prompts/get review-ai-host-policy", {})
                     .get("result", {})
@@ -1546,13 +1560,21 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "cleanmac_execute_plan" in tool_names
                     and "cleanmac_startup_disable" in tool_names
                     and "cleanmac_privacy_execute" in tool_names
+                    and "cleanmac://mcp/resource-index" in resource_uris
                     and "cleanmac://capabilities" in resource_uris
                     and "cleanmac://ai/host-policy" in resource_uris
+                    and "cleanmac://release/post-publish-verification" in resource_uris
+                    and "cleanmac://release/post-publish-result" in resource_uris
+                    and "cleanmac://release/post-publish-evidence-template" in resource_uris
                     and "safe-cleanup-review" in prompt_names
                     and "confirm-execution-gate" in prompt_names
                     and "review-ai-host-policy" in prompt_names
                     and host_policy.get("schema") == "cleanmac.ai-host-policy.v1"
                     and host_policy.get("valid") is True
+                    and resource_index.get("schema") == "cleanmac.mcp-resource-index.v1"
+                    and resource_index.get("ready") is True
+                    and resource_uris == indexed_uris
+                    and "/Users/" not in resource_index_text
                     and "cleanmac_execute_plan" in host_policy.get("auto_call", {}).get("deny", [])
                     and "cleanmac_startup_disable" in host_policy.get("auto_call", {}).get("deny", [])
                     and "cleanmac_privacy_execute" in host_policy.get("auto_call", {}).get("deny", [])

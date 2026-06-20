@@ -35,6 +35,10 @@ class AIHostEvidenceTests(unittest.TestCase):
         )
         checks = {check["id"]: check for check in report["evidence_checks"]}
         self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
+        self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
+        self.assertTrue(checks["mcp-resource-catalog-valid"]["passed"])
+        self.assertGreater(report["mcp_resource_catalog"]["resource_count"], 0)
+        self.assertEqual(report["mcp_resource_catalog"]["duplicate_uris"], [])
 
     def test_evidence_includes_runtime_denial_samples(self) -> None:
         report = render_ai_host_evidence_report()
@@ -76,6 +80,9 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertIn(["make", "ai-host-smoke"], report["release_gate_commands"])
         self.assertIn(["make", "release-readiness-smoke"], report["release_gate_commands"])
         self.assertIn(["cleanmac", "--json", "release-readiness"], report["release_gate_commands"])
+        checks = {check["id"]: check for check in report["evidence_checks"]}
+        self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
+        self.assertTrue(checks["mcp-resource-catalog-valid"]["passed"])
 
 
 if __name__ == "__main__":

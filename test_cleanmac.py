@@ -5386,6 +5386,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("governed-execution-smoke:", makefile)
         self.assertIn('run("ai-contract-samples")', makefile)
         self.assertIn('samples["schema"] == "cleanmac.ai-contract-samples.v1"', makefile)
+        self.assertIn("cleanmac.mcp-resource-index.v1", makefile)
+        self.assertIn("mcp-resource-index-smoke:", makefile)
+        self.assertIn('payload["resource_count"] == 28', makefile)
         self.assertIn("contract_samples_roundtrip", makefile)
         self.assertIn('run("ai-eval-run", "--scenario", "contract_samples_roundtrip")', makefile)
         self.assertIn("open-source-smoke:", makefile)
@@ -5413,7 +5416,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-resource-index-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)

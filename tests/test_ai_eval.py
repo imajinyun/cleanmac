@@ -307,7 +307,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(report["selected_scenarios"], ["mcp_resource_prompt_surface"])
         self.assertEqual(report["passed_count"], 1)
         self.assertEqual(report["failed_count"], 0)
-        self.assertGreaterEqual(report["trace"]["event_count"], 5)
+        self.assertGreaterEqual(report["trace"]["event_count"], 6)
 
         result = report["results"][0]
         self.assertEqual(result["id"], "mcp_resource_prompt_surface")

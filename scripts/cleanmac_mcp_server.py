@@ -140,170 +140,50 @@ def resolve_tool_timeout() -> float:
 
 
 def mcp_resources() -> list[dict]:
-    return [
-        {
-            "uri": "cleanmac://capabilities",
-            "name": "cleanmac capabilities",
-            "description": "Full cleanmac capability and AI governance report.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/function-schemas",
-            "name": "cleanmac function schemas",
-            "description": "JSON Schema function definitions for LLM tool calling.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/mcp-tool-catalog",
-            "name": "cleanmac MCP tool catalog",
-            "description": "MCP-compatible tool metadata and argv templates.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/readiness",
-            "name": "cleanmac AI readiness",
-            "description": "AI host readiness report with provider parity and integration status.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/runbook",
-            "name": "cleanmac AI runbook",
-            "description": "Ordered safe workflow phases and execution gate for AI hosts.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/self-test",
-            "name": "cleanmac AI self-test",
-            "description": "Machine-readable AI host integration self-check report.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/tool-decision-matrix",
-            "name": "cleanmac AI tool decision matrix",
-            "description": "Per-tool AI Host decision metadata, MCP annotations, phase, and recovery guidance.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/governance-advice",
-            "name": "cleanmac AI governance advice",
-            "description": "Governance recommendations for safe large-model cleanmac tool calling.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/host-policy",
-            "name": "cleanmac AI host policy",
-            "description": "Machine-readable allow/deny policy for AI Host cleanmac tool calling.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/schema-registry",
-            "name": "cleanmac AI schema registry",
-            "description": "Inventory of cleanmac.*.v* schemas with stability and compatibility policy.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/contract-validation",
-            "name": "cleanmac AI contract validation",
-            "description": "Self-validation report for cleanmac AI/MCP machine-readable contracts.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/contract-samples",
-            "name": "cleanmac AI contract samples",
-            "description": "Sample payloads for critical cleanmac AI/MCP machine-readable contracts.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/host-integration-pack",
-            "name": "cleanmac AI host integration pack",
-            "description": "One-stop AI Host integration metadata with schemas, policy, governance, eval, and samples.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/host-preflight",
-            "name": "cleanmac AI host preflight",
-            "description": "Runtime preflight gate for AI Host cleanmac orchestration.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/host-evidence",
-            "name": "cleanmac AI host evidence",
-            "description": "Auditable runtime governance evidence pack for AI Host release gates.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/readiness",
-            "name": "cleanmac release readiness",
-            "description": "Machine-readable release review bundle aggregating AI Host, contract, eval, and artifact gates.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/diagnostics",
-            "name": "cleanmac release diagnostics",
-            "description": "Structured release readiness diagnostics with blocking codes and recovery commands.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/evidence",
-            "name": "cleanmac release evidence",
-            "description": "Release evidence bundle tying artifacts, readiness, contracts, eval, and AI Host evidence together.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/operator-summary",
-            "name": "cleanmac release operator summary",
-            "description": "Compact release operator summary with first-fix commands and asset checklist.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/rehearsal",
-            "name": "cleanmac release rehearsal",
-            "description": "Dry-run release rehearsal report for promotion evidence review.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/promotion-decision",
-            "name": "cleanmac release promotion decision",
-            "description": "Fail-closed release promotion decision derived from rehearsal evidence.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/rollback-plan",
-            "name": "cleanmac release rollback plan",
-            "description": "Manual-only release rollback plan for distribution surfaces.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/post-publish-verification",
-            "name": "cleanmac release post-publish verification",
-            "description": "Manual-only post-publish verification plan for distribution surfaces.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/post-publish-result",
-            "name": "cleanmac release post-publish result",
-            "description": "Manual-only post-publish verification closure evidence for distribution surfaces.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://release/post-publish-evidence-template",
-            "name": "cleanmac release post-publish evidence template",
-            "description": "Manual-only template for operator-supplied post-publish evidence input.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/eval-pack",
-            "name": "cleanmac AI eval pack",
-            "description": "Static AI Host integration scenarios and expected safety assertions.",
-            "mimeType": "application/json",
-        },
-        {
-            "uri": "cleanmac://ai/eval-run-smoke",
-            "name": "cleanmac AI eval smoke run",
-            "description": "Safe sandbox replay result for the smoke AI Host integration scenarios.",
-            "mimeType": "application/json",
-        },
-    ]
+    ensure_project_root_on_path()
+    from cleancli.mcp_resources import mcp_resource_catalog  # type: ignore[import-untyped]
+
+    return mcp_resource_catalog()
+
+
+SENSITIVE_MCP_KEYS = {
+    "assets_dir",
+    "backup_path",
+    "home",
+    "operation_log",
+    "path",
+    "report_file",
+    "root",
+}
+
+
+def _looks_like_sensitive_local_path(value: str) -> bool:
+    expanded_home = str(Path.home())
+    local_prefixes = ("/Users/", "/private/var/", expanded_home)
+    return any(value == prefix or value.startswith(prefix.rstrip("/") + "/") for prefix in local_prefixes if prefix)
+
+
+def _sanitize_mcp_value(key: str, value: object) -> object:
+    if isinstance(value, dict):
+        return {
+            str(child_key): _sanitize_mcp_value(str(child_key), child_value) for child_key, child_value in value.items()
+        }
+    if isinstance(value, list):
+        return [_sanitize_mcp_value(key, item) for item in value]
+    if isinstance(value, str):
+        lowered_key = key.lower()
+        if any(token in lowered_key for token in ("credential", "password", "secret", "token")):
+            return "<redacted-sensitive-value>"
+        if lowered_key in SENSITIVE_MCP_KEYS and _looks_like_sensitive_local_path(value):
+            return "<redacted-local-path>"
+        if _looks_like_sensitive_local_path(value):
+            return value.replace(str(Path.home()), "<redacted-home>")
+    return value
+
+
+def sanitize_mcp_payload(payload: dict) -> dict:
+    sanitized = _sanitize_mcp_value("payload", payload)
+    return sanitized if isinstance(sanitized, dict) else {"payload": sanitized}
 
 
 def read_mcp_resource(uri: str) -> dict:
@@ -339,8 +219,11 @@ def read_mcp_resource(uri: str) -> dict:
         render_release_rehearsal_report,
         render_release_rollback_plan_report,
     )
+    from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, render_mcp_resource_index  # type: ignore[import-untyped]
 
-    if uri == "cleanmac://capabilities":
+    if uri == MCP_RESOURCE_INDEX_URI:
+        payload = render_mcp_resource_index()
+    elif uri == "cleanmac://capabilities":
         payload = render_capabilities()
     elif uri == "cleanmac://ai/function-schemas":
         payload = ai_schema.render_function_schemas()
@@ -396,6 +279,7 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_eval_run(scenario="smoke", cli=Path(__file__).resolve().parent.parent / "cleanmac.py")
     else:
         raise ValueError(f"Unknown resource URI: {uri}")
+    payload = sanitize_mcp_payload(payload)
     return {
         "uri": uri,
         "mimeType": "application/json",
