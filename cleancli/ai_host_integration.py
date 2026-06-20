@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, mcp_resource_uris
+
 
 def render_ai_host_integration_pack(
     *,
@@ -28,38 +30,15 @@ def render_ai_host_integration_pack(
         ["cleanmac", "--json", "release-readiness"],
         *list(readiness.get("recommended_preflight_commands", [])),
     ]
-    recommended_call_sequence = [
+    recommended_call_sequence = []
+    for step in [
+        f"read {MCP_RESOURCE_INDEX_URI}",
         "read cleanmac://ai/host-integration-pack",
         *list(governance_advice.get("recommended_call_sequence", [])),
-    ]
-    mcp_resources = [
-        "cleanmac://ai/host-integration-pack",
-        "cleanmac://ai/host-preflight",
-        "cleanmac://ai/host-evidence",
-        "cleanmac://release/readiness",
-        "cleanmac://release/diagnostics",
-        "cleanmac://release/evidence",
-        "cleanmac://release/operator-summary",
-        "cleanmac://release/rehearsal",
-        "cleanmac://release/promotion-decision",
-        "cleanmac://release/rollback-plan",
-        "cleanmac://release/post-publish-verification",
-        "cleanmac://release/post-publish-result",
-        "cleanmac://release/post-publish-evidence-template",
-        "cleanmac://capabilities",
-        "cleanmac://ai/function-schemas",
-        "cleanmac://ai/mcp-tool-catalog",
-        "cleanmac://ai/readiness",
-        "cleanmac://ai/runbook",
-        "cleanmac://ai/tool-decision-matrix",
-        "cleanmac://ai/governance-advice",
-        "cleanmac://ai/host-policy",
-        "cleanmac://ai/schema-registry",
-        "cleanmac://ai/contract-validation",
-        "cleanmac://ai/contract-samples",
-        "cleanmac://ai/eval-pack",
-        "cleanmac://ai/eval-run-smoke",
-    ]
+    ]:
+        if step not in recommended_call_sequence:
+            recommended_call_sequence.append(step)
+    mcp_resources = mcp_resource_uris()
     ready = bool(
         readiness.get("ready")
         and host_policy.get("valid")
@@ -132,6 +111,7 @@ def render_ai_host_preflight(
             "passed": bool(
                 runtime_policy_schema_registered
                 and isinstance(resources, list)
+                and MCP_RESOURCE_INDEX_URI in resources
                 and "cleanmac://ai/host-integration-pack" in resources
             ),
             "evidence": "cleanmac.ai-host-tool-call-decision.v1",

@@ -60,6 +60,10 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertIn("cleanmac://release/post-publish-verification", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/post-publish-result", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://mcp/resource-index", pack["mcp"]["resources"])
+        self.assertEqual(pack["recommended_call_sequence"][0], "read cleanmac://mcp/resource-index")
+        self.assertEqual(pack["recommended_call_sequence"][1], "read cleanmac://ai/host-integration-pack")
+        self.assertEqual(len(pack["recommended_call_sequence"]), len(set(pack["recommended_call_sequence"])))
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
     def test_pack_validates_against_registered_contract_schema(self) -> None:
@@ -164,6 +168,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(checks["host-policy-valid"]["passed"])
         self.assertTrue(checks["contract-validation-valid"]["passed"])
         self.assertTrue(checks["mcp-runtime-policy-present"]["passed"])
+        self.assertEqual(checks["mcp-runtime-policy-present"]["evidence"], "cleanmac.ai-host-tool-call-decision.v1")
         self.assertIn("matching_confirmation_token", preflight["required_before_destructive_tool"])
 
     def test_preflight_validates_against_registered_contract_schema(self) -> None:

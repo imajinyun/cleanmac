@@ -227,6 +227,7 @@ class MckServerTests(unittest.TestCase):
         resources = response["result"]["resources"]
         uris = {resource["uri"] for resource in resources}
 
+        self.assertIn("cleanmac://mcp/resource-index", uris)
         self.assertIn("cleanmac://capabilities", uris)
         self.assertIn("cleanmac://ai/function-schemas", uris)
         self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
@@ -246,6 +247,47 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://release/post-publish-result", uris)
         self.assertIn("cleanmac://release/post-publish-evidence-template", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
+        self.assertTrue(all(resource["destructive"] is False for resource in resources))
+        self.assertTrue(all(resource["safe_for_mcp"] is True for resource in resources))
+
+    def test_resources_read_mcp_resource_index(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 91,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://mcp/resource-index"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://mcp/resource-index")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.mcp-resource-index.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["resource_count"], len(payload["resources"]))
+        self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
+        self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
+
+    def test_resources_read_payloads_are_sanitized_for_mcp(self) -> None:
+        sensitive_uris = [
+            "cleanmac://release/readiness",
+            "cleanmac://release/post-publish-result",
+            "cleanmac://release/post-publish-evidence-template",
+        ]
+        for index, uri in enumerate(sensitive_uris, start=92):
+            with self.subTest(uri=uri):
+                response = _mcp_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": index,
+                        "method": "resources/read",
+                        "params": {"uri": uri},
+                    }
+                )
+                text = response["result"]["contents"][0]["text"]
+                self.assertNotIn("/Users/", text)
+                self.assertNotIn("/private/var/", text)
+                self.assertNotIn(str(Path.home()), text)
 
     def test_resources_read_returns_json_content(self) -> None:
         response = _mcp_request(
@@ -396,6 +438,7 @@ class MckServerTests(unittest.TestCase):
 
     def test_resources_read_release_orchestration_reports(self) -> None:
         resources = {
+            "cleanmac://mcp/resource-index": "cleanmac.mcp-resource-index.v1",
             "cleanmac://release/rehearsal": "cleanmac.release-rehearsal.v1",
             "cleanmac://release/promotion-decision": "cleanmac.release-promotion-decision.v1",
             "cleanmac://release/rollback-plan": "cleanmac.release-rollback-plan.v1",

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, validate_mcp_resource_catalog
+
 
 def _all_decisions_denied(samples: Sequence[Mapping[str, Any]]) -> bool:
     return all(
@@ -37,6 +39,7 @@ def render_ai_host_evidence(
 
     mcp = integration_pack.get("mcp", {})
     resources = mcp.get("resources", []) if isinstance(mcp, Mapping) else []
+    resource_validation = validate_mcp_resource_catalog()
     evidence_checks = [
         {
             "id": "integration-pack-ready",
@@ -64,6 +67,16 @@ def render_ai_host_evidence(
             "evidence": "cleanmac://ai/host-evidence",
         },
         {
+            "id": "mcp-resource-index-advertised",
+            "passed": MCP_RESOURCE_INDEX_URI in resources,
+            "evidence": MCP_RESOURCE_INDEX_URI,
+        },
+        {
+            "id": "mcp-resource-catalog-valid",
+            "passed": bool(resource_validation.get("valid")),
+            "evidence": "cleanmac.mcp-resource-index.v1",
+        },
+        {
             "id": "release-readiness-resource-advertised",
             "passed": "cleanmac://release/readiness" in resources,
             "evidence": "cleanmac://release/readiness",
@@ -78,6 +91,7 @@ def render_ai_host_evidence(
         "purpose": "Auditable evidence pack for AI Host runtime governance release gates.",
         "critical_schemas": list(critical_schemas),
         "evidence_checks": evidence_checks,
+        "mcp_resource_catalog": resource_validation,
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),

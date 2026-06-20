@@ -211,7 +211,12 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"cleanmac_c
 ```bash
 make mcp-smoke
 # ✅ 输出：mcp-smoke passed
+
+make mcp-resource-index-smoke
+# ✅ 输出：mcp-resource-index-smoke passed
 ```
+
+AI Host 应先读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）。这个受治理的 MCP 资源索引会列出每个 MCP resource URI、schema、分类和安全标记，并且所有 resource payload 都会经过脱敏，避免泄露本地路径或凭证。
 
 ### 🧭 AI 工作流管线
 
@@ -371,6 +376,7 @@ make ai-governance-smoke
 make ai-contract-smoke
 make ai-host-smoke
 make mcp-smoke
+make mcp-resource-index-smoke
 ```
 
 治理路线会端到端校验 AI 调用策略：入口治理、dry-run-first 默认值、禁止自动调用破坏性工具、执行前置门禁、Prompt Injection 边界、结构化错误恢复、MCP Host 治理、CI/发布门禁、审计可追踪性和反模式检查。

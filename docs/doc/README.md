@@ -213,7 +213,12 @@ Verify the server works:
 ```bash
 make mcp-smoke
 # ✅ Output: mcp-smoke passed
+
+make mcp-resource-index-smoke
+# ✅ Output: mcp-resource-index-smoke passed
 ```
+
+AI Hosts should first read `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`). This governed MCP resource index lists every MCP resource URI, schema, category, and safety flag, and all resource payloads are sanitized to avoid leaking local paths or credentials.
 
 ### 🧭 AI Workflow Pipeline
 
@@ -373,6 +378,7 @@ make ai-governance-smoke
 make ai-contract-smoke
 make ai-host-smoke
 make mcp-smoke
+make mcp-resource-index-smoke
 ```
 
 The governance route enforces the AI calling policy end to end: entrypoint governance, dry-run-first defaults, destructive auto-call denial, execution preflight gates, prompt-injection boundaries, structured error recovery, MCP host governance, CI/release gates, audit traceability, and anti-pattern checks.
