@@ -404,9 +404,12 @@ cleanmac list
 
 ```bash
 brew tap cleanmac/tap
+brew trust cleanmac/tap
 brew install cleanmac
 cleanmac --json capabilities
 ```
+
+Homebrew 6+ refuses to load formulae from untrusted third-party taps. `brew trust cleanmac/tap` trusts this tap explicitly. For a narrower trust scope, use `brew trust --formula cleanmac/tap/cleanmac` before installing.
 
 Release automation generates `release-assets/cleanmac.rb` with `scripts/generate_homebrew_formula.py`, includes it in `cleanmac.release-artifact-manifest.v1`, and validates it with `make homebrew-formula-smoke`. If a future Homebrew core formula with the same name exists, use `brew install cleanmac/tap/cleanmac` to select the tap explicitly.
 

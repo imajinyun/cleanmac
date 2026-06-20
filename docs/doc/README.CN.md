@@ -402,9 +402,12 @@ cleanmac list
 
 ```bash
 brew tap cleanmac/tap
+brew trust cleanmac/tap
 brew install cleanmac
 cleanmac --json capabilities
 ```
+
+Homebrew 6+ 会拒绝加载未信任第三方 tap 中的 formula。`brew trust cleanmac/tap` 会显式信任该 tap；如果只想信任单个 formula，可先执行 `brew trust --formula cleanmac/tap/cleanmac`。
 
 发布自动化会使用 `scripts/generate_homebrew_formula.py` 生成 `release-assets/cleanmac.rb`，把它写入 `cleanmac.release-artifact-manifest.v1`，并通过 `make homebrew-formula-smoke` 校验。若未来 Homebrew core 中存在同名 formula，可使用 `brew install cleanmac/tap/cleanmac` 明确选择 tap。
 
