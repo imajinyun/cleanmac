@@ -5385,12 +5385,13 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("class Cleanmac < Formula", makefile)
         self.assertIn("homebrew_formula", makefile)
         self.assertIn("release-artifacts-smoke:", makefile)
+        self.assertIn("release-readiness-smoke:", makefile)
         self.assertIn("no-cache-check:", makefile)
         self.assertIn("docker-test", makefile)
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5431,6 +5432,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("make ai-governance-smoke", makefile)
         self.assertIn("ai-contract-smoke", makefile)
         self.assertIn("make ai-robustness-smoke", makefile)
+        self.assertIn("make release-readiness-smoke", makefile)
         self.assertIn("make open-source-smoke", makefile)
         self.assertIn("make dependency-audit-smoke", makefile)
         self.assertIn("make no-cache-check", makefile)
@@ -5477,6 +5479,7 @@ class CleanMacCLITests(unittest.TestCase):
             (("ai-host-integration-pack",), "cleanmac.ai-host-integration-pack.v1"),
             (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
             (("ai-schema-registry",), "cleanmac.ai-schema-registry.v1"),
+            (("release-readiness",), "cleanmac.release-readiness.v1"),
             (("ai-contract-samples",), "cleanmac.ai-contract-samples.v1"),
             (("ai-eval-pack",), "cleanmac.ai-eval-pack.v1"),
         ]
@@ -5484,6 +5487,12 @@ class CleanMacCLITests(unittest.TestCase):
         for args, expected_schema in commands:
             with self.subTest(args=args):
                 self.assertEqual(run_main_json(*args)["schema"], expected_schema)
+
+        release_readiness = run_main_json("release-readiness")
+        self.assertFalse(release_readiness["destructive"])
+        self.assertTrue(release_readiness["dry_run"])
+        self.assertIn(["make", "governed-execution-smoke"], release_readiness["release_gate_commands"])
+        self.assertIn("release-artifact-manifest-valid", release_readiness["failed_gate_ids"])
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"

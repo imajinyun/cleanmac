@@ -31,6 +31,7 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.ai-runbook.v1", names)
         self.assertIn("cleanmac.ai-tool-decision-matrix.v1", names)
         self.assertIn("cleanmac.ai-eval-run.v1", names)
+        self.assertIn("cleanmac.release-readiness.v1", names)
         for entry in report["entries"]:
             self.assertIn("name", entry)
             self.assertIn("version", entry)
@@ -103,6 +104,8 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
         self.assertIn("cleanmac.release-artifact-manifest.v1", entries)
         self.assertIn("json_schema", entries["cleanmac.release-artifact-manifest.v1"])
+        self.assertIn("cleanmac.release-readiness.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.release-readiness.v1"])
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
         from cleancli.ai_versioning import (
@@ -169,6 +172,20 @@ class AISchemaRegistryTests(unittest.TestCase):
             "results": [{"id": "discover_readiness", "passed": True}],
         }
         self.assertTrue(validate_contract_payload("cleanmac.ai-eval-run.v1", eval_run)["valid"])
+
+        release_readiness = {
+            "schema": "cleanmac.release-readiness.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "manual_review_required": False,
+            "readiness_score": {"passed": 7, "total": 7, "level": "release-ready"},
+            "failed_gate_ids": [],
+            "gates": [{"id": "ai-host-preflight-ready", "passed": True}],
+            "release_gate_commands": [["make", "ai-host-smoke"]],
+            "review_questions": ["Did ai-host-preflight pass before tool orchestration?"],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.release-readiness.v1", release_readiness)["valid"])
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
