@@ -5354,6 +5354,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("local-test:", makefile)
         self.assertIn("PYTHON=$(PYTHON) ./scripts/test.sh", makefile)
         self.assertIn("pytest-parity-test:", makefile)
+        self.assertIn("pytest-governance-smoke:", makefile)
         self.assertIn("pytest-test:", makefile)
         self.assertIn("pytest-test: pytest-parity-test", makefile)
         self.assertIn('$(PYTHON) -m venv "$$tmpdir/venv"', makefile)
@@ -5361,9 +5362,16 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
         self.assertIn("CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1", makefile)
         self.assertIn(
-            '"$$tmpdir/venv/bin/python" -m pytest test_cleanmac.py tests -q',
+            "PYTEST_SAFE_TARGETS := tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py",
             makefile,
         )
+        self.assertIn(
+            '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_SAFE_TARGETS) -q',
+            makefile,
+        )
+        self.assertIn('assert targets == expected, targets', makefile)
+        self.assertIn('old_all="pytest test_cleanmac.py " + "tests -q"', makefile)
+        self.assertIn("assert old_all not in text", makefile)
         self.assertIn("build-check:", makefile)
         self.assertIn("package-smoke:", makefile)
         self.assertIn("script-smoke:", makefile)
@@ -5404,7 +5412,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5422,7 +5430,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('--cache-dir "$$mypy_cache"', makefile)
         self.assertIn("/tmp/cleanmac-mypy-cache-$$$$", makefile)
         self.assertIn('coverage run --data-file "$$coverage_dir/.coverage"', makefile)
-        self.assertIn('"$$venv_python" -m pytest test_cleanmac.py tests -q -p no:cacheprovider', makefile)
+        self.assertIn('"$$venv_python" -m pytest $(PYTEST_SAFE_TARGETS) -q -p no:cacheprovider', makefile)
         self.assertIn("pip install --no-cache-dir", makefile)
         self.assertIn("[ ! -e .pytest_cache ] || /bin/rm -R .pytest_cache", makefile)
         self.assertIn("./scripts/test.sh", makefile)
@@ -5443,6 +5451,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.command-template-validation.v1", makefile)
         self.assertIn("make docs-smoke", makefile)
         self.assertIn("make governance-smoke", makefile)
+        self.assertIn("make pytest-governance-smoke", makefile)
         self.assertIn("make ai-governance-smoke", makefile)
         self.assertIn("ai-contract-smoke", makefile)
         self.assertIn("make ai-robustness-smoke", makefile)
@@ -5739,13 +5748,12 @@ class CleanMacCLITests(unittest.TestCase):
             "PYTHON=python3 ./scripts/test.sh",
             'python3 -m venv "$tmpdir/venv"',
             '"$tmpdir/venv/bin/python" -m pip install -e',
-            '"$tmpdir/venv/bin/python" -m pytest test_cleanmac.py tests -q',
+            '"$tmpdir/venv/bin/python" -m pytest tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py -q',
             "python3 -m build --wheel --sdist --outdir",
             "python3 -m twine check",
             "-m pip install -e .",
             'cleanmac" --json capabilities',
             "-m json.tool",
-            "python3 -c",
             "template_validation",
             "pip_audit --skip-editable --progress-spinner off",
             "scripts/generate_sbom.py",
