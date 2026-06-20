@@ -6,6 +6,7 @@ import importlib
 import io
 import json
 import os
+import plistlib
 import shlex
 import shutil
 import subprocess
@@ -367,7 +368,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 32
+        EXPECTED_TOOL_COUNT = 33
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -758,6 +759,30 @@ class CleanMacCLITests(unittest.TestCase):
                 "--require-confirmation-token",
                 "--confirmation-token",
                 "cleanmac-confirm-test",
+            ],
+        )
+        self.assertEqual(
+            ai_schema.build_tool_argv(
+                "cleanmac_startup_disable",
+                {
+                    "plan_file": "/tmp/startup-plan.json",
+                    "review_selection_file": "/tmp/startup-selection.json",
+                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                },
+            ),
+            [
+                "cleanmac",
+                "--json",
+                "startup",
+                "disable",
+                "--plan-file",
+                "/tmp/startup-plan.json",
+                "--review-selection-file",
+                "/tmp/startup-selection.json",
+                "--execute",
+                "--yes",
+                "--operation-log",
+                cleancli.OPERATIONS_LOG_FILE,
             ],
         )
         with self.assertRaisesRegex(ValueError, "Unknown cleanmac AI tool"):
@@ -2373,6 +2398,68 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(plan["disable_plan"]["requires_privilege_count"], 1)
             self.assertEqual(plan["disable_plan"]["risk_counts"], {"high": 1, "medium": 1})
             self.assertTrue(validate_contract_payload("cleanmac.startup-plan.v1", plan)["valid"])
+
+    def test_startup_disable_requires_review_selection_and_records_audit(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "startup-plan.json"
+            selection_file = root / "startup-selection.json"
+            operation_log = root / "logs" / "startup-disable.jsonl"
+            plan = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout
+            )
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            review_report = json.loads(
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
+            )
+            selected_id = next(item["id"] for item in review_report["items"] if "com.example.agent" in item["id"])
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = [selected_id]
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] != selected_id
+            ]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            missing_selection = self.run_cli_unchecked(
+                "--root", str(root), "--home", str(home), "--json", "startup", "disable", "--plan-file", str(plan_file)
+            )
+            self.assertNotEqual(missing_selection.returncode, 0)
+            self.assertEqual(json.loads(missing_selection.stderr)["error"]["code"], "SELECTION_VALIDATION_FAILED")
+
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "startup",
+                "disable",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--execute",
+                "--yes",
+                "--operation-log",
+                str(operation_log),
+            )
+            report = json.loads(result.stdout)
+            agent_plist = root / "Users/tester/Library/LaunchAgents/com.example.agent.plist"
+            daemon_plist = root / "Library/LaunchDaemons/com.example.daemon.plist"
+            records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+            self.assertEqual(report["schema"], "cleanmac.startup-disable-result.v1")
+            self.assertFalse(report["dry_run"])
+            self.assertEqual(report["disabled_count"], 1)
+            self.assertEqual(report["skipped_count"], 1)
+            self.assertTrue(validate_contract_payload("cleanmac.startup-disable-result.v1", report)["valid"])
+            self.assertTrue(plistlib.loads(agent_plist.read_bytes())["Disabled"])
+            self.assertNotIn("Disabled", plistlib.loads(daemon_plist.read_bytes()))
+            self.assertEqual(len(records), 2)
+            self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
+            self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
 
     def test_privacy_inspect_and_plan_preserve_sensitive_scopes_by_default(self) -> None:
         tmp, root, home = self.make_sandbox()

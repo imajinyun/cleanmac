@@ -1,8 +1,9 @@
-"""Read-only startup item audit and disable planning."""
+"""Startup item audit, disable planning, and guarded disable execution."""
 
 from __future__ import annotations
 
 import plistlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,21 @@ def _path_size(path: Path) -> int:
         return 0
 
 
+def _startup_path_allowed(path: Path, *, root: Path, home: Path) -> bool:
+    try:
+        resolved = path.resolve(strict=False)
+    except OSError:
+        resolved = path
+    for _, location, _ in _startup_locations(root, home):
+        try:
+            resolved_location = location.resolve(strict=False)
+        except OSError:
+            resolved_location = location
+        if resolved == resolved_location or resolved_location in resolved.parents:
+            return True
+    return False
+
+
 def _load_plist(path: Path) -> dict[str, Any]:
     try:
         with path.open("rb") as handle:
@@ -39,6 +55,18 @@ def _load_plist(path: Path) -> dict[str, Any]:
         return payload if isinstance(payload, dict) else {}
     except (OSError, plistlib.InvalidFileException, ValueError):
         return {}
+
+
+def _write_disabled_plist(path: Path) -> str:
+    plist = _load_plist(path)
+    if not plist:
+        return "invalid-plist"
+    if plist.get("Disabled") is True:
+        return "already-disabled"
+    plist["Disabled"] = True
+    with path.open("wb") as handle:
+        plistlib.dump(plist, handle)
+    return "disabled"
 
 
 def _startup_locations(root: Path, home: Path) -> list[tuple[str, Path, bool]]:
@@ -193,6 +221,123 @@ def plan_startup(*, root: Path, home: Path) -> dict[str, Any]:
                 item for item in audit["items"] if item["recommendation"] in {"preserve", "already-disabled"}
             ],
         },
+    }
+
+
+def disable_startup_items(
+    plan: dict[str, Any],
+    *,
+    review_selection: dict[str, Any],
+    execute: bool,
+    yes: bool,
+    root: Path,
+    home: Path,
+) -> dict[str, Any]:
+    if plan.get("schema") != "cleanmac.startup-plan.v1":
+        raise SystemExit("Startup disable requires a cleanmac.startup-plan.v1 plan file.")
+    if str(plan.get("root")) != _display_path(root):
+        raise SystemExit(f"Plan root mismatch: expected {plan.get('root')} actual {_display_path(root)}")
+    if str(plan.get("home")) != _display_path(home):
+        raise SystemExit(f"Plan home mismatch: expected {plan.get('home')} actual {_display_path(home)}")
+    if execute and not yes:
+        raise SystemExit("Refusing to disable startup items without --yes. Review startup plan and selection first.")
+
+    selected_paths = {str(path) for path in review_selection.get("selected_paths", [])}
+    disable_plan_value = plan.get("disable_plan")
+    disable_plan: dict[str, Any] = disable_plan_value if isinstance(disable_plan_value, dict) else {}
+    candidates = [item for item in disable_plan.get("candidates", []) if isinstance(item, dict)]
+    results: list[dict[str, Any]] = []
+    operation_log_entries: list[dict[str, Any]] = []
+
+    for item in candidates:
+        path = Path(str(item.get("path") or ""))
+        reason = None
+        status = "planned"
+        if str(path) not in selected_paths:
+            status = "skipped"
+            reason = "not-in-review-selection"
+        elif item.get("protected") or protection.should_protect_path(path):
+            status = "blocked"
+            reason = "protected-startup-item"
+        elif item.get("requires_privilege"):
+            status = "blocked"
+            reason = "requires-privilege"
+        elif path.is_symlink():
+            status = "blocked"
+            reason = "symlink-startup-item"
+        elif not _startup_path_allowed(path, root=root, home=home):
+            status = "blocked"
+            reason = "outside-startup-locations"
+        elif not path.exists():
+            status = "blocked"
+            reason = "missing-startup-item"
+        elif path.suffix != ".plist":
+            status = "blocked"
+            reason = "unsupported-disable-method"
+        elif execute:
+            status = _write_disabled_plist(path)
+            if status == "invalid-plist":
+                reason = "invalid-plist"
+
+        result = {
+            "id": item.get("id"),
+            "path": str(path),
+            "kind": item.get("kind"),
+            "label": item.get("label"),
+            "risk": item.get("risk"),
+            "status": status,
+            "reason": reason,
+            "executed": bool(execute and status in {"disabled", "already-disabled"}),
+        }
+        results.append(result)
+        operation_log_entries.append(
+            {
+                "schema": "cleanmac.operation-log-entry.v1",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "action": "startup-disable" if execute else "startup-disable-dry-run",
+                "category": "startup",
+                "path": str(path),
+                "bytes": int(item.get("bytes") or 0),
+                "human": str(item.get("human") or ""),
+                "delete_mode": "startup-disable",
+                "deleted": False,
+                "status": status,
+                "reason": reason,
+                "root": _display_path(root),
+                "home": _display_path(home),
+                "ai": {
+                    "schema": "cleanmac.operation-log-ai-audit.v1",
+                    "review_selection": {
+                        "schema": "cleanmac.operation-log-review-selection.v1",
+                        "selection_file": review_selection.get("selection_file"),
+                        "source_plan_file": review_selection.get("source_plan_file"),
+                        "source_fingerprint": review_selection.get("source_fingerprint"),
+                        "selected_count": review_selection.get("selected_count"),
+                        "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+                        "validation_valid": review_selection.get("validation", {}).get("valid")
+                        if isinstance(review_selection.get("validation"), dict)
+                        else None,
+                    },
+                },
+            }
+        )
+
+    return {
+        "schema": "cleanmac.startup-disable-result.v1",
+        "destructive": bool(execute),
+        "dry_run": not execute,
+        "root": _display_path(root),
+        "home": _display_path(home),
+        "review_selection": review_selection,
+        "result_count": len(results),
+        "planned_count": sum(1 for item in results if item["status"] == "planned"),
+        "disabled_count": sum(1 for item in results if item["status"] == "disabled"),
+        "already_disabled_count": sum(1 for item in results if item["status"] == "already-disabled"),
+        "skipped_count": sum(1 for item in results if item["status"] == "skipped"),
+        "blocked_count": sum(1 for item in results if item["status"] == "blocked" or item["status"] == "invalid-plist"),
+        "safe_to_auto_execute": False,
+        "results": results,
+        "operation_log_entries": operation_log_entries,
     }
 
 
