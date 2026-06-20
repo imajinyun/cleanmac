@@ -362,8 +362,13 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(payload["ready"], payload)
         self.assertEqual(payload["resource_uri"], "cleanmac://mcp/surface-audit")
         self.assertEqual(payload["missing"], {"resources": [], "prompts": [], "tools": []})
+        self.assertEqual(payload["failed_check_ids"], [])
+        self.assertEqual(payload["readiness_score"], {"passed": 13, "total": 13, "level": "ready"})
+        self.assertEqual(payload["next_action"], "proceed-to-host-integration-pack")
+        self.assertEqual(payload["stop_reason"], "")
         checks = {check["id"]: check for check in payload["checks"]}
         self.assertTrue(checks["mcp-meta-index-ready"]["passed"])
+        self.assertIn(["make", "mcp-meta-index-smoke"], checks["mcp-meta-index-ready"]["remediation_commands"])
         self.assertTrue(checks["mcp-resource-index-ready"]["passed"])
         self.assertTrue(checks["mcp-prompt-index-ready"]["passed"])
         self.assertTrue(checks["mcp-tool-index-ready"]["passed"])
@@ -373,6 +378,7 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(checks["destructive-tools-gated"]["passed"])
         self.assertTrue(checks["no-shell-invocation"]["passed"])
         self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
+        self.assertIn(["make", "mcp-surface-audit-smoke"], payload["remediation_commands"])
 
     def test_resources_read_payloads_are_sanitized_for_mcp(self) -> None:
         sensitive_uris = [
