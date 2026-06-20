@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 Runner = Callable[[Sequence[str], float], subprocess.CompletedProcess[str]]
 
 
@@ -22,8 +21,7 @@ def _run_command(argv: Sequence[str], timeout: float) -> subprocess.CompletedPro
     return subprocess.run(
         list(argv),
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
         timeout=timeout,
     )
@@ -180,7 +178,9 @@ def execute_tool(
             elif execute and not yes:
                 result = _command_result(tool=key, argv=argv, status="blocked", error="explicit --yes required")
             elif shutil.which(argv[0]) is None:
-                result = _command_result(tool=key, argv=argv, status="missing-binary", error=f"Missing binary: {argv[0]}")
+                result = _command_result(
+                    tool=key, argv=argv, status="missing-binary", error=f"Missing binary: {argv[0]}"
+                )
             else:
                 try:
                     completed = runner(argv, timeout)

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
 PRIVACY_SCOPES = ("all", "cache", "cookies", "history", "local-storage", "credentials")
 
 
@@ -84,13 +83,69 @@ def _chromium_candidates(home_root: Path) -> list[dict[str, Any]]:
             specs = [
                 (cache_path, "cache", "cache", "low", "low", True, None),
                 (profile_root / "Code Cache", "code-cache", "cache", "low", "low", True, None),
-                (profile_root / "Service Worker/CacheStorage", "service-worker-cache", "cache", "low", "low", True, None),
-                (profile_root / "Cookies", "cookies", "cookies", "high", "medium", False, "cookies preserve signed-in sessions"),
-                (profile_root / "History", "history", "history", "medium", "medium", False, "history is personal browsing data"),
-                (profile_root / "Login Data", "login-data", "credentials", "critical", "high", False, "saved credentials are never selected by default"),
-                (profile_root / "Bookmarks", "bookmarks", "history", "medium", "high", False, "bookmarks are user-authored data"),
-                (profile_root / "Local Storage", "local-storage", "local-storage", "high", "medium", False, "local storage may include app state and sessions"),
-                (profile_root / "IndexedDB", "indexeddb", "local-storage", "high", "medium", False, "indexeddb may include app state and sessions"),
+                (
+                    profile_root / "Service Worker/CacheStorage",
+                    "service-worker-cache",
+                    "cache",
+                    "low",
+                    "low",
+                    True,
+                    None,
+                ),
+                (
+                    profile_root / "Cookies",
+                    "cookies",
+                    "cookies",
+                    "high",
+                    "medium",
+                    False,
+                    "cookies preserve signed-in sessions",
+                ),
+                (
+                    profile_root / "History",
+                    "history",
+                    "history",
+                    "medium",
+                    "medium",
+                    False,
+                    "history is personal browsing data",
+                ),
+                (
+                    profile_root / "Login Data",
+                    "login-data",
+                    "credentials",
+                    "critical",
+                    "high",
+                    False,
+                    "saved credentials are never selected by default",
+                ),
+                (
+                    profile_root / "Bookmarks",
+                    "bookmarks",
+                    "history",
+                    "medium",
+                    "high",
+                    False,
+                    "bookmarks are user-authored data",
+                ),
+                (
+                    profile_root / "Local Storage",
+                    "local-storage",
+                    "local-storage",
+                    "high",
+                    "medium",
+                    False,
+                    "local storage may include app state and sessions",
+                ),
+                (
+                    profile_root / "IndexedDB",
+                    "indexeddb",
+                    "local-storage",
+                    "high",
+                    "medium",
+                    False,
+                    "indexeddb may include app state and sessions",
+                ),
             ]
             for path, kind, scope, privacy_risk, data_loss_risk, selected, reason in specs:
                 item = _candidate(
@@ -120,10 +175,42 @@ def _firefox_candidates(home_root: Path) -> list[dict[str, Any]]:
             profile = profile_root.name
             specs = [
                 (profile_root / "cache2/entries", "cache", "cache", "low", "low", True, None),
-                (profile_root / "cookies.sqlite", "cookies", "cookies", "high", "medium", False, "cookies preserve signed-in sessions"),
-                (profile_root / "places.sqlite", "history", "history", "medium", "medium", False, "history is personal browsing data"),
-                (profile_root / "logins.json", "logins", "credentials", "critical", "high", False, "saved credentials are never selected by default"),
-                (profile_root / "key4.db", "credential-key", "credentials", "critical", "high", False, "credential keys are never selected by default"),
+                (
+                    profile_root / "cookies.sqlite",
+                    "cookies",
+                    "cookies",
+                    "high",
+                    "medium",
+                    False,
+                    "cookies preserve signed-in sessions",
+                ),
+                (
+                    profile_root / "places.sqlite",
+                    "history",
+                    "history",
+                    "medium",
+                    "medium",
+                    False,
+                    "history is personal browsing data",
+                ),
+                (
+                    profile_root / "logins.json",
+                    "logins",
+                    "credentials",
+                    "critical",
+                    "high",
+                    False,
+                    "saved credentials are never selected by default",
+                ),
+                (
+                    profile_root / "key4.db",
+                    "credential-key",
+                    "credentials",
+                    "critical",
+                    "high",
+                    False,
+                    "credential keys are never selected by default",
+                ),
             ]
             for path, kind, scope, privacy_risk, data_loss_risk, selected, reason in specs:
                 item = _candidate(
@@ -259,9 +346,33 @@ def _electron_candidates(home_root: Path) -> list[dict[str, Any]]:
             (root / "Cache", "cache", "cache", "low", "low", True, None),
             (root / "Service Worker/CacheStorage", "service-worker-cache", "cache", "low", "low", True, None),
             (root / "Cookies", "cookies", "cookies", "high", "medium", False, "cookies preserve signed-in sessions"),
-            (root / "Local Storage", "local-storage", "local-storage", "high", "medium", False, "local storage may include app state and sessions"),
-            (root / "IndexedDB", "indexeddb", "local-storage", "high", "medium", False, "indexeddb may include app state and sessions"),
-            (root / "User/globalStorage", "global-storage", "local-storage", "high", "medium", False, "global storage may include app state"),
+            (
+                root / "Local Storage",
+                "local-storage",
+                "local-storage",
+                "high",
+                "medium",
+                False,
+                "local storage may include app state and sessions",
+            ),
+            (
+                root / "IndexedDB",
+                "indexeddb",
+                "local-storage",
+                "high",
+                "medium",
+                False,
+                "indexeddb may include app state and sessions",
+            ),
+            (
+                root / "User/globalStorage",
+                "global-storage",
+                "local-storage",
+                "high",
+                "medium",
+                False,
+                "global storage may include app state",
+            ),
         ]
         for path, kind, scope, privacy_risk, data_loss_risk, selected, reason in specs:
             item = _candidate(

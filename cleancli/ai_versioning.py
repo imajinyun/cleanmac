@@ -87,6 +87,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.open.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.operation-log-ai-audit.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.operation-log-entry.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.operation-log-review-selection.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.operation-log-status.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.optimize.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.permissions-preflight.v1", 1, "cleancli.core", "stable"),
@@ -344,7 +345,17 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "cleanmac.software-inspect.v1": {
         "type": "object",
-        "required": ["schema", "destructive", "dry_run", "root", "home", "app", "found", "candidate_count", "candidates"],
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "root",
+            "home",
+            "app",
+            "found",
+            "candidate_count",
+            "candidates",
+        ],
         "properties": {
             "schema": {"const": "cleanmac.software-inspect.v1"},
             "destructive": {"const": False},
@@ -360,7 +371,17 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "cleanmac.software-uninstall-plan.v1": {
         "type": "object",
-        "required": ["schema", "destructive", "dry_run", "root", "home", "app", "valid", "blocked_reasons", "uninstall_plan"],
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "root",
+            "home",
+            "app",
+            "valid",
+            "blocked_reasons",
+            "uninstall_plan",
+        ],
         "properties": {
             "schema": {"const": "cleanmac.software-uninstall-plan.v1"},
             "destructive": {"const": False},
@@ -421,7 +442,17 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "cleanmac.privacy-plan.v1": {
         "type": "object",
-        "required": ["schema", "destructive", "dry_run", "root", "home", "scope", "valid", "blocked_reasons", "privacy_plan"],
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "root",
+            "home",
+            "scope",
+            "valid",
+            "blocked_reasons",
+            "privacy_plan",
+        ],
         "properties": {
             "schema": {"const": "cleanmac.privacy-plan.v1"},
             "destructive": {"const": False},
@@ -475,7 +506,14 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "cleanmac.review-selection-constraint.v1": {
         "type": "object",
-        "required": ["schema", "selection_file", "source_plan_file", "selected_item_ids", "selected_paths", "validation"],
+        "required": [
+            "schema",
+            "selection_file",
+            "source_plan_file",
+            "selected_item_ids",
+            "selected_paths",
+            "validation",
+        ],
         "properties": {
             "schema": {"const": "cleanmac.review-selection-constraint.v1"},
             "selection_file": {"type": "string"},

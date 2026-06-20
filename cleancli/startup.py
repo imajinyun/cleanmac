@@ -140,7 +140,9 @@ def audit_startup(*, root: Path, home: Path) -> dict[str, Any]:
             items.extend(_item_from_plist(path, kind=kind, requires_privilege=requires_privilege) for path in entries)
         else:
             entries = sorted(path for path in location.iterdir() if path.exists() or path.is_symlink())
-            items.extend(_item_from_directory(path, kind=kind, requires_privilege=requires_privilege) for path in entries)
+            items.extend(
+                _item_from_directory(path, kind=kind, requires_privilege=requires_privilege) for path in entries
+            )
     risk_counts = _count_by(items, "risk")
     recommendation_counts = _count_by(items, "recommendation")
     kind_counts = _count_by(items, "kind")
@@ -158,7 +160,9 @@ def audit_startup(*, root: Path, home: Path) -> dict[str, Any]:
         "risk_counts": risk_counts,
         "recommendation_counts": recommendation_counts,
         "kind_counts": kind_counts,
-        "recommended_next_action": "review_disable_plan" if recommendation_counts.get("review-disable", 0) else "no_action_needed",
+        "recommended_next_action": "review_disable_plan"
+        if recommendation_counts.get("review-disable", 0)
+        else "no_action_needed",
     }
 
 

@@ -56,7 +56,8 @@ from cleancli.review import (
 )
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import render_startup
-from cleancli.tool_adapters import execute_tool, render_tool_plan as render_tool_adapter_plan
+from cleancli.tool_adapters import execute_tool
+from cleancli.tool_adapters import render_tool_plan as render_tool_adapter_plan
 
 VERSION = "0.1.0"
 
@@ -4920,6 +4921,22 @@ def operation_log_entry(
     }
 
 
+def review_selection_audit(review_selection: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(review_selection, dict):
+        return None
+    return {
+        "schema": "cleanmac.operation-log-review-selection.v1",
+        "selection_file": review_selection.get("selection_file"),
+        "source_plan_file": review_selection.get("source_plan_file"),
+        "source_fingerprint": review_selection.get("source_fingerprint"),
+        "selected_count": review_selection.get("selected_count"),
+        "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+        "validation_valid": review_selection.get("validation", {}).get("valid")
+        if isinstance(review_selection.get("validation"), dict)
+        else None,
+    }
+
+
 def clean(
     categories: list[Category],
     *,
@@ -5066,6 +5083,7 @@ def clean(
         "require_plan_context": require_plan_context,
         "confirmation_token_required": require_confirmation_token,
         "confirmation_token_validated": False,
+        "review_selection": review_selection_audit(review_selection),
     }
     if execute:
         for item in skipped:
@@ -6694,8 +6712,12 @@ def _main_impl(argv: Sequence[str]) -> int:
     if args.command == "review":
         source_payload = load_json_file(args.input_file)
         selection_payload = load_json_file(args.selection_input_file) if args.selection_input_file else None
-        selected_item_ids = [str(item) for item in selection_payload.get("selected_item_ids", [])] if selection_payload else []
-        excluded_item_ids = [str(item) for item in selection_payload.get("excluded_item_ids", [])] if selection_payload else []
+        selected_item_ids = (
+            [str(item) for item in selection_payload.get("selected_item_ids", [])] if selection_payload else []
+        )
+        excluded_item_ids = (
+            [str(item) for item in selection_payload.get("excluded_item_ids", [])] if selection_payload else []
+        )
         explicit_selects = [str(item) for item in args.select_item]
         excluded_item_ids = [item_id for item_id in excluded_item_ids if item_id not in set(explicit_selects)]
         review_report = render_review(

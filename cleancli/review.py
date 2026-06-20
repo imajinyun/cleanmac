@@ -119,7 +119,9 @@ def _risk_rank(item: dict[str, Any]) -> int:
     return {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(str(item.get("risk") or "unknown"), 0)
 
 
-def _selection_summary(items: list[dict[str, Any]], selected_ids: list[str], unknown_item_ids: list[str]) -> dict[str, Any]:
+def _selection_summary(
+    items: list[dict[str, Any]], selected_ids: list[str], unknown_item_ids: list[str]
+) -> dict[str, Any]:
     selected_id_set = set(selected_ids)
     selected_items = [item for item in items if str(item["id"]) in selected_id_set]
     excluded_items = [item for item in items if str(item["id"]) not in selected_id_set]
@@ -195,9 +197,13 @@ def render_review(
     explicit_selected = _string_list(selected_item_ids)
     explicit_excluded = _string_list(excluded_item_ids)
     selected_set = {str(item["id"]) for item in items if item["default_selected"] and not item["protected"]}
-    selected_set.update(item_id for item_id in explicit_selected if item_id in known_ids and item_id not in protected_ids)
+    selected_set.update(
+        item_id for item_id in explicit_selected if item_id in known_ids and item_id not in protected_ids
+    )
     selected_set.difference_update(item_id for item_id in explicit_excluded if item_id in known_ids)
-    selected = [str(item["id"]) for item in items if str(item["id"]) in selected_set and str(item["id"]) not in protected_ids]
+    selected = [
+        str(item["id"]) for item in items if str(item["id"]) in selected_set and str(item["id"]) not in protected_ids
+    ]
     unknown_item_ids = [item_id for item_id in [*explicit_selected, *explicit_excluded] if item_id not in known_ids]
     selection_summary = _selection_summary(items, selected, _string_list(unknown_item_ids))
     return {
@@ -267,9 +273,7 @@ def apply_item_scope(review: dict[str, Any], scope: str, sort: str = "source") -
     return scoped
 
 
-def render_review_with_selection(
-    payload: dict[str, Any], selection: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def render_review_with_selection(payload: dict[str, Any], selection: dict[str, Any] | None = None) -> dict[str, Any]:
     if selection is None:
         return render_review(payload)
     selected_ids = [str(item) for item in selection.get("selected_item_ids", [])]
