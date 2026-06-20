@@ -55,6 +55,7 @@ python3 cleanmac.py clean list
 
 # 🍺 通过 Homebrew tap 安装
 brew tap cleanmac/tap
+brew trust cleanmac/tap
 brew install cleanmac
 cleanmac --json capabilities
 
