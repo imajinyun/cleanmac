@@ -249,6 +249,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://release/post-publish-evidence-template", uris)
         self.assertIn("cleanmac://mcp/meta-index", uris)
         self.assertIn("cleanmac://mcp/tool-index", uris)
+        self.assertIn("cleanmac://mcp/surface-audit", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
         self.assertTrue(all(resource["destructive"] is False for resource in resources))
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in resources))
@@ -292,6 +293,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/meta-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/prompt-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/tool-index", payload["resource_uris"])
+        self.assertIn("cleanmac://mcp/surface-audit", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
 
@@ -341,6 +343,36 @@ class MckServerTests(unittest.TestCase):
             if tool["destructive"]:
                 self.assertFalse(tool["auto_call_allowed"], tool)
                 self.assertTrue(tool["requires_confirmation"], tool)
+
+    def test_resources_read_mcp_surface_audit(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 95,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://mcp/surface-audit"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://mcp/surface-audit")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.mcp-surface-audit.v1")
+        self.assertFalse(payload["destructive"])
+        self.assertTrue(payload["dry_run"])
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["resource_uri"], "cleanmac://mcp/surface-audit")
+        self.assertEqual(payload["missing"], {"resources": [], "prompts": [], "tools": []})
+        checks = {check["id"]: check for check in payload["checks"]}
+        self.assertTrue(checks["mcp-meta-index-ready"]["passed"])
+        self.assertTrue(checks["mcp-resource-index-ready"]["passed"])
+        self.assertTrue(checks["mcp-prompt-index-ready"]["passed"])
+        self.assertTrue(checks["mcp-tool-index-ready"]["passed"])
+        self.assertTrue(checks["required-resources-advertised"]["passed"])
+        self.assertTrue(checks["required-prompts-advertised"]["passed"])
+        self.assertTrue(checks["required-tools-advertised"]["passed"])
+        self.assertTrue(checks["destructive-tools-gated"]["passed"])
+        self.assertTrue(checks["no-shell-invocation"]["passed"])
+        self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
 
     def test_resources_read_payloads_are_sanitized_for_mcp(self) -> None:
         sensitive_uris = [
@@ -429,6 +461,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["mcp"]["meta_index_uri"], "cleanmac://mcp/meta-index")
         self.assertEqual(payload["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(payload["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
+        self.assertEqual(payload["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
         self.assertIn("review-ai-host-policy", payload["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", payload["mcp"]["tools"])
 
@@ -464,6 +497,7 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(payload["ready"], payload)
         self.assertIn("runtime_policy_evidence", payload)
         self.assertIn("mcp_meta_index", payload)
+        self.assertIn("mcp_surface_audit", payload)
         self.assertIn("mcp_prompt_catalog", payload)
         self.assertIn("mcp_tool_catalog", payload)
 

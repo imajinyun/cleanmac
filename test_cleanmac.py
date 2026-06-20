@@ -5402,7 +5402,10 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("mcp-meta-index-smoke:", makefile)
         self.assertIn("cleanmac.mcp-tool-index.v1", makefile)
         self.assertIn("mcp-tool-index-smoke:", makefile)
-        self.assertIn('payload["resource_count"] == 31', makefile)
+        self.assertIn("cleanmac.mcp-surface-audit.v1", makefile)
+        self.assertIn("mcp-surface-audit-smoke:", makefile)
+        self.assertIn('payload["ready"] is True, payload', makefile)
+        self.assertIn('payload["resource_count"] == 32', makefile)
         self.assertIn("contract_samples_roundtrip", makefile)
         self.assertIn('run("ai-eval-run", "--scenario", "contract_samples_roundtrip")', makefile)
         self.assertIn("open-source-smoke:", makefile)
@@ -5430,7 +5433,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)

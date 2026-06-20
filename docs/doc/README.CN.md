@@ -224,16 +224,20 @@ make mcp-prompt-index-smoke
 make mcp-tool-index-smoke
 # ✅ 输出：mcp-tool-index-smoke passed
 
+make mcp-surface-audit-smoke
+# ✅ 输出：mcp-surface-audit-smoke passed
+
 make ai-host-smoke
 # ✅ 输出：ai-host-smoke passed
 ```
 
-AI Host 应先读取 `cleanmac://mcp/meta-index`（`cleanmac.mcp-meta-index.v1`），再按推荐顺序继续读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）、`cleanmac://mcp/prompt-index`（`cleanmac.mcp-prompt-index.v1`）和 `cleanmac://mcp/tool-index`（`cleanmac.mcp-tool-index.v1`）。
+AI Host 应先读取 `cleanmac://mcp/meta-index`（`cleanmac.mcp-meta-index.v1`），再按推荐顺序继续读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）、`cleanmac://mcp/prompt-index`（`cleanmac.mcp-prompt-index.v1`）、`cleanmac://mcp/tool-index`（`cleanmac.mcp-tool-index.v1`）和 `cleanmac://mcp/surface-audit`（`cleanmac.mcp-surface-audit.v1`）。如果 surface audit 返回 `ready=false`，AI Host 必须停止编排。
 
 - `cleanmac://mcp/meta-index` 是受治理的 MCP 顶层发现入口，会声明推荐调用顺序。
 - `cleanmac://mcp/resource-index` 列出每个 MCP resource URI、schema、分类与安全标记。
 - `cleanmac://mcp/prompt-index` 列出每个受治理 prompt 的参数、分类与 MCP 安全属性。
 - `cleanmac://mcp/tool-index` 列出每个 MCP 工具的 `invocation_mode`、`auto_call_allowed`、`requires_confirmation` 与破坏性策略元数据。
+- `cleanmac://mcp/surface-audit` 校验受治理索引 ready、必需 resources/prompts/tools 已发布、破坏性工具已加门禁、无 shell 调用且存在敏感数据策略。
 
 所有索引 payload 都会经过脱敏，避免泄露本地路径或凭证。
 
@@ -861,6 +865,7 @@ make mcp-meta-index-smoke                         # MCP Meta 索引合约
 make mcp-resource-index-smoke                     # MCP Resource 索引合约
 make mcp-prompt-index-smoke                       # MCP Prompt 索引合约
 make mcp-tool-index-smoke                         # MCP Tool 索引合约
+make mcp-surface-audit-smoke                      # MCP 表面审计 readiness 门禁
 make ai-host-smoke                                 # AI Host 集成测试套件
 make ai-robustness-smoke                           # AI 鲁棒性回归测试
 make local-test                                    # 完整本地测试
@@ -904,6 +909,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `mcp-resource-index-smoke` | MCP Resource 索引 schema 与安全元数据 |
 | `mcp-prompt-index-smoke` | MCP Prompt 索引 schema 与安全元数据 |
 | `mcp-tool-index-smoke` | MCP Tool 索引 schema、调用元数据与破坏性工具自动调用拒绝策略 |
+| `mcp-surface-audit-smoke` | MCP 表面审计 readiness、缺失项与 fail-closed 门禁 |
 | `bundle-audit-smoke` | Bundle drift 审计 |
 | `build-check` | 构建 wheel/sdist + twine 检查 |
 | `macos-smoke` | macOS 专项测试 |

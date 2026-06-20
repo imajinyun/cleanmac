@@ -44,6 +44,7 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
+from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
@@ -1446,6 +1447,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "ai-host-evidence",
         help="Emit auditable AI Host runtime governance evidence pack.",
     )
+    subparsers.add_parser(
+        "mcp-surface-audit",
+        help="Emit read-only MCP surface readiness and safety audit.",
+    )
     release_readiness_parser = subparsers.add_parser(
         "release-readiness",
         help="Emit AI Host release readiness gates, evidence status, and review checklist.",
@@ -1691,6 +1696,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-integration-pack",
         "ai-host-preflight",
         "ai-host-evidence",
+        "mcp-surface-audit",
         "release-readiness",
         "release-diagnostics",
         "release-evidence",
@@ -6590,6 +6596,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-host-integration-pack",
         "ai-host-preflight",
         "ai-host-evidence",
+        "mcp-surface-audit",
         "release-readiness",
         "release-diagnostics",
         "release-evidence",
@@ -6635,6 +6642,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-host-integration-pack": "",
         "ai-host-preflight": "",
         "ai-host-evidence": "",
+        "mcp-surface-audit": "",
         "release-readiness": "--dist-dir --assets-dir",
         "release-diagnostics": "--dist-dir --assets-dir",
         "release-evidence": "--dist-dir --assets-dir",
@@ -7111,6 +7119,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-host-evidence":
         print(json.dumps(render_ai_host_evidence_report(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "mcp-surface-audit":
+        print(json.dumps(render_mcp_surface_audit(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "release-readiness":
         print(
