@@ -135,6 +135,7 @@ class ReleaseArtifactManifestTests(unittest.TestCase):
         self.assertIn("RELEASE-READINESS.json", bundle["assets"]["missing"])
         self.assertIn("RELEASE-REHEARSAL.json", bundle["assets"]["missing"])
         self.assertIn("RELEASE-PROMOTION-DECISION.json", bundle["assets"]["missing"])
+        self.assertIn("RELEASE-POST-PUBLISH-VERIFICATION.json", bundle["assets"]["missing"])
         self.assertIn("RELEASE-ROLLBACK-PLAN.json", bundle["assets"]["missing"])
 
 
@@ -205,11 +206,15 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
             self.assertTrue((assets / "RELEASE-DIAGNOSTICS.json").is_file())
             self.assertTrue((assets / "RELEASE-REHEARSAL.json").is_file())
             self.assertTrue((assets / "RELEASE-PROMOTION-DECISION.json").is_file())
+            self.assertTrue((assets / "RELEASE-POST-PUBLISH-VERIFICATION.json").is_file())
             self.assertTrue((assets / "RELEASE-ROLLBACK-PLAN.json").is_file())
             self.assertEqual(stdout["release_rehearsal"]["schema"], "cleanmac.release-rehearsal.v1")
             self.assertTrue(stdout["release_rehearsal"]["ready"], stdout)
             self.assertEqual(stdout["promotion_decision"]["schema"], "cleanmac.release-promotion-decision.v1")
             self.assertEqual(stdout["promotion_decision"]["decision"], "promote")
+            self.assertEqual(
+                stdout["post_publish_verification"]["schema"], "cleanmac.release-post-publish-verification.v1"
+            )
             self.assertEqual(stdout["rollback_plan"]["schema"], "cleanmac.release-rollback-plan.v1")
 
     def test_homebrew_formula_script_writes_formula(self) -> None:

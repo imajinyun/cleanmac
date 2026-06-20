@@ -19,6 +19,7 @@ REQUIRED_RELEASE_ASSET_NAMES = (
     "RELEASE-DIAGNOSTICS.json",
     "RELEASE-REHEARSAL.json",
     "RELEASE-PROMOTION-DECISION.json",
+    "RELEASE-POST-PUBLISH-VERIFICATION.json",
     "RELEASE-ROLLBACK-PLAN.json",
     HOMEBREW_FORMULA_NAME,
 )
@@ -218,6 +219,7 @@ def build_release_evidence_bundle(
     eval_smoke: dict[str, Any] | None = None,
     release_rehearsal: dict[str, Any] | None = None,
     promotion_decision: dict[str, Any] | None = None,
+    post_publish_verification: dict[str, Any] | None = None,
     rollback_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return an auditable release evidence bundle without shelling out."""
@@ -276,6 +278,7 @@ def build_release_evidence_bundle(
         "eval_smoke": dict(eval_smoke or {}),
         "release_rehearsal": dict(release_rehearsal or {}),
         "promotion_decision": dict(promotion_decision or {}),
+        "post_publish_verification": dict(post_publish_verification or {}),
         "rollback_plan": dict(rollback_plan or {}),
     }
 
@@ -290,6 +293,7 @@ def write_release_evidence_bundle_output(
     eval_smoke: dict[str, Any] | None = None,
     release_rehearsal: dict[str, Any] | None = None,
     promotion_decision: dict[str, Any] | None = None,
+    post_publish_verification: dict[str, Any] | None = None,
     rollback_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -302,6 +306,7 @@ def write_release_evidence_bundle_output(
         eval_smoke=eval_smoke,
         release_rehearsal=release_rehearsal,
         promotion_decision=promotion_decision,
+        post_publish_verification=post_publish_verification,
         rollback_plan=rollback_plan,
     )
     (assets_dir / "RELEASE-EVIDENCE.json").write_text(

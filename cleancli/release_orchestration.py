@@ -1,4 +1,4 @@
-"""Release rehearsal, promotion, and rollback control-plane reports."""
+"""Release rehearsal, promotion, rollback, and post-publish control-plane reports."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from cleancli.release_artifacts import HOMEBREW_FORMULA_NAME, verify_release_art
 RELEASE_REHEARSAL_SCHEMA = "cleanmac.release-rehearsal.v1"
 RELEASE_PROMOTION_DECISION_SCHEMA = "cleanmac.release-promotion-decision.v1"
 RELEASE_ROLLBACK_PLAN_SCHEMA = "cleanmac.release-rollback-plan.v1"
+RELEASE_POST_PUBLISH_VERIFICATION_SCHEMA = "cleanmac.release-post-publish-verification.v1"
 
 PROMOTION_REQUIRED_ASSET_NAMES = (
     "SBOM.json",
@@ -19,6 +20,7 @@ PROMOTION_REQUIRED_ASSET_NAMES = (
     "RELEASE-READINESS.json",
     "RELEASE-DIAGNOSTICS.json",
     "RELEASE-REHEARSAL.json",
+    "RELEASE-POST-PUBLISH-VERIFICATION.json",
     "RELEASE-ROLLBACK-PLAN.json",
     HOMEBREW_FORMULA_NAME,
 )
@@ -211,4 +213,56 @@ def render_release_rollback_plan(*, dist_dir: Path | str, assets_dir: Path | str
             ["cleanmac", "--json", "release-evidence"],
         ],
         "recommended_commands": [["make", "release-rollback-smoke"], ["make", "release-diagnostics-smoke"]],
+    }
+
+
+def render_release_post_publish_verification(*, dist_dir: Path | str, assets_dir: Path | str) -> dict[str, Any]:
+    return {
+        "schema": RELEASE_POST_PUBLISH_VERIFICATION_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "manual_only": True,
+        "dist_dir": str(Path(dist_dir)),
+        "assets_dir": str(Path(assets_dir)),
+        "verification_surfaces": [
+            {
+                "id": "github-release",
+                "expected_signals": [
+                    "Release assets include wheel, sdist, SBOM, SHA256SUMS, manifest, evidence, and Homebrew formula.",
+                    "Attestation is visible for distribution and governance assets.",
+                ],
+                "safe_copy_paste_commands": [],
+            },
+            {
+                "id": "pypi",
+                "expected_signals": [
+                    "PyPI project page shows the released version.",
+                    "Fresh virtualenv installation succeeds from published wheel.",
+                ],
+                "safe_copy_paste_commands": [
+                    ["python3", "-m", "venv", "/tmp/cleanmac-post-publish-verify"],
+                    ["/tmp/cleanmac-post-publish-verify/bin/python", "-m", "pip", "install", "cleanmac"],
+                    ["/tmp/cleanmac-post-publish-verify/bin/cleanmac", "--json", "capabilities"],
+                ],
+            },
+            {
+                "id": "homebrew-tap",
+                "expected_signals": [
+                    "Homebrew tap update completed for the release tag.",
+                    "Formula install smoke reports cleanmac.capabilities.v1.",
+                ],
+                "safe_copy_paste_commands": [["brew", "tap", "cleanmac/tap"], ["brew", "install", "cleanmac"]],
+            },
+        ],
+        "required_evidence_after_publish": [
+            "GitHub release asset list",
+            "PyPI release page version and file hashes",
+            "Homebrew tap formula commit",
+            "cleanmac --json capabilities output from a fresh install",
+        ],
+        "incident_response_entrypoints": [
+            ["cleanmac", "--json", "release-diagnostics"],
+            ["cleanmac", "--json", "release-rollback-plan"],
+        ],
+        "recommended_commands": [["make", "release-post-publish-smoke"], ["make", "release-check"]],
     }

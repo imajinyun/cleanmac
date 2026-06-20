@@ -5395,6 +5395,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("release-rehearsal-smoke:", makefile)
         self.assertIn("release-promotion-smoke:", makefile)
         self.assertIn("release-rollback-smoke:", makefile)
+        self.assertIn("release-post-publish-smoke:", makefile)
         self.assertIn("--dist-dir", makefile)
         self.assertIn("--assets-dir", makefile)
         self.assertIn('assert report["ready"] is True', makefile)
@@ -5403,7 +5404,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5499,6 +5500,7 @@ class CleanMacCLITests(unittest.TestCase):
             (("release-rehearsal",), "cleanmac.release-rehearsal.v1"),
             (("release-promotion-decision",), "cleanmac.release-promotion-decision.v1"),
             (("release-rollback-plan",), "cleanmac.release-rollback-plan.v1"),
+            (("release-post-publish-verification",), "cleanmac.release-post-publish-verification.v1"),
             (("ai-contract-samples",), "cleanmac.ai-contract-samples.v1"),
             (("ai-eval-pack",), "cleanmac.ai-eval-pack.v1"),
         ]
@@ -5862,6 +5864,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("release-assets/RELEASE-REHEARSAL.json", release)
         self.assertIn("release-assets/RELEASE-PROMOTION-DECISION.json", release)
         self.assertIn("release-assets/RELEASE-ROLLBACK-PLAN.json", release)
+        self.assertIn("release-assets/RELEASE-POST-PUBLISH-VERIFICATION.json", release)
         self.assertIn("release-assets/cleanmac.rb", release)
         self.assertIn("ARTIFACT-MANIFEST.json", release)
         self.assertIn("cleanmac.release-artifact-manifest.v1", release)
@@ -5903,17 +5906,22 @@ class CleanMacCLITests(unittest.TestCase):
         )
         self.assertIn("cleanmac.py --json release-rollback-plan --dist-dir dist --assets-dir release-assets", release)
         self.assertIn(
+            "cleanmac.py --json release-post-publish-verification --dist-dir dist --assets-dir release-assets", release
+        )
+        self.assertIn(
             "scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets --evidence", release
         )
         self.assertIn("release-assets/RELEASE-READINESS.json", release)
         self.assertIn('assert report["ready"] is True', release)
         self.assertIn("cleanmac.release-evidence.v1", release)
         self.assertIn("cleanmac.release-promotion-decision.v1", release)
+        self.assertIn("cleanmac.release-post-publish-verification.v1", release)
         self.assertIn('assert payloads["RELEASE-EVIDENCE.json"]["ready"] is True', release)
         self.assertIn('assert payloads["RELEASE-REHEARSAL.json"]["ready"] is True', release)
         self.assertIn('assert decision["safe_to_publish"] is True', release)
         self.assertIn('assert decision["manual_review_required"] is False', release)
         self.assertIn('assert rollback["manual_only"] is True', release)
+        self.assertIn('assert post_publish["manual_only"] is True', release)
         self.assertIn('{"pypi", "github-release", "homebrew-tap"}', release)
         self.assertIn(".venv/bin/cleanmac --json capabilities", release)
         self.assertNotIn('packages-dir: "release-assets"', release)

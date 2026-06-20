@@ -128,6 +128,15 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "release_post_publish_verification_discovery",
+            "description": "Verify AI Hosts can discover the manual-only post-publish verification plan.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-post-publish-verification"]],
+            "expected_final_schema": "cleanmac.release-post-publish-verification.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "schema_registry_release_contract_coverage",
             "description": "Verify release-critical schemas are registered with contract fragments and sample coverage.",
             "required_tools": ["cleanmac_capabilities"],
@@ -537,6 +546,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "release_rehearsal_discovery",
             "release_promotion_decision_blocks_missing_evidence",
             "release_rollback_plan_discovery",
+            "release_post_publish_verification_discovery",
             "schema_registry_release_contract_coverage",
             "discover_readiness",
             "schema_registry_discovery",
@@ -955,6 +965,24 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and {"pypi", "github-release", "homebrew-tap"}.issubset(surface_ids)
                     ),
                     observed_schema=rollback["schema"],
+                )
+            )
+
+        if "release_post_publish_verification_discovery" in selected:
+            post_publish, event = _run_cli(cli, ["release-post-publish-verification"], root=root, home=home)
+            events.append(event)
+            surface_ids = {surface.get("id") for surface in post_publish.get("verification_surfaces", [])}
+            results.append(
+                _scenario_result(
+                    "release_post_publish_verification_discovery",
+                    passed=bool(
+                        post_publish["schema"] == "cleanmac.release-post-publish-verification.v1"
+                        and post_publish["manual_only"] is True
+                        and {"pypi", "github-release", "homebrew-tap"}.issubset(surface_ids)
+                        and ["cleanmac", "--json", "release-rollback-plan"]
+                        in post_publish.get("incident_response_entrypoints", [])
+                    ),
+                    observed_schema=post_publish["schema"],
                 )
             )
 

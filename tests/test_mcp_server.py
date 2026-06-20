@@ -242,6 +242,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://release/rehearsal", uris)
         self.assertIn("cleanmac://release/promotion-decision", uris)
         self.assertIn("cleanmac://release/rollback-plan", uris)
+        self.assertIn("cleanmac://release/post-publish-verification", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -396,6 +397,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://release/rehearsal": "cleanmac.release-rehearsal.v1",
             "cleanmac://release/promotion-decision": "cleanmac.release-promotion-decision.v1",
             "cleanmac://release/rollback-plan": "cleanmac.release-rollback-plan.v1",
+            "cleanmac://release/post-publish-verification": "cleanmac.release-post-publish-verification.v1",
         }
         for index, (uri, schema) in enumerate(resources.items(), start=83):
             with self.subTest(uri=uri):
