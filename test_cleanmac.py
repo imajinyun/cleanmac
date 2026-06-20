@@ -533,8 +533,14 @@ class CleanMacCLITests(unittest.TestCase):
         distribution_governance = report["safety_guardrails"]["distribution_governance"]
         self.assertEqual(distribution_governance["schema"], "cleanmac.distribution-governance.v1")
         self.assertIn("standalone-zipapp", distribution_governance["supported_artifacts"])
+        self.assertIn("homebrew-formula", distribution_governance["supported_artifacts"])
         self.assertEqual(distribution_governance["release_manifest"], "release-assets/ARTIFACT-MANIFEST.json")
-        self.assertEqual(distribution_governance["homebrew_formula_policy"]["status"], "preflight-only")
+        self.assertEqual(distribution_governance["homebrew_formula_policy"]["status"], "tap-publishable")
+        self.assertEqual(distribution_governance["homebrew_formula_policy"]["tap"], "cleanmac/tap")
+        self.assertEqual(
+            distribution_governance["homebrew_formula_policy"]["recommended_install_method"],
+            "brew tap cleanmac/tap && brew install cleanmac",
+        )
         self.assertFalse(distribution_governance["homebrew_formula_policy"]["publish_automatically"])
         self.assertEqual(
             report["safety_guardrails"]["privileged_command_ownership"]["scan_command"],
@@ -5041,6 +5047,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("ai-host-smoke:", makefile)
         self.assertIn("ai-robustness-smoke:", makefile)
         self.assertIn("distribution-smoke:", makefile)
+        self.assertIn("homebrew-formula-smoke:", makefile)
         self.assertIn("zipapp", makefile)
         self.assertIn("cleanmac.pyz", makefile)
         self.assertIn("class Cleanmac < Formula", makefile)
@@ -5051,7 +5058,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5461,9 +5468,12 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("SBOM.json", release)
         self.assertIn("release-assets/SHA256SUMS", release)
         self.assertIn("release-assets/SBOM.json", release)
+        self.assertIn("release-assets/cleanmac.rb", release)
         self.assertIn("ARTIFACT-MANIFEST.json", release)
         self.assertIn("cleanmac.release-artifact-manifest.v1", release)
         self.assertIn("homebrew_formula", release)
+        self.assertIn("tap-publishable", release)
+        self.assertIn("scripts/generate_homebrew_formula.py", release)
         self.assertIn("publish_after_cross_platform_verification", release)
         self.assertIn("Build release artifacts", release)
         self.assertIn("Verify release artifacts (${{ matrix.os }})", release)

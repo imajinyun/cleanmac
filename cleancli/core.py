@@ -2437,12 +2437,15 @@ def render_capabilities() -> dict[str, Any]:
             },
             "distribution_governance": {
                 "schema": "cleanmac.distribution-governance.v1",
-                "supported_artifacts": ["wheel", "sdist", "standalone-zipapp"],
+                "supported_artifacts": ["wheel", "sdist", "standalone-zipapp", "homebrew-formula"],
                 "release_manifest": "release-assets/ARTIFACT-MANIFEST.json",
                 "homebrew_formula_policy": {
-                    "status": "preflight-only",
+                    "status": "tap-publishable",
+                    "tap": "cleanmac/tap",
+                    "formula_path": "Formula/cleanmac.rb",
+                    "formula_asset": "release-assets/cleanmac.rb",
                     "publish_automatically": False,
-                    "recommended_install_method": "pipx or Homebrew formula generated from release checksums",
+                    "recommended_install_method": "brew tap cleanmac/tap && brew install cleanmac",
                     "formula_checks": ["class_name", "url", "sha256", "license", "test do"],
                 },
                 "standalone_smoke_command": "python cleanmac.pyz --json capabilities",

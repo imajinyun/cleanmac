@@ -41,7 +41,7 @@
 | 🗺️ | **清理计划** | 可复用的 `cleanmac.plan.v1` JSON |
 | 📄 | **清理报告** | 清理前报告、dry-run 明细、执行后报告 |
 | 🧪 | **沙箱模式** | `--root` / `--home` 路径重映射 |
-| 🤖 | **AI 工具** | 32 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
+| 🤖 | **AI 工具** | 33 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
 | 🏗️ | **MCP Server** | 基于 stdio 的 Model Context Protocol 服务器 |
 | 🧾 | **审查选择** | `cleanmac.review-selection.v1` 文件可约束计划 replay |
 | 🔍 | **运营预检** | permissions、startup、privacy、外部工具 dry-run 计划 |
@@ -114,7 +114,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI 工具定义
 
-导出 **32 个工具**，支持三种格式：
+导出 **33 个工具**，支持三种格式：
 
 ```bash
 # 🧠 Anthropic 格式（Claude）
@@ -193,7 +193,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 协议示例：**
 
 ```bash
-# 📋 列出全部 32 个工具
+# 📋 列出全部 33 个工具
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -395,6 +395,16 @@ python3 -m venv .venv
 python3 -m pip install -e .
 cleanmac list
 ```
+
+### 🍺 通过 Homebrew tap 安装
+
+```bash
+brew tap cleanmac/tap
+brew install cleanmac
+cleanmac --json capabilities
+```
+
+发布自动化会使用 `scripts/generate_homebrew_formula.py` 生成 `release-assets/cleanmac.rb`，把它写入 `cleanmac.release-artifact-manifest.v1`，并通过 `make homebrew-formula-smoke` 校验。若未来 Homebrew core 中存在同名 formula，可使用 `brew install cleanmac/tap/cleanmac` 明确选择 tap。
 
 ### 🐍 环境要求
 
@@ -809,6 +819,7 @@ make governance-smoke                              # 治理合约检查
 make ai-contract-smoke                             # AI 合同样例与 schema fragment
 make open-source-smoke                             # 开源治理检查
 make dependency-audit-smoke                        # pip-audit + SBOM.json
+make homebrew-formula-smoke                        # Homebrew tap formula 校验
 make no-cache-check                                # 无缓存全量验证
 make no-cache-release-check                        # 无缓存发布验证
 ```
@@ -839,6 +850,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `ai-host-smoke` | AI 主机集成测试套件 |
 | `ai-robustness-smoke` | AI 并发、幂等、协议与 trace 回归 |
 | `distribution-smoke` | wheel + sdist |
+| `homebrew-formula-smoke` | Homebrew tap formula 生成 |
 | `release-artifacts-smoke` | SHA256SUMS + ARTIFACT-MANIFEST.json + 证明 |
 | `docker-test` | Debian 容器测试 |
 | `no-cache-check` | 无缓存全量验证 |
@@ -846,7 +858,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `no-cache-docker-test` | Docker 测试（--pull=always） |
 | `release-check` | 全部门禁串联 |
 
-发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。
+发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。
 
 ### 🤖 CI 配置
 

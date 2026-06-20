@@ -9,6 +9,7 @@ from pathlib import Path
 
 from cleancli.release_artifacts import (
     build_release_artifact_manifest,
+    render_homebrew_formula,
     render_sha256sums,
     verify_release_artifact_manifest,
 )
@@ -27,6 +28,7 @@ class ReleaseArtifactManifestTests(unittest.TestCase):
             (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
             (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
             (assets / "SBOM.json").write_text('{"bomFormat":"CycloneDX"}', encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
 
             manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
 
@@ -37,11 +39,42 @@ class ReleaseArtifactManifestTests(unittest.TestCase):
                     "cleanmac-0.1.0-py3-none-any.whl",
                     "cleanmac-0.1.0.tar.gz",
                     "SBOM.json",
+                    "cleanmac.rb",
                 ],
             )
             self.assertTrue(all(len(row["sha256"]) == 64 for row in manifest["artifacts"]))
-            self.assertEqual(manifest["distribution_policy"]["homebrew_formula"], "preflight-only")
+            self.assertEqual(manifest["distribution_policy"]["homebrew_formula"], "tap-publishable")
+            self.assertEqual(manifest["distribution_policy"]["homebrew_tap"], "cleanmac/tap")
+            self.assertEqual(
+                manifest["distribution_policy"]["homebrew_install_commands"],
+                ["brew tap cleanmac/tap", "brew install cleanmac"],
+            )
             self.assertTrue(manifest["distribution_policy"]["publish_after_cross_platform_verification"])
+
+    def test_homebrew_formula_uses_tap_install_safe_capabilities_test(self) -> None:
+        formula = render_homebrew_formula(
+            version="0.1.0",
+            archive_url="https://github.com/cleanmac/cleanmac/archive/refs/tags/v0.1.0.tar.gz",
+            sha256="A" * 64,
+        )
+
+        self.assertIn("class Cleanmac < Formula", formula)
+        self.assertIn("include Language::Python::Virtualenv", formula)
+        self.assertIn('url "https://github.com/cleanmac/cleanmac/archive/refs/tags/v0.1.0.tar.gz"', formula)
+        self.assertIn(f'sha256 "{"a" * 64}"', formula)
+        self.assertIn('license "MIT"', formula)
+        self.assertIn('depends_on "python@3.12"', formula)
+        self.assertIn("virtualenv_install_with_resources", formula)
+        self.assertIn('shell_output("#{bin}/cleanmac --json capabilities")', formula)
+        self.assertIn('assert_match "cleanmac.capabilities.v1", output', formula)
+
+    def test_homebrew_formula_rejects_invalid_sha256(self) -> None:
+        with self.assertRaisesRegex(ValueError, "64-character hexadecimal"):
+            render_homebrew_formula(
+                version="0.1.0",
+                archive_url="https://github.com/cleanmac/cleanmac/archive/refs/tags/v0.1.0.tar.gz",
+                sha256="not-a-digest",
+            )
 
     def test_sha256sums_matches_manifest_artifacts(self) -> None:
         manifest = {
@@ -79,6 +112,7 @@ class ReleaseArtifactManifestTests(unittest.TestCase):
             assets.mkdir()
             (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
             (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
 
             first = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
             second = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
@@ -115,6 +149,33 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
             self.assertEqual(stdout["schema"], "cleanmac.release-artifact-manifest.v1")
             self.assertTrue((assets / "SHA256SUMS").is_file())
             self.assertTrue((assets / "ARTIFACT-MANIFEST.json").is_file())
+
+    def test_homebrew_formula_script_writes_formula(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "release-assets" / "cleanmac.rb"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "scripts/generate_homebrew_formula.py"),
+                    "--version",
+                    "0.1.0",
+                    "--archive-url",
+                    "https://github.com/cleanmac/cleanmac/archive/refs/tags/v0.1.0.tar.gz",
+                    "--sha256",
+                    "0" * 64,
+                    "--output",
+                    str(output),
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            self.assertEqual(result.stdout, "")
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("class Cleanmac < Formula", text)
+            self.assertIn('sha256 "0000000000000000000000000000000000000000000000000000000000000000"', text)
 
 
 class InstalledCliParityTests(unittest.TestCase):

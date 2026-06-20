@@ -3,10 +3,19 @@ from __future__ import annotations
 import hashlib
 import json
 import platform
+import re
 from pathlib import Path
 from typing import Any
 
 RELEASE_ARTIFACT_MANIFEST_SCHEMA = "cleanmac.release-artifact-manifest.v1"
+HOMEBREW_FORMULA_NAME = "cleanmac.rb"
+HOMEBREW_TAP = "cleanmac/tap"
+
+
+def validate_sha256_hex(value: str) -> str:
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", value):
+        raise ValueError("Homebrew formula sha256 must be a 64-character hexadecimal digest.")
+    return value.lower()
 
 
 def sha256_file(path: Path) -> str:
@@ -20,6 +29,8 @@ def sha256_file(path: Path) -> str:
 def artifact_kind(path: Path) -> str:
     if path.name == "SBOM.json":
         return "sbom"
+    if path.name == HOMEBREW_FORMULA_NAME:
+        return "homebrew-formula"
     if path.suffix == ".whl":
         return "wheel"
     if path.suffixes[-2:] == [".tar", ".gz"]:
@@ -34,7 +45,41 @@ def release_artifact_paths(*, dist_dir: Path, assets_dir: Path) -> list[Path]:
     sbom_path = assets_dir / "SBOM.json"
     if not sbom_path.is_file():
         raise FileNotFoundError(f"Missing release SBOM: {sbom_path}")
-    return [*dist_paths, sbom_path]
+    formula_path = assets_dir / HOMEBREW_FORMULA_NAME
+    asset_paths = [sbom_path]
+    if formula_path.is_file():
+        asset_paths.append(formula_path)
+    return [*dist_paths, *asset_paths]
+
+
+def render_homebrew_formula(*, version: str, archive_url: str, sha256: str) -> str:
+    digest = validate_sha256_hex(sha256)
+    if not version or version.startswith("v"):
+        raise ValueError("Homebrew formula version must omit the leading 'v'.")
+    if not archive_url.startswith("https://"):
+        raise ValueError("Homebrew formula archive_url must use https.")
+    return f'''class Cleanmac < Formula
+  include Language::Python::Virtualenv
+
+  desc "macOS cleanup CLI with dry-run and safety guardrails"
+  homepage "https://github.com/cleanmac/cleanmac"
+  url "{archive_url}"
+  sha256 "{digest}"
+  license "MIT"
+  version "{version}"
+
+  depends_on "python@3.12"
+
+  def install
+    virtualenv_install_with_resources
+  end
+
+  test do
+    output = shell_output("#{{bin}}/cleanmac --json capabilities")
+    assert_match "cleanmac.capabilities.v1", output
+  end
+end
+'''
 
 
 def build_release_artifact_manifest(*, dist_dir: Path, assets_dir: Path) -> dict[str, Any]:
@@ -48,7 +93,10 @@ def build_release_artifact_manifest(*, dist_dir: Path, assets_dir: Path) -> dict
         "platform": platform.platform(),
         "artifacts": artifacts,
         "distribution_policy": {
-            "homebrew_formula": "preflight-only",
+            "homebrew_formula": "tap-publishable",
+            "homebrew_tap": HOMEBREW_TAP,
+            "homebrew_formula_asset": f"release-assets/{HOMEBREW_FORMULA_NAME}",
+            "homebrew_install_commands": ["brew tap cleanmac/tap", "brew install cleanmac"],
             "standalone_zipapp": "smoke-tested outside release upload",
             "publish_after_cross_platform_verification": True,
         },
@@ -72,7 +120,7 @@ def render_sha256sums(manifest: dict[str, Any]) -> str:
 
 
 def artifact_path_for_name(name: str, *, dist_dir: Path, assets_dir: Path) -> Path:
-    if name == "SBOM.json":
+    if name in {"SBOM.json", HOMEBREW_FORMULA_NAME}:
         return assets_dir / name
     return dist_dir / name
 
