@@ -29,6 +29,9 @@ def _item_source(payload: dict[str, Any]) -> list[Any]:
         return list(report["items"])
     if isinstance(report.get("candidates"), list):
         return list(report["candidates"])
+    pre_clean_report = report.get("pre_clean_report") if isinstance(report.get("pre_clean_report"), dict) else None
+    if pre_clean_report and isinstance(pre_clean_report.get("candidates"), list):
+        return list(pre_clean_report["candidates"])
     uninstall_plan = report.get("uninstall_plan") if isinstance(report.get("uninstall_plan"), dict) else None
     if uninstall_plan and isinstance(uninstall_plan.get("candidates"), list):
         return list(uninstall_plan["candidates"])
