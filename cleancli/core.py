@@ -48,6 +48,7 @@ from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_pri
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
 from cleancli.release_orchestration import (
+    render_release_post_publish_result,
     render_release_post_publish_verification,
     render_release_promotion_decision,
     render_release_rehearsal,
@@ -1572,6 +1573,28 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=None,
         help="Override the release assets directory used for post-publish verification context.",
     )
+    release_post_publish_result_parser = subparsers.add_parser(
+        "release-post-publish-result",
+        help="Emit manual-only post-publish verification closure evidence.",
+    )
+    release_post_publish_result_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for post-publish result context.",
+    )
+    release_post_publish_result_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for post-publish result context.",
+    )
+    release_post_publish_result_parser.add_argument(
+        "--evidence-file",
+        type=Path,
+        default=None,
+        help="Optional manual post-publish evidence JSON file used to mark surfaces verified or failed.",
+    )
     subparsers.add_parser(
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
@@ -1659,6 +1682,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "release-promotion-decision",
         "release-rollback-plan",
         "release-post-publish-verification",
+        "release-post-publish-result",
         "ai-schema-registry",
         "ai-contract-samples",
         "ai-validate-contract",
@@ -2930,6 +2954,9 @@ def render_release_evidence_report(
         post_publish_verification=render_release_post_publish_verification_report(
             dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir
         ),
+        post_publish_result=render_release_post_publish_result_report(
+            dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir
+        ),
     )
 
 
@@ -3045,6 +3072,20 @@ def render_release_post_publish_verification_report(
 ) -> dict[str, Any]:
     resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
     return render_release_post_publish_verification(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+
+
+def render_release_post_publish_result_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+    evidence_file: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    return render_release_post_publish_result(
+        dist_dir=resolved_dist_dir,
+        assets_dir=resolved_assets_dir,
+        evidence_file=evidence_file,
+    )
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
@@ -6527,6 +6568,7 @@ def render_completion_shell(shell: str) -> str:
         "release-promotion-decision",
         "release-rollback-plan",
         "release-post-publish-verification",
+        "release-post-publish-result",
         "ai-schema-registry",
         "ai-eval-pack",
         "ai-eval-run",
@@ -6570,6 +6612,7 @@ def render_completion_shell(shell: str) -> str:
         "release-promotion-decision": "--dist-dir --assets-dir",
         "release-rollback-plan": "--dist-dir --assets-dir",
         "release-post-publish-verification": "--dist-dir --assets-dir",
+        "release-post-publish-result": "--dist-dir --assets-dir --evidence-file",
         "ai-schema-registry": "",
         "ai-eval-pack": "",
         "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
@@ -7104,6 +7147,19 @@ def _main_impl(argv: Sequence[str]) -> int:
         print(
             json.dumps(
                 render_release_post_publish_verification_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-post-publish-result":
+        print(
+            json.dumps(
+                render_release_post_publish_result_report(
+                    dist_dir=args.dist_dir,
+                    assets_dir=args.assets_dir,
+                    evidence_file=args.evidence_file,
+                ),
                 indent=2,
                 ensure_ascii=False,
             )

@@ -104,6 +104,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.release-promotion-decision.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.release-rollback-plan.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.release-post-publish-verification.v1", 1, "cleancli.release_orchestration", "stable"),
+    ("cleanmac.release-post-publish-result.v1", 1, "cleancli.release_orchestration", "stable"),
     ("cleanmac.review-selection-constraint.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.review-selection-validation.v1", 1, "cleancli.review", "stable"),
     ("cleanmac.review-selection-summary.v1", 1, "cleancli.review", "stable"),
@@ -172,6 +173,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.release-promotion-decision.v1",
     "cleanmac.release-rollback-plan.v1",
     "cleanmac.release-post-publish-verification.v1",
+    "cleanmac.release-post-publish-result.v1",
     "cleanmac.ai-governance-advice.v1",
     "cleanmac.ai-eval-pack.v1",
     "cleanmac.ai-eval-run.v1",
@@ -189,6 +191,7 @@ RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.release-promotion-decision.v1",
     "cleanmac.release-rollback-plan.v1",
     "cleanmac.release-post-publish-verification.v1",
+    "cleanmac.release-post-publish-result.v1",
 )
 
 CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
@@ -1161,6 +1164,37 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.release-post-publish-result.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "manual_only",
+            "ready",
+            "surfaces",
+            "failed_surface_ids",
+            "pending_surface_ids",
+            "incident_response_entrypoints",
+            "recommended_commands",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.release-post-publish-result.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "manual_only": {"const": True},
+            "ready": {"type": "boolean"},
+            "surfaces": {"type": "array", "items": {"type": "object"}},
+            "failed_surface_ids": {"type": "array", "items": {"type": "string"}},
+            "pending_surface_ids": {"type": "array", "items": {"type": "string"}},
+            "incident_response_entrypoints": {
+                "type": "array",
+                "items": {"type": "array", "items": {"type": "string"}},
+            },
+            "recommended_commands": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+        },
+        "additionalProperties": True,
+    },
 }
 
 
@@ -1224,6 +1258,7 @@ def _schema_producer_command(name: str) -> list[str]:
         "cleanmac.release-promotion-decision.v1": ["cleanmac", "--json", "release-promotion-decision"],
         "cleanmac.release-rollback-plan.v1": ["cleanmac", "--json", "release-rollback-plan"],
         "cleanmac.release-post-publish-verification.v1": ["cleanmac", "--json", "release-post-publish-verification"],
+        "cleanmac.release-post-publish-result.v1": ["cleanmac", "--json", "release-post-publish-result"],
         "cleanmac.release-artifact-manifest.v1": ["python", "scripts/generate_release_manifest.py"],
         "cleanmac.ai-schema-registry.v1": ["cleanmac", "--json", "ai-schema-registry"],
         "cleanmac.ai-contract-samples.v1": ["cleanmac", "--json", "ai-contract-samples"],
@@ -2066,6 +2101,18 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "required_evidence_after_publish": ["GitHub release asset list"],
             "incident_response_entrypoints": [["cleanmac", "--json", "release-diagnostics"]],
             "recommended_commands": [["make", "release-post-publish-smoke"]],
+        },
+        "cleanmac.release-post-publish-result.v1": {
+            "schema": "cleanmac.release-post-publish-result.v1",
+            "destructive": False,
+            "dry_run": True,
+            "manual_only": True,
+            "ready": False,
+            "surfaces": [{"id": "github-release", "status": "pending"}],
+            "failed_surface_ids": [],
+            "pending_surface_ids": ["github-release"],
+            "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],
+            "recommended_commands": [["make", "release-post-publish-result-smoke"]],
         },
     }
     if schema_name == "cleanmac.ai-contract-validation-summary.v1":

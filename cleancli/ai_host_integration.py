@@ -44,6 +44,7 @@ def render_ai_host_integration_pack(
         "cleanmac://release/promotion-decision",
         "cleanmac://release/rollback-plan",
         "cleanmac://release/post-publish-verification",
+        "cleanmac://release/post-publish-result",
         "cleanmac://capabilities",
         "cleanmac://ai/function-schemas",
         "cleanmac://ai/mcp-tool-catalog",

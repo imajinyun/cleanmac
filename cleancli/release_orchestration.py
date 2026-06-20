@@ -12,6 +12,7 @@ RELEASE_REHEARSAL_SCHEMA = "cleanmac.release-rehearsal.v1"
 RELEASE_PROMOTION_DECISION_SCHEMA = "cleanmac.release-promotion-decision.v1"
 RELEASE_ROLLBACK_PLAN_SCHEMA = "cleanmac.release-rollback-plan.v1"
 RELEASE_POST_PUBLISH_VERIFICATION_SCHEMA = "cleanmac.release-post-publish-verification.v1"
+RELEASE_POST_PUBLISH_RESULT_SCHEMA = "cleanmac.release-post-publish-result.v1"
 
 PROMOTION_REQUIRED_ASSET_NAMES = (
     "SBOM.json",
@@ -21,9 +22,16 @@ PROMOTION_REQUIRED_ASSET_NAMES = (
     "RELEASE-DIAGNOSTICS.json",
     "RELEASE-REHEARSAL.json",
     "RELEASE-POST-PUBLISH-VERIFICATION.json",
+    "RELEASE-POST-PUBLISH-RESULT.json",
     "RELEASE-ROLLBACK-PLAN.json",
     HOMEBREW_FORMULA_NAME,
 )
+
+POST_PUBLISH_SURFACE_REQUIREMENTS = {
+    "github-release": ["GitHub release asset list"],
+    "pypi": ["PyPI release page version and file hashes"],
+    "homebrew-tap": ["Homebrew tap formula commit"],
+}
 
 
 def _json_payload(path: Path) -> dict[str, Any] | None:
@@ -265,4 +273,88 @@ def render_release_post_publish_verification(*, dist_dir: Path | str, assets_dir
             ["cleanmac", "--json", "release-rollback-plan"],
         ],
         "recommended_commands": [["make", "release-post-publish-smoke"], ["make", "release-check"]],
+    }
+
+
+def _post_publish_evidence_payload(evidence_file: Path | str | None) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    if evidence_file is None:
+        return {}, None
+    path = Path(evidence_file)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, {"path": str(path), "valid_json": False, "error": str(exc)}
+    if not isinstance(payload, dict):
+        return {}, {"path": str(path), "valid_json": False, "error": "Evidence input must be a JSON object."}
+    surfaces = payload.get("surfaces", {})
+    if not isinstance(surfaces, dict):
+        surfaces = {}
+    return surfaces, {
+        "path": str(path),
+        "valid_json": True,
+        "schema": payload.get("schema"),
+        "surface_count": len(surfaces),
+    }
+
+
+def render_release_post_publish_result(
+    *,
+    dist_dir: Path | str,
+    assets_dir: Path | str,
+    evidence_file: Path | str | None = None,
+) -> dict[str, Any]:
+    evidence_by_surface, evidence_input = _post_publish_evidence_payload(evidence_file)
+    surfaces = []
+    failed_surface_ids = []
+    pending_surface_ids = []
+    verified_surface_ids = []
+    for surface_id, required_evidence in POST_PUBLISH_SURFACE_REQUIREMENTS.items():
+        raw_surface = evidence_by_surface.get(surface_id, {})
+        raw_surface = raw_surface if isinstance(raw_surface, dict) else {}
+        status = str(raw_surface.get("status") or "pending")
+        if status not in {"verified", "failed", "pending"}:
+            status = "failed"
+        evidence_refs = raw_surface.get("evidence_refs", [])
+        if not isinstance(evidence_refs, list):
+            evidence_refs = []
+        if status == "verified" and not evidence_refs:
+            status = "failed"
+        blocking_code = None
+        if status == "failed":
+            failed_surface_ids.append(surface_id)
+            blocking_code = f"{surface_id.replace('-', '_').upper()}_POST_PUBLISH_FAILED"
+        elif status == "pending":
+            pending_surface_ids.append(surface_id)
+            blocking_code = f"{surface_id.replace('-', '_').upper()}_POST_PUBLISH_UNVERIFIED"
+        else:
+            verified_surface_ids.append(surface_id)
+        row: dict[str, Any] = {
+            "id": surface_id,
+            "status": status,
+            "required_evidence": list(required_evidence),
+            "evidence_refs": [str(ref) for ref in evidence_refs],
+        }
+        if blocking_code:
+            row["blocking_code"] = blocking_code
+        surfaces.append(row)
+    ready = bool(surfaces and not failed_surface_ids and not pending_surface_ids)
+    return {
+        "schema": RELEASE_POST_PUBLISH_RESULT_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "manual_only": True,
+        "ready": ready,
+        "dist_dir": str(Path(dist_dir)),
+        "assets_dir": str(Path(assets_dir)),
+        "verification_plan_schema": RELEASE_POST_PUBLISH_VERIFICATION_SCHEMA,
+        "evidence_input": evidence_input or {},
+        "surfaces": surfaces,
+        "verified_surface_ids": verified_surface_ids,
+        "failed_surface_ids": failed_surface_ids,
+        "pending_surface_ids": pending_surface_ids,
+        "incident_response_entrypoints": [
+            ["cleanmac", "--json", "release-diagnostics"],
+            ["cleanmac", "--json", "release-rollback-plan"],
+        ],
+        "recommended_commands": [["make", "release-post-publish-result-smoke"], ["make", "release-check"]],
     }
