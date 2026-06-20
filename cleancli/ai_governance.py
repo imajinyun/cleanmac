@@ -48,6 +48,7 @@ def render_ai_governance_advice(
                 ["cleanmac", "--json", "ai-host-integration-pack"],
                 ["cleanmac", "--json", "ai-host-preflight"],
                 ["cleanmac", "--json", "ai-host-evidence"],
+                ["cleanmac", "--json", "release-readiness"],
                 ["cleanmac", "--json", "ai-readiness"],
                 ["cleanmac", "--json", "ai-runbook"],
                 ["cleanmac", "--json", "ai-decision-matrix"],
@@ -102,6 +103,7 @@ def render_ai_governance_advice(
             "evidence": [
                 "cleanmac --json ai-host-integration-pack",
                 "cleanmac --json ai-host-preflight",
+                "cleanmac --json release-readiness",
                 "cleanmac --json ai-readiness",
                 "cleanmac --json ai-governance-advice",
             ],
@@ -149,6 +151,7 @@ def render_ai_governance_advice(
             else "needs_attention",
             "evidence": [
                 "cleanmac://ai/host-integration-pack",
+                "cleanmac://release/readiness",
                 "cleanmac://ai/governance-advice",
                 "cleanmac://ai/host-policy",
                 "review-ai-governance",
@@ -157,7 +160,12 @@ def render_ai_governance_advice(
         {
             "id": "ci-release-gate",
             "status": "satisfied" if eval_ready else "needs_attention",
-            "evidence": ["make ai-governance-smoke", "make ai-host-smoke", "make mcp-smoke"],
+            "evidence": [
+                "make ai-governance-smoke",
+                "make ai-host-smoke",
+                "make mcp-smoke",
+                "make release-readiness-smoke",
+            ],
         },
         {
             "id": "audit-traceability",
@@ -202,11 +210,13 @@ def render_ai_governance_advice(
             "Stop on structured policy errors and surface the error summary to the human user.",
             "Require Trash routing, operation log, plan context match, and confirmation token for execution intent.",
             "Record scenario IDs and trace event counts from ai-eval-run smoke in release or integration checks.",
+            "Read cleanmac.release-readiness.v1 before release review and stop if any gate is blocked.",
         ],
         "recommended_call_sequence": [
             "read cleanmac://ai/host-integration-pack",
             "read cleanmac://ai/host-preflight",
             "read cleanmac://ai/host-evidence",
+            "read cleanmac://release/readiness",
             "cleanmac_capabilities",
             "read cleanmac://ai/readiness",
             "read cleanmac://ai/runbook",
@@ -226,12 +236,14 @@ def render_ai_governance_advice(
             "Retrying a blocked execution without changing the missing requirement reported by policy-simulate.",
             "Skipping ai-eval-run smoke after changing tool schemas, runbook, MCP resources, or policy gates.",
             "Running an AI Host without loading cleanmac.ai-host-policy.v1 allow/deny decisions.",
+            "Treating release artifacts as ready without reading cleanmac.release-readiness.v1.",
         ],
         "governance_route": governance_route,
         "release_gate_commands": [
             ["cleanmac", "--json", "ai-host-integration-pack"],
             ["cleanmac", "--json", "ai-host-preflight"],
             ["cleanmac", "--json", "ai-host-evidence"],
+            ["cleanmac", "--json", "release-readiness"],
             ["cleanmac", "--json", "ai-self-test"],
             ["cleanmac", "--json", "ai-readiness"],
             ["cleanmac", "--json", "ai-governance-advice"],
@@ -241,6 +253,7 @@ def render_ai_governance_advice(
             ["make", "ai-contract-smoke"],
             ["make", "ai-host-smoke"],
             ["make", "mcp-smoke"],
+            ["make", "release-readiness-smoke"],
         ],
         "recommendations": recommendations,
     }

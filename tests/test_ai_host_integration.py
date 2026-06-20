@@ -42,6 +42,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         )
         self.assertIn("cleanmac://ai/host-integration-pack", pack["mcp"]["resources"])
         self.assertIn("cleanmac://ai/host-evidence", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://release/readiness", pack["mcp"]["resources"])
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
     def test_pack_validates_against_registered_contract_schema(self) -> None:
@@ -83,6 +84,10 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             readiness["recommended_preflight_commands"],
         )
         self.assertIn(
+            ["cleanmac", "--json", "release-readiness"],
+            pack["recommended_preflight_commands"],
+        )
+        self.assertIn(
             ["cleanmac", "--json", "ai-host-integration-pack"],
             governance["release_gate_commands"],
         )
@@ -92,6 +97,10 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         )
         self.assertIn(
             ["cleanmac", "--json", "ai-host-evidence"],
+            governance["release_gate_commands"],
+        )
+        self.assertIn(
+            ["cleanmac", "--json", "release-readiness"],
             governance["release_gate_commands"],
         )
         self.assertEqual(
@@ -106,6 +115,10 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             governance["recommended_call_sequence"][2],
             "read cleanmac://ai/host-evidence",
         )
+        self.assertEqual(
+            governance["recommended_call_sequence"][3],
+            "read cleanmac://release/readiness",
+        )
 
     def test_evidence_reports_runtime_governance_audit_pack(self) -> None:
         evidence = render_ai_host_evidence_report()
@@ -116,6 +129,9 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(evidence["ready"], evidence)
         self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", evidence["observed_blocking_codes"])
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", evidence["observed_blocking_codes"])
+        checks = {check["id"]: check for check in evidence["evidence_checks"]}
+        self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
+        self.assertIn(["make", "release-readiness-smoke"], evidence["release_gate_commands"])
 
     def test_preflight_reports_runtime_governance_gate(self) -> None:
         preflight = render_ai_host_preflight_report()

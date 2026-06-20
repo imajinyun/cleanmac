@@ -62,6 +62,11 @@ def render_ai_host_evidence(
             "passed": "cleanmac://ai/host-evidence" in resources,
             "evidence": "cleanmac://ai/host-evidence",
         },
+        {
+            "id": "release-readiness-resource-advertised",
+            "passed": "cleanmac://release/readiness" in resources,
+            "evidence": "cleanmac://release/readiness",
+        },
     ]
     return {
         "schema": "cleanmac.ai-host-evidence.v1",
@@ -85,10 +90,12 @@ def render_ai_host_evidence(
             ["cleanmac", "--json", "ai-host-integration-pack"],
             ["cleanmac", "--json", "ai-host-preflight"],
             ["cleanmac", "--json", "ai-host-evidence"],
+            ["cleanmac", "--json", "release-readiness"],
             ["make", "ai-contract-smoke"],
             ["make", "mcp-smoke"],
             ["make", "ai-governance-smoke"],
             ["make", "ai-host-smoke"],
+            ["make", "release-readiness-smoke"],
         ],
         "review_questions": [
             "Did the host load cleanmac://ai/host-integration-pack before tool calls?",
@@ -96,5 +103,6 @@ def render_ai_host_evidence(
             "Were raw command arguments denied before CLI execution?",
             "Were destructive calls denied when confirmation gates were missing?",
             "Did CI run ai-contract-smoke, mcp-smoke, ai-governance-smoke, and ai-host-smoke?",
+            "Did release-readiness-smoke aggregate AI Host, contract, eval, and artifact evidence?",
         ],
     }
