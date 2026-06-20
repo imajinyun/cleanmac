@@ -214,9 +214,12 @@ make mcp-smoke
 
 make mcp-resource-index-smoke
 # ✅ 输出：mcp-resource-index-smoke passed
+
+make mcp-prompt-index-smoke
+# ✅ 输出：mcp-prompt-index-smoke passed
 ```
 
-AI Host 应先读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）。这个受治理的 MCP 资源索引会列出每个 MCP resource URI、schema、分类和安全标记，并且所有 resource payload 都会经过脱敏，避免泄露本地路径或凭证。
+AI Host 应先读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）和 `cleanmac://mcp/prompt-index`（`cleanmac.mcp-prompt-index.v1`）。这些受治理的 MCP 索引会列出每个 MCP resource URI、prompt 名称、schema、分类、参数、拒绝工具和安全标记，并且所有 payload 都会经过脱敏，避免泄露本地路径或凭证。
 
 ### 🧭 AI 工作流管线
 
@@ -838,6 +841,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 python3 -m unittest -v                            # 全部测试
 python3 -m unittest tests.test_mcp_server -v      # MCP 专项
 make mcp-smoke                                     # MCP 冒烟测试
+make mcp-prompt-index-smoke                       # MCP Prompt 索引合约
 make ai-robustness-smoke                           # AI 鲁棒性回归测试
 make local-test                                    # 完整本地测试
 make quality-check                                 # lint + type + coverage
@@ -876,6 +880,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `package-smoke` | Editable 安装 |
 | `script-smoke` | 模板治理 |
 | `mcp-smoke` | MCP tools/list + tools/call |
+| `mcp-prompt-index-smoke` | MCP Prompt 索引 schema 与安全元数据 |
 | `bundle-audit-smoke` | Bundle drift 审计 |
 | `build-check` | 构建 wheel/sdist + twine 检查 |
 | `macos-smoke` | macOS 专项测试 |

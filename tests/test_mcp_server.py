@@ -228,6 +228,7 @@ class MckServerTests(unittest.TestCase):
         uris = {resource["uri"] for resource in resources}
 
         self.assertIn("cleanmac://mcp/resource-index", uris)
+        self.assertIn("cleanmac://mcp/prompt-index", uris)
         self.assertIn("cleanmac://capabilities", uris)
         self.assertIn("cleanmac://ai/function-schemas", uris)
         self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
@@ -265,8 +266,30 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.mcp-resource-index.v1")
         self.assertTrue(payload["ready"], payload)
         self.assertEqual(payload["resource_count"], len(payload["resources"]))
+        self.assertIn("cleanmac://mcp/prompt-index", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
+
+    def test_resources_read_mcp_prompt_index(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 93,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://mcp/prompt-index"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://mcp/prompt-index")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.mcp-prompt-index.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["prompt_count"], len(payload["prompts"]))
+        self.assertIn("review-ai-host-policy", payload["prompt_names"])
+        self.assertTrue(all(prompt["safe_for_mcp"] is True for prompt in payload["prompts"]))
+        self.assertTrue(all(prompt["destructive"] is False for prompt in payload["prompts"]))
+        self.assertTrue(all(prompt["dry_run"] is True for prompt in payload["prompts"]))
+        self.assertTrue(all(prompt["uses_shell"] is False for prompt in payload["prompts"]))
 
     def test_resources_read_payloads_are_sanitized_for_mcp(self) -> None:
         sensitive_uris = [
@@ -352,6 +375,8 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertTrue(payload["ready"], payload)
         self.assertEqual(payload["mcp"]["resource_uri"], "cleanmac://ai/host-integration-pack")
+        self.assertEqual(payload["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
+        self.assertIn("review-ai-host-policy", payload["mcp"]["prompts"])
 
     def test_resources_read_host_preflight(self) -> None:
         response = _mcp_request(
@@ -384,6 +409,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.ai-host-evidence.v1")
         self.assertTrue(payload["ready"], payload)
         self.assertIn("runtime_policy_evidence", payload)
+        self.assertIn("mcp_prompt_catalog", payload)
 
     def test_resources_read_release_readiness(self) -> None:
         response = _mcp_request(
@@ -439,6 +465,7 @@ class MckServerTests(unittest.TestCase):
     def test_resources_read_release_orchestration_reports(self) -> None:
         resources = {
             "cleanmac://mcp/resource-index": "cleanmac.mcp-resource-index.v1",
+            "cleanmac://mcp/prompt-index": "cleanmac.mcp-prompt-index.v1",
             "cleanmac://release/rehearsal": "cleanmac.release-rehearsal.v1",
             "cleanmac://release/promotion-decision": "cleanmac.release-promotion-decision.v1",
             "cleanmac://release/rollback-plan": "cleanmac.release-rollback-plan.v1",

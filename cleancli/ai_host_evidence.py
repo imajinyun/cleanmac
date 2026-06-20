@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, validate_mcp_prompt_catalog
 from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, validate_mcp_resource_catalog
 
 
@@ -39,7 +40,9 @@ def render_ai_host_evidence(
 
     mcp = integration_pack.get("mcp", {})
     resources = mcp.get("resources", []) if isinstance(mcp, Mapping) else []
+    prompts = mcp.get("prompts", []) if isinstance(mcp, Mapping) else []
     resource_validation = validate_mcp_resource_catalog()
+    prompt_validation = validate_mcp_prompt_catalog()
     evidence_checks = [
         {
             "id": "integration-pack-ready",
@@ -77,6 +80,18 @@ def render_ai_host_evidence(
             "evidence": "cleanmac.mcp-resource-index.v1",
         },
         {
+            "id": "mcp-prompt-index-advertised",
+            "passed": MCP_PROMPT_INDEX_URI in resources,
+            "evidence": MCP_PROMPT_INDEX_URI,
+        },
+        {
+            "id": "mcp-prompt-catalog-valid",
+            "passed": bool(prompt_validation.get("valid"))
+            and isinstance(prompts, list)
+            and "review-ai-host-policy" in prompts,
+            "evidence": "cleanmac.mcp-prompt-index.v1",
+        },
+        {
             "id": "release-readiness-resource-advertised",
             "passed": "cleanmac://release/readiness" in resources,
             "evidence": "cleanmac://release/readiness",
@@ -92,6 +107,7 @@ def render_ai_host_evidence(
         "critical_schemas": list(critical_schemas),
         "evidence_checks": evidence_checks,
         "mcp_resource_catalog": resource_validation,
+        "mcp_prompt_catalog": prompt_validation,
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),

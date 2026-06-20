@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from cleancli.mcp_prompts import MCP_PROMPT_INDEX_SCHEMA, MCP_PROMPT_INDEX_URI
+
 MCP_RESOURCE_INDEX_SCHEMA = "cleanmac.mcp-resource-index.v1"
 MCP_RESOURCE_INDEX_URI = "cleanmac://mcp/resource-index"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
@@ -16,6 +18,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Governed MCP resource catalog with schema, category, and safety metadata.",
         "category": "mcp",
         "schema": MCP_RESOURCE_INDEX_SCHEMA,
+    },
+    {
+        "uri": MCP_PROMPT_INDEX_URI,
+        "name": "cleanmac MCP prompt index",
+        "description": "Governed MCP prompt catalog with arguments, categories, and safety metadata.",
+        "category": "mcp",
+        "schema": MCP_PROMPT_INDEX_SCHEMA,
     },
     {
         "uri": "cleanmac://capabilities",

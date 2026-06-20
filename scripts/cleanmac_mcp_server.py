@@ -219,10 +219,13 @@ def read_mcp_resource(uri: str) -> dict:
         render_release_rehearsal_report,
         render_release_rollback_plan_report,
     )
+    from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, render_mcp_prompt_index  # type: ignore[import-untyped]
     from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, render_mcp_resource_index  # type: ignore[import-untyped]
 
     if uri == MCP_RESOURCE_INDEX_URI:
         payload = render_mcp_resource_index()
+    elif uri == MCP_PROMPT_INDEX_URI:
+        payload = render_mcp_prompt_index()
     elif uri == "cleanmac://capabilities":
         payload = render_capabilities()
     elif uri == "cleanmac://ai/function-schemas":
@@ -288,55 +291,12 @@ def read_mcp_resource(uri: str) -> dict:
 
 
 def mcp_prompts() -> list[dict]:
+    ensure_project_root_on_path()
+    from cleancli.mcp_prompts import mcp_prompt_catalog  # type: ignore[import-untyped]
+
     return [
-        {
-            "name": "safe-cleanup-review",
-            "description": "Inspect and plan cleanup without executing deletion.",
-            "arguments": [
-                {
-                    "name": "categories",
-                    "description": "Comma-separated cleanup category keys to inspect and plan.",
-                    "required": True,
-                }
-            ],
-        },
-        {
-            "name": "confirm-execution-gate",
-            "description": "Prepare a human-facing checklist before destructive execution.",
-            "arguments": [
-                {
-                    "name": "plan_file",
-                    "description": "Path to the cleanmac plan JSON file that would be executed.",
-                    "required": True,
-                }
-            ],
-        },
-        {
-            "name": "explain-tool-decision",
-            "description": "Explain whether an AI host may call a cleanmac tool and why.",
-            "arguments": [
-                {
-                    "name": "tool_name",
-                    "description": "cleanmac_* tool name to explain.",
-                    "required": True,
-                }
-            ],
-        },
-        {
-            "name": "review-ai-governance",
-            "description": "Summarize governance advice before an AI Host calls cleanmac tools.",
-            "arguments": [],
-        },
-        {
-            "name": "review-ai-host-policy",
-            "description": "Summarize the AI Host allow/deny policy before tool orchestration.",
-            "arguments": [],
-        },
-        {
-            "name": "run-ai-eval-smoke",
-            "description": "Guide an AI Host through the safe cleanmac integration smoke evaluation.",
-            "arguments": [],
-        },
+        {"name": prompt["name"], "description": prompt["description"], "arguments": prompt["arguments"]}
+        for prompt in mcp_prompt_catalog()
     ]
 
 
@@ -447,7 +407,7 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                     "content": {
                         "type": "text",
                         "text": (
-                            "Read cleanmac://ai/host-policy before calling cleanmac tools. Summarize "
+                            "Read cleanmac://mcp/prompt-index and cleanmac://ai/host-policy before calling cleanmac tools. Summarize "
                             "default_decision, transport.shell_allowed, auto_call.allow, auto_call.deny, "
                             "execution_gate, prompt_injection_boundary, error_recovery, and review-selection "
                             "requirements. Do not call cleanmac_execute_plan, cleanmac_startup_disable, or "
