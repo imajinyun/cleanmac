@@ -5366,12 +5366,20 @@ class CleanMacCLITests(unittest.TestCase):
             makefile,
         )
         self.assertIn(
+            "PYTEST_AI_ROBUSTNESS_TARGETS := tests/test_ai_versioning.py tests/test_mcp_protocol.py tests/test_ai_concurrency.py tests/test_ai_idempotency.py tests/test_ai_eval.py::AITracePersistenceTests",
+            makefile,
+        )
+        self.assertIn(
             '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_SAFE_TARGETS) -q',
             makefile,
         )
+        self.assertIn('"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_ROBUSTNESS_TARGETS) -q', makefile)
         self.assertIn("assert targets == expected, targets", makefile)
+        self.assertIn("assert robustness_targets ==", makefile)
         self.assertIn('old_all="pytest test_cleanmac.py " + "tests -q"', makefile)
+        self.assertIn('old_robustness="python -m unittest " + "tests.test_ai_versioning"', makefile)
         self.assertIn("assert old_all not in text", makefile)
+        self.assertIn("assert old_robustness not in text", makefile)
         self.assertIn("build-check:", makefile)
         self.assertIn("package-smoke:", makefile)
         self.assertIn("script-smoke:", makefile)
@@ -5390,7 +5398,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("mcp-resource-index-smoke:", makefile)
         self.assertIn("cleanmac.mcp-prompt-index.v1", makefile)
         self.assertIn("mcp-prompt-index-smoke:", makefile)
-        self.assertIn('payload["resource_count"] == 29', makefile)
+        self.assertIn("cleanmac.mcp-meta-index.v1", makefile)
+        self.assertIn("mcp-meta-index-smoke:", makefile)
+        self.assertIn("cleanmac.mcp-tool-index.v1", makefile)
+        self.assertIn("mcp-tool-index-smoke:", makefile)
+        self.assertIn('payload["resource_count"] == 31', makefile)
         self.assertIn("contract_samples_roundtrip", makefile)
         self.assertIn('run("ai-eval-run", "--scenario", "contract_samples_roundtrip")', makefile)
         self.assertIn("open-source-smoke:", makefile)
@@ -5418,7 +5430,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-resource-index-smoke mcp-prompt-index-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)

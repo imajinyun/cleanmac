@@ -220,12 +220,22 @@ def read_mcp_resource(uri: str) -> dict:
         render_release_rollback_plan_report,
     )
     from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, render_mcp_prompt_index  # type: ignore[import-untyped]
-    from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, render_mcp_resource_index  # type: ignore[import-untyped]
+    from cleancli.mcp_resources import (  # type: ignore[import-untyped]
+        MCP_META_INDEX_URI,
+        MCP_RESOURCE_INDEX_URI,
+        render_mcp_meta_index,
+        render_mcp_resource_index,
+    )
+    from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, render_mcp_tool_index  # type: ignore[import-untyped]
 
-    if uri == MCP_RESOURCE_INDEX_URI:
+    if uri == MCP_META_INDEX_URI:
+        payload = render_mcp_meta_index()
+    elif uri == MCP_RESOURCE_INDEX_URI:
         payload = render_mcp_resource_index()
     elif uri == MCP_PROMPT_INDEX_URI:
         payload = render_mcp_prompt_index()
+    elif uri == MCP_TOOL_INDEX_URI:
+        payload = render_mcp_tool_index()
     elif uri == "cleanmac://capabilities":
         payload = render_capabilities()
     elif uri == "cleanmac://ai/function-schemas":
@@ -407,7 +417,7 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                     "content": {
                         "type": "text",
                         "text": (
-                            "Read cleanmac://mcp/prompt-index and cleanmac://ai/host-policy before calling cleanmac tools. Summarize "
+                            "Read cleanmac://mcp/prompt-index, cleanmac://mcp/tool-index, and cleanmac://ai/host-policy before calling cleanmac tools. Summarize "
                             "default_decision, transport.shell_allowed, auto_call.allow, auto_call.deny, "
                             "execution_gate, prompt_injection_boundary, error_recovery, and review-selection "
                             "requirements. Do not call cleanmac_execute_plan, cleanmac_startup_disable, or "

@@ -35,14 +35,21 @@ class AIHostEvidenceTests(unittest.TestCase):
         )
         checks = {check["id"]: check for check in report["evidence_checks"]}
         self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
+        self.assertTrue(checks["mcp-meta-index-advertised"]["passed"])
+        self.assertTrue(checks["mcp-meta-index-valid"]["passed"])
         self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-resource-catalog-valid"]["passed"])
         self.assertTrue(checks["mcp-prompt-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-prompt-catalog-valid"]["passed"])
+        self.assertTrue(checks["mcp-tool-index-advertised"]["passed"])
+        self.assertTrue(checks["mcp-tool-catalog-valid"]["passed"])
+        self.assertEqual(report["mcp_meta_index"]["missing_index_uris"], [])
         self.assertGreater(report["mcp_resource_catalog"]["resource_count"], 0)
         self.assertEqual(report["mcp_resource_catalog"]["duplicate_uris"], [])
         self.assertGreater(report["mcp_prompt_catalog"]["prompt_count"], 0)
         self.assertEqual(report["mcp_prompt_catalog"]["duplicate_names"], [])
+        self.assertGreater(report["mcp_tool_catalog"]["tool_count"], 0)
+        self.assertEqual(report["mcp_tool_catalog"]["duplicate_names"], [])
 
     def test_evidence_includes_runtime_denial_samples(self) -> None:
         report = render_ai_host_evidence_report()
@@ -85,10 +92,14 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertIn(["make", "release-readiness-smoke"], report["release_gate_commands"])
         self.assertIn(["cleanmac", "--json", "release-readiness"], report["release_gate_commands"])
         checks = {check["id"]: check for check in report["evidence_checks"]}
+        self.assertTrue(checks["mcp-meta-index-advertised"]["passed"])
+        self.assertTrue(checks["mcp-meta-index-valid"]["passed"])
         self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-resource-catalog-valid"]["passed"])
         self.assertTrue(checks["mcp-prompt-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-prompt-catalog-valid"]["passed"])
+        self.assertTrue(checks["mcp-tool-index-advertised"]["passed"])
+        self.assertTrue(checks["mcp-tool-catalog-valid"]["passed"])
 
 
 if __name__ == "__main__":
