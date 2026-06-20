@@ -24,7 +24,8 @@ def source_fingerprint(payload: dict[str, Any]) -> str:
 
 
 def _item_source(payload: dict[str, Any]) -> list[Any]:
-    report = payload.get("report") if isinstance(payload.get("report"), dict) else payload
+    report_value = payload.get("report")
+    report: dict[str, Any] = report_value if isinstance(report_value, dict) else payload
     if isinstance(report.get("items"), list):
         return list(report["items"])
     if isinstance(report.get("candidates"), list):
@@ -252,7 +253,8 @@ def apply_item_scope(review: dict[str, Any], scope: str, sort: str = "source") -
     normalized_scope = scope if scope in {"all", "selected", "excluded"} else "all"
     normalized_sort = sort if sort in {"source", "risk-desc", "bytes-desc", "selected-first", "path"} else "source"
     items = [item for item in review.get("items", []) if isinstance(item, dict)]
-    selection = review.get("selection") if isinstance(review.get("selection"), dict) else {}
+    selection_value = review.get("selection")
+    selection: dict[str, Any] = selection_value if isinstance(selection_value, dict) else {}
     selected_ids = {str(item) for item in selection.get("selected_item_ids", []) if item is not None}
     if normalized_scope == "selected":
         scoped_items = [item for item in items if str(item.get("id")) in selected_ids]
@@ -284,8 +286,10 @@ def render_review_with_selection(payload: dict[str, Any], selection: dict[str, A
 
 
 def render_review_html(review: dict[str, Any]) -> str:
-    summary = review.get("selection_summary") if isinstance(review.get("selection_summary"), dict) else {}
-    selection = review.get("selection") if isinstance(review.get("selection"), dict) else {}
+    summary_value = review.get("selection_summary")
+    summary: dict[str, Any] = summary_value if isinstance(summary_value, dict) else {}
+    selection_value = review.get("selection")
+    selection: dict[str, Any] = selection_value if isinstance(selection_value, dict) else {}
     selected_ids = {str(item) for item in selection.get("selected_item_ids", []) if item is not None}
     summary_rows = [
         ("Selected", summary.get("selected_count", 0)),
