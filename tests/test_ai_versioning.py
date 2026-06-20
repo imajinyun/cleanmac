@@ -441,6 +441,11 @@ class AISchemaRegistryTests(unittest.TestCase):
             "resource_uri": "cleanmac://mcp/surface-audit",
             "checks": [{"id": "mcp-meta-index-ready", "passed": True, "evidence": "cleanmac.mcp-meta-index.v1"}],
             "missing": {"resources": [], "prompts": [], "tools": []},
+            "failed_check_ids": [],
+            "readiness_score": {"passed": 1, "total": 1, "level": "ready"},
+            "next_action": "proceed-to-host-integration-pack",
+            "stop_reason": "",
+            "remediation_commands": [["make", "mcp-surface-audit-smoke"]],
         }
         self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", mcp_surface_audit)["valid"])
 

@@ -418,6 +418,27 @@ def render_mcp_surface_audit() -> dict[str, Any]:
     missing_resources = sorted(required_resources - resource_uris)
     missing_prompts = sorted(required_prompts - prompt_names)
     missing_tools = sorted(required_tools - tool_names)
+    remediation_by_check = {
+        "mcp-meta-index-ready": [["make", "mcp-meta-index-smoke"], ["make", "mcp-smoke"]],
+        "mcp-resource-index-ready": [["make", "mcp-resource-index-smoke"], ["make", "mcp-smoke"]],
+        "mcp-prompt-index-ready": [["make", "mcp-prompt-index-smoke"], ["make", "mcp-smoke"]],
+        "mcp-tool-index-ready": [["make", "mcp-tool-index-smoke"], ["make", "mcp-smoke"]],
+        "required-resources-advertised": [
+            ["cleanmac", "--json", "mcp-surface-audit"],
+            ["make", "mcp-resource-index-smoke"],
+        ],
+        "required-prompts-advertised": [
+            ["cleanmac", "--json", "mcp-surface-audit"],
+            ["make", "mcp-prompt-index-smoke"],
+        ],
+        "required-tools-advertised": [["cleanmac", "--json", "mcp-surface-audit"], ["make", "mcp-tool-index-smoke"]],
+        "all-resources-mcp-safe": [["make", "mcp-resource-index-smoke"], ["make", "ai-host-smoke"]],
+        "all-prompts-mcp-safe": [["make", "mcp-prompt-index-smoke"], ["make", "ai-host-smoke"]],
+        "all-tools-mcp-safe": [["make", "mcp-tool-index-smoke"], ["make", "ai-host-smoke"]],
+        "destructive-tools-gated": [["make", "mcp-tool-index-smoke"], ["make", "ai-governance-smoke"]],
+        "no-shell-invocation": [["make", "mcp-tool-index-smoke"], ["make", "ai-host-smoke"]],
+        "sensitive-data-policy-present": [["make", "mcp-resource-index-smoke"], ["make", "mcp-surface-audit-smoke"]],
+    }
     checks = [
         {"id": "mcp-meta-index-ready", "passed": bool(meta_index.get("ready")), "evidence": MCP_META_INDEX_SCHEMA},
         {
@@ -481,13 +502,26 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             "evidence": MCP_RESOURCE_SENSITIVE_DATA_POLICY,
         },
     ]
+    for check in checks:
+        check["remediation_commands"] = remediation_by_check[str(check["id"])]
+    passed_count = sum(1 for check in checks if check["passed"])
+    failed_check_ids = [str(check["id"]) for check in checks if not check["passed"]]
+    ready = not failed_check_ids
     return {
         "schema": MCP_SURFACE_AUDIT_SCHEMA,
         "destructive": False,
         "dry_run": True,
-        "ready": all(check["passed"] for check in checks),
+        "ready": ready,
         "resource_uri": MCP_SURFACE_AUDIT_URI,
         "checks": checks,
+        "failed_check_ids": failed_check_ids,
+        "readiness_score": {
+            "passed": passed_count,
+            "total": len(checks),
+            "level": "ready" if ready else "blocked",
+        },
+        "next_action": "proceed-to-host-integration-pack" if ready else "stop-and-remediate-mcp-surface",
+        "stop_reason": "" if ready else "mcp-surface-audit failed: " + ", ".join(failed_check_ids),
         "missing": {
             "resources": missing_resources,
             "prompts": missing_prompts,
@@ -513,6 +547,11 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             ["make", "mcp-smoke"],
             ["make", "ai-host-smoke"],
             ["make", "ai-governance-smoke"],
+        ],
+        "remediation_commands": [
+            ["make", "mcp-surface-audit-smoke"],
+            ["make", "mcp-smoke"],
+            ["make", "ai-host-smoke"],
         ],
         "sensitive_data_policy": MCP_RESOURCE_SENSITIVE_DATA_POLICY,
     }
