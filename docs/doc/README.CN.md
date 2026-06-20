@@ -212,14 +212,30 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"cleanmac_c
 make mcp-smoke
 # ✅ 输出：mcp-smoke passed
 
+make mcp-meta-index-smoke
+# ✅ 输出：mcp-meta-index-smoke passed
+
 make mcp-resource-index-smoke
 # ✅ 输出：mcp-resource-index-smoke passed
 
 make mcp-prompt-index-smoke
 # ✅ 输出：mcp-prompt-index-smoke passed
+
+make mcp-tool-index-smoke
+# ✅ 输出：mcp-tool-index-smoke passed
+
+make ai-host-smoke
+# ✅ 输出：ai-host-smoke passed
 ```
 
-AI Host 应先读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）和 `cleanmac://mcp/prompt-index`（`cleanmac.mcp-prompt-index.v1`）。这些受治理的 MCP 索引会列出每个 MCP resource URI、prompt 名称、schema、分类、参数、拒绝工具和安全标记，并且所有 payload 都会经过脱敏，避免泄露本地路径或凭证。
+AI Host 应先读取 `cleanmac://mcp/meta-index`（`cleanmac.mcp-meta-index.v1`），再按推荐顺序继续读取 `cleanmac://mcp/resource-index`（`cleanmac.mcp-resource-index.v1`）、`cleanmac://mcp/prompt-index`（`cleanmac.mcp-prompt-index.v1`）和 `cleanmac://mcp/tool-index`（`cleanmac.mcp-tool-index.v1`）。
+
+- `cleanmac://mcp/meta-index` 是受治理的 MCP 顶层发现入口，会声明推荐调用顺序。
+- `cleanmac://mcp/resource-index` 列出每个 MCP resource URI、schema、分类与安全标记。
+- `cleanmac://mcp/prompt-index` 列出每个受治理 prompt 的参数、分类与 MCP 安全属性。
+- `cleanmac://mcp/tool-index` 列出每个 MCP 工具的 `invocation_mode`、`auto_call_allowed`、`requires_confirmation` 与破坏性策略元数据。
+
+所有索引 payload 都会经过脱敏，避免泄露本地路径或凭证。
 
 ### 🧭 AI 工作流管线
 
@@ -841,7 +857,11 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 python3 -m unittest -v                            # 全部测试
 python3 -m unittest tests.test_mcp_server -v      # MCP 专项
 make mcp-smoke                                     # MCP 冒烟测试
+make mcp-meta-index-smoke                         # MCP Meta 索引合约
+make mcp-resource-index-smoke                     # MCP Resource 索引合约
 make mcp-prompt-index-smoke                       # MCP Prompt 索引合约
+make mcp-tool-index-smoke                         # MCP Tool 索引合约
+make ai-host-smoke                                 # AI Host 集成测试套件
 make ai-robustness-smoke                           # AI 鲁棒性回归测试
 make local-test                                    # 完整本地测试
 make quality-check                                 # lint + type + coverage
@@ -880,7 +900,10 @@ make no-cache-release-check                        # 无缓存发布验证
 | `package-smoke` | Editable 安装 |
 | `script-smoke` | 模板治理 |
 | `mcp-smoke` | MCP tools/list + tools/call |
+| `mcp-meta-index-smoke` | MCP Meta 索引覆盖 resource、prompt 和 tool 索引 |
+| `mcp-resource-index-smoke` | MCP Resource 索引 schema 与安全元数据 |
 | `mcp-prompt-index-smoke` | MCP Prompt 索引 schema 与安全元数据 |
+| `mcp-tool-index-smoke` | MCP Tool 索引 schema、调用元数据与破坏性工具自动调用拒绝策略 |
 | `bundle-audit-smoke` | Bundle drift 审计 |
 | `build-check` | 构建 wheel/sdist + twine 检查 |
 | `macos-smoke` | macOS 专项测试 |
@@ -916,13 +939,11 @@ make no-cache-release-check                        # 无缓存发布验证
 
 ### 🤖 CI 配置
 
-`.github/workflows/ci.yml` 在 PR 和推送到 `main` 时运行：
+内置工作流文档直接位于 `.github/workflows/*.yml`：
 
-- **Quality**：lint、type-check、coverage（Python 3.10–3.13）
-- **Smoke**：local-test、build-check、package、script、docs、governance、open-source、distribution、dependency audit、**MCP smoke**
-- **Security**：不安全删除模式检查、高风险回归测试、gitleaks
-- **No-cache**：`PIP_NO_CACHE_DIR=1` 验证
-- **Docker**：Linux 容器测试
+- **`.github/workflows/ci.yml`** 在 PR 与推送到 `main` 时运行，包含质量门禁、仓库 smoke、显式的受治理 MCP 索引检查（`mcp-meta-index-smoke`、`mcp-resource-index-smoke`、`mcp-prompt-index-smoke`、`mcp-tool-index-smoke`）、AI Host smoke、安全检查、无缓存验证与 Docker smoke。
+- **`.github/workflows/release.yml`** 会在构建发行产物前重新执行发布质量门禁，其中包含受治理 MCP 索引 smoke 与 AI Host smoke，然后生成发行证据并发布 provenance attestation。
+- **`.github/workflows/nightly.yml`** 每天定时执行 `make release-check` 与 `make no-cache-check`，用于发现 PR 之外的环境漂移。
 
 ---
 
