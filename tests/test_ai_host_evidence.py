@@ -26,6 +26,13 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertTrue(report["preflight"]["ready"], report["preflight"])
         self.assertEqual(report["contract_validation"]["schema"], "cleanmac.ai-contract-validation-summary.v1")
         self.assertTrue(report["contract_validation"]["valid"], report["contract_validation"])
+        self.assertEqual(report["release_readiness"]["schema"], "cleanmac.release-readiness.v1")
+        self.assertIn("failed_gate_ids", report["release_readiness"])
+        self.assertEqual(report["release_readiness"]["required_for"], "release-review")
+        self.assertEqual(
+            report["release_readiness"]["not_required_for"],
+            "runtime-readonly-ai-host-discovery",
+        )
         checks = {check["id"]: check for check in report["evidence_checks"]}
         self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
 

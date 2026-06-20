@@ -9,6 +9,7 @@ from typing import Any
 def render_ai_host_integration_pack(
     *,
     readiness: Mapping[str, Any],
+    release_readiness: Mapping[str, Any],
     runbook: Mapping[str, Any],
     decision_matrix: Mapping[str, Any],
     governance_advice: Mapping[str, Any],
@@ -78,6 +79,7 @@ def render_ai_host_integration_pack(
         "recommended_preflight_commands": recommended_preflight_commands,
         "recommended_call_sequence": recommended_call_sequence,
         "readiness": readiness,
+        "release_readiness": dict(release_readiness),
         "runbook": runbook,
         "decision_matrix": decision_matrix,
         "governance_advice": governance_advice,

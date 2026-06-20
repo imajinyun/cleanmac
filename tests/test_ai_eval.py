@@ -35,6 +35,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("host_preflight_discovery", scenarios)
         self.assertIn("host_evidence_discovery", scenarios)
         self.assertIn("host_evidence_runtime_denial_coverage", scenarios)
+        self.assertIn("release_readiness_discovery", scenarios)
+        self.assertIn("release_readiness_artifact_missing_blocks", scenarios)
+        self.assertIn("release_readiness_artifact_present_ready", scenarios)
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
         self.assertIn("schema_registry_discovery", scenarios)
@@ -77,6 +80,14 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(evidence_denials["expected_final_schema"], "cleanmac.ai-host-evidence.v1")
         self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", evidence_denials["expected_blocking_codes"])
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", evidence_denials["expected_blocking_codes"])
+        release_readiness = scenarios["release_readiness_discovery"]
+        self.assertEqual(release_readiness["expected_final_schema"], "cleanmac.release-readiness.v1")
+        self.assertFalse(release_readiness["may_execute_delete"])
+        missing_artifact = scenarios["release_readiness_artifact_missing_blocks"]
+        self.assertIn("release-artifact-manifest-valid", missing_artifact["expected_blocking_codes"])
+        artifact_present = scenarios["release_readiness_artifact_present_ready"]
+        self.assertEqual(artifact_present["expected_blocking_codes"], [])
+        self.assertFalse(artifact_present["may_execute_delete"])
         raw_denial = scenarios["mcp_raw_command_argument_denial"]
         self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", raw_denial["expected_blocking_codes"])
         destructive_denial = scenarios["mcp_destructive_policy_denial"]
@@ -119,6 +130,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["host_preflight_discovery"]["passed"])
         self.assertTrue(scenario_results["host_evidence_discovery"]["passed"])
         self.assertTrue(scenario_results["host_evidence_runtime_denial_coverage"]["passed"])
+        self.assertTrue(scenario_results["release_readiness_discovery"]["passed"])
+        self.assertTrue(scenario_results["release_readiness_artifact_missing_blocks"]["passed"])
+        self.assertTrue(scenario_results["release_readiness_artifact_present_ready"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
@@ -198,6 +212,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("host_preflight_discovery", scenario_ids)
         self.assertIn("host_evidence_discovery", scenario_ids)
         self.assertIn("host_evidence_runtime_denial_coverage", scenario_ids)
+        self.assertIn("release_readiness_discovery", scenario_ids)
+        self.assertIn("release_readiness_artifact_missing_blocks", scenario_ids)
+        self.assertIn("release_readiness_artifact_present_ready", scenario_ids)
         self.assertIn("mcp_raw_command_argument_denial", scenario_ids)
         self.assertIn("mcp_destructive_policy_denial", scenario_ids)
         self.assertIn("schema_registry_discovery", scenario_ids)

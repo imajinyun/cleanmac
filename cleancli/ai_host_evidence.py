@@ -29,6 +29,7 @@ def render_ai_host_evidence(
     integration_pack: Mapping[str, Any],
     preflight: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
+    release_readiness: Mapping[str, Any],
     runtime_policy_evidence: Sequence[Mapping[str, Any]],
     critical_schemas: Sequence[str],
 ) -> dict[str, Any]:
@@ -85,6 +86,7 @@ def render_ai_host_evidence(
         },
         "preflight": dict(preflight),
         "contract_validation": dict(contract_validation),
+        "release_readiness": dict(release_readiness),
         "runtime_policy_evidence": [dict(sample) for sample in runtime_policy_evidence],
         "release_gate_commands": [
             ["cleanmac", "--json", "ai-host-integration-pack"],

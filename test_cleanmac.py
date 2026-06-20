@@ -21,6 +21,7 @@ from unittest import mock
 import cleancli.core as cleancli
 import cleancli.tool_adapters as tool_adapters
 from cleancli.ai_versioning import validate_contract_payload
+from cleancli.release_artifacts import build_release_artifact_manifest
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 CLI = PROJECT_ROOT / "cleanmac.py"
@@ -5385,13 +5386,17 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("class Cleanmac < Formula", makefile)
         self.assertIn("homebrew_formula", makefile)
         self.assertIn("release-artifacts-smoke:", makefile)
+        self.assertIn("release-readiness-contract-smoke:", makefile)
         self.assertIn("release-readiness-smoke:", makefile)
+        self.assertIn("--dist-dir", makefile)
+        self.assertIn("--assets-dir", makefile)
+        self.assertIn('assert report["ready"] is True', makefile)
         self.assertIn("no-cache-check:", makefile)
         self.assertIn("docker-test", makefile)
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5493,6 +5498,34 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(release_readiness["dry_run"])
         self.assertIn(["make", "governed-execution-smoke"], release_readiness["release_gate_commands"])
         self.assertIn("release-artifact-manifest-valid", release_readiness["failed_gate_ids"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+            (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+            (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+            manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+            (assets / "ARTIFACT-MANIFEST.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            explicit_readiness = run_main_json(
+                "release-readiness",
+                "--dist-dir",
+                str(dist),
+                "--assets-dir",
+                str(assets),
+            )
+
+        self.assertTrue(explicit_readiness["ready"], explicit_readiness)
+        self.assertEqual(explicit_readiness["failed_gate_ids"], [])
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 7, "total": 7, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"
@@ -5809,6 +5842,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("SBOM.json", release)
         self.assertIn("release-assets/SHA256SUMS", release)
         self.assertIn("release-assets/SBOM.json", release)
+        self.assertIn("release-assets/RELEASE-READINESS.json", release)
         self.assertIn("release-assets/cleanmac.rb", release)
         self.assertIn("ARTIFACT-MANIFEST.json", release)
         self.assertIn("cleanmac.release-artifact-manifest.v1", release)
@@ -5837,6 +5871,12 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("bundle-audit-smoke", release)
         self.assertIn("macos-smoke", release)
         self.assertIn("security-smoke", release)
+        self.assertIn("governed-execution-smoke", release)
+        self.assertIn("release-readiness-contract-smoke", release)
+        self.assertIn("Verify release readiness", release)
+        self.assertIn("cleanmac.py --json release-readiness --dist-dir dist --assets-dir release-assets", release)
+        self.assertIn("release-assets/RELEASE-READINESS.json", release)
+        self.assertIn('assert report["ready"] is True', release)
         self.assertIn(".venv/bin/cleanmac --json capabilities", release)
         self.assertNotIn('packages-dir: "release-assets"', release)
 

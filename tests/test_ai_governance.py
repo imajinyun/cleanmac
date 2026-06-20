@@ -81,6 +81,8 @@ class AIGovernanceTests(unittest.TestCase):
         )
         self.assertIn("Skipping ai-eval-run smoke", "\n".join(self.report["anti_patterns"]))
         self.assertIn("cleanmac.ai-host-policy.v1", "\n".join(self.report["anti_patterns"]))
+        self.assertIn("ai-readiness.ready=true", "\n".join(self.report["anti_patterns"]))
+        self.assertIn("failed_gate_ids", "\n".join(self.report["anti_patterns"]))
 
     def test_governance_advice_governance_route_all_satisfied(self) -> None:
         route = {item["id"]: item for item in self.report["governance_route"]}
