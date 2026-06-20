@@ -2119,6 +2119,51 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", result.stdout)
             self.assertNotIn("<script>alert(1)</script>", result.stdout)
 
+    def test_review_html_includes_selection_summary_and_selected_state(self) -> None:
+        tmp, root, _home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            plan_file.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.software-uninstall-plan.v1",
+                        "uninstall_plan": {
+                            "candidates": [
+                                {
+                                    "id": "cache:/tmp/cache",
+                                    "path": "/tmp/cache",
+                                    "kind": "cache",
+                                    "risk": "low",
+                                    "bytes": 5,
+                                    "default_selected": True,
+                                },
+                                {
+                                    "id": "history:/tmp/history",
+                                    "path": "/tmp/history",
+                                    "kind": "history",
+                                    "risk": "medium",
+                                    "bytes": 7,
+                                    "default_selected": False,
+                                },
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_cli("review", "--input-file", str(plan_file), "--format", "html")
+
+            self.assertIn("Selection summary", result.stdout)
+            self.assertIn("Review items", result.stdout)
+            self.assertIn("Selected bytes", result.stdout)
+            self.assertIn("requires_sensitive_review", result.stdout)
+            self.assertIn("class='selected'", result.stdout)
+            self.assertIn("class='excluded'", result.stdout)
+            self.assertIn("<input type='checkbox' disabled checked>", result.stdout)
+            self.assertIn("cache:/tmp/cache", result.stdout)
+            self.assertIn("history:/tmp/history", result.stdout)
+
     def test_review_supports_startup_and_privacy_plans(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:

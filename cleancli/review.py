@@ -224,26 +224,64 @@ def render_review_with_selection(
 
 
 def render_review_html(review: dict[str, Any]) -> str:
+    summary = review.get("selection_summary") if isinstance(review.get("selection_summary"), dict) else {}
+    selection = review.get("selection") if isinstance(review.get("selection"), dict) else {}
+    selected_ids = {str(item) for item in selection.get("selected_item_ids", []) if item is not None}
+    summary_rows = [
+        ("Selected", summary.get("selected_count", 0)),
+        ("Excluded", summary.get("excluded_count", 0)),
+        ("Protected", summary.get("protected_count", 0)),
+        ("Unknown overrides", summary.get("unknown_item_count", 0)),
+        ("Selected bytes", summary.get("selected_bytes", 0)),
+        ("Requires sensitive review", summary.get("requires_sensitive_review", False)),
+    ]
     rows = []
     for item in review.get("items", []):
         if not isinstance(item, dict):
             continue
+        item_id = str(item.get("id", ""))
+        selected = item_id in selected_ids
+        status = "selected" if selected else "excluded"
         rows.append(
-            "<tr>"
-            f"<td>{html.escape(str(item.get('id', '')))}</td>"
+            f"<tr class='{html.escape(status)}'>"
+            f"<td><input type='checkbox' disabled {'checked' if selected else ''}></td>"
+            f"<td>{html.escape(item_id)}</td>"
+            f"<td>{html.escape(status)}</td>"
             f"<td>{html.escape(str(item.get('risk', '')))}</td>"
-            f"<td>{html.escape(str(item.get('default_selected', '')))}</td>"
+            f"<td>{html.escape(str(item.get('scope') or item.get('application') or item.get('kind') or ''))}</td>"
             f"<td>{html.escape(str(item.get('path', item.get('kind', ''))))}</td>"
             "</tr>"
+        )
+    validation = review.get("selection_validation") if isinstance(review.get("selection_validation"), dict) else None
+    validation_html = ""
+    if validation is not None:
+        validation_html = (
+            "<h2>Selection validation</h2>"
+            f"<p><strong>Valid:</strong> {html.escape(str(validation.get('valid')))}</p>"
+            f"<pre>{html.escape(json.dumps(validation, indent=2, ensure_ascii=False))}</pre>"
         )
     return "\n".join(
         [
             "<!doctype html>",
-            "<html><head><meta charset='utf-8'><title>cleanmac review</title></head><body>",
+            "<html><head><meta charset='utf-8'><title>cleanmac review</title>",
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:2rem;}"
+            "code,td,pre{font-family:ui-monospace,monospace;}table{border-collapse:collapse;width:100%;margin:1rem 0;}"
+            "td,th{border:1px solid #ddd;padding:.4rem;text-align:left;}th{background:#f6f8fa;}"
+            ".selected{background:#f0fff4}.excluded{color:#57606a}.warning{color:#9a6700}</style></head><body>",
             "<h1>cleanmac review</h1>",
             f"<p><strong>Source schema:</strong> {html.escape(str(review.get('source_schema')))}</p>",
             f"<p><strong>Items:</strong> {html.escape(str(review.get('item_count')))}</p>",
-            "<table><thead><tr><th>ID</th><th>Risk</th><th>Selected</th><th>Path/Kind</th></tr></thead><tbody>",
+            "<h2>Selection summary</h2>",
+            "<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>",
+            *(
+                f"<tr><td>{html.escape(label)}</td><td>{html.escape(str(value))}</td></tr>"
+                for label, value in summary_rows
+            ),
+            "</tbody></table>",
+            f"<pre>{html.escape(json.dumps(summary, indent=2, ensure_ascii=False))}</pre>",
+            validation_html,
+            "<h2>Review items</h2>",
+            "<table><thead><tr><th>Select</th><th>ID</th><th>Status</th><th>Risk</th><th>Scope/App/Kind</th><th>Path/Kind</th></tr></thead><tbody>",
             *rows,
             "</tbody></table>",
             f"<pre>{html.escape(json.dumps(review.get('selection'), indent=2, ensure_ascii=False))}</pre>",
