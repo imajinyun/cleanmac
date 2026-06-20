@@ -379,7 +379,9 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                         "text": (
                             "Use cleanmac safely. Start with cleanmac_capabilities, inspect categories "
                             f"{categories}, generate an AI-originated plan, validate it, simulate policy, "
-                            "and never call cleanmac_execute_plan without explicit human confirmation."
+                            "and never call cleanmac_execute_plan, cleanmac_startup_disable, or "
+                            "cleanmac_privacy_execute without explicit human confirmation and a fresh "
+                            "review-selection handoff."
                         ),
                     },
                 }
@@ -400,7 +402,10 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                             "with execute=true, and cleanmac_dry_run_plan. Show the human the "
                             "candidate count, total bytes, delete mode, operation log path, and "
                             "ai_confirmation_summary.confirmation_token. Only call cleanmac_execute_plan "
-                            "after the human explicitly provides the required confirmation phrase and token."
+                            "after the human explicitly provides the required confirmation phrase and token. "
+                            "For cleanmac_startup_disable and cleanmac_privacy_execute, require a matching "
+                            "review-selection file; startup disable must expose backup_path/backup_sha256, "
+                            "and privacy execute must block symlink, credential, and outside-scope candidates."
                         ),
                     },
                 }
@@ -470,8 +475,9 @@ def get_mcp_prompt(name: str, arguments: dict) -> dict:
                         "text": (
                             "Read cleanmac://ai/host-policy before calling cleanmac tools. Summarize "
                             "default_decision, transport.shell_allowed, auto_call.allow, auto_call.deny, "
-                            "execution_gate, prompt_injection_boundary, and error_recovery. Do not call "
-                            "cleanmac_execute_plan while producing this policy review."
+                            "execution_gate, prompt_injection_boundary, error_recovery, and review-selection "
+                            "requirements. Do not call cleanmac_execute_plan, cleanmac_startup_disable, or "
+                            "cleanmac_privacy_execute while producing this policy review."
                         ),
                     },
                 }

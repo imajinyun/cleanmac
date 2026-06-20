@@ -2399,6 +2399,25 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertGreaterEqual(privacy_review["default_selected_count"], 1)
             self.assertTrue(any(item["scope"] == "cache" for item in privacy_review["items"]))
 
+    def test_startup_and_privacy_plans_expose_current_execution_gate_names(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            startup_plan = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout
+            )
+            privacy_plan = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "plan", "--scope", "cache"
+                ).stdout
+            )
+
+            self.assertTrue(startup_plan["disable_plan"]["requires_explicit_execute"])
+            self.assertTrue(privacy_plan["privacy_plan"]["requires_explicit_execute"])
+            self.assertTrue(startup_plan["disable_plan"]["requires_explicit_future_execute"])
+            self.assertTrue(privacy_plan["privacy_plan"]["requires_explicit_future_execute"])
+            self.assertFalse(startup_plan["disable_plan"]["safe_to_auto_execute"])
+            self.assertFalse(privacy_plan["privacy_plan"]["safe_to_auto_execute"])
+
     def test_startup_audit_and_plan_classify_disable_candidates(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
@@ -2490,6 +2509,52 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(len(records), 2)
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
             self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
+
+    def test_startup_disable_creates_backup_before_plist_write(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "startup-plan.json"
+            selection_file = root / "startup-selection.json"
+            plan = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout
+            )
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            review_report = json.loads(
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
+            )
+            selected_id = next(item["id"] for item in review_report["items"] if "com.example.agent" in item["id"])
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = [selected_id]
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] != selected_id
+            ]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "startup",
+                    "disable",
+                    "--plan-file",
+                    str(plan_file),
+                    "--review-selection-file",
+                    str(selection_file),
+                    "--execute",
+                    "--yes",
+                ).stdout
+            )
+
+            disabled = next(item for item in report["results"] if item["status"] == "disabled")
+            self.assertIsNotNone(disabled["backup_path"])
+            self.assertTrue(Path(disabled["backup_path"]).exists())
+            self.assertTrue(disabled["backup_sha256"])
+            self.assertTrue(validate_contract_payload("cleanmac.startup-disable-result.v1", report)["valid"])
 
     def test_privacy_inspect_and_plan_preserve_sensitive_scopes_by_default(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -2666,6 +2731,130 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(all(Path(path).exists() for path in skipped_paths[:2]))
             self.assertIn("not-in-review-selection", {record.get("reason") for record in all_records})
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in all_records}, {1})
+
+    def test_privacy_execute_blocks_outside_symlink_and_credential_candidates(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            outside = root / "Users/tester/Documents/keep.txt"
+            outside.parent.mkdir(parents=True, exist_ok=True)
+            outside.write_text("must stay", encoding="utf-8")
+            symlink = root / "Users/tester/Library/Caches/Google/Chrome/Profile 1/EvilLink"
+            symlink.parent.mkdir(parents=True, exist_ok=True)
+            symlink.symlink_to(outside)
+            credential = root / "Users/tester/Library/Application Support/Google/Chrome/Default/Login Data"
+            credential.parent.mkdir(parents=True, exist_ok=True)
+            credential.write_text("secret", encoding="utf-8")
+
+            plan = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "plan", "--scope", "all"
+                ).stdout
+            )
+            plan["privacy_plan"]["candidates"].extend(
+                [
+                    {
+                        "id": "privacy:malicious:outside",
+                        "path": str(outside),
+                        "application": "Malicious",
+                        "profile": "default",
+                        "kind": "outside",
+                        "scope": "cache",
+                        "bytes": 9,
+                        "privacy_risk": "low",
+                        "data_loss_risk": "low",
+                        "default_selected": True,
+                        "delete_mode": "trash",
+                    },
+                    {
+                        "id": "privacy:malicious:symlink",
+                        "path": str(symlink),
+                        "application": "Malicious",
+                        "profile": "default",
+                        "kind": "symlink",
+                        "scope": "cache",
+                        "bytes": 9,
+                        "privacy_risk": "low",
+                        "data_loss_risk": "low",
+                        "default_selected": True,
+                        "delete_mode": "trash",
+                    },
+                ]
+            )
+            plan_file = root / "privacy-plan.json"
+            selection_file = root / "privacy-selection.json"
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            review_report = json.loads(
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
+            )
+            target_paths = {str(outside), str(symlink), str(credential.resolve(strict=False))}
+            selected_ids = [item["id"] for item in review_report["items"] if item["path"] in target_paths]
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = selected_ids
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] not in selected_ids
+            ]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            result = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "privacy",
+                    "execute",
+                    "--plan-file",
+                    str(plan_file),
+                    "--review-selection-file",
+                    str(selection_file),
+                    "--execute",
+                    "--yes",
+                ).stdout
+            )
+
+            reasons = {item["reason"] for item in result["results"] if item["status"] == "blocked"}
+            self.assertEqual(result["deleted_count"], 0)
+            self.assertGreaterEqual(result["blocked_count"], 3)
+            self.assertIn("outside-privacy-locations", reasons)
+            self.assertIn("symlink-privacy-candidate", reasons)
+            self.assertIn("sensitive-scope-blocked", reasons)
+            self.assertTrue(outside.exists())
+            self.assertTrue(credential.exists())
+            self.assertTrue(symlink.is_symlink())
+
+    def test_privacy_execute_requires_selected_item_id_and_path_to_match_same_candidate(self) -> None:
+        from cleancli.privacy import execute_privacy_cleanup
+
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "plan", "--scope", "cache"
+                ).stdout
+            )
+            first = plan["privacy_plan"]["candidates"][0]
+            second = plan["privacy_plan"]["candidates"][1]
+            report = execute_privacy_cleanup(
+                plan,
+                review_selection={
+                    "schema": "cleanmac.review-selection-constraint.v1",
+                    "selected_item_ids": [first["id"]],
+                    "selected_paths": [second["path"]],
+                    "selected_count": 1,
+                    "validation": {"valid": True},
+                },
+                execute=True,
+                yes=True,
+                root=Path(str(plan["root"])),
+                home=Path(str(plan["home"])),
+                delete_path_func=lambda path: None,
+            )
+
+            self.assertEqual(report["deleted_count"], 0)
+            self.assertIn("selection-id-path-mismatch", {item["reason"] for item in report["results"]})
 
     def test_clean_safety_gate_exposes_single_fail_fast_flag(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -5181,6 +5370,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("governance-smoke:", makefile)
         self.assertIn("ai-governance-smoke:", makefile)
         self.assertIn("ai-contract-smoke:", makefile)
+        self.assertIn("governed-execution-smoke:", makefile)
         self.assertIn('run("ai-contract-samples")', makefile)
         self.assertIn('samples["schema"] == "cleanmac.ai-contract-samples.v1"', makefile)
         self.assertIn("contract_samples_roundtrip", makefile)
@@ -5200,7 +5390,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)

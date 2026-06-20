@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from cleancli import protection
+
 PRIVACY_SCOPES = ("all", "cache", "cookies", "history", "local-storage", "credentials")
 
 
@@ -16,6 +18,42 @@ def _display_path(path: Path | str) -> str:
 
 def _home_root(root: Path, home: Path) -> Path:
     return root / str(home).lstrip("/") if root != Path("/") else home
+
+
+def _privacy_allowed_roots(root: Path, home: Path) -> list[Path]:
+    home_root = _home_root(root, home)
+    return [
+        home_root / "Library/Caches",
+        home_root / "Library/Application Support/Google/Chrome",
+        home_root / "Library/Application Support/Microsoft Edge",
+        home_root / "Library/Application Support/BraveSoftware/Brave-Browser",
+        home_root / "Library/Application Support/Arc/User Data",
+        home_root / "Library/Application Support/Firefox/Profiles",
+        home_root / "Library/Caches/Firefox/Profiles",
+        home_root / "Library/Safari",
+        home_root / "Library/Cookies",
+        home_root / "Library/Containers/com.apple.Safari/Data/Library/Caches",
+        home_root / "Library/Containers/com.apple.Safari/Data/Library/Cookies",
+        home_root / "Library/WebKit/com.apple.Safari/WebsiteData",
+        home_root / "Library/Application Support/Slack",
+        home_root / "Library/Application Support/discord",
+        home_root / "Library/Application Support/Notion",
+        home_root / "Library/Application Support/Windsurf",
+    ]
+
+
+def _path_within(candidate: Path, parent: Path) -> bool:
+    try:
+        resolved_candidate = candidate.resolve(strict=False)
+        resolved_parent = parent.resolve(strict=False)
+    except OSError:
+        resolved_candidate = candidate
+        resolved_parent = parent
+    return resolved_candidate == resolved_parent or resolved_parent in resolved_candidate.parents
+
+
+def _privacy_path_allowed(path: Path, *, root: Path, home: Path) -> bool:
+    return any(_path_within(path, allowed_root) for allowed_root in _privacy_allowed_roots(root, home))
 
 
 def _path_size(path: Path) -> int:
@@ -445,6 +483,7 @@ def plan_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
         "valid": True,
         "blocked_reasons": [],
         "privacy_plan": {
+            "requires_explicit_execute": True,
             "requires_explicit_future_execute": True,
             "safe_to_auto_execute": False,
             "candidate_count": len(candidates),
@@ -492,7 +531,8 @@ def execute_privacy_cleanup(
     if execute and not yes:
         raise SystemExit("Refusing to execute privacy cleanup without --yes. Review privacy plan and selection first.")
 
-    selected_paths = {str(path) for path in review_selection.get("selected_paths", [])}
+    selected_ids = {str(item) for item in review_selection.get("selected_item_ids", []) if item is not None}
+    selected_paths = {str(path) for path in review_selection.get("selected_paths", []) if path is not None}
     privacy_plan_value = plan.get("privacy_plan")
     privacy_plan: dict[str, Any] = privacy_plan_value if isinstance(privacy_plan_value, dict) else {}
     candidates = [item for item in privacy_plan.get("candidates", []) if isinstance(item, dict)]
@@ -502,15 +542,35 @@ def execute_privacy_cleanup(
 
     for item in candidates:
         path = Path(str(item.get("path") or ""))
+        item_id = str(item.get("id") or "")
+        path_text = str(path)
         bytes_value = int(item.get("bytes") or 0)
         status = "planned"
         reason = None
         error = None
         executed = False
 
-        if str(path) not in selected_paths:
+        if item_id not in selected_ids:
             status = "skipped"
             reason = "not-in-review-selection"
+        elif selected_paths and path_text not in selected_paths:
+            status = "blocked"
+            reason = "selection-id-path-mismatch"
+        elif path.is_symlink():
+            status = "blocked"
+            reason = "symlink-privacy-candidate"
+        elif not _privacy_path_allowed(path, root=root, home=home):
+            status = "blocked"
+            reason = "outside-privacy-locations"
+        elif item.get("scope") == "credentials":
+            status = "blocked"
+            reason = "sensitive-scope-blocked"
+        elif protection.should_protect_path(path):
+            status = "blocked"
+            reason = "protected-privacy-candidate"
+        elif not path.exists():
+            status = "blocked"
+            reason = "missing-privacy-candidate"
         elif execute:
             try:
                 delete_path_func(path)
@@ -572,6 +632,7 @@ def execute_privacy_cleanup(
         "planned_count": sum(1 for item in results if item["status"] == "planned"),
         "deleted_count": sum(1 for item in results if item["status"] == "deleted"),
         "skipped_count": sum(1 for item in results if item["status"] == "skipped"),
+        "blocked_count": sum(1 for item in results if item["status"] == "blocked"),
         "failed_count": sum(1 for item in results if item["status"] == "failed"),
         "safe_to_auto_execute": False,
         "results": results,

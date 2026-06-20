@@ -363,7 +363,10 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(prompt["description"], "Safe cleanmac cleanup review workflow")
         message_text = prompt["messages"][0]["content"]["text"]
         self.assertIn("trash,downloads", message_text)
-        self.assertIn("never call cleanmac_execute_plan without explicit human confirmation", message_text)
+        self.assertIn("cleanmac_execute_plan", message_text)
+        self.assertIn("cleanmac_startup_disable", message_text)
+        self.assertIn("cleanmac_privacy_execute", message_text)
+        self.assertIn("review-selection", message_text)
 
     def test_resources_expose_readiness_runbook_and_self_test(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 31, "method": "resources/list"})
@@ -474,6 +477,10 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac_policy_simulate", message_text)
         self.assertIn("cleanmac_dry_run_plan", message_text)
         self.assertIn("cleanmac_execute_plan", message_text)
+        self.assertIn("cleanmac_startup_disable", message_text)
+        self.assertIn("cleanmac_privacy_execute", message_text)
+        self.assertIn("review-selection", message_text)
+        self.assertIn("backup_path", message_text)
 
     def test_prompt_explains_tool_decision(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 36, "method": "prompts/list"})
@@ -549,6 +556,9 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/host-policy", message_text)
         self.assertIn("auto_call.deny", message_text)
         self.assertIn("cleanmac_execute_plan", message_text)
+        self.assertIn("cleanmac_startup_disable", message_text)
+        self.assertIn("cleanmac_privacy_execute", message_text)
+        self.assertIn("review-selection", message_text)
 
     def test_tools_call_unknown_tool(self) -> None:
         response = _mcp_request(
