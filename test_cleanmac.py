@@ -368,7 +368,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 33
+        EXPECTED_TOOL_COUNT = 34
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -785,6 +785,30 @@ class CleanMacCLITests(unittest.TestCase):
                 "/tmp/startup-plan.json",
                 "--review-selection-file",
                 "/tmp/startup-selection.json",
+                "--execute",
+                "--yes",
+                "--operation-log",
+                cleancli.OPERATIONS_LOG_FILE,
+            ],
+        )
+        self.assertEqual(
+            ai_schema.build_tool_argv(
+                "cleanmac_privacy_execute",
+                {
+                    "plan_file": "/tmp/privacy-plan.json",
+                    "review_selection_file": "/tmp/privacy-selection.json",
+                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                },
+            ),
+            [
+                "cleanmac",
+                "--json",
+                "privacy",
+                "execute",
+                "--plan-file",
+                "/tmp/privacy-plan.json",
+                "--review-selection-file",
+                "/tmp/privacy-selection.json",
                 "--execute",
                 "--yes",
                 "--operation-log",
@@ -2524,6 +2548,124 @@ class CleanMacCLITests(unittest.TestCase):
                 all(not item["default_selected"] for item in credentials_report["privacy_plan"]["candidates"])
             )
             self.assertTrue(validate_contract_payload("cleanmac.privacy-plan.v1", credentials_report)["valid"])
+
+    def test_privacy_execute_requires_review_selection_and_records_audit(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "privacy-plan.json"
+            selection_file = root / "privacy-selection.json"
+            operation_log = root / "logs" / "privacy-execute.jsonl"
+            plan = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "plan", "--scope", "cache"
+                ).stdout
+            )
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            review_report = json.loads(
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
+            )
+            selected_item = next(item for item in review_report["items"] if item.get("application") == "Chrome")
+            selected_id = selected_item["id"]
+            selected_path = selected_item["path"]
+            skipped_paths = [item["path"] for item in review_report["items"] if item["id"] != selected_id]
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = [selected_id]
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] != selected_id
+            ]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            missing_selection = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "privacy",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+            )
+            self.assertNotEqual(missing_selection.returncode, 0)
+            self.assertEqual(json.loads(missing_selection.stderr)["error"]["code"], "SELECTION_VALIDATION_FAILED")
+
+            stale_selection = dict(selection)
+            stale_selection["source_fingerprint"] = "0" * 64
+            selection_file.write_text(json.dumps(stale_selection), encoding="utf-8")
+            stale_result = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "privacy",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+            )
+            self.assertNotEqual(stale_result.returncode, 0)
+            self.assertEqual(json.loads(stale_result.stderr)["error"]["code"], "SELECTION_VALIDATION_FAILED")
+
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+            dry_run_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "privacy",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--operation-log",
+                str(operation_log),
+            )
+            dry_run_report = json.loads(dry_run_result.stdout)
+
+            self.assertEqual(dry_run_report["schema"], "cleanmac.privacy-execute-result.v1")
+            self.assertTrue(dry_run_report["dry_run"])
+            self.assertEqual(dry_run_report["planned_count"], 1)
+            self.assertGreaterEqual(dry_run_report["skipped_count"], 1)
+            self.assertTrue(validate_contract_payload("cleanmac.privacy-execute-result.v1", dry_run_report)["valid"])
+            self.assertTrue(Path(selected_path).exists())
+            self.assertTrue(all(Path(path).exists() for path in skipped_paths[:2]))
+            dry_run_records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in dry_run_records}, {1})
+            self.assertIn("not-in-review-selection", {record.get("reason") for record in dry_run_records})
+
+            execute_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "privacy",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--execute",
+                "--yes",
+                "--operation-log",
+                str(operation_log),
+            )
+            execute_report = json.loads(execute_result.stdout)
+            all_records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+            self.assertFalse(execute_report["dry_run"])
+            self.assertEqual(execute_report["deleted_count"], 1)
+            self.assertGreaterEqual(execute_report["skipped_count"], 1)
+            self.assertFalse(Path(selected_path).exists())
+            self.assertTrue(all(Path(path).exists() for path in skipped_paths[:2]))
+            self.assertIn("not-in-review-selection", {record.get("reason") for record in all_records})
+            self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in all_records}, {1})
 
     def test_clean_safety_gate_exposes_single_fail_fast_flag(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -5496,7 +5638,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("bundle-audit-smoke", release)
         self.assertIn("macos-smoke", release)
         self.assertIn("security-smoke", release)
-        self.assertIn("cleanmac --json capabilities", release)
+        self.assertIn(".venv/bin/cleanmac --json capabilities", release)
         self.assertNotIn('packages-dir: "release-assets"', release)
 
     def test_release_workflow_reuses_release_manifest_script(self) -> None:
@@ -5564,6 +5706,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("fail-on-severity: high", dependency_review)
         self.assertIn("make release-check", nightly)
         self.assertIn("make no-cache-check", nightly)
+        self.assertIn("PYTHON: .venv/bin/python", nightly)
+        self.assertIn("Create venv and install release-check dependencies", nightly)
+        self.assertIn("$PYTHON -m pip install -e '.[dev,build]'", nightly)
         self.assertIn("ossf/scorecard-action", scorecards)
         self.assertIn("results_format: sarif", scorecards)
         self.assertIn("github/codeql-action/upload-sarif", scorecards)

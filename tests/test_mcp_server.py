@@ -51,7 +51,7 @@ class MckServerTests(unittest.TestCase):
     def test_tools_list_returns_all_tools(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = response["result"]["tools"]
-        self.assertEqual(len(tools), 33)
+        self.assertEqual(len(tools), 34)
         for tool in tools:
             self.assertIn("name", tool)
             self.assertIn("description", tool)
@@ -64,10 +64,12 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac_links", names)
         self.assertIn("cleanmac_optimize", names)
         self.assertIn("cleanmac_startup_disable", names)
+        self.assertIn("cleanmac_privacy_execute", names)
         tool_by_name = {t["name"]: t for t in tools}
         self.assertTrue(tool_by_name["cleanmac_capabilities"]["annotations"]["readOnlyHint"])
         self.assertTrue(tool_by_name["cleanmac_execute_plan"]["annotations"]["destructiveHint"])
         self.assertTrue(tool_by_name["cleanmac_startup_disable"]["annotations"]["destructiveHint"])
+        self.assertTrue(tool_by_name["cleanmac_privacy_execute"]["annotations"]["destructiveHint"])
 
     def test_destructive_tool_call_blocked_by_policy(self) -> None:
         """Verify cleanmac_execute_plan is deny-listed and all denied tools have destructiveHint."""
@@ -721,7 +723,7 @@ class MckServerTests(unittest.TestCase):
         # Process should have exited; start a new one and verify tools/list still works
         response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = response["result"]["tools"]
-        self.assertEqual(len(tools), 33)
+        self.assertEqual(len(tools), 34)
 
     def test_notifications_initialized_standalone(self) -> None:
         """Sending a standalone notifications/initialized is silently handled (no response)."""
