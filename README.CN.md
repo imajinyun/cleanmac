@@ -32,7 +32,7 @@ python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope
 | 🤖 **AI 原生 · 34 个工具** | 输出 Anthropic / OpenAI / MCP 格式的完整工具定义 |
 | 🏗️ **MCP Server** | 内置 Model Context Protocol stdio server，即开即用 |
 | 🔐 **多层安全门禁** | Bundle 保护、预算上限、Trash 可恢复、执行确认令牌 |
-| 🧾 **审查到执行契约** | `review` 选择文件可通过 `--review-selection-file` 约束计划 replay |
+| 🧾 **审查到执行契约** | `review` 选择文件可通过 `--review-selection-file` 约束 clean、startup 和 privacy 执行 |
 | 🧪 **沙箱演练** | `--root` / `--home` 路径重映射，安全测试清理效果 |
 | 📦 **零依赖** | 纯 Python 3.10+，无需外部包即可运行 |
 

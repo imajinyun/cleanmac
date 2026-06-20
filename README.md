@@ -38,7 +38,7 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean run --categor
 | 🤖 **AI-native · 34 tools** | Full tool definitions in Anthropic / OpenAI / MCP formats |
 | 🏗️ **MCP Server** | Built-in Model Context Protocol stdio server |
 | 🔐 **Multi-layer safety** | Bundle protection, budgets, Trash recovery, confirmation tokens |
-| 🧾 **Review-to-execution contract** | `review` selections can constrain plan replay via `--review-selection-file` |
+| 🧾 **Review-to-execution contract** | `review` selections can constrain clean, startup, and privacy execution via `--review-selection-file` |
 | 🛡️ **AI governance gates** | Machine-readable LLM policy, release smoke, anti-pattern checks |
 | 🧪 **Sandbox mode** | `--root` / `--home` path remapping for safe testing |
 | 📦 **Zero deps** | Pure Python 3.10+, no external packages required |
