@@ -176,6 +176,7 @@ def render_ai_readiness(contract: Mapping[str, Any]) -> dict[str, Any]:
             ["cleanmac", "--json", "ai-host-integration-pack"],
             ["cleanmac", "--json", "ai-host-preflight"],
             ["cleanmac", "--json", "ai-host-evidence"],
+            ["cleanmac", "--json", "release-readiness"],
             ["cleanmac", "--json", "ai-self-test"],
             ["cleanmac", "--json", "ai-readiness"],
             ["cleanmac", "--json", "ai-runbook"],

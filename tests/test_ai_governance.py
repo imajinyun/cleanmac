@@ -54,12 +54,15 @@ class AIGovernanceTests(unittest.TestCase):
         self.assertIn(["make", "ai-governance-smoke"], self.report["release_gate_commands"])
         self.assertIn(["make", "ai-contract-smoke"], self.report["release_gate_commands"])
         self.assertIn(["make", "ai-host-smoke"], self.report["release_gate_commands"])
+        self.assertIn(["make", "release-readiness-smoke"], self.report["release_gate_commands"])
         self.assertIn(["cleanmac", "--json", "ai-host-policy"], self.report["release_gate_commands"])
         self.assertIn(["cleanmac", "--json", "ai-host-evidence"], self.report["release_gate_commands"])
+        self.assertIn(["cleanmac", "--json", "release-readiness"], self.report["release_gate_commands"])
 
     def test_governance_advice_recommendation_statuses(self) -> None:
         self.assertIn("read cleanmac://ai/host-policy", self.report["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/host-evidence", self.report["recommended_call_sequence"])
+        self.assertIn("read cleanmac://release/readiness", self.report["recommended_call_sequence"])
         recommendations = {item["id"]: item for item in self.report["recommendations"]}
         self.assertEqual(recommendations["preflight-first"]["priority"], "p0")
         self.assertEqual(recommendations["deny-auto-destructive"]["status"], "satisfied")

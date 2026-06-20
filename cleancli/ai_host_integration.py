@@ -24,6 +24,7 @@ def render_ai_host_integration_pack(
     recommended_preflight_commands = [
         ["cleanmac", "--json", "ai-host-integration-pack"],
         ["cleanmac", "--json", "ai-host-evidence"],
+        ["cleanmac", "--json", "release-readiness"],
         *list(readiness.get("recommended_preflight_commands", [])),
     ]
     recommended_call_sequence = [
@@ -34,6 +35,7 @@ def render_ai_host_integration_pack(
         "cleanmac://ai/host-integration-pack",
         "cleanmac://ai/host-preflight",
         "cleanmac://ai/host-evidence",
+        "cleanmac://release/readiness",
         "cleanmac://capabilities",
         "cleanmac://ai/function-schemas",
         "cleanmac://ai/mcp-tool-catalog",

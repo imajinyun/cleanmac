@@ -26,6 +26,8 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertTrue(report["preflight"]["ready"], report["preflight"])
         self.assertEqual(report["contract_validation"]["schema"], "cleanmac.ai-contract-validation-summary.v1")
         self.assertTrue(report["contract_validation"]["valid"], report["contract_validation"])
+        checks = {check["id"]: check for check in report["evidence_checks"]}
+        self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
 
     def test_evidence_includes_runtime_denial_samples(self) -> None:
         report = render_ai_host_evidence_report()
@@ -65,6 +67,8 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertEqual(report["schema"], "cleanmac.ai-host-evidence.v1")
         self.assertTrue(report["ready"], report)
         self.assertIn(["make", "ai-host-smoke"], report["release_gate_commands"])
+        self.assertIn(["make", "release-readiness-smoke"], report["release_gate_commands"])
+        self.assertIn(["cleanmac", "--json", "release-readiness"], report["release_gate_commands"])
 
 
 if __name__ == "__main__":
