@@ -28,7 +28,7 @@
 
 ## ✨ 核心能力
 
-`cleanmac` 提供 **20+ 项能力**，覆盖 macOS 清理全流程：
+`cleanmac` 提供 **30+ 项能力**，覆盖 macOS 清理、运营审查和 AI Host 集成全流程：
 
 | # | 能力 | 说明 |
 |---|---|---|
@@ -41,8 +41,10 @@
 | 🗺️ | **清理计划** | 可复用的 `cleanmac.plan.v1` JSON |
 | 📄 | **清理报告** | 清理前报告、dry-run 明细、执行后报告 |
 | 🧪 | **沙箱模式** | `--root` / `--home` 路径重映射 |
-| 🤖 | **AI 工具** | 23 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
+| 🤖 | **AI 工具** | 32 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
 | 🏗️ | **MCP Server** | 基于 stdio 的 Model Context Protocol 服务器 |
+| 🧾 | **审查选择** | `cleanmac.review-selection.v1` 文件可约束计划 replay |
+| 🔍 | **运营预检** | permissions、startup、privacy、外部工具 dry-run 计划 |
 | 🔐 | **确认令牌** | SHA-256 绑定的 AI 执行授权 |
 | 🛡️ | **执行保护** | 预算上限、风险策略、真实根目录保护 |
 | 🎯 | **精细过滤** | include、exclude、时间、大小、正则 |
@@ -87,9 +89,15 @@ python3 cleanmac.py --json clean run \
   --plan-file /tmp/plan.json \
   --require-plan-context
 
+# 5b️⃣ 可选：把计划转成可审查选择文件
+python3 cleanmac.py --json review \
+  --input-file /tmp/plan.json \
+  --selection-file /tmp/selection.json
+
 # 6️⃣ 执行（确认后！）
 python3 cleanmac.py clean run \
   --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
   --require-plan-context \
   --delete-mode trash \
   --operation-log /tmp/ops.jsonl \
@@ -106,7 +114,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI 工具定义
 
-导出 **24 个工具**，支持三种格式：
+导出 **32 个工具**，支持三种格式：
 
 ```bash
 # 🧠 Anthropic 格式（Claude）
@@ -143,6 +151,14 @@ python3 cleanmac.py --json ai-tools --format mcp | jq '.tools | length'
 | `cleanmac_software_leftovers` | 检查应用残留 | readonly |
 | `cleanmac_software_startup_items` | 列出启动项 | readonly |
 | `cleanmac_software_uninstall_plan` | 卸载计划（不执行） | planning |
+| `cleanmac_software_inspect` | 检查应用清理候选项 | readonly |
+| `cleanmac_startup_audit` | 审计 LaunchAgents/Daemons 和 StartupItems | readonly |
+| `cleanmac_startup_plan` | 计划启动项禁用动作，不执行 | planning |
+| `cleanmac_privacy_inspect` | 检查浏览器/应用隐私清理候选项 | readonly |
+| `cleanmac_privacy_plan` | 生成隐私清理计划，不删除数据 | planning |
+| `cleanmac_tool_plan` | 为外部工具生成语义计划 | planning |
+| `cleanmac_tool_execute_dry_run` | Dry-run allowlisted 外部工具命令 | dry-run |
+| `cleanmac_review` | 将报告/计划归一化为审查选择 | planning |
 | `cleanmac_dry_run_plan` | Dry-run 计划（Trash 模式） | dry-run |
 | `cleanmac_execute_plan` | 执行清理（需确认） | destructive |
 | `cleanmac_ai_governance_advice` | AI 治理建议与反模式 | readonly |
@@ -177,7 +193,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 协议示例：**
 
 ```bash
-# 📋 列出全部 23 个工具
+# 📋 列出全部 32 个工具
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -205,8 +221,9 @@ graph LR
     B -->|2. diagnose| C[🩺 分析系统]
     C -->|3. inspect| D[👀 预览候选]
     D -->|4. plan| E[🗺️ 生成计划]
-    E -->|5. validate| F[✅ 校验计划]
-    F -->|6. run --execute| G[🛡️ 令牌执行]
+    E -->|5. review| F[🧾 审查选择]
+    F -->|6. validate| G[✅ 校验计划 + 选择]
+    G -->|7. run --execute| H[🛡️ 令牌执行]
 ```
 
 **AI 分步调用：**
@@ -223,6 +240,36 @@ python3 cleanmac.py --json workflow \
 ```
 
 `workflow` 命令是 **推荐的 AI 入口点** —— 一条只读命令完成 inspect → diagnose → plan 全流程。
+
+### 🧾 审查到执行契约
+
+使用 `review` 可把 plan/report 转成 `cleanmac.review.v1` 和 `cleanmac.review-selection.v1`。把 selection 传给 `clean run` 或 `policy-simulate` 时，cleanmac 会校验 source fingerprint，并只 replay 已审查选中的路径：
+
+```bash
+# 1️⃣ 生成稳定计划
+python3 cleanmac.py --json clean plan --categories trash,downloads > /tmp/plan.json
+
+# 2️⃣ 生成审查报告和默认选择文件
+python3 cleanmac.py --json review \
+  --input-file /tmp/plan.json \
+  --selection-file /tmp/selection.json \
+  > /tmp/review.json
+
+# 3️⃣ 只 dry-run 已审查选中的项目
+python3 cleanmac.py --json clean run \
+  --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
+  --require-plan-context
+
+# 4️⃣ 执行前用策略模拟器查看安全 argv
+python3 cleanmac.py --json policy-simulate \
+  --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
+  --execute \
+  --delete-mode trash
+```
+
+如果 selection 来自其他计划或已过期，命令会在清理前失败并返回 `SELECTION_VALIDATION_FAILED`。报告中会包含 `cleanmac.review-selection-constraint.v1`，用于审计留痕。
 
 ### 🔐 AI 确认令牌
 
@@ -442,6 +489,11 @@ python3 cleanmac.py clean run \
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 清理操作 |
 | `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 应用清单（只读） |
+| `startup` | `audit`, `plan` | 🚀 启动项审计和非破坏性禁用计划 |
+| `privacy` | `inspect`, `plan` | 🔐 浏览器/应用隐私候选项检查和计划 |
+| `permissions` | preflight | 🔎 权限和 Full Disk Access 就绪预检 |
+| `tool-plan` / `tool-execute` | 外部工具适配器 | 🧰 Docker/Homebrew/Xcode allowlist dry-run 和门禁执行 |
+| `review` | 审查归一化 | 🧾 可审查条目、selection、HTML 审计输出 |
 | `optimize` | `list`, `plan`, `run` | ⚙️ 维护任务（仅 dry-run） |
 | `analyze` | `categories`, `tree`, `scan` | 📊 空间分析 |
 | `status` | `snapshot` | 🩺 系统健康 |
@@ -501,6 +553,15 @@ python3 cleanmac.py clean run \
   --operation-log /tmp/ops.jsonl \
   --execute
 ```
+
+关键 replay 选项：
+
+| 选项 | 说明 |
+|---|---|
+| `--plan-file <path>` | replay 现有 `cleanmac.plan.v1` 文件，而不是重新发现候选项 |
+| `--review-selection-file <path>` | 校验 `cleanmac.review-selection.v1` 文件，并跳过未被审查选中的计划项 |
+| `--require-plan-context` | 要求 replay 计划的 root/home 与当前命令上下文一致 |
+| `--require-confirmation-token` | 执行前要求匹配的 AI 确认令牌 |
 
 ### `diagnose`
 
@@ -563,6 +624,50 @@ python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
 ```
 
+### `startup`
+
+```bash
+python3 cleanmac.py --json startup audit
+python3 cleanmac.py --json startup plan
+```
+
+`startup audit` 是只读审计。`startup plan` 为 LaunchAgents、LaunchDaemons 和 StartupItems 输出非破坏性禁用计划；cleanmac 不直接执行这些禁用动作。
+
+### `privacy`
+
+```bash
+python3 cleanmac.py --json privacy inspect --scope cache
+python3 cleanmac.py --json privacy plan --scope history
+```
+
+Privacy 命令用于检查和规划浏览器/应用隐私数据清理，默认保留敏感范围，不直接删除隐私数据。
+
+### `permissions`
+
+```bash
+python3 cleanmac.py --json permissions --categories trash,systemLogs
+```
+
+该预检会报告 Full Disk Access 提示、分类权限、真实根目录要求和执行就绪状态，不修改文件。
+
+### `tool-plan` / `tool-execute`
+
+```bash
+python3 cleanmac.py --json tool-plan --tool docker
+python3 cleanmac.py --json tool-execute --tool docker
+```
+
+外部工具集成使用 allowlist，且默认 dry-run。`tool-execute` 只运行已知 argv 模板，真实执行仍需显式 `--execute --yes`。
+
+### `review`
+
+```bash
+python3 cleanmac.py --json review --input-file /tmp/plan.json --selection-file /tmp/selection.json
+python3 cleanmac.py --json review --input-file /tmp/plan.json --format html > /tmp/review.html
+```
+
+`review` 会把 clean plan/report、startup/privacy/tool plan 和软件卸载计划归一化为可审查条目，并输出 source fingerprint，供 dry-run 或执行前校验选择文件。
+
 ### `analyze`
 
 ```bash
@@ -582,6 +687,11 @@ python3 cleanmac.py list
 
 ```bash
 python3 cleanmac.py --json policy-simulate --plan-file /tmp/plan.json --execute --delete-mode trash
+python3 cleanmac.py --json policy-simulate \
+  --plan-file /tmp/plan.json \
+  --review-selection-file /tmp/selection.json \
+  --execute \
+  --delete-mode trash
 ```
 
 ### `completion`
