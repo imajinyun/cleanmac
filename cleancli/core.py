@@ -46,7 +46,7 @@ from cleancli.ai_versioning import (
 )
 from cleancli.privacy import PRIVACY_SCOPES, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
-from cleancli.review import load_json_file, render_review, render_review_html
+from cleancli.review import load_json_file, render_review, render_review_html, validate_review_selection
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import render_startup
 from cleancli.tool_adapters import execute_tool, render_tool_plan as render_tool_adapter_plan
@@ -1269,8 +1269,14 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     review_cmd = subparsers.add_parser("review", help="Normalize a JSON report or plan into reviewable selections.")
     review_cmd.add_argument("--input-file", required=True, help="JSON plan/report to review.")
+    review_cmd.add_argument("--selection-input-file", help="Existing review selection JSON to validate and replay.")
     review_cmd.add_argument("--format", choices=("json", "html"), default="json")
     review_cmd.add_argument("--selection-file", help="Write the generated review selection JSON to this path.")
+    review_cmd.add_argument(
+        "--require-valid-selection",
+        action="store_true",
+        help="Exit non-zero when --selection-input-file does not match the reviewed source or contains invalid IDs.",
+    )
     review_cmd.add_argument(
         "--select-item",
         action="append",
@@ -6596,9 +6602,19 @@ def _main_impl(argv: Sequence[str]) -> int:
         emit_report(report, args=args, command="tool-execute", root=root, home=home, argv=actual_argv)
         return 0
     if args.command == "review":
+        source_payload = load_json_file(args.input_file)
+        selection_payload = load_json_file(args.selection_input_file) if args.selection_input_file else None
+        selected_item_ids = [str(item) for item in selection_payload.get("selected_item_ids", [])] if selection_payload else []
+        excluded_item_ids = [str(item) for item in selection_payload.get("excluded_item_ids", [])] if selection_payload else []
+        explicit_selects = [str(item) for item in args.select_item]
+        excluded_item_ids = [item_id for item_id in excluded_item_ids if item_id not in set(explicit_selects)]
         review_report = render_review(
-            load_json_file(args.input_file), selected_item_ids=args.select_item, excluded_item_ids=args.exclude_item
+            source_payload,
+            selected_item_ids=[*selected_item_ids, *explicit_selects],
+            excluded_item_ids=[*excluded_item_ids, *args.exclude_item],
         )
+        if selection_payload:
+            review_report["selection_validation"] = validate_review_selection(source_payload, selection_payload)
         if args.selection_file:
             Path(args.selection_file).expanduser().write_text(
                 json.dumps(review_report["selection"], indent=2, ensure_ascii=False), encoding="utf-8"
@@ -6608,6 +6624,8 @@ def _main_impl(argv: Sequence[str]) -> int:
             print(render_review_html(review_report))
         else:
             print(json.dumps(review_report, indent=2, ensure_ascii=False) if args.json else review_report)
+        if args.require_valid_selection and not review_report.get("selection_validation", {}).get("valid", True):
+            return 1
         return 0
     if args.command == "permissions":
         categories = select_categories(args)
