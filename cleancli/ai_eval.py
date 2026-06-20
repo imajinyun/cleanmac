@@ -146,6 +146,15 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "release_post_publish_evidence_template_discovery",
+            "description": "Verify AI Hosts can discover the manual-only post-publish evidence input template.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-post-publish-evidence-template"]],
+            "expected_final_schema": "cleanmac.release-post-publish-evidence-template.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "schema_registry_release_contract_coverage",
             "description": "Verify release-critical schemas are registered with contract fragments and sample coverage.",
             "required_tools": ["cleanmac_capabilities"],
@@ -557,6 +566,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "release_rollback_plan_discovery",
             "release_post_publish_verification_discovery",
             "release_post_publish_result_discovery",
+            "release_post_publish_evidence_template_discovery",
             "schema_registry_release_contract_coverage",
             "discover_readiness",
             "schema_registry_discovery",
@@ -1013,6 +1023,24 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         in post_publish_result.get("incident_response_entrypoints", [])
                     ),
                     observed_schema=post_publish_result["schema"],
+                )
+            )
+
+        if "release_post_publish_evidence_template_discovery" in selected:
+            template, event = _run_cli(cli, ["release-post-publish-evidence-template"], root=root, home=home)
+            events.append(event)
+            surface_ids = set(template.get("template", {}).get("surfaces", {}))
+            results.append(
+                _scenario_result(
+                    "release_post_publish_evidence_template_discovery",
+                    passed=bool(
+                        template["schema"] == "cleanmac.release-post-publish-evidence-template.v1"
+                        and template["manual_only"] is True
+                        and template["destructive"] is False
+                        and template["target_input_schema"] == "cleanmac.release-post-publish-evidence-input.v1"
+                        and {"pypi", "github-release", "homebrew-tap"}.issubset(surface_ids)
+                    ),
+                    observed_schema=template["schema"],
                 )
             )
 

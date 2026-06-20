@@ -113,10 +113,14 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.release-promotion-decision.v1", entries)
         self.assertIn("cleanmac.release-rollback-plan.v1", entries)
         self.assertIn("cleanmac.release-post-publish-verification.v1", entries)
+        self.assertIn("cleanmac.release-post-publish-evidence-input.v1", entries)
+        self.assertIn("cleanmac.release-post-publish-evidence-template.v1", entries)
         self.assertIn("cleanmac.release-post-publish-result.v1", entries)
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
+        self.assertTrue(entries["cleanmac.release-post-publish-evidence-input.v1"]["release_critical"])
+        self.assertTrue(entries["cleanmac.release-post-publish-evidence-template.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-post-publish-result.v1"]["release_critical"])
         self.assertEqual(entries["cleanmac.release-evidence.v1"]["owner_area"], "release")
 
@@ -288,6 +292,37 @@ class AISchemaRegistryTests(unittest.TestCase):
             validate_contract_payload("cleanmac.release-post-publish-verification.v1", post_publish)["valid"]
         )
 
+        post_publish_evidence_input = {
+            "schema": "cleanmac.release-post-publish-evidence-input.v1",
+            "surfaces": {
+                "github-release": {"status": "verified", "evidence_refs": ["GitHub release asset list"]},
+                "pypi": {"status": "verified", "evidence_refs": ["PyPI release page"]},
+                "homebrew-tap": {"status": "verified", "evidence_refs": ["Tap formula commit"]},
+            },
+        }
+        self.assertTrue(
+            validate_contract_payload("cleanmac.release-post-publish-evidence-input.v1", post_publish_evidence_input)[
+                "valid"
+            ]
+        )
+
+        post_publish_evidence_template = {
+            "schema": "cleanmac.release-post-publish-evidence-template.v1",
+            "destructive": False,
+            "dry_run": True,
+            "manual_only": True,
+            "target_input_schema": "cleanmac.release-post-publish-evidence-input.v1",
+            "template": post_publish_evidence_input,
+            "recommended_commands": [
+                ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"]
+            ],
+        }
+        self.assertTrue(
+            validate_contract_payload(
+                "cleanmac.release-post-publish-evidence-template.v1", post_publish_evidence_template
+            )["valid"]
+        )
+
         post_publish_result = {
             "schema": "cleanmac.release-post-publish-result.v1",
             "destructive": False,
@@ -295,6 +330,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "manual_only": True,
             "ready": False,
             "surfaces": [{"id": "pypi", "status": "pending"}],
+            "evidence_validation_errors": [],
             "failed_surface_ids": [],
             "pending_surface_ids": ["pypi"],
             "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],

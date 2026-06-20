@@ -45,6 +45,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_rollback_plan_discovery", scenarios)
         self.assertIn("release_post_publish_verification_discovery", scenarios)
         self.assertIn("release_post_publish_result_discovery", scenarios)
+        self.assertIn("release_post_publish_evidence_template_discovery", scenarios)
         self.assertIn("schema_registry_release_contract_coverage", scenarios)
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
@@ -111,6 +112,10 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(post_publish["expected_final_schema"], "cleanmac.release-post-publish-verification.v1")
         post_publish_result = scenarios["release_post_publish_result_discovery"]
         self.assertEqual(post_publish_result["expected_final_schema"], "cleanmac.release-post-publish-result.v1")
+        post_publish_template = scenarios["release_post_publish_evidence_template_discovery"]
+        self.assertEqual(
+            post_publish_template["expected_final_schema"], "cleanmac.release-post-publish-evidence-template.v1"
+        )
         registry_coverage = scenarios["schema_registry_release_contract_coverage"]
         self.assertEqual(registry_coverage["expected_final_schema"], "cleanmac.ai-schema-registry.v1")
         raw_denial = scenarios["mcp_raw_command_argument_denial"]
@@ -165,6 +170,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["release_rollback_plan_discovery"]["passed"])
         self.assertTrue(scenario_results["release_post_publish_verification_discovery"]["passed"])
         self.assertTrue(scenario_results["release_post_publish_result_discovery"]["passed"])
+        self.assertTrue(scenario_results["release_post_publish_evidence_template_discovery"]["passed"])
         self.assertTrue(scenario_results["schema_registry_release_contract_coverage"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
@@ -255,6 +261,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_rollback_plan_discovery", scenario_ids)
         self.assertIn("release_post_publish_verification_discovery", scenario_ids)
         self.assertIn("release_post_publish_result_discovery", scenario_ids)
+        self.assertIn("release_post_publish_evidence_template_discovery", scenario_ids)
         self.assertIn("schema_registry_release_contract_coverage", scenario_ids)
         self.assertIn("mcp_raw_command_argument_denial", scenario_ids)
         self.assertIn("mcp_destructive_policy_denial", scenario_ids)

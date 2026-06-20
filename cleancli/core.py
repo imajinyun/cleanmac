@@ -48,6 +48,7 @@ from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_pri
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
 from cleancli.release_orchestration import (
+    render_release_post_publish_evidence_template,
     render_release_post_publish_result,
     render_release_post_publish_verification,
     render_release_promotion_decision,
@@ -1595,6 +1596,22 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=None,
         help="Optional manual post-publish evidence JSON file used to mark surfaces verified or failed.",
     )
+    release_post_publish_template_parser = subparsers.add_parser(
+        "release-post-publish-evidence-template",
+        help="Emit a manual-only post-publish evidence input template.",
+    )
+    release_post_publish_template_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for post-publish evidence template context.",
+    )
+    release_post_publish_template_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for post-publish evidence template context.",
+    )
     subparsers.add_parser(
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
@@ -1683,6 +1700,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "release-rollback-plan",
         "release-post-publish-verification",
         "release-post-publish-result",
+        "release-post-publish-evidence-template",
         "ai-schema-registry",
         "ai-contract-samples",
         "ai-validate-contract",
@@ -2957,6 +2975,9 @@ def render_release_evidence_report(
         post_publish_result=render_release_post_publish_result_report(
             dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir
         ),
+        post_publish_evidence_template=render_release_post_publish_evidence_template_report(
+            dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir
+        ),
     )
 
 
@@ -3086,6 +3107,15 @@ def render_release_post_publish_result_report(
         assets_dir=resolved_assets_dir,
         evidence_file=evidence_file,
     )
+
+
+def render_release_post_publish_evidence_template_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    return render_release_post_publish_evidence_template(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
@@ -6569,6 +6599,7 @@ def render_completion_shell(shell: str) -> str:
         "release-rollback-plan",
         "release-post-publish-verification",
         "release-post-publish-result",
+        "release-post-publish-evidence-template",
         "ai-schema-registry",
         "ai-eval-pack",
         "ai-eval-run",
@@ -6613,6 +6644,7 @@ def render_completion_shell(shell: str) -> str:
         "release-rollback-plan": "--dist-dir --assets-dir",
         "release-post-publish-verification": "--dist-dir --assets-dir",
         "release-post-publish-result": "--dist-dir --assets-dir --evidence-file",
+        "release-post-publish-evidence-template": "--dist-dir --assets-dir",
         "ai-schema-registry": "",
         "ai-eval-pack": "",
         "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
@@ -7159,6 +7191,17 @@ def _main_impl(argv: Sequence[str]) -> int:
                     dist_dir=args.dist_dir,
                     assets_dir=args.assets_dir,
                     evidence_file=args.evidence_file,
+                ),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-post-publish-evidence-template":
+        print(
+            json.dumps(
+                render_release_post_publish_evidence_template_report(
+                    dist_dir=args.dist_dir, assets_dir=args.assets_dir
                 ),
                 indent=2,
                 ensure_ascii=False,

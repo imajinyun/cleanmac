@@ -10,6 +10,7 @@ from pathlib import Path
 from cleancli.core import render_release_readiness_report
 from cleancli.release_artifacts import build_release_artifact_manifest
 from cleancli.release_orchestration import (
+    render_release_post_publish_evidence_template,
     render_release_post_publish_result,
     render_release_post_publish_verification,
     render_release_promotion_decision,
@@ -130,6 +131,25 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertIn(["cleanmac", "--json", "release-rollback-plan"], result["incident_response_entrypoints"])
         self.assertNotIn("rm -rf", json.dumps(result))
 
+    def test_post_publish_evidence_template_is_manual_only_and_complete(self) -> None:
+        template = render_release_post_publish_evidence_template(dist_dir="dist", assets_dir="release-assets")
+
+        self.assertEqual(template["schema"], "cleanmac.release-post-publish-evidence-template.v1")
+        self.assertFalse(template["destructive"])
+        self.assertTrue(template["dry_run"])
+        self.assertTrue(template["manual_only"])
+        self.assertEqual(template["target_input_schema"], "cleanmac.release-post-publish-evidence-input.v1")
+        self.assertEqual(
+            set(template["template"]["surfaces"]),
+            {"pypi", "github-release", "homebrew-tap"},
+        )
+        self.assertEqual(template["template"]["surfaces"]["pypi"]["status"], "pending")
+        self.assertIn(
+            ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"],
+            template["recommended_commands"],
+        )
+        self.assertNotIn("rm -rf", json.dumps(template))
+
     def test_post_publish_result_accepts_verified_evidence_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             evidence = Path(tmp) / "post-publish-evidence.json"
@@ -178,6 +198,61 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         failed_surface = next(surface for surface in result["surfaces"] if surface["id"] == "pypi")
         self.assertEqual(failed_surface["blocking_code"], "PYPI_POST_PUBLISH_FAILED")
 
+    def test_post_publish_result_rejects_wrong_evidence_schema_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence = Path(tmp) / "post-publish-evidence.json"
+            evidence.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.release-post-publish-evidence-input.v2",
+                        "surfaces": {
+                            "github-release": {"status": "verified", "evidence_refs": ["release-assets"]},
+                            "pypi": {"status": "verified", "evidence_refs": ["pypi-page"]},
+                            "homebrew-tap": {"status": "verified", "evidence_refs": ["tap-commit"]},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = render_release_post_publish_result(
+                dist_dir="dist", assets_dir="release-assets", evidence_file=evidence
+            )
+
+        self.assertFalse(result["ready"])
+        self.assertFalse(result["evidence_input"]["valid_schema"])
+        self.assertIn("EVIDENCE_SCHEMA_MISMATCH", {error["code"] for error in result["evidence_validation_errors"]})
+        self.assertEqual(set(result["pending_surface_ids"]), {"pypi", "github-release", "homebrew-tap"})
+
+    def test_post_publish_result_reports_invalid_status_and_missing_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence = Path(tmp) / "post-publish-evidence.json"
+            evidence.write_text(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.release-post-publish-evidence-input.v1",
+                        "surfaces": {
+                            "github-release": {"status": "verified", "evidence_refs": []},
+                            "pypi": {"status": "unknown", "evidence_refs": ["pypi-page"]},
+                            "not-real": {"status": "verified", "evidence_refs": ["unexpected"]},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = render_release_post_publish_result(
+                dist_dir="dist", assets_dir="release-assets", evidence_file=evidence
+            )
+
+        codes = {error["code"] for error in result["evidence_validation_errors"]}
+        self.assertFalse(result["ready"])
+        self.assertIn("UNKNOWN_POST_PUBLISH_SURFACE", codes)
+        self.assertIn("INVALID_POST_PUBLISH_STATUS", codes)
+        self.assertIn("POST_PUBLISH_EVIDENCE_REF_MISSING", codes)
+        self.assertIn("github-release", result["failed_surface_ids"])
+        self.assertIn("pypi", result["failed_surface_ids"])
+
     def test_cli_emits_release_orchestration_reports(self) -> None:
         commands = {
             "release-rehearsal": "cleanmac.release-rehearsal.v1",
@@ -185,6 +260,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             "release-rollback-plan": "cleanmac.release-rollback-plan.v1",
             "release-post-publish-verification": "cleanmac.release-post-publish-verification.v1",
             "release-post-publish-result": "cleanmac.release-post-publish-result.v1",
+            "release-post-publish-evidence-template": "cleanmac.release-post-publish-evidence-template.v1",
         }
         for command, schema in commands.items():
             with self.subTest(command=command):

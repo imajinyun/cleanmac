@@ -222,6 +222,7 @@ def build_release_evidence_bundle(
     promotion_decision: dict[str, Any] | None = None,
     post_publish_verification: dict[str, Any] | None = None,
     post_publish_result: dict[str, Any] | None = None,
+    post_publish_evidence_template: dict[str, Any] | None = None,
     rollback_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return an auditable release evidence bundle without shelling out."""
@@ -282,6 +283,7 @@ def build_release_evidence_bundle(
         "promotion_decision": dict(promotion_decision or {}),
         "post_publish_verification": dict(post_publish_verification or {}),
         "post_publish_result": dict(post_publish_result or {}),
+        "post_publish_evidence_template": dict(post_publish_evidence_template or {}),
         "rollback_plan": dict(rollback_plan or {}),
     }
 
@@ -298,6 +300,7 @@ def write_release_evidence_bundle_output(
     promotion_decision: dict[str, Any] | None = None,
     post_publish_verification: dict[str, Any] | None = None,
     post_publish_result: dict[str, Any] | None = None,
+    post_publish_evidence_template: dict[str, Any] | None = None,
     rollback_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -312,6 +315,7 @@ def write_release_evidence_bundle_output(
         promotion_decision=promotion_decision,
         post_publish_verification=post_publish_verification,
         post_publish_result=post_publish_result,
+        post_publish_evidence_template=post_publish_evidence_template,
         rollback_plan=rollback_plan,
     )
     (assets_dir / "RELEASE-EVIDENCE.json").write_text(
