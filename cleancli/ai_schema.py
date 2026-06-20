@@ -191,6 +191,9 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
                 "execute": bool_schema("Simulate destructive execution intent."),
                 "delete_mode": {"type": "string", "enum": ["permanent", "trash"], "default": "permanent"},
                 "operation_log": string_schema("JSONL operation log path for simulated execution."),
+                "review_selection_file": string_schema(
+                    "Optional cleanmac.review-selection.v1 file to constrain the recommended dry-run/execute argv."
+                ),
                 "require_plan_context": {
                     "type": "boolean",
                     "description": "Require root/home context match before execution.",
@@ -929,6 +932,7 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
             argv.append("--execute")
         append_option(argv, args, "delete_mode", "--delete-mode")
         append_option(argv, args, "operation_log", "--operation-log")
+        append_option(argv, args, "review_selection_file", "--review-selection-file")
         if args.get("require_plan_context", True):
             argv.append("--require-plan-context")
         if args.get("require_confirmation_token"):

@@ -707,7 +707,13 @@ class CleanMacCLITests(unittest.TestCase):
         )
         self.assertEqual(
             ai_schema.build_tool_argv(
-                "cleanmac_policy_simulate", {"plan_file": "/tmp/plan.json", "execute": True, "delete_mode": "trash"}
+                "cleanmac_policy_simulate",
+                {
+                    "plan_file": "/tmp/plan.json",
+                    "execute": True,
+                    "delete_mode": "trash",
+                    "review_selection_file": "/tmp/selection.json",
+                },
             ),
             [
                 "cleanmac",
@@ -719,6 +725,8 @@ class CleanMacCLITests(unittest.TestCase):
                 "--execute",
                 "--delete-mode",
                 "trash",
+                "--review-selection-file",
+                "/tmp/selection.json",
                 "--require-plan-context",
             ],
         )
@@ -3437,6 +3445,46 @@ class CleanMacCLITests(unittest.TestCase):
             error_report = json.loads(result.stderr)
             self.assertEqual(error_report["error"]["code"], "SELECTION_VALIDATION_FAILED")
             self.assertIn("source-fingerprint-mismatch", error_report["error"]["message"])
+
+    def test_policy_simulate_includes_review_selection_in_safe_argv(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            plan_file.write_text(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "clean", "plan", "--categories", "trash"
+                ).stdout,
+                encoding="utf-8",
+            )
+            self.run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file))
+
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "policy-simulate",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--review-selection-file",
+                str(selection_file),
+            )
+            report = json.loads(result.stdout)
+
+            self.assertEqual(report["schema"], "cleanmac.ai-policy-simulation.v1")
+            self.assertEqual(report["review_selection"]["schema"], "cleanmac.review-selection-constraint.v1")
+            self.assertIn("--review-selection-file", report["safe_argv"])
+            self.assertIn(str(selection_file), report["safe_argv"])
+            self.assertIn(
+                {"rule": "review_selection_valid", "result": "pass"},
+                report["policy_decisions"],
+            )
 
     def test_ai_policy_simulator_reports_missing_and_satisfied_guards(self) -> None:
         tmp, root, home = self.make_sandbox()
