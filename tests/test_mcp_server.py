@@ -51,7 +51,7 @@ class MckServerTests(unittest.TestCase):
     def test_tools_list_returns_all_tools(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = response["result"]["tools"]
-        self.assertEqual(len(tools), 28)
+        self.assertEqual(len(tools), 32)
         for tool in tools:
             self.assertIn("name", tool)
             self.assertIn("description", tool)
@@ -718,7 +718,7 @@ class MckServerTests(unittest.TestCase):
         # Process should have exited; start a new one and verify tools/list still works
         response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = response["result"]["tools"]
-        self.assertEqual(len(tools), 28)
+        self.assertEqual(len(tools), 32)
 
     def test_notifications_initialized_standalone(self) -> None:
         """Sending a standalone notifications/initialized is silently handled (no response)."""

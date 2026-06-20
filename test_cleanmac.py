@@ -253,6 +253,14 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb").write_text(
             "windsurf-state"
         )
+        (root / "Users/tester/Library/LaunchAgents").mkdir(parents=True)
+        (root / "Library/LaunchDaemons").mkdir(parents=True)
+        (root / "Users/tester/Library/LaunchAgents/com.example.agent.plist").write_bytes(
+            b'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>com.example.agent</string><key>ProgramArguments</key><array><string>/Applications/Example.app/Contents/MacOS/agent</string></array><key>RunAtLoad</key><true/></dict></plist>'
+        )
+        (root / "Library/LaunchDaemons/com.example.daemon.plist").write_bytes(
+            b'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>com.example.daemon</string><key>KeepAlive</key><true/></dict></plist>'
+        )
         (root / "Applications/Falcon.app/Contents/Info.plist").write_bytes(
             b'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.crowdstrike.falcon.UserAgent</string></dict></plist>'
         )
@@ -345,7 +353,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 28
+        EXPECTED_TOOL_COUNT = 32
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -1931,6 +1939,60 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", result.stdout)
             self.assertNotIn("<script>alert(1)</script>", result.stdout)
+
+    def test_startup_audit_and_plan_classify_disable_candidates(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            audit = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "audit").stdout
+            )
+            self.assertEqual(audit["schema"], "cleanmac.startup-audit.v1")
+            self.assertFalse(audit["destructive"])
+            self.assertEqual(audit["item_count"], 2)
+            by_label = {item["label"]: item for item in audit["items"]}
+            self.assertEqual(by_label["com.example.agent"]["recommendation"], "review-disable")
+            self.assertTrue(by_label["com.example.agent"]["default_selected"])
+            self.assertTrue(by_label["com.example.daemon"]["requires_privilege"])
+            self.assertFalse(by_label["com.example.daemon"]["default_selected"])
+            self.assertTrue(validate_contract_payload("cleanmac.startup-audit.v1", audit)["valid"])
+
+            plan = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout
+            )
+            self.assertEqual(plan["schema"], "cleanmac.startup-plan.v1")
+            self.assertFalse(plan["disable_plan"]["safe_to_auto_execute"])
+            self.assertEqual(plan["disable_plan"]["candidate_count"], 2)
+            self.assertEqual(plan["disable_plan"]["default_selected_count"], 1)
+            self.assertTrue(validate_contract_payload("cleanmac.startup-plan.v1", plan)["valid"])
+
+    def test_privacy_inspect_and_plan_preserve_sensitive_scopes_by_default(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            cache_report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "inspect", "--scope", "cache"
+                ).stdout
+            )
+            self.assertEqual(cache_report["schema"], "cleanmac.privacy-inspect.v1")
+            self.assertGreaterEqual(cache_report["candidate_count"], 8)
+            self.assertTrue(any(item["application"] == "Chrome" for item in cache_report["candidates"]))
+            self.assertTrue(all(item["scope"] == "cache" for item in cache_report["candidates"]))
+            self.assertTrue(any(item["default_selected"] for item in cache_report["candidates"]))
+            self.assertTrue(validate_contract_payload("cleanmac.privacy-inspect.v1", cache_report)["valid"])
+
+            credentials_report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "plan", "--scope", "credentials"
+                ).stdout
+            )
+            self.assertEqual(credentials_report["schema"], "cleanmac.privacy-plan.v1")
+            self.assertFalse(credentials_report["privacy_plan"]["safe_to_auto_execute"])
+            self.assertGreaterEqual(credentials_report["privacy_plan"]["candidate_count"], 3)
+            self.assertEqual(credentials_report["privacy_plan"]["default_selected_count"], 0)
+            self.assertTrue(
+                all(not item["default_selected"] for item in credentials_report["privacy_plan"]["candidates"])
+            )
+            self.assertTrue(validate_contract_payload("cleanmac.privacy-plan.v1", credentials_report)["valid"])
 
     def test_clean_safety_gate_exposes_single_fail_fast_flag(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -4049,6 +4111,22 @@ class CleanMacCLITests(unittest.TestCase):
                 (
                     ["software", "startup-items"],
                     lambda report: report["schema"] == "cleanmac.software.v1" and not report["destructive"],
+                ),
+                (
+                    ["startup", "audit"],
+                    lambda report: report["schema"] == "cleanmac.startup-audit.v1" and report["dry_run"],
+                ),
+                (
+                    ["startup", "plan"],
+                    lambda report: report["schema"] == "cleanmac.startup-plan.v1" and report["dry_run"],
+                ),
+                (
+                    ["privacy", "inspect", "--scope", "cache"],
+                    lambda report: report["schema"] == "cleanmac.privacy-inspect.v1" and report["dry_run"],
+                ),
+                (
+                    ["privacy", "plan", "--scope", "credentials"],
+                    lambda report: report["schema"] == "cleanmac.privacy-plan.v1" and report["dry_run"],
                 ),
                 (
                     ["optimize", "list"],
