@@ -443,6 +443,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(report["category_count"], len(cleancli.CATEGORIES))
         self.assertIn("clean", report["commands"])
         self.assertIn("software", report["commands"])
+        self.assertIn("startup", report["commands"])
+        self.assertIn("privacy", report["commands"])
         self.assertIn("optimize", report["commands"])
         self.assertIn("status", report["commands"])
         self.assertIn("validate-plan", report["commands"])
@@ -454,6 +456,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(report["flat_command_compatibility"])
         self.assertIn("clean", report["command_groups"])
         self.assertIn("software", report["command_groups"])
+        self.assertIn("startup plan", report["command_groups"]["startup"]["commands"])
+        self.assertIn("privacy plan", report["command_groups"]["privacy"]["commands"])
         self.assertIn("status snapshot", report["command_groups"]["status"]["commands"])
         self.assertNotIn("par" + "ity", report["commands"])
         self.assertEqual(report["ai_eval_pack"]["schema"], "cleanmac.ai-eval-pack.v1")
@@ -1939,6 +1943,39 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", result.stdout)
             self.assertNotIn("<script>alert(1)</script>", result.stdout)
+
+    def test_review_supports_startup_and_privacy_plans(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            startup_plan_file = root / "startup-plan.json"
+            startup_plan = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout
+            )
+            startup_plan_file.write_text(json.dumps(startup_plan), encoding="utf-8")
+            startup_review = json.loads(
+                self.run_cli("--json", "review", "--input-file", str(startup_plan_file)).stdout
+            )
+
+            self.assertEqual(startup_review["schema"], "cleanmac.review.v1")
+            self.assertEqual(startup_review["source_schema"], "cleanmac.startup-plan.v1")
+            self.assertEqual(startup_review["item_count"], 2)
+            self.assertEqual(startup_review["default_selected_count"], 1)
+            self.assertTrue(any(item["recommendation"] == "review-disable" for item in startup_review["items"]))
+
+            privacy_plan_file = root / "privacy-plan.json"
+            privacy_plan = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "plan", "--scope", "cache"
+                ).stdout
+            )
+            privacy_plan_file.write_text(json.dumps(privacy_plan), encoding="utf-8")
+            privacy_review = json.loads(self.run_cli("--json", "review", "--input-file", str(privacy_plan_file)).stdout)
+
+            self.assertEqual(privacy_review["schema"], "cleanmac.review.v1")
+            self.assertEqual(privacy_review["source_schema"], "cleanmac.privacy-plan.v1")
+            self.assertGreaterEqual(privacy_review["item_count"], 8)
+            self.assertGreaterEqual(privacy_review["default_selected_count"], 1)
+            self.assertTrue(any(item["scope"] == "cache" for item in privacy_review["items"]))
 
     def test_startup_audit_and_plan_classify_disable_candidates(self) -> None:
         tmp, root, home = self.make_sandbox()
