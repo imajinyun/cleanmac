@@ -846,6 +846,9 @@ make dependency-audit-smoke                        # pip-audit + SBOM.json
 make homebrew-formula-smoke                        # Homebrew tap formula validation
 make release-readiness-smoke                       # AI Host release readiness bundle
 make release-diagnostics-smoke                     # Release diagnostics + evidence + operator summary
+make release-rehearsal-smoke                       # Release rehearsal dry-run gates
+make release-promotion-smoke                       # Fail-closed promotion decision
+make release-rollback-smoke                        # Manual-only rollback plan
 make no-cache-check                                # No-cache full validation
 make no-cache-release-check                        # No-cache release validation
 ```
@@ -881,13 +884,16 @@ make no-cache-release-check                        # No-cache release validation
 | `release-artifacts-smoke` | SHA256SUMS + ARTIFACT-MANIFEST.json + attestation |
 | `release-readiness-smoke` | AI Host release readiness gates and review checklist |
 | `release-diagnostics-smoke` | Release diagnostics, evidence bundle, and operator summary |
+| `release-rehearsal-smoke` | Release rehearsal phases and required evidence checks |
+| `release-promotion-smoke` | Promotion decision blocks missing evidence fail-closed |
+| `release-rollback-smoke` | Manual-only rollback plan for PyPI, GitHub Release, and Homebrew tap |
 | `docker-test` | Debian container tests |
 | `no-cache-check` | No-cache full validation |
 | `no-cache-release-check` | No-cache release validation |
 | `no-cache-docker-test` | Docker test with --pull=always |
 | `release-check` | All gates combined |
 
-Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions. `make release-readiness-smoke` validates the read-only `cleanmac.release-readiness.v1` bundle before `make release-check` and `make no-cache-release-check` proceed. `make release-diagnostics-smoke` additionally validates `cleanmac.release-diagnostics.v1`, `cleanmac.release-evidence.v1`, and `cleanmac.release-operator-summary.v1`.
+Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions. `make release-readiness-smoke` validates the read-only `cleanmac.release-readiness.v1` bundle before `make release-check` and `make no-cache-release-check` proceed. `make release-diagnostics-smoke` additionally validates `cleanmac.release-diagnostics.v1`, `cleanmac.release-evidence.v1`, and `cleanmac.release-operator-summary.v1`. `make release-rehearsal-smoke`, `make release-promotion-smoke`, and `make release-rollback-smoke` cover `cleanmac.release-rehearsal.v1`, `cleanmac.release-promotion-decision.v1`, and `cleanmac.release-rollback-plan.v1`; CI archives `RELEASE-REHEARSAL.json`, `RELEASE-PROMOTION-DECISION.json`, and `RELEASE-ROLLBACK-PLAN.json` with the release evidence.
 
 ### 🤖 CI Configuration
 

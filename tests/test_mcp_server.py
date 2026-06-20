@@ -239,6 +239,9 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://release/diagnostics", uris)
         self.assertIn("cleanmac://release/evidence", uris)
         self.assertIn("cleanmac://release/operator-summary", uris)
+        self.assertIn("cleanmac://release/rehearsal", uris)
+        self.assertIn("cleanmac://release/promotion-decision", uris)
+        self.assertIn("cleanmac://release/rollback-plan", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
 
     def test_resources_read_returns_json_content(self) -> None:
@@ -387,6 +390,25 @@ class MckServerTests(unittest.TestCase):
         )
         summary_payload = json.loads(summary["result"]["contents"][0]["text"])
         self.assertEqual(summary_payload["schema"], "cleanmac.release-operator-summary.v1")
+
+    def test_resources_read_release_orchestration_reports(self) -> None:
+        resources = {
+            "cleanmac://release/rehearsal": "cleanmac.release-rehearsal.v1",
+            "cleanmac://release/promotion-decision": "cleanmac.release-promotion-decision.v1",
+            "cleanmac://release/rollback-plan": "cleanmac.release-rollback-plan.v1",
+        }
+        for index, (uri, schema) in enumerate(resources.items(), start=83):
+            with self.subTest(uri=uri):
+                response = _mcp_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": index,
+                        "method": "resources/read",
+                        "params": {"uri": uri},
+                    }
+                )
+                payload = json.loads(response["result"]["contents"][0]["text"])
+                self.assertEqual(payload["schema"], schema)
 
     def test_resources_read_unknown_uri_returns_invalid_params(self) -> None:
         response = _mcp_request(

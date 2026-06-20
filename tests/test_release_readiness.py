@@ -10,7 +10,10 @@ from cleancli.core import (
     render_release_evidence_report,
     render_release_manifest_evidence,
     render_release_operator_summary,
+    render_release_promotion_decision_report,
     render_release_readiness_report,
+    render_release_rehearsal_report,
+    render_release_rollback_plan_report,
 )
 from cleancli.release_artifacts import build_release_artifact_manifest
 from cleancli.release_readiness import render_release_readiness
@@ -151,12 +154,56 @@ class ReleaseReadinessTests(unittest.TestCase):
             (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
             readiness = render_release_readiness_report(dist_dir=dist, assets_dir=assets)
             (assets / "RELEASE-READINESS.json").write_text(json.dumps(readiness), encoding="utf-8")
+            diagnostics = render_release_diagnostics_report(dist_dir=dist, assets_dir=assets)
+            (assets / "RELEASE-DIAGNOSTICS.json").write_text(json.dumps(diagnostics), encoding="utf-8")
+            rollback_plan = render_release_rollback_plan_report(dist_dir=dist, assets_dir=assets)
+            (assets / "RELEASE-ROLLBACK-PLAN.json").write_text(json.dumps(rollback_plan), encoding="utf-8")
+            (assets / "RELEASE-REHEARSAL.json").write_text("{}", encoding="utf-8")
+            (assets / "RELEASE-PROMOTION-DECISION.json").write_text("{}", encoding="utf-8")
+            rehearsal = render_release_rehearsal_report(dist_dir=dist, assets_dir=assets)
+            (assets / "RELEASE-REHEARSAL.json").write_text(json.dumps(rehearsal), encoding="utf-8")
+            promotion = render_release_promotion_decision_report(dist_dir=dist, assets_dir=assets)
+            (assets / "RELEASE-PROMOTION-DECISION.json").write_text(json.dumps(promotion), encoding="utf-8")
 
             evidence = render_release_evidence_report(dist_dir=dist, assets_dir=assets)
 
         self.assertEqual(evidence["schema"], "cleanmac.release-evidence.v1")
         self.assertTrue(evidence["ready"], evidence)
         self.assertEqual(evidence["assets"]["missing"], [])
+
+
+def test_pytest_release_readiness_fixture_roundtrip_preserves_unittest_gate(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    assets = tmp_path / "release-assets"
+    dist.mkdir()
+    assets.mkdir()
+    (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+    (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+    (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+    (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+    manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+    (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    readiness = render_release_readiness_report(dist_dir=dist, assets_dir=assets)
+
+    assert readiness["schema"] == "cleanmac.release-readiness.v1"
+    assert readiness["ready"] is True
+    assert readiness["failed_gate_ids"] == []
+    assert {gate["id"] for gate in readiness["gates"] if not gate["passed"]} == set()
+
+
+def test_pytest_release_diagnostics_exposes_blocking_code_without_artifacts(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    assets = tmp_path / "release-assets"
+    dist.mkdir()
+    assets.mkdir()
+
+    diagnostics = render_release_diagnostics_report(dist_dir=dist, assets_dir=assets)
+
+    assert diagnostics["schema"] == "cleanmac.release-diagnostics.v1"
+    assert diagnostics["ready"] is False
+    assert diagnostics["artifacts"]["error_code"] == "RELEASE_ARTIFACT_MANIFEST_MISSING"
+    assert diagnostics["recommended_commands"][0] == ["make", "release-artifacts-smoke"]
 
 
 if __name__ == "__main__":

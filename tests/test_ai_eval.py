@@ -40,6 +40,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_readiness_artifact_present_ready", scenarios)
         self.assertIn("release_evidence_bundle_discovery", scenarios)
         self.assertIn("release_diagnostics_explains_readiness_failure", scenarios)
+        self.assertIn("release_rehearsal_discovery", scenarios)
+        self.assertIn("release_promotion_decision_blocks_missing_evidence", scenarios)
+        self.assertIn("release_rollback_plan_discovery", scenarios)
         self.assertIn("schema_registry_release_contract_coverage", scenarios)
         self.assertIn("discover_readiness", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
@@ -95,6 +98,13 @@ class AIEvalTests(unittest.TestCase):
         self.assertEqual(release_evidence["expected_final_schema"], "cleanmac.release-evidence.v1")
         diagnostics = scenarios["release_diagnostics_explains_readiness_failure"]
         self.assertIn("RELEASE_ARTIFACT_MANIFEST_MISSING", diagnostics["expected_blocking_codes"])
+        rehearsal = scenarios["release_rehearsal_discovery"]
+        self.assertEqual(rehearsal["expected_final_schema"], "cleanmac.release-rehearsal.v1")
+        promotion = scenarios["release_promotion_decision_blocks_missing_evidence"]
+        self.assertEqual(promotion["expected_final_schema"], "cleanmac.release-promotion-decision.v1")
+        self.assertIn("RELEASE_ARTIFACT_MANIFEST_MISSING", promotion["expected_blocking_codes"])
+        rollback = scenarios["release_rollback_plan_discovery"]
+        self.assertEqual(rollback["expected_final_schema"], "cleanmac.release-rollback-plan.v1")
         registry_coverage = scenarios["schema_registry_release_contract_coverage"]
         self.assertEqual(registry_coverage["expected_final_schema"], "cleanmac.ai-schema-registry.v1")
         raw_denial = scenarios["mcp_raw_command_argument_denial"]
@@ -144,6 +154,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["release_readiness_artifact_present_ready"]["passed"])
         self.assertTrue(scenario_results["release_evidence_bundle_discovery"]["passed"])
         self.assertTrue(scenario_results["release_diagnostics_explains_readiness_failure"]["passed"])
+        self.assertTrue(scenario_results["release_rehearsal_discovery"]["passed"])
+        self.assertTrue(scenario_results["release_promotion_decision_blocks_missing_evidence"]["passed"])
+        self.assertTrue(scenario_results["release_rollback_plan_discovery"]["passed"])
         self.assertTrue(scenario_results["schema_registry_release_contract_coverage"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
@@ -229,6 +242,9 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_readiness_artifact_present_ready", scenario_ids)
         self.assertIn("release_evidence_bundle_discovery", scenario_ids)
         self.assertIn("release_diagnostics_explains_readiness_failure", scenario_ids)
+        self.assertIn("release_rehearsal_discovery", scenario_ids)
+        self.assertIn("release_promotion_decision_blocks_missing_evidence", scenario_ids)
+        self.assertIn("release_rollback_plan_discovery", scenario_ids)
         self.assertIn("schema_registry_release_contract_coverage", scenario_ids)
         self.assertIn("mcp_raw_command_argument_denial", scenario_ids)
         self.assertIn("mcp_destructive_policy_denial", scenario_ids)

@@ -26,7 +26,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    from cleancli.core import render_release_diagnostics_report
     from cleancli.release_artifacts import write_release_artifact_outputs, write_release_evidence_bundle_output
+    from cleancli.release_orchestration import (
+        render_release_promotion_decision,
+        render_release_rehearsal,
+        render_release_rollback_plan,
+    )
 
     args = parse_args()
     manifest = write_release_artifact_outputs(
@@ -35,14 +41,44 @@ def main() -> int:
     )
     if args.evidence:
         assets_dir = Path(args.assets_dir).resolve(strict=False)
+        resolved_dist_dir = Path(args.dist_dir).resolve(strict=False)
         readiness_path = assets_dir / "RELEASE-READINESS.json"
         release_readiness = None
         if readiness_path.is_file():
             release_readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
+        diagnostics = render_release_diagnostics_report(dist_dir=resolved_dist_dir, assets_dir=assets_dir)
+        (assets_dir / "RELEASE-DIAGNOSTICS.json").write_text(
+            json.dumps(diagnostics, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        rollback_plan = render_release_rollback_plan(
+            dist_dir=resolved_dist_dir,
+            assets_dir=assets_dir,
+        )
+        (assets_dir / "RELEASE-ROLLBACK-PLAN.json").write_text(
+            json.dumps(rollback_plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        (assets_dir / "RELEASE-REHEARSAL.json").write_text("{}\n", encoding="utf-8")
+        release_rehearsal = render_release_rehearsal(
+            dist_dir=resolved_dist_dir,
+            assets_dir=assets_dir,
+        )
+        (assets_dir / "RELEASE-REHEARSAL.json").write_text(
+            json.dumps(release_rehearsal, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        promotion_decision = render_release_promotion_decision(
+            dist_dir=resolved_dist_dir,
+            assets_dir=assets_dir,
+        )
+        (assets_dir / "RELEASE-PROMOTION-DECISION.json").write_text(
+            json.dumps(promotion_decision, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         manifest = write_release_evidence_bundle_output(
-            dist_dir=Path(args.dist_dir).resolve(strict=False),
+            dist_dir=resolved_dist_dir,
             assets_dir=assets_dir,
             release_readiness=release_readiness,
+            release_rehearsal=release_rehearsal,
+            promotion_decision=promotion_decision,
+            rollback_plan=rollback_plan,
         )
     print(json.dumps(manifest, indent=2, sort_keys=True))
     return 0
