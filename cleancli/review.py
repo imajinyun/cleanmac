@@ -84,6 +84,55 @@ def _string_list(values: list[str] | None) -> list[str]:
     return result
 
 
+def _count_by(items: list[dict[str, Any]], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = item.get(field)
+        if value is None:
+            continue
+        key = str(value)
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _sum_bytes(items: list[dict[str, Any]]) -> int:
+    total = 0
+    for item in items:
+        try:
+            total += int(item.get("bytes") or 0)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+def _selection_summary(items: list[dict[str, Any]], selected_ids: list[str], unknown_item_ids: list[str]) -> dict[str, Any]:
+    selected_id_set = set(selected_ids)
+    selected_items = [item for item in items if str(item["id"]) in selected_id_set]
+    excluded_items = [item for item in items if str(item["id"]) not in selected_id_set]
+    selected_scopes = _count_by(selected_items, "scope")
+    selected_risks = _count_by(selected_items, "risk")
+    return {
+        "schema": "cleanmac.review-selection-summary.v1",
+        "destructive": False,
+        "dry_run": True,
+        "item_count": len(items),
+        "selected_count": len(selected_items),
+        "excluded_count": len(excluded_items),
+        "protected_count": sum(1 for item in items if item["protected"]),
+        "unknown_item_count": len(unknown_item_ids),
+        "selected_bytes": _sum_bytes(selected_items),
+        "excluded_bytes": _sum_bytes(excluded_items),
+        "selected_risk_counts": selected_risks,
+        "excluded_risk_counts": _count_by(excluded_items, "risk"),
+        "selected_scope_counts": selected_scopes,
+        "selected_application_counts": _count_by(selected_items, "application"),
+        "selected_kind_counts": _count_by(selected_items, "kind"),
+        "requires_sensitive_review": bool(
+            selected_risks.get("high") or selected_risks.get("critical") or selected_scopes.get("credentials")
+        ),
+    }
+
+
 def validate_review_selection(payload: dict[str, Any], selection: dict[str, Any]) -> dict[str, Any]:
     items = normalize_review_items(payload)
     known_ids = {str(item["id"]) for item in items}
@@ -136,6 +185,7 @@ def render_review(
     selected_set.difference_update(item_id for item_id in explicit_excluded if item_id in known_ids)
     selected = [str(item["id"]) for item in items if str(item["id"]) in selected_set and str(item["id"]) not in protected_ids]
     unknown_item_ids = [item_id for item_id in [*explicit_selected, *explicit_excluded] if item_id not in known_ids]
+    selection_summary = _selection_summary(items, selected, _string_list(unknown_item_ids))
     return {
         "schema": "cleanmac.review.v1",
         "destructive": False,
@@ -145,12 +195,14 @@ def render_review(
         "source_fingerprint": source_fingerprint(payload),
         "item_count": len(items),
         "default_selected_count": len(selected),
+        "selection_summary": selection_summary,
         "items": items,
         "selection": {
             "schema": "cleanmac.review-selection.v1",
             "source_fingerprint": source_fingerprint(payload),
             "selected_item_ids": selected,
             "excluded_item_ids": [item["id"] for item in items if item["id"] not in selected],
+            "summary": selection_summary,
             "explicit_selected_item_ids": explicit_selected,
             "explicit_excluded_item_ids": explicit_excluded,
             "unknown_item_ids": _string_list(unknown_item_ids),
