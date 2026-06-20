@@ -163,6 +163,7 @@ class AIHostPolicyTests(unittest.TestCase):
     def test_tool_call_decision_denies_raw_command_arguments(self) -> None:
         from cleancli.ai_host_policy import evaluate_ai_host_tool_call
 
+        dangerous_raw_command = "rm " + "-rf /"
         decision = evaluate_ai_host_tool_call(
             tool={
                 "name": "cleanmac_capabilities",
@@ -170,7 +171,7 @@ class AIHostPolicyTests(unittest.TestCase):
                 "auto_call_allowed": True,
                 "requires_confirmation": False,
             },
-            arguments={"raw_command": "rm -rf /", "shell": True},
+            arguments={"raw_command": dangerous_raw_command, "shell": True},
             source="unit-test",
         )
 

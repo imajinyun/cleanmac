@@ -46,7 +46,14 @@ from cleancli.ai_versioning import (
 )
 from cleancli.privacy import PRIVACY_SCOPES, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
-from cleancli.review import apply_item_scope, load_json_file, render_review, render_review_html, validate_review_selection
+from cleancli.review import (
+    apply_item_scope,
+    load_json_file,
+    normalize_review_items,
+    render_review,
+    render_review_html,
+    validate_review_selection,
+)
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import render_startup
 from cleancli.tool_adapters import execute_tool, render_tool_plan as render_tool_adapter_plan
@@ -865,6 +872,12 @@ def render_ai_error_taxonomy() -> list[dict[str, Any]]:
             "suggested_next_action": "narrow_scope_or_raise_budget_only_after_user_review",
         },
         {
+            "code": "SELECTION_VALIDATION_FAILED",
+            "category": "review_selection_invalid",
+            "retryable_after_fix": True,
+            "suggested_next_action": "regenerate_review_selection_for_current_plan",
+        },
+        {
             "code": "LIVE_ROOT_REFUSED",
             "category": "live_root_guard",
             "retryable_after_fix": False,
@@ -934,6 +947,11 @@ def render_ai_error_taxonomy() -> list[dict[str, Any]]:
             "requires_user_visible_summary": True,
             "next_allowed_tools": ["cleanmac_inspect", "cleanmac_generate_plan"],
         },
+        "SELECTION_VALIDATION_FAILED": {
+            "safe_to_auto_retry": True,
+            "requires_user_visible_summary": False,
+            "next_allowed_tools": ["cleanmac_review", "cleanmac_dry_run_plan"],
+        },
         "LIVE_ROOT_REFUSED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
@@ -979,6 +997,8 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
         code = "OPERATION_LOG_UNAVAILABLE"
     elif "exceeds --max-items budget" in message or "exceed --max-delete-mb budget" in message:
         code = "SAFETY_BUDGET_EXCEEDED"
+    elif "Review selection is invalid" in message or "--review-selection-file requires --plan-file" in message:
+        code = "SELECTION_VALIDATION_FAILED"
     elif "live root '/'" in message:
         code = "LIVE_ROOT_REFUSED"
     elif "without --yes" in message:
@@ -1166,6 +1186,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Controls which selected risks require --yes.",
     )
     clean_cmd.add_argument("--plan-file")
+    clean_cmd.add_argument(
+        "--review-selection-file",
+        help="Apply a cleanmac.review-selection.v1 file to plan replay so only reviewed selected items are eligible.",
+    )
     clean_cmd.add_argument("--max-delete-mb", type=float)
     clean_cmd.add_argument("--exclude")
     clean_cmd.add_argument("--include")
@@ -1710,6 +1734,35 @@ def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None
     if getattr(args, "max_items", None) is None and plan["max_items"] is not None:
         args.max_items = int(plan["max_items"])
     return plan
+
+
+def review_selection_constraints(plan_file: str | None, selection_file: str | None) -> dict[str, Any] | None:
+    if not selection_file:
+        return None
+    if not plan_file:
+        raise SystemExit("--review-selection-file requires --plan-file.")
+    source_payload = load_json_file(plan_file)
+    selection_payload = load_json_file(selection_file)
+    validation = validate_review_selection(source_payload, selection_payload)
+    if not validation["valid"]:
+        reasons = ", ".join(str(reason) for reason in validation["blocked_reasons"])
+        raise SystemExit(f"Review selection is invalid for this plan: {reasons}")
+    selected_ids = {str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None}
+    selected_paths = [
+        str(item["path"])
+        for item in normalize_review_items(source_payload)
+        if str(item.get("id")) in selected_ids and item.get("path")
+    ]
+    return {
+        "schema": "cleanmac.review-selection-constraint.v1",
+        "selection_file": display_path(Path(selection_file).expanduser().resolve(strict=False)),
+        "source_plan_file": display_path(Path(plan_file).expanduser().resolve(strict=False)),
+        "source_fingerprint": validation["source_fingerprint"],
+        "selected_item_ids": [str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None],
+        "selected_paths": selected_paths,
+        "selected_count": len(selected_paths),
+        "validation": validation,
+    }
 
 
 def render_plan_freshness_report(plan: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
@@ -4888,6 +4941,7 @@ def clean(
     require_confirmation_token: bool = False,
     require_plan_context: bool = False,
     ai_originated_plan: bool = False,
+    review_selection: dict[str, Any] | None = None,
     command_argv: Sequence[str] = (),
 ) -> dict[str, Any]:
     timer_start = debug_timer_start("clean", root=root, home=home)
@@ -4908,6 +4962,11 @@ def clean(
     disk_free_before = disk_free_bytes(root)
     rows = []
     skipped = []
+    review_selected_paths = (
+        {str(path) for path in review_selection.get("selected_paths", [])}
+        if isinstance(review_selection, dict)
+        else None
+    )
     for target in resolve_targets(categories, root=root, home=home):
         category = CATEGORY_BY_KEY[target.category]
         min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
@@ -4928,6 +4987,11 @@ def clean(
                 skipped_item = skipped_row(target.category, target.path, entry, reason)
                 skipped.append(skipped_item)
                 continue
+            display_entry = display_path(entry)
+            if review_selected_paths is not None and display_entry not in review_selected_paths:
+                skipped_item = skipped_row(target.category, target.path, entry, "not-in-review-selection")
+                skipped.append(skipped_item)
+                continue
             size = path_size_bytes(entry)
             if size < min_size_bytes:
                 skipped_item = skipped_row(target.category, target.path, entry, "below-min-size")
@@ -4937,7 +5001,7 @@ def clean(
                 {
                     "category": target.category,
                     "parent": display_path(target.path),
-                    "path": display_path(entry),
+                    "path": display_entry,
                     "bytes": size,
                     "human": human_size(size),
                     "bundle_id": bundle_id_for_path(entry),
@@ -4964,6 +5028,7 @@ def clean(
         "delete_mode": delete_mode,
         "operation_log": operation_log,
         "confirmation_token_required": require_confirmation_token,
+        "review_selection_applied": review_selection is not None,
         "bundle_allowlist": list(bundle_allowlist),
         "bundle_blocklist": list(bundle_blocklist),
     }
@@ -5206,6 +5271,7 @@ def clean(
         "operation_log_preflight": operation_log_status,
         "operation_log_entry_count": len(operation_log_entries),
         "operation_session_id": session_id,
+        "review_selection": review_selection,
         "debug_elapsed_ms": elapsed_ms,
         "deletion_log": display_path(deletion_log_path_for_context(root=root, home=home)) if execute else None,
         "safety_gate": safety_gate,
@@ -6804,6 +6870,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             raise SystemExit(
                 f"Refusing to execute cleanup without --yes under risk policy '{args.risk_policy}'. Review dry-run/inspect output first. Categories: {names}"
             )
+        review_selection = review_selection_constraints(args.plan_file, args.review_selection_file)
         report = clean(
             categories,
             root=root,
@@ -6828,6 +6895,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             require_confirmation_token=args.require_confirmation_token,
             require_plan_context=args.require_plan_context,
             ai_originated_plan=bool(plan_metadata and plan_metadata.get("ai_origin")),
+            review_selection=review_selection,
             command_argv=original_argv,
         )
         if plan_metadata:

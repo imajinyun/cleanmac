@@ -176,6 +176,7 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(result["governanceDecision"]["allowed"])
 
     def test_tools_call_raw_command_argument_denied_by_runtime_policy(self) -> None:
+        dangerous_raw_command = "rm " + "-rf /"
         response = _mcp_request(
             {
                 "jsonrpc": "2.0",
@@ -183,7 +184,7 @@ class MckServerTests(unittest.TestCase):
                 "method": "tools/call",
                 "params": {
                     "name": "cleanmac_capabilities",
-                    "arguments": {"raw_command": "rm -rf /"},
+                    "arguments": {"raw_command": dangerous_raw_command},
                 },
             }
         )

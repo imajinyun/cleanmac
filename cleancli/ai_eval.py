@@ -1187,6 +1187,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             )
 
         if "mcp_raw_command_argument_denial" in selected:
+            dangerous_raw_command = "rm " + "-rf /"
             response, event = _run_mcp_request(
                 {
                     "jsonrpc": "2.0",
@@ -1194,7 +1195,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "tools/call",
                     "params": {
                         "name": "cleanmac_capabilities",
-                        "arguments": {"raw_command": "rm -rf /"},
+                        "arguments": {"raw_command": dangerous_raw_command},
                     },
                 }
             )

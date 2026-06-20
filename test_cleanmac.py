@@ -3356,6 +3356,88 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(report["budget_summary"]["within_max_items"])
             self.assertTrue(report["budget_summary"]["within_max_delete_budget"])
 
+    def test_clean_plan_dry_run_can_be_constrained_by_review_selection(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            plan_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "plan",
+                "--categories",
+                "trash,downloads",
+            )
+            plan_file.write_text(plan_result.stdout, encoding="utf-8")
+            review_report = json.loads(self.run_cli("--json", "review", "--input-file", str(plan_file)).stdout)
+            trash_item_id = next(item["id"] for item in review_report["items"] if item["category"] == "trash")
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = [trash_item_id]
+            selection["excluded_item_ids"] = [item["id"] for item in review_report["items"] if item["id"] != trash_item_id]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+            )
+            report = json.loads(result.stdout)
+
+            self.assertEqual(report["schema"], "cleanmac.clean.v1")
+            self.assertFalse(report["destructive"])
+            self.assertEqual(report["review_selection"]["selected_count"], 1)
+            self.assertTrue(report["safety_gate"]["review_selection_applied"])
+            self.assertEqual([item["category"] for item in report["items"]], ["trash"])
+            self.assertEqual(report["skipped_summary"]["by_reason"]["not-in-review-selection"], 2)
+            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
+
+    def test_clean_review_selection_file_must_match_plan_fingerprint(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            plan_file = root / "plan.json"
+            selection_file = root / "selection.json"
+            plan_file.write_text(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "clean", "plan", "--categories", "trash"
+                ).stdout,
+                encoding="utf-8",
+            )
+            self.run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file))
+            selection = json.loads(selection_file.read_text(encoding="utf-8"))
+            selection["source_fingerprint"] = "stale"
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            result = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            error_report = json.loads(result.stderr)
+            self.assertEqual(error_report["error"]["code"], "SELECTION_VALIDATION_FAILED")
+            self.assertIn("source-fingerprint-mismatch", error_report["error"]["message"])
+
     def test_ai_policy_simulator_reports_missing_and_satisfied_guards(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
