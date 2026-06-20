@@ -11,6 +11,8 @@ MCP_META_INDEX_SCHEMA = "cleanmac.mcp-meta-index.v1"
 MCP_META_INDEX_URI = "cleanmac://mcp/meta-index"
 MCP_RESOURCE_INDEX_SCHEMA = "cleanmac.mcp-resource-index.v1"
 MCP_RESOURCE_INDEX_URI = "cleanmac://mcp/resource-index"
+MCP_SURFACE_AUDIT_SCHEMA = "cleanmac.mcp-surface-audit.v1"
+MCP_SURFACE_AUDIT_URI = "cleanmac://mcp/surface-audit"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
 
@@ -42,6 +44,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Governed MCP tool catalog with invocation, risk, and safety metadata.",
         "category": "mcp",
         "schema": MCP_TOOL_INDEX_SCHEMA,
+    },
+    {
+        "uri": MCP_SURFACE_AUDIT_URI,
+        "name": "cleanmac MCP surface audit",
+        "description": "Read-only audit of MCP resource, prompt, tool, and meta index readiness.",
+        "category": "mcp",
+        "schema": MCP_SURFACE_AUDIT_SCHEMA,
     },
     {
         "uri": "cleanmac://capabilities",
@@ -374,4 +383,136 @@ def render_mcp_meta_index() -> dict[str, Any]:
             f"read {MCP_TOOL_INDEX_URI}",
         ],
         "recommended_commands": [["make", "mcp-smoke"], ["make", "mcp-meta-index-smoke"], ["make", "ai-host-smoke"]],
+    }
+
+
+def render_mcp_surface_audit() -> dict[str, Any]:
+    """Return a compact pass/fail audit of the complete MCP discovery surface."""
+
+    meta_index = render_mcp_meta_index()
+    resource_index = render_mcp_resource_index()
+    from cleancli.mcp_prompts import render_mcp_prompt_index
+    from cleancli.mcp_tools import render_mcp_tool_index
+
+    prompt_index = render_mcp_prompt_index()
+    tool_index = render_mcp_tool_index()
+    resources = resource_index.get("resources", [])
+    prompts = prompt_index.get("prompts", [])
+    tools = tool_index.get("tools", [])
+    resource_uris = set(resource_index.get("resource_uris", []))
+    prompt_names = set(prompt_index.get("prompt_names", []))
+    tool_names = set(tool_index.get("tool_names", []))
+    required_resources = {
+        MCP_META_INDEX_URI,
+        MCP_RESOURCE_INDEX_URI,
+        MCP_PROMPT_INDEX_URI,
+        MCP_TOOL_INDEX_URI,
+        MCP_SURFACE_AUDIT_URI,
+        "cleanmac://ai/host-integration-pack",
+        "cleanmac://ai/host-preflight",
+        "cleanmac://ai/host-evidence",
+        "cleanmac://ai/host-policy",
+    }
+    required_prompts = {"review-ai-host-policy"}
+    required_tools = {"cleanmac_capabilities", "cleanmac_execute_plan", "cleanmac_policy_simulate"}
+    missing_resources = sorted(required_resources - resource_uris)
+    missing_prompts = sorted(required_prompts - prompt_names)
+    missing_tools = sorted(required_tools - tool_names)
+    checks = [
+        {"id": "mcp-meta-index-ready", "passed": bool(meta_index.get("ready")), "evidence": MCP_META_INDEX_SCHEMA},
+        {
+            "id": "mcp-resource-index-ready",
+            "passed": bool(resource_index.get("ready")),
+            "evidence": MCP_RESOURCE_INDEX_SCHEMA,
+        },
+        {
+            "id": "mcp-prompt-index-ready",
+            "passed": bool(prompt_index.get("ready")),
+            "evidence": MCP_PROMPT_INDEX_SCHEMA,
+        },
+        {
+            "id": "mcp-tool-index-ready",
+            "passed": bool(tool_index.get("ready")),
+            "evidence": MCP_TOOL_INDEX_SCHEMA,
+        },
+        {
+            "id": "required-resources-advertised",
+            "passed": not missing_resources,
+            "evidence": MCP_RESOURCE_INDEX_SCHEMA,
+        },
+        {
+            "id": "required-prompts-advertised",
+            "passed": not missing_prompts,
+            "evidence": MCP_PROMPT_INDEX_SCHEMA,
+        },
+        {"id": "required-tools-advertised", "passed": not missing_tools, "evidence": MCP_TOOL_INDEX_SCHEMA},
+        {
+            "id": "all-resources-mcp-safe",
+            "passed": all(row.get("safe_for_mcp") is True and row.get("destructive") is False for row in resources),
+            "evidence": MCP_RESOURCE_INDEX_SCHEMA,
+        },
+        {
+            "id": "all-prompts-mcp-safe",
+            "passed": all(row.get("safe_for_mcp") is True and row.get("destructive") is False for row in prompts),
+            "evidence": MCP_PROMPT_INDEX_SCHEMA,
+        },
+        {
+            "id": "all-tools-mcp-safe",
+            "passed": all(row.get("safe_for_mcp") is True for row in tools),
+            "evidence": MCP_TOOL_INDEX_SCHEMA,
+        },
+        {
+            "id": "destructive-tools-gated",
+            "passed": all(
+                (not row.get("destructive"))
+                or (row.get("auto_call_allowed") is False and row.get("requires_confirmation") is True)
+                for row in tools
+            ),
+            "evidence": MCP_TOOL_INDEX_SCHEMA,
+        },
+        {
+            "id": "no-shell-invocation",
+            "passed": all(row.get("uses_shell") is False and row.get("invocation_mode") == "argv" for row in tools),
+            "evidence": MCP_TOOL_INDEX_SCHEMA,
+        },
+        {
+            "id": "sensitive-data-policy-present",
+            "passed": all(row.get("sensitive_data_policy") == MCP_RESOURCE_SENSITIVE_DATA_POLICY for row in resources),
+            "evidence": MCP_RESOURCE_SENSITIVE_DATA_POLICY,
+        },
+    ]
+    return {
+        "schema": MCP_SURFACE_AUDIT_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "ready": all(check["passed"] for check in checks),
+        "resource_uri": MCP_SURFACE_AUDIT_URI,
+        "checks": checks,
+        "missing": {
+            "resources": missing_resources,
+            "prompts": missing_prompts,
+            "tools": missing_tools,
+        },
+        "counts": {
+            "resources": resource_index.get("resource_count", 0),
+            "prompts": prompt_index.get("prompt_count", 0),
+            "tools": tool_index.get("tool_count", 0),
+        },
+        "index_uris": [MCP_META_INDEX_URI, MCP_RESOURCE_INDEX_URI, MCP_PROMPT_INDEX_URI, MCP_TOOL_INDEX_URI],
+        "recommended_call_sequence": [
+            f"read {MCP_META_INDEX_URI}",
+            f"read {MCP_RESOURCE_INDEX_URI}",
+            f"read {MCP_PROMPT_INDEX_URI}",
+            f"read {MCP_TOOL_INDEX_URI}",
+            f"read {MCP_SURFACE_AUDIT_URI}",
+            "read cleanmac://ai/host-integration-pack",
+        ],
+        "release_gate_commands": [
+            ["cleanmac", "--json", "mcp-surface-audit"],
+            ["make", "mcp-surface-audit-smoke"],
+            ["make", "mcp-smoke"],
+            ["make", "ai-host-smoke"],
+            ["make", "ai-governance-smoke"],
+        ],
+        "sensitive_data_policy": MCP_RESOURCE_SENSITIVE_DATA_POLICY,
     }

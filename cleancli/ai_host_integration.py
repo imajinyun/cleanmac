@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, mcp_prompt_names
-from cleancli.mcp_resources import MCP_META_INDEX_URI, MCP_RESOURCE_INDEX_URI, mcp_resource_uris
+from cleancli.mcp_resources import MCP_META_INDEX_URI, MCP_RESOURCE_INDEX_URI, MCP_SURFACE_AUDIT_URI, mcp_resource_uris
 from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, mcp_tool_names
 
 
@@ -38,6 +38,7 @@ def render_ai_host_integration_pack(
         f"read {MCP_RESOURCE_INDEX_URI}",
         f"read {MCP_PROMPT_INDEX_URI}",
         f"read {MCP_TOOL_INDEX_URI}",
+        f"read {MCP_SURFACE_AUDIT_URI}",
         "read cleanmac://ai/host-integration-pack",
         *list(governance_advice.get("recommended_call_sequence", [])),
     ]:
@@ -67,6 +68,7 @@ def render_ai_host_integration_pack(
             "prompt_index_uri": MCP_PROMPT_INDEX_URI,
             "prompts": mcp_prompts,
             "tool_index_uri": MCP_TOOL_INDEX_URI,
+            "surface_audit_uri": MCP_SURFACE_AUDIT_URI,
             "tools": mcp_tools,
             "transport": "stdio",
             "uses_shell": False,
@@ -129,6 +131,7 @@ def render_ai_host_preflight(
                 and MCP_RESOURCE_INDEX_URI in resources
                 and MCP_PROMPT_INDEX_URI in resources
                 and MCP_TOOL_INDEX_URI in resources
+                and MCP_SURFACE_AUDIT_URI in resources
                 and isinstance(prompts, list)
                 and "review-ai-host-policy" in prompts
                 and isinstance(tools, list)
@@ -150,6 +153,7 @@ def render_ai_host_preflight(
             "mcp_meta_index": MCP_META_INDEX_URI,
             "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
             "mcp_tool_index": MCP_TOOL_INDEX_URI,
+            "mcp_surface_audit": MCP_SURFACE_AUDIT_URI,
         },
         "checks": checks,
         "required_before_destructive_tool": [

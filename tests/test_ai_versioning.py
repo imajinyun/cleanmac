@@ -148,6 +148,15 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("tool-policy", entries["cleanmac.mcp-tool-index.v1"]["consumers"])
         self.assertEqual(entries["cleanmac.mcp-tool-index.v1"]["owner_area"], "mcp")
         self.assertTrue(entries["cleanmac.mcp-tool-index.v1"]["release_critical"])
+        self.assertIn("cleanmac.mcp-surface-audit.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.mcp-surface-audit.v1"])
+        self.assertEqual(
+            entries["cleanmac.mcp-surface-audit.v1"]["producer_command"],
+            ["cleanmac", "--json", "mcp-surface-audit"],
+        )
+        self.assertIn("mcp", entries["cleanmac.mcp-surface-audit.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.mcp-surface-audit.v1"]["owner_area"], "mcp")
+        self.assertTrue(entries["cleanmac.mcp-surface-audit.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
@@ -423,6 +432,17 @@ class AISchemaRegistryTests(unittest.TestCase):
             "tool_names": ["cleanmac_execute_plan"],
         }
         self.assertTrue(validate_contract_payload("cleanmac.mcp-tool-index.v1", mcp_tool_index)["valid"])
+
+        mcp_surface_audit = {
+            "schema": "cleanmac.mcp-surface-audit.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "resource_uri": "cleanmac://mcp/surface-audit",
+            "checks": [{"id": "mcp-meta-index-ready", "passed": True, "evidence": "cleanmac.mcp-meta-index.v1"}],
+            "missing": {"resources": [], "prompts": [], "tools": []},
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", mcp_surface_audit)["valid"])
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")

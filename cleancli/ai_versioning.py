@@ -69,6 +69,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.mcp-resource-index.v1", 1, "cleancli.mcp_resources", "stable"),
     ("cleanmac.mcp-prompt-index.v1", 1, "cleancli.mcp_prompts", "stable"),
     ("cleanmac.mcp-tool-index.v1", 1, "cleancli.mcp_tools", "stable"),
+    ("cleanmac.mcp-surface-audit.v1", 1, "cleancli.mcp_resources", "stable"),
     ("cleanmac.ai-schema-registry.v1", 1, "cleancli.ai_versioning", "stable"),
     ("cleanmac.analyze-tree.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.analyze.v1", 1, "cleancli.core", "stable"),
@@ -174,6 +175,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.mcp-resource-index.v1",
     "cleanmac.mcp-prompt-index.v1",
     "cleanmac.mcp-tool-index.v1",
+    "cleanmac.mcp-surface-audit.v1",
     "cleanmac.release-artifact-manifest.v1",
     "cleanmac.release-readiness.v1",
     "cleanmac.release-diagnostics.v1",
@@ -198,6 +200,7 @@ RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.mcp-resource-index.v1",
     "cleanmac.mcp-prompt-index.v1",
     "cleanmac.mcp-tool-index.v1",
+    "cleanmac.mcp-surface-audit.v1",
     "cleanmac.release-artifact-manifest.v1",
     "cleanmac.release-readiness.v1",
     "cleanmac.release-diagnostics.v1",
@@ -266,6 +269,20 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "tool_count": {"type": "integer"},
             "tools": {"type": "array", "items": {"type": "object"}},
             "tool_names": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.mcp-surface-audit.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "ready", "resource_uri", "checks", "missing"],
+        "properties": {
+            "schema": {"const": "cleanmac.mcp-surface-audit.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "resource_uri": {"const": "cleanmac://mcp/surface-audit"},
+            "checks": {"type": "array", "items": {"type": "object"}},
+            "missing": {"type": "object"},
         },
         "additionalProperties": True,
     },
@@ -1345,6 +1362,8 @@ def _schema_consumers(name: str) -> tuple[str, ...]:
         return ("ai-host", "mcp", "ai-host-evidence")
     if name == "cleanmac.mcp-tool-index.v1":
         return ("ai-host", "mcp", "ai-host-evidence", "tool-policy")
+    if name == "cleanmac.mcp-surface-audit.v1":
+        return ("ai-host", "mcp", "ai-host-evidence", "schema-registry")
     if name.startswith("cleanmac.ai-"):
         return ("ai-host", "mcp")
     return ("cli", "mcp")
@@ -1390,6 +1409,7 @@ def _schema_producer_command(name: str) -> list[str]:
         "cleanmac.mcp-resource-index.v1": ["read", "cleanmac://mcp/resource-index"],
         "cleanmac.mcp-prompt-index.v1": ["read", "cleanmac://mcp/prompt-index"],
         "cleanmac.mcp-tool-index.v1": ["read", "cleanmac://mcp/tool-index"],
+        "cleanmac.mcp-surface-audit.v1": ["cleanmac", "--json", "mcp-surface-audit"],
         "cleanmac.ai-schema-registry.v1": ["cleanmac", "--json", "ai-schema-registry"],
         "cleanmac.ai-contract-samples.v1": ["cleanmac", "--json", "ai-contract-samples"],
         "cleanmac.ai-contract-validation-summary.v1": ["cleanmac", "--json", "ai-readiness"],
@@ -2381,6 +2401,19 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 }
             ],
             "tool_names": ["cleanmac_execute_plan"],
+        },
+        "cleanmac.mcp-surface-audit.v1": {
+            "schema": "cleanmac.mcp-surface-audit.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "resource_uri": "cleanmac://mcp/surface-audit",
+            "checks": [
+                {"id": "mcp-meta-index-ready", "passed": True, "evidence": "cleanmac.mcp-meta-index.v1"},
+                {"id": "destructive-tools-gated", "passed": True, "evidence": "cleanmac.mcp-tool-index.v1"},
+            ],
+            "missing": {"resources": [], "prompts": [], "tools": []},
+            "counts": {"resources": 1, "prompts": 1, "tools": 1},
         },
     }
     if schema_name == "cleanmac.ai-contract-validation-summary.v1":

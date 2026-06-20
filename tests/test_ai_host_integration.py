@@ -64,16 +64,19 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/resource-index", pack["mcp"]["resources"])
         self.assertIn("cleanmac://mcp/prompt-index", pack["mcp"]["resources"])
         self.assertIn("cleanmac://mcp/tool-index", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://mcp/surface-audit", pack["mcp"]["resources"])
         self.assertEqual(pack["mcp"]["meta_index_uri"], "cleanmac://mcp/meta-index")
         self.assertEqual(pack["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(pack["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
+        self.assertEqual(pack["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
         self.assertIn("review-ai-host-policy", pack["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", pack["mcp"]["tools"])
         self.assertEqual(pack["recommended_call_sequence"][0], "read cleanmac://mcp/meta-index")
         self.assertEqual(pack["recommended_call_sequence"][1], "read cleanmac://mcp/resource-index")
         self.assertEqual(pack["recommended_call_sequence"][2], "read cleanmac://mcp/prompt-index")
         self.assertEqual(pack["recommended_call_sequence"][3], "read cleanmac://mcp/tool-index")
-        self.assertEqual(pack["recommended_call_sequence"][4], "read cleanmac://ai/host-integration-pack")
+        self.assertEqual(pack["recommended_call_sequence"][4], "read cleanmac://mcp/surface-audit")
+        self.assertEqual(pack["recommended_call_sequence"][5], "read cleanmac://ai/host-integration-pack")
         self.assertEqual(len(pack["recommended_call_sequence"]), len(set(pack["recommended_call_sequence"])))
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
@@ -100,6 +103,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["mcp"]["meta_index_uri"], "cleanmac://mcp/meta-index")
         self.assertEqual(pack["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(pack["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
+        self.assertEqual(pack["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
 
     def test_readiness_and_governance_recommend_integration_pack_entrypoint(self) -> None:
         pack = render_ai_host_integration_pack_report()
@@ -144,14 +148,18 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         )
         self.assertEqual(
             governance["recommended_call_sequence"][1],
-            "read cleanmac://ai/host-preflight",
+            "read cleanmac://mcp/surface-audit",
         )
         self.assertEqual(
             governance["recommended_call_sequence"][2],
-            "read cleanmac://ai/host-evidence",
+            "read cleanmac://ai/host-preflight",
         )
         self.assertEqual(
             governance["recommended_call_sequence"][3],
+            "read cleanmac://ai/host-evidence",
+        )
+        self.assertEqual(
+            governance["recommended_call_sequence"][4],
             "read cleanmac://release/readiness",
         )
 
@@ -166,6 +174,10 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", evidence["observed_blocking_codes"])
         checks = {check["id"]: check for check in evidence["evidence_checks"]}
         self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
+        self.assertTrue(checks["mcp-surface-audit-advertised"]["passed"])
+        self.assertTrue(checks["mcp-surface-audit-ready"]["passed"])
+        self.assertEqual(evidence["mcp_surface_audit"]["schema"], "cleanmac.mcp-surface-audit.v1")
+        self.assertTrue(evidence["mcp_surface_audit"]["ready"], evidence["mcp_surface_audit"])
         self.assertIn(["make", "release-readiness-smoke"], evidence["release_gate_commands"])
 
     def test_preflight_reports_runtime_governance_gate(self) -> None:
@@ -180,6 +192,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(preflight["entrypoint"]["mcp_meta_index"], "cleanmac://mcp/meta-index")
         self.assertEqual(preflight["entrypoint"]["mcp_prompt_index"], "cleanmac://mcp/prompt-index")
         self.assertEqual(preflight["entrypoint"]["mcp_tool_index"], "cleanmac://mcp/tool-index")
+        self.assertEqual(preflight["entrypoint"]["mcp_surface_audit"], "cleanmac://mcp/surface-audit")
         checks = {check["id"]: check for check in preflight["checks"]}
         self.assertTrue(checks["integration-pack-ready"]["passed"])
         self.assertTrue(checks["host-policy-valid"]["passed"])

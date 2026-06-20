@@ -223,8 +223,10 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli.mcp_resources import (  # type: ignore[import-untyped]
         MCP_META_INDEX_URI,
         MCP_RESOURCE_INDEX_URI,
+        MCP_SURFACE_AUDIT_URI,
         render_mcp_meta_index,
         render_mcp_resource_index,
+        render_mcp_surface_audit,
     )
     from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, render_mcp_tool_index  # type: ignore[import-untyped]
 
@@ -236,6 +238,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_mcp_prompt_index()
     elif uri == MCP_TOOL_INDEX_URI:
         payload = render_mcp_tool_index()
+    elif uri == MCP_SURFACE_AUDIT_URI:
+        payload = render_mcp_surface_audit()
     elif uri == "cleanmac://capabilities":
         payload = render_capabilities()
     elif uri == "cleanmac://ai/function-schemas":

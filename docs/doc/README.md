@@ -226,16 +226,20 @@ make mcp-prompt-index-smoke
 make mcp-tool-index-smoke
 # ✅ Output: mcp-tool-index-smoke passed
 
+make mcp-surface-audit-smoke
+# ✅ Output: mcp-surface-audit-smoke passed
+
 make ai-host-smoke
 # ✅ Output: ai-host-smoke passed
 ```
 
-AI Hosts should start with `cleanmac://mcp/meta-index` (`cleanmac.mcp-meta-index.v1`), then follow the governed call sequence to `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`), `cleanmac://mcp/prompt-index` (`cleanmac.mcp-prompt-index.v1`), and `cleanmac://mcp/tool-index` (`cleanmac.mcp-tool-index.v1`).
+AI Hosts should start with `cleanmac://mcp/meta-index` (`cleanmac.mcp-meta-index.v1`), then follow the governed call sequence to `cleanmac://mcp/resource-index` (`cleanmac.mcp-resource-index.v1`), `cleanmac://mcp/prompt-index` (`cleanmac.mcp-prompt-index.v1`), `cleanmac://mcp/tool-index` (`cleanmac.mcp-tool-index.v1`), and `cleanmac://mcp/surface-audit` (`cleanmac.mcp-surface-audit.v1`). Stop orchestration if the surface audit reports `ready=false`.
 
 - `cleanmac://mcp/meta-index` aggregates the governed MCP discovery surface and advertises the recommended call order.
 - `cleanmac://mcp/resource-index` lists every MCP resource URI, schema, category, and safety marker.
 - `cleanmac://mcp/prompt-index` lists every governed prompt with arguments, categories, and MCP-safe flags.
 - `cleanmac://mcp/tool-index` lists every MCP tool with `invocation_mode`, `auto_call_allowed`, `requires_confirmation`, and destructive-policy metadata.
+- `cleanmac://mcp/surface-audit` verifies that governed indexes are ready, required resources/prompts/tools are advertised, destructive tools are gated, shell invocation is absent, and sensitive-data policy is present.
 
 All index payloads are sanitized to avoid leaking local paths or credentials.
 
@@ -863,6 +867,7 @@ make mcp-meta-index-smoke                         # MCP meta index contract
 make mcp-resource-index-smoke                     # MCP resource index contract
 make mcp-prompt-index-smoke                       # MCP prompt index contract
 make mcp-tool-index-smoke                         # MCP tool index contract
+make mcp-surface-audit-smoke                      # MCP surface audit readiness gate
 make ai-host-smoke                                 # AI host integration suite
 make ai-robustness-smoke                           # AI robustness regressions
 make local-test                                    # Full local suite
@@ -906,6 +911,7 @@ make no-cache-release-check                        # No-cache release validation
 | `mcp-resource-index-smoke` | MCP resource index schema and safety metadata |
 | `mcp-prompt-index-smoke` | MCP prompt index schema and safety metadata |
 | `mcp-tool-index-smoke` | MCP tool index schema, invocation metadata, and destructive auto-call denial |
+| `mcp-surface-audit-smoke` | MCP surface audit readiness, missing-entry, and fail-closed gate checks |
 | `bundle-audit-smoke` | Bundle drift audit |
 | `build-check` | Build wheel/sdist + twine check |
 | `macos-smoke` | macOS-specific tests |

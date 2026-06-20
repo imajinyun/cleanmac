@@ -9,6 +9,8 @@ from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, validate_mcp_prompt_catal
 from cleancli.mcp_resources import (
     MCP_META_INDEX_URI,
     MCP_RESOURCE_INDEX_URI,
+    MCP_SURFACE_AUDIT_URI,
+    render_mcp_surface_audit,
     validate_mcp_meta_index,
     validate_mcp_resource_catalog,
 )
@@ -49,6 +51,7 @@ def render_ai_host_evidence(
     prompts = mcp.get("prompts", []) if isinstance(mcp, Mapping) else []
     tools = mcp.get("tools", []) if isinstance(mcp, Mapping) else []
     meta_validation = validate_mcp_meta_index()
+    surface_audit = render_mcp_surface_audit()
     resource_validation = validate_mcp_resource_catalog()
     prompt_validation = validate_mcp_prompt_catalog()
     tool_validation = validate_mcp_tool_catalog()
@@ -92,6 +95,16 @@ def render_ai_host_evidence(
             "id": "mcp-resource-index-advertised",
             "passed": MCP_RESOURCE_INDEX_URI in resources,
             "evidence": MCP_RESOURCE_INDEX_URI,
+        },
+        {
+            "id": "mcp-surface-audit-advertised",
+            "passed": MCP_SURFACE_AUDIT_URI in resources,
+            "evidence": MCP_SURFACE_AUDIT_URI,
+        },
+        {
+            "id": "mcp-surface-audit-ready",
+            "passed": bool(surface_audit.get("ready")) and MCP_SURFACE_AUDIT_URI in resources,
+            "evidence": "cleanmac.mcp-surface-audit.v1",
         },
         {
             "id": "mcp-resource-catalog-valid",
@@ -138,6 +151,7 @@ def render_ai_host_evidence(
         "critical_schemas": list(critical_schemas),
         "evidence_checks": evidence_checks,
         "mcp_meta_index": meta_validation,
+        "mcp_surface_audit": surface_audit,
         "mcp_resource_catalog": resource_validation,
         "mcp_prompt_catalog": prompt_validation,
         "mcp_tool_catalog": tool_validation,
@@ -155,9 +169,11 @@ def render_ai_host_evidence(
             ["cleanmac", "--json", "ai-host-integration-pack"],
             ["cleanmac", "--json", "ai-host-preflight"],
             ["cleanmac", "--json", "ai-host-evidence"],
+            ["cleanmac", "--json", "mcp-surface-audit"],
             ["cleanmac", "--json", "release-readiness"],
             ["make", "ai-contract-smoke"],
             ["make", "mcp-smoke"],
+            ["make", "mcp-surface-audit-smoke"],
             ["make", "ai-governance-smoke"],
             ["make", "ai-host-smoke"],
             ["make", "release-readiness-smoke"],
