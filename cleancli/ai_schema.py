@@ -310,6 +310,42 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "software", "inspect"],
     },
     {
+        "name": "cleanmac_startup_audit",
+        "description": "Audit LaunchAgents, LaunchDaemons, and StartupItems without making changes.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({}),
+        "argv_template": ["cleanmac", "--json", "startup", "audit"],
+    },
+    {
+        "name": "cleanmac_startup_plan",
+        "description": "Generate a startup item disable plan without unloading or modifying startup entries.",
+        "risk": "planning",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({}),
+        "argv_template": ["cleanmac", "--json", "startup", "plan"],
+    },
+    {
+        "name": "cleanmac_privacy_inspect",
+        "description": "Inspect browser and app privacy data candidates without deleting files.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({"scope": string_schema("Privacy scope: all, cache, cookies, history, local-storage, credentials.")}),
+        "argv_template": ["cleanmac", "--json", "privacy", "inspect"],
+    },
+    {
+        "name": "cleanmac_privacy_plan",
+        "description": "Generate a privacy cleanup plan without deleting browser or app data.",
+        "risk": "planning",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({"scope": string_schema("Privacy scope: all, cache, cookies, history, local-storage, credentials.")}),
+        "argv_template": ["cleanmac", "--json", "privacy", "plan"],
+    },
+    {
         "name": "cleanmac_tool_plan",
         "description": "Render read-only semantic cleanup plans for external tools.",
         "risk": "readonly",
@@ -514,6 +550,8 @@ def representative_args(name: str) -> dict[str, Any]:
         "cleanmac_software_list",
         "cleanmac_software_leftovers",
         "cleanmac_software_startup_items",
+        "cleanmac_startup_audit",
+        "cleanmac_startup_plan",
         "cleanmac_ai_host_policy",
     }:
         return {}
@@ -537,6 +575,8 @@ def representative_args(name: str) -> dict[str, Any]:
         return {"app": "Example.app"}
     if name == "cleanmac_software_inspect":
         return {"app": "Example.app"}
+    if name in {"cleanmac_privacy_inspect", "cleanmac_privacy_plan"}:
+        return {"scope": "cache"}
     if name == "cleanmac_tool_plan":
         return {"tool": "docker"}
     if name == "cleanmac_tool_execute_dry_run":
@@ -931,6 +971,18 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
     if name == "cleanmac_software_inspect":
         argv = ["cleanmac", "--json", "software", "inspect"]
         append_option(argv, args, "app", "--app")
+        return argv
+    if name == "cleanmac_startup_audit":
+        return ["cleanmac", "--json", "startup", "audit"]
+    if name == "cleanmac_startup_plan":
+        return ["cleanmac", "--json", "startup", "plan"]
+    if name == "cleanmac_privacy_inspect":
+        argv = ["cleanmac", "--json", "privacy", "inspect"]
+        append_option(argv, args, "scope", "--scope")
+        return argv
+    if name == "cleanmac_privacy_plan":
+        argv = ["cleanmac", "--json", "privacy", "plan"]
+        append_option(argv, args, "scope", "--scope")
         return argv
     if name == "cleanmac_tool_plan":
         argv = ["cleanmac", "--json", "tool-plan"]

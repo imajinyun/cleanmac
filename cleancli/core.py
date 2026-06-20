@@ -44,9 +44,11 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
+from cleancli.privacy import PRIVACY_SCOPES, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.review import load_json_file, render_review, render_review_html
 from cleancli.software_uninstall import render_software as render_software_report
+from cleancli.startup import render_startup
 from cleancli.tool_adapters import execute_tool, render_tool_plan as render_tool_adapter_plan
 
 VERSION = "0.1.0"
@@ -705,7 +707,7 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
     },
     "software": {
         "title": "软件 / Software",
-        "description": "Read-only app inventory, startup-item review, and uninstall-plan placeholders for app cleanup governance.",
+        "description": "Read-only app inventory and uninstall-plan placeholders for app cleanup governance.",
         "commands": [
             "software list",
             "software leftovers",
@@ -713,6 +715,18 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
             "software inspect",
             "software uninstall-plan",
         ],
+        "flat_command_aliases": [],
+    },
+    "startup": {
+        "title": "启动项 / Startup",
+        "description": "Read-only startup item audit and disable planning for LaunchAgents, LaunchDaemons, and StartupItems.",
+        "commands": ["startup audit", "startup plan"],
+        "flat_command_aliases": [],
+    },
+    "privacy": {
+        "title": "隐私 / Privacy",
+        "description": "Read-only privacy data inspection and cleanup planning for browser and Electron app data.",
+        "commands": ["privacy inspect", "privacy plan"],
         "flat_command_aliases": [],
     },
     "permissions": {
@@ -1206,6 +1220,18 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
 
+    startup_cmd = subparsers.add_parser("startup", help="Startup item audit and disable planning.")
+    startup_cmd.add_argument("action", nargs="?", choices=("audit", "plan"), default="audit")
+
+    privacy_cmd = subparsers.add_parser("privacy", help="Privacy data inspection and cleanup planning.")
+    privacy_cmd.add_argument("action", nargs="?", choices=("inspect", "plan"), default="inspect")
+    privacy_cmd.add_argument(
+        "--scope",
+        choices=PRIVACY_SCOPES,
+        default="all",
+        help="Privacy data scope to inspect or plan: all, cache, cookies, history, local-storage, credentials.",
+    )
+
     permissions_cmd = subparsers.add_parser(
         "permissions",
         help="Preflight category permissions, Full Disk Access hints, and live-root execution requirements.",
@@ -1379,6 +1405,8 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "links",
         "clean",
         "software",
+        "startup",
+        "privacy",
         "optimize",
         "status",
         "completion",
@@ -2237,6 +2265,8 @@ def render_capabilities() -> dict[str, Any]:
             "links",
             "clean",
             "software",
+            "startup",
+            "privacy",
             "permissions",
             "tool-plan",
             "tool-execute",
@@ -6508,6 +6538,26 @@ def _main_impl(argv: Sequence[str]) -> int:
             render_software_report(args.action, app=args.app, root=root, home=home),
             args=args,
             command="software",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "startup":
+        emit_report(
+            render_startup(args.action, root=root, home=home),
+            args=args,
+            command="startup",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "privacy":
+        emit_report(
+            render_privacy(args.action, scope=args.scope, root=root, home=home),
+            args=args,
+            command="privacy",
             root=root,
             home=home,
             argv=actual_argv,
