@@ -133,6 +133,9 @@ class ReleaseArtifactManifestTests(unittest.TestCase):
         self.assertEqual(bundle["schema"], "cleanmac.release-evidence.v1")
         self.assertFalse(bundle["ready"])
         self.assertIn("RELEASE-READINESS.json", bundle["assets"]["missing"])
+        self.assertIn("RELEASE-REHEARSAL.json", bundle["assets"]["missing"])
+        self.assertIn("RELEASE-PROMOTION-DECISION.json", bundle["assets"]["missing"])
+        self.assertIn("RELEASE-ROLLBACK-PLAN.json", bundle["assets"]["missing"])
 
 
 class GenerateReleaseManifestScriptTests(unittest.TestCase):
@@ -174,6 +177,7 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
             assets.mkdir()
             (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
             (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
             (assets / "RELEASE-READINESS.json").write_text(
                 json.dumps({"schema": "cleanmac.release-readiness.v1", "ready": True, "failed_gate_ids": []}),
                 encoding="utf-8",
@@ -196,7 +200,17 @@ class GenerateReleaseManifestScriptTests(unittest.TestCase):
 
             stdout = json.loads(result.stdout)
             self.assertEqual(stdout["schema"], "cleanmac.release-evidence.v1")
+            self.assertTrue(stdout["ready"], stdout)
             self.assertTrue((assets / "RELEASE-EVIDENCE.json").is_file())
+            self.assertTrue((assets / "RELEASE-DIAGNOSTICS.json").is_file())
+            self.assertTrue((assets / "RELEASE-REHEARSAL.json").is_file())
+            self.assertTrue((assets / "RELEASE-PROMOTION-DECISION.json").is_file())
+            self.assertTrue((assets / "RELEASE-ROLLBACK-PLAN.json").is_file())
+            self.assertEqual(stdout["release_rehearsal"]["schema"], "cleanmac.release-rehearsal.v1")
+            self.assertTrue(stdout["release_rehearsal"]["ready"], stdout)
+            self.assertEqual(stdout["promotion_decision"]["schema"], "cleanmac.release-promotion-decision.v1")
+            self.assertEqual(stdout["promotion_decision"]["decision"], "promote")
+            self.assertEqual(stdout["rollback_plan"]["schema"], "cleanmac.release-rollback-plan.v1")
 
     def test_homebrew_formula_script_writes_formula(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

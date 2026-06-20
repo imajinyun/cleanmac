@@ -75,8 +75,12 @@ jobs:
         run: |
           $PYTHON cleanmac.py --json release-readiness --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-READINESS.json
           $PYTHON cleanmac.py --json release-diagnostics --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-DIAGNOSTICS.json
+          $PYTHON cleanmac.py --json release-rehearsal --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-REHEARSAL.json
+          $PYTHON cleanmac.py --json release-rollback-plan --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-ROLLBACK-PLAN.json
+          $PYTHON cleanmac.py --json release-promotion-decision --dist-dir dist --assets-dir release-assets > release-assets/RELEASE-PROMOTION-DECISION.json
           $PYTHON scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets --evidence > /tmp/cleanmac-release-evidence.json
           $PYTHON -c 'import json, pathlib; report=json.loads(pathlib.Path("release-assets/RELEASE-READINESS.json").read_text(encoding="utf-8")); assert report["schema"] == "cleanmac.release-readiness.v1"; assert report["ready"] is True, report; assert report["failed_gate_ids"] == [], report'
+          $PYTHON -c 'import json, pathlib; decision=json.loads(pathlib.Path("release-assets/RELEASE-PROMOTION-DECISION.json").read_text(encoding="utf-8")); assert decision["schema"] == "cleanmac.release-promotion-decision.v1"; assert decision["decision"] == "promote", decision; assert decision["safe_to_publish"] is True, decision'
           $PYTHON -c 'import json, pathlib; evidence=json.loads(pathlib.Path("release-assets/RELEASE-EVIDENCE.json").read_text(encoding="utf-8")); assert evidence["schema"] == "cleanmac.release-evidence.v1"; assert evidence["ready"] is True, evidence'
 
       - name: Verify installation from wheel on build runner
@@ -153,6 +157,41 @@ jobs:
           assert (assets / "cleanmac.rb").is_file()
           PY
 
+      - name: Verify governed release evidence
+        run: |
+          $PYTHON - <<'PY'
+          import json
+          from pathlib import Path
+
+          assets = Path("release-assets")
+          expected_schemas = {
+              "RELEASE-READINESS.json": "cleanmac.release-readiness.v1",
+              "RELEASE-DIAGNOSTICS.json": "cleanmac.release-diagnostics.v1",
+              "RELEASE-EVIDENCE.json": "cleanmac.release-evidence.v1",
+              "RELEASE-REHEARSAL.json": "cleanmac.release-rehearsal.v1",
+              "RELEASE-PROMOTION-DECISION.json": "cleanmac.release-promotion-decision.v1",
+              "RELEASE-ROLLBACK-PLAN.json": "cleanmac.release-rollback-plan.v1",
+          }
+          payloads = {}
+          for name, schema in expected_schemas.items():
+              path = assets / name
+              assert path.is_file(), f"Missing governed release evidence: {name}"
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              assert payload["schema"] == schema, payload
+              payloads[name] = payload
+          assert payloads["RELEASE-READINESS.json"]["ready"] is True, payloads["RELEASE-READINESS.json"]
+          assert payloads["RELEASE-EVIDENCE.json"]["ready"] is True, payloads["RELEASE-EVIDENCE.json"]
+          assert payloads["RELEASE-REHEARSAL.json"]["ready"] is True, payloads["RELEASE-REHEARSAL.json"]
+          decision = payloads["RELEASE-PROMOTION-DECISION.json"]
+          assert decision["decision"] == "promote", decision
+          assert decision["safe_to_publish"] is True, decision
+          rollback = payloads["RELEASE-ROLLBACK-PLAN.json"]
+          assert rollback["manual_only"] is True, rollback
+          assert {"pypi", "github-release", "homebrew-tap"}.issubset(
+              {surface["id"] for surface in rollback["rollback_surfaces"]}
+          ), rollback
+          PY
+
       - name: Run real macOS smoke against release candidate
         if: startsWith(matrix.os, 'macos')
         run: make real-macos-smoke
@@ -179,6 +218,26 @@ jobs:
           name: cleanmac-release-assets
           path: release-assets
 
+      - name: Verify governed release promotion decision
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          assets = Path("release-assets")
+          evidence = json.loads((assets / "RELEASE-EVIDENCE.json").read_text(encoding="utf-8"))
+          decision = json.loads((assets / "RELEASE-PROMOTION-DECISION.json").read_text(encoding="utf-8"))
+          rollback = json.loads((assets / "RELEASE-ROLLBACK-PLAN.json").read_text(encoding="utf-8"))
+          assert evidence["schema"] == "cleanmac.release-evidence.v1", evidence
+          assert evidence["ready"] is True, evidence
+          assert decision["schema"] == "cleanmac.release-promotion-decision.v1", decision
+          assert decision["decision"] == "promote", decision
+          assert decision["safe_to_publish"] is True, decision
+          assert decision["manual_review_required"] is False, decision
+          assert rollback["schema"] == "cleanmac.release-rollback-plan.v1", rollback
+          assert rollback["manual_only"] is True, rollback
+          PY
+
       - name: Attest release artifacts
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # pinned from actions/attest-build-provenance@v2
         with:
@@ -190,6 +249,9 @@ jobs:
             release-assets/RELEASE-READINESS.json
             release-assets/RELEASE-DIAGNOSTICS.json
             release-assets/RELEASE-EVIDENCE.json
+            release-assets/RELEASE-REHEARSAL.json
+            release-assets/RELEASE-PROMOTION-DECISION.json
+            release-assets/RELEASE-ROLLBACK-PLAN.json
             release-assets/cleanmac.rb
 
       - name: Upload release artifacts
@@ -204,6 +266,9 @@ jobs:
             release-assets/RELEASE-READINESS.json
             release-assets/RELEASE-DIAGNOSTICS.json
             release-assets/RELEASE-EVIDENCE.json
+            release-assets/RELEASE-REHEARSAL.json
+            release-assets/RELEASE-PROMOTION-DECISION.json
+            release-assets/RELEASE-ROLLBACK-PLAN.json
             release-assets/cleanmac.rb
 
       - name: Publish to PyPI with trusted publishing

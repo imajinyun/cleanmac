@@ -16,6 +16,10 @@ REQUIRED_RELEASE_ASSET_NAMES = (
     "SHA256SUMS",
     "ARTIFACT-MANIFEST.json",
     "RELEASE-READINESS.json",
+    "RELEASE-DIAGNOSTICS.json",
+    "RELEASE-REHEARSAL.json",
+    "RELEASE-PROMOTION-DECISION.json",
+    "RELEASE-ROLLBACK-PLAN.json",
     HOMEBREW_FORMULA_NAME,
 )
 
@@ -212,6 +216,9 @@ def build_release_evidence_bundle(
     contract_validation: dict[str, Any] | None = None,
     ai_host_evidence: dict[str, Any] | None = None,
     eval_smoke: dict[str, Any] | None = None,
+    release_rehearsal: dict[str, Any] | None = None,
+    promotion_decision: dict[str, Any] | None = None,
+    rollback_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return an auditable release evidence bundle without shelling out."""
 
@@ -267,6 +274,9 @@ def build_release_evidence_bundle(
         "contract_validation": dict(contract_validation or {}),
         "ai_host_evidence": dict(ai_host_evidence or {}),
         "eval_smoke": dict(eval_smoke or {}),
+        "release_rehearsal": dict(release_rehearsal or {}),
+        "promotion_decision": dict(promotion_decision or {}),
+        "rollback_plan": dict(rollback_plan or {}),
     }
 
 
@@ -278,6 +288,9 @@ def write_release_evidence_bundle_output(
     contract_validation: dict[str, Any] | None = None,
     ai_host_evidence: dict[str, Any] | None = None,
     eval_smoke: dict[str, Any] | None = None,
+    release_rehearsal: dict[str, Any] | None = None,
+    promotion_decision: dict[str, Any] | None = None,
+    rollback_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assets_dir.mkdir(parents=True, exist_ok=True)
     bundle = build_release_evidence_bundle(
@@ -287,6 +300,9 @@ def write_release_evidence_bundle_output(
         contract_validation=contract_validation,
         ai_host_evidence=ai_host_evidence,
         eval_smoke=eval_smoke,
+        release_rehearsal=release_rehearsal,
+        promotion_decision=promotion_decision,
+        rollback_plan=rollback_plan,
     )
     (assets_dir / "RELEASE-EVIDENCE.json").write_text(
         json.dumps(bundle, indent=2, sort_keys=True) + "\n", encoding="utf-8"

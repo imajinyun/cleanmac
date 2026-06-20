@@ -109,7 +109,11 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.release-diagnostics.v1", entries)
         self.assertIn("cleanmac.release-evidence.v1", entries)
         self.assertIn("cleanmac.release-operator-summary.v1", entries)
+        self.assertIn("cleanmac.release-rehearsal.v1", entries)
+        self.assertIn("cleanmac.release-promotion-decision.v1", entries)
+        self.assertIn("cleanmac.release-rollback-plan.v1", entries)
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
+        self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
         self.assertEqual(entries["cleanmac.release-evidence.v1"]["owner_area"], "release")
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
@@ -227,6 +231,44 @@ class AISchemaRegistryTests(unittest.TestCase):
             "assets": {"required": ["SBOM.json"], "missing": []},
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"])
+
+        release_rehearsal = {
+            "schema": "cleanmac.release-rehearsal.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": False,
+            "phases": [{"id": "artifact-manifest", "status": "blocked"}],
+            "failed_phase_ids": ["artifact-manifest"],
+            "recommended_commands": [["make", "release-rehearsal-smoke"]],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.release-rehearsal.v1", release_rehearsal)["valid"])
+
+        promotion_decision = {
+            "schema": "cleanmac.release-promotion-decision.v1",
+            "destructive": False,
+            "dry_run": True,
+            "decision": "block",
+            "ready": False,
+            "safe_to_publish": False,
+            "manual_review_required": True,
+            "blocking_codes": ["RELEASE_ARTIFACT_MANIFEST_MISSING"],
+            "required_evidence": ["ARTIFACT-MANIFEST.json"],
+            "missing_evidence": ["ARTIFACT-MANIFEST.json"],
+            "recommended_commands": [["make", "release-check"]],
+        }
+        self.assertTrue(
+            validate_contract_payload("cleanmac.release-promotion-decision.v1", promotion_decision)["valid"]
+        )
+
+        rollback_plan = {
+            "schema": "cleanmac.release-rollback-plan.v1",
+            "destructive": False,
+            "dry_run": True,
+            "manual_only": True,
+            "rollback_surfaces": [{"id": "pypi"}],
+            "pre_rollback_checks": [["cleanmac", "--json", "release-diagnostics"]],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.release-rollback-plan.v1", rollback_plan)["valid"])
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")

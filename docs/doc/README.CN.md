@@ -844,6 +844,9 @@ make dependency-audit-smoke                        # pip-audit + SBOM.json
 make homebrew-formula-smoke                        # Homebrew tap formula 校验
 make release-readiness-smoke                       # AI Host 发布 readiness bundle
 make release-diagnostics-smoke                     # 发布诊断 + evidence bundle + 操作者摘要
+make release-rehearsal-smoke                       # 发布演练 dry-run 门禁
+make release-promotion-smoke                       # fail-closed 发布决策
+make release-rollback-smoke                        # manual-only 回滚计划
 make no-cache-check                                # 无缓存全量验证
 make no-cache-release-check                        # 无缓存发布验证
 ```
@@ -879,13 +882,16 @@ make no-cache-release-check                        # 无缓存发布验证
 | `release-artifacts-smoke` | SHA256SUMS + ARTIFACT-MANIFEST.json + 证明 |
 | `release-readiness-smoke` | AI Host 发布 readiness 门禁与审计问题单 |
 | `release-diagnostics-smoke` | 发布诊断、evidence bundle 和操作者摘要 |
+| `release-rehearsal-smoke` | 发布演练阶段与必需证据检查 |
+| `release-promotion-smoke` | 缺失证据时发布决策 fail-closed 阻断 |
+| `release-rollback-smoke` | PyPI、GitHub Release 与 Homebrew tap 的 manual-only 回滚计划 |
 | `docker-test` | Debian 容器测试 |
 | `no-cache-check` | 无缓存全量验证 |
 | `no-cache-release-check` | 无缓存发布验证 |
 | `no-cache-docker-test` | Docker 测试（--pull=always） |
 | `release-check` | 全部门禁串联 |
 
-发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。`make release-readiness-smoke` 会在 `make release-check` 与 `make no-cache-release-check` 前校验只读 `cleanmac.release-readiness.v1` bundle。`make release-diagnostics-smoke` 会额外校验 `cleanmac.release-diagnostics.v1`、`cleanmac.release-evidence.v1` 和 `cleanmac.release-operator-summary.v1`。
+发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。`make release-readiness-smoke` 会在 `make release-check` 与 `make no-cache-release-check` 前校验只读 `cleanmac.release-readiness.v1` bundle。`make release-diagnostics-smoke` 会额外校验 `cleanmac.release-diagnostics.v1`、`cleanmac.release-evidence.v1` 和 `cleanmac.release-operator-summary.v1`。`make release-rehearsal-smoke`、`make release-promotion-smoke`、`make release-rollback-smoke` 覆盖 `cleanmac.release-rehearsal.v1`、`cleanmac.release-promotion-decision.v1` 与 `cleanmac.release-rollback-plan.v1`；CI 会把 `RELEASE-REHEARSAL.json`、`RELEASE-PROMOTION-DECISION.json`、`RELEASE-ROLLBACK-PLAN.json` 随发布证据一起归档。
 
 ### 🤖 CI 配置
 

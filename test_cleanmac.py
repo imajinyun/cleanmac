@@ -5392,6 +5392,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("release-artifacts-smoke:", makefile)
         self.assertIn("release-readiness-contract-smoke:", makefile)
         self.assertIn("release-readiness-smoke:", makefile)
+        self.assertIn("release-rehearsal-smoke:", makefile)
+        self.assertIn("release-promotion-smoke:", makefile)
+        self.assertIn("release-rollback-smoke:", makefile)
         self.assertIn("--dist-dir", makefile)
         self.assertIn("--assets-dir", makefile)
         self.assertIn('assert report["ready"] is True', makefile)
@@ -5400,7 +5403,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke docker-test",
+            "release-check: quality-check local-test pytest-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -5490,6 +5493,12 @@ class CleanMacCLITests(unittest.TestCase):
             (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
             (("ai-schema-registry",), "cleanmac.ai-schema-registry.v1"),
             (("release-readiness",), "cleanmac.release-readiness.v1"),
+            (("release-diagnostics",), "cleanmac.release-diagnostics.v1"),
+            (("release-evidence",), "cleanmac.release-evidence.v1"),
+            (("release-operator-summary",), "cleanmac.release-operator-summary.v1"),
+            (("release-rehearsal",), "cleanmac.release-rehearsal.v1"),
+            (("release-promotion-decision",), "cleanmac.release-promotion-decision.v1"),
+            (("release-rollback-plan",), "cleanmac.release-rollback-plan.v1"),
             (("ai-contract-samples",), "cleanmac.ai-contract-samples.v1"),
             (("ai-eval-pack",), "cleanmac.ai-eval-pack.v1"),
         ]
@@ -5850,6 +5859,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("release-assets/RELEASE-READINESS.json", release)
         self.assertIn("release-assets/RELEASE-DIAGNOSTICS.json", release)
         self.assertIn("release-assets/RELEASE-EVIDENCE.json", release)
+        self.assertIn("release-assets/RELEASE-REHEARSAL.json", release)
+        self.assertIn("release-assets/RELEASE-PROMOTION-DECISION.json", release)
+        self.assertIn("release-assets/RELEASE-ROLLBACK-PLAN.json", release)
         self.assertIn("release-assets/cleanmac.rb", release)
         self.assertIn("ARTIFACT-MANIFEST.json", release)
         self.assertIn("cleanmac.release-artifact-manifest.v1", release)
@@ -5867,8 +5879,10 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("name: cleanmac-dist", release)
         self.assertIn("name: cleanmac-release-assets", release)
         self.assertIn("Verify wheel install and release checksums", release)
+        self.assertIn("Verify governed release evidence", release)
         self.assertIn("Run real macOS smoke against release candidate", release)
         self.assertIn("make real-macos-smoke", release)
+        self.assertIn("Verify governed release promotion decision", release)
         self.assertIn("actions/attest-build-provenance@v2", release)
         self.assertIn("actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be", release)
         self.assertIn("pypa/gh-action-pypi-publish@release/v1", release)
@@ -5883,12 +5897,24 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("Verify release readiness", release)
         self.assertIn("cleanmac.py --json release-readiness --dist-dir dist --assets-dir release-assets", release)
         self.assertIn("cleanmac.py --json release-diagnostics --dist-dir dist --assets-dir release-assets", release)
+        self.assertIn("cleanmac.py --json release-rehearsal --dist-dir dist --assets-dir release-assets", release)
+        self.assertIn(
+            "cleanmac.py --json release-promotion-decision --dist-dir dist --assets-dir release-assets", release
+        )
+        self.assertIn("cleanmac.py --json release-rollback-plan --dist-dir dist --assets-dir release-assets", release)
         self.assertIn(
             "scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets --evidence", release
         )
         self.assertIn("release-assets/RELEASE-READINESS.json", release)
         self.assertIn('assert report["ready"] is True', release)
         self.assertIn("cleanmac.release-evidence.v1", release)
+        self.assertIn("cleanmac.release-promotion-decision.v1", release)
+        self.assertIn('assert payloads["RELEASE-EVIDENCE.json"]["ready"] is True', release)
+        self.assertIn('assert payloads["RELEASE-REHEARSAL.json"]["ready"] is True', release)
+        self.assertIn('assert decision["safe_to_publish"] is True', release)
+        self.assertIn('assert decision["manual_review_required"] is False', release)
+        self.assertIn('assert rollback["manual_only"] is True', release)
+        self.assertIn('{"pypi", "github-release", "homebrew-tap"}', release)
         self.assertIn(".venv/bin/cleanmac --json capabilities", release)
         self.assertNotIn('packages-dir: "release-assets"', release)
 

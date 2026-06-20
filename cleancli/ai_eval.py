@@ -101,6 +101,33 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "release_rehearsal_discovery",
+            "description": "Verify AI Hosts can discover the release rehearsal contract.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-rehearsal"]],
+            "expected_final_schema": "cleanmac.release-rehearsal.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "release_promotion_decision_blocks_missing_evidence",
+            "description": "Verify release promotion stays fail-closed when rehearsal evidence is missing.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-promotion-decision"]],
+            "expected_final_schema": "cleanmac.release-promotion-decision.v1",
+            "expected_blocking_codes": ["RELEASE_ARTIFACT_MANIFEST_MISSING"],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "release_rollback_plan_discovery",
+            "description": "Verify AI Hosts can discover the manual-only release rollback plan.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [["cleanmac", "--json", "release-rollback-plan"]],
+            "expected_final_schema": "cleanmac.release-rollback-plan.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "schema_registry_release_contract_coverage",
             "description": "Verify release-critical schemas are registered with contract fragments and sample coverage.",
             "required_tools": ["cleanmac_capabilities"],
@@ -507,6 +534,9 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "release_readiness_artifact_present_ready",
             "release_evidence_bundle_discovery",
             "release_diagnostics_explains_readiness_failure",
+            "release_rehearsal_discovery",
+            "release_promotion_decision_blocks_missing_evidence",
+            "release_rollback_plan_discovery",
             "schema_registry_release_contract_coverage",
             "discover_readiness",
             "schema_registry_discovery",
@@ -873,6 +903,58 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     ),
                     observed_schema=diagnostics["schema"],
                     observed_blocking_codes=[str(code) for code in failed_codes if code],
+                )
+            )
+
+        if "release_rehearsal_discovery" in selected:
+            rehearsal, event = _run_cli(cli, ["release-rehearsal"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_rehearsal_discovery",
+                    passed=bool(
+                        rehearsal["schema"] == "cleanmac.release-rehearsal.v1"
+                        and rehearsal["destructive"] is False
+                        and rehearsal["dry_run"] is True
+                        and isinstance(rehearsal.get("phases"), list)
+                        and "artifact-manifest" in rehearsal.get("failed_phase_ids", [])
+                    ),
+                    observed_schema=rehearsal["schema"],
+                    observed_blocking_codes=rehearsal.get("failed_phase_ids", []),
+                )
+            )
+
+        if "release_promotion_decision_blocks_missing_evidence" in selected:
+            decision, event = _run_cli(cli, ["release-promotion-decision"], root=root, home=home)
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_promotion_decision_blocks_missing_evidence",
+                    passed=bool(
+                        decision["schema"] == "cleanmac.release-promotion-decision.v1"
+                        and decision["decision"] == "block"
+                        and decision["safe_to_publish"] is False
+                        and decision["manual_review_required"] is True
+                        and "RELEASE_ARTIFACT_MANIFEST_MISSING" in decision.get("blocking_codes", [])
+                    ),
+                    observed_schema=decision["schema"],
+                    observed_blocking_codes=decision.get("blocking_codes", []),
+                )
+            )
+
+        if "release_rollback_plan_discovery" in selected:
+            rollback, event = _run_cli(cli, ["release-rollback-plan"], root=root, home=home)
+            events.append(event)
+            surface_ids = {surface.get("id") for surface in rollback.get("rollback_surfaces", [])}
+            results.append(
+                _scenario_result(
+                    "release_rollback_plan_discovery",
+                    passed=bool(
+                        rollback["schema"] == "cleanmac.release-rollback-plan.v1"
+                        and rollback["manual_only"] is True
+                        and {"pypi", "github-release", "homebrew-tap"}.issubset(surface_ids)
+                    ),
+                    observed_schema=rollback["schema"],
                 )
             )
 

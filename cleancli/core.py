@@ -47,6 +47,11 @@ from cleancli.ai_versioning import (
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
+from cleancli.release_orchestration import (
+    render_release_promotion_decision,
+    render_release_rehearsal,
+    render_release_rollback_plan,
+)
 from cleancli.release_readiness import render_release_readiness
 from cleancli.review import (
     apply_item_scope,
@@ -1502,6 +1507,54 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=None,
         help="Override the release assets directory used for the operator summary.",
     )
+    release_rehearsal_parser = subparsers.add_parser(
+        "release-rehearsal",
+        help="Emit a dry-run release rehearsal report for promotion evidence review.",
+    )
+    release_rehearsal_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for release rehearsal.",
+    )
+    release_rehearsal_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for release rehearsal.",
+    )
+    release_promotion_parser = subparsers.add_parser(
+        "release-promotion-decision",
+        help="Emit a fail-closed release promotion decision from rehearsal evidence.",
+    )
+    release_promotion_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for promotion decision.",
+    )
+    release_promotion_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for promotion decision.",
+    )
+    release_rollback_parser = subparsers.add_parser(
+        "release-rollback-plan",
+        help="Emit a manual-only release rollback plan for distribution surfaces.",
+    )
+    release_rollback_parser.add_argument(
+        "--dist-dir",
+        type=Path,
+        default=None,
+        help="Override the distribution directory used for rollback plan context.",
+    )
+    release_rollback_parser.add_argument(
+        "--assets-dir",
+        type=Path,
+        default=None,
+        help="Override the release assets directory used for rollback plan context.",
+    )
     subparsers.add_parser(
         "ai-schema-registry",
         help="Emit cleanmac AI schema inventory and compatibility policy.",
@@ -1585,6 +1638,9 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "release-diagnostics",
         "release-evidence",
         "release-operator-summary",
+        "release-rehearsal",
+        "release-promotion-decision",
+        "release-rollback-plan",
         "ai-schema-registry",
         "ai-contract-samples",
         "ai-validate-contract",
@@ -2848,6 +2904,11 @@ def render_release_evidence_report(
         contract_validation=contract_validation,
         ai_host_evidence=render_ai_host_evidence_report(),
         eval_smoke=render_ai_eval_smoke_evidence(),
+        release_rehearsal=render_release_rehearsal_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir),
+        promotion_decision=render_release_promotion_decision_report(
+            dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir
+        ),
+        rollback_plan=render_release_rollback_plan_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir),
     )
 
 
@@ -2927,6 +2988,33 @@ def render_release_operator_summary(
         ],
         "readiness_summary": render_release_readiness_summary(readiness),
     }
+
+
+def render_release_rehearsal_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    return render_release_rehearsal(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+
+
+def render_release_promotion_decision_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    return render_release_promotion_decision(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+
+
+def render_release_rollback_plan_report(
+    *,
+    dist_dir: Path | None = None,
+    assets_dir: Path | None = None,
+) -> dict[str, Any]:
+    resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
+    return render_release_rollback_plan(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
@@ -6402,6 +6490,12 @@ def render_completion_shell(shell: str) -> str:
         "ai-host-preflight",
         "ai-host-evidence",
         "release-readiness",
+        "release-diagnostics",
+        "release-evidence",
+        "release-operator-summary",
+        "release-rehearsal",
+        "release-promotion-decision",
+        "release-rollback-plan",
         "ai-schema-registry",
         "ai-eval-pack",
         "ai-eval-run",
@@ -6441,6 +6535,9 @@ def render_completion_shell(shell: str) -> str:
         "release-diagnostics": "--dist-dir --assets-dir",
         "release-evidence": "--dist-dir --assets-dir",
         "release-operator-summary": "--dist-dir --assets-dir",
+        "release-rehearsal": "--dist-dir --assets-dir",
+        "release-promotion-decision": "--dist-dir --assets-dir",
+        "release-rollback-plan": "--dist-dir --assets-dir",
         "ai-schema-registry": "",
         "ai-eval-pack": "",
         "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
@@ -6939,6 +7036,33 @@ def _main_impl(argv: Sequence[str]) -> int:
         print(
             json.dumps(
                 render_release_operator_summary(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-rehearsal":
+        print(
+            json.dumps(
+                render_release_rehearsal_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-promotion-decision":
+        print(
+            json.dumps(
+                render_release_promotion_decision_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if args.command == "release-rollback-plan":
+        print(
+            json.dumps(
+                render_release_rollback_plan_report(dist_dir=args.dist_dir, assets_dir=args.assets_dir),
                 indent=2,
                 ensure_ascii=False,
             )
