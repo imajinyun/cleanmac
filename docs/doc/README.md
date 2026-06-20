@@ -41,7 +41,7 @@
 | 🗺️ | **Plans** | Reusable `cleanmac.plan.v1` JSON |
 | 📄 | **Reports** | Pre-clean, dry-run, post-execution, audit |
 | 🧪 | **Sandbox** | `--root` / `--home` path remapping |
-| 🤖 | **AI tools** | 32 tools in Anthropic / OpenAI / MCP formats |
+| 🤖 | **AI tools** | 33 tools in Anthropic / OpenAI / MCP formats |
 | 🏗️ | **MCP Server** | stdio-based Model Context Protocol server |
 | 🧾 | **Review selections** | `cleanmac.review-selection.v1` files constrain plan replay |
 | 🔍 | **Operational preflight** | Permissions, startup, privacy, and external-tool dry-run planning |
@@ -116,7 +116,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI Tool Definitions
 
-Export **32 tools** in three formats:
+Export **33 tools** in three formats:
 
 ```bash
 # 🧠 Anthropic format (Claude)
@@ -195,7 +195,7 @@ CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
 **JSON-RPC 2.0 protocol example:**
 
 ```bash
-# 📋 List all 32 tools
+# 📋 List all 33 tools
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
   CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 \
   python3 scripts/cleanmac_mcp_server.py | jq '.result.tools | length'
@@ -397,6 +397,16 @@ python3 -m venv .venv
 python3 -m pip install -e .
 cleanmac list
 ```
+
+### 🍺 Install via Homebrew tap
+
+```bash
+brew tap cleanmac/tap
+brew install cleanmac
+cleanmac --json capabilities
+```
+
+Release automation generates `release-assets/cleanmac.rb` with `scripts/generate_homebrew_formula.py`, includes it in `cleanmac.release-artifact-manifest.v1`, and validates it with `make homebrew-formula-smoke`. If a future Homebrew core formula with the same name exists, use `brew install cleanmac/tap/cleanmac` to select the tap explicitly.
 
 ### 🐍 Requirements
 
@@ -811,6 +821,7 @@ make governance-smoke                              # Governance contracts
 make ai-contract-smoke                             # AI contract samples and schema fragments
 make open-source-smoke                             # Open source governance
 make dependency-audit-smoke                        # pip-audit + SBOM.json
+make homebrew-formula-smoke                        # Homebrew tap formula validation
 make no-cache-check                                # No-cache full validation
 make no-cache-release-check                        # No-cache release validation
 ```
@@ -841,6 +852,7 @@ make no-cache-release-check                        # No-cache release validation
 | `ai-host-smoke` | AI host integration test suite |
 | `ai-robustness-smoke` | AI concurrency, idempotency, protocol, and trace regressions |
 | `distribution-smoke` | wheel + sdist |
+| `homebrew-formula-smoke` | Homebrew tap formula generation |
 | `release-artifacts-smoke` | SHA256SUMS + ARTIFACT-MANIFEST.json + attestation |
 | `docker-test` | Debian container tests |
 | `no-cache-check` | No-cache full validation |
@@ -848,7 +860,7 @@ make no-cache-release-check                        # No-cache release validation
 | `no-cache-docker-test` | Docker test with --pull=always |
 | `release-check` | All gates combined |
 
-Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions.
+Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions.
 
 ### 🤖 CI Configuration
 

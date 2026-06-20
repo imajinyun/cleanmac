@@ -33,7 +33,7 @@ jobs:
           .venv/bin/python -m pip install -e '.[dev,build]'
 
       - name: Run release quality gates
-        run: make local-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke open-source-smoke mcp-smoke ai-host-smoke distribution-smoke release-artifacts-smoke
+        run: make local-test build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke open-source-smoke mcp-smoke ai-host-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke
 
       - name: Build distributions
         run: $PYTHON -m build --wheel --sdist --outdir dist
@@ -42,8 +42,34 @@ jobs:
         run: |
           mkdir -p release-assets
           $PYTHON scripts/generate_sbom.py --output release-assets/SBOM.json
+          version="$($PYTHON - <<'PY'
+          from pathlib import Path
+
+          for line in Path("pyproject.toml").read_text(encoding="utf-8").splitlines():
+              stripped = line.strip()
+              if stripped.startswith("version = "):
+                  print(stripped.split("=", 1)[1].strip().strip('"'))
+                  break
+          else:
+              raise SystemExit("Unable to find project version in pyproject.toml")
+          PY
+          )"
+          tag_name="${GITHUB_REF_NAME}"
+          if [ "${tag_name#v}" = "$tag_name" ]; then
+            tag_name="v${version}"
+          fi
+          archive_url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${tag_name}.tar.gz"
+          curl -L --fail --retry 3 "$archive_url" -o /tmp/cleanmac-homebrew-source.tar.gz
+          archive_sha256="$($PYTHON - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          print(hashlib.sha256(Path("/tmp/cleanmac-homebrew-source.tar.gz").read_bytes()).hexdigest())
+          PY
+          )"
+          $PYTHON scripts/generate_homebrew_formula.py --version "$version" --archive-url "$archive_url" --sha256 "$archive_sha256" --output release-assets/cleanmac.rb
           $PYTHON scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets
-          $PYTHON -c 'import json, pathlib; manifest=json.loads(pathlib.Path("release-assets/ARTIFACT-MANIFEST.json").read_text(encoding="utf-8")); assert manifest["schema"] == "cleanmac.release-artifact-manifest.v1"; assert manifest["distribution_policy"]["homebrew_formula"] == "preflight-only"; assert manifest["distribution_policy"]["publish_after_cross_platform_verification"]'
+          $PYTHON -c 'import json, pathlib; manifest=json.loads(pathlib.Path("release-assets/ARTIFACT-MANIFEST.json").read_text(encoding="utf-8")); assert manifest["schema"] == "cleanmac.release-artifact-manifest.v1"; assert manifest["distribution_policy"]["homebrew_formula"] == "tap-publishable"; assert manifest["distribution_policy"]["homebrew_tap"] == "cleanmac/tap"; assert manifest["distribution_policy"]["publish_after_cross_platform_verification"]; assert any(row["name"] == "cleanmac.rb" and row["kind"] == "homebrew-formula" for row in manifest["artifacts"])'
 
       - name: Verify installation from wheel on build runner
         run: |
@@ -113,9 +139,10 @@ jobs:
           for line in (assets / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
               digest, name = line.split(None, 1)
               name = name.strip()
-              base = assets if name == "SBOM.json" else dist
+              base = assets if name in {"SBOM.json", "cleanmac.rb"} else dist
               assert hashlib.sha256((base / name).read_bytes()).hexdigest() == digest
           assert (assets / "ARTIFACT-MANIFEST.json").is_file()
+          assert (assets / "cleanmac.rb").is_file()
           PY
 
       - name: Run real macOS smoke against release candidate
@@ -152,6 +179,7 @@ jobs:
             release-assets/SBOM.json
             release-assets/SHA256SUMS
             release-assets/ARTIFACT-MANIFEST.json
+            release-assets/cleanmac.rb
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # pinned from softprops/action-gh-release@v2
@@ -162,6 +190,7 @@ jobs:
             release-assets/SBOM.json
             release-assets/SHA256SUMS
             release-assets/ARTIFACT-MANIFEST.json
+            release-assets/cleanmac.rb
 
       - name: Publish to PyPI with trusted publishing
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pinned from pypa/gh-action-pypi-publish@release/v1

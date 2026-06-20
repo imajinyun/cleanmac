@@ -13,7 +13,7 @@
 # 🧪 Safe preview
 python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 10
 
-# 🤖 AI tool definitions (32 tools)
+# 🤖 AI tool definitions (33 tools)
 python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 
 # 🧭 Safe workflow (recommended AI entry)
@@ -35,7 +35,7 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean run --categor
 | 🏷️ | Description |
 |---|---|
 | 🧹 **Dry-run first** | All cleanup commands preview only, no files deleted |
-| 🤖 **AI-native · 32 tools** | Full tool definitions in Anthropic / OpenAI / MCP formats |
+| 🤖 **AI-native · 33 tools** | Full tool definitions in Anthropic / OpenAI / MCP formats |
 | 🏗️ **MCP Server** | Built-in Model Context Protocol stdio server |
 | 🔐 **Multi-layer safety** | Bundle protection, budgets, Trash recovery, confirmation tokens |
 | 🧾 **Review-to-execution contract** | `review` selections can constrain plan replay via `--review-selection-file` |
@@ -71,6 +71,11 @@ python3 cleanmac.py --root /tmp/sandbox --home /Users/tester clean run --categor
 ```bash
 # ▶️ Run directly
 python3 cleanmac.py clean list
+
+# 🍺 Install via Homebrew tap
+brew tap cleanmac/tap
+brew install cleanmac
+cleanmac --json capabilities
 
 # 📥 Install as package
 python3 -m pip install -e .
