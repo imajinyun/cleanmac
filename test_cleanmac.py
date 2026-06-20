@@ -82,6 +82,10 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Firefox/Profiles/dev.default-release/cache2/entries").mkdir(
             parents=True
         )
+        (root / "Users/tester/Library/Caches/com.apple.Safari").mkdir(parents=True)
+        (root / "Users/tester/Library/Safari/LocalStorage").mkdir(parents=True)
+        (root / "Users/tester/Library/Safari/Databases").mkdir(parents=True)
+        (root / "Users/tester/Library/WebKit/com.apple.Safari/WebsiteData/IndexedDB/site.example").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Slack/Cache").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Slack/Service Worker/CacheStorage/cache-a").mkdir(
             parents=True
@@ -173,6 +177,16 @@ class CleanMacCLITests(unittest.TestCase):
             root
             / "Users/tester/Library/Application Support/Firefox/Profiles/dev.default-release/cache2/entries/cache.bin"
         ).write_text("firefox-profile-cache")
+        (root / "Users/tester/Library/Caches/com.apple.Safari/cache.db").write_text("safari-cache")
+        (root / "Users/tester/Library/Safari/History.db").write_text("safari-history")
+        (root / "Users/tester/Library/Safari/Downloads.plist").write_text("safari-downloads")
+        (root / "Users/tester/Library/Cookies").mkdir(parents=True)
+        (root / "Users/tester/Library/Cookies/Cookies.binarycookies").write_text("safari-cookies")
+        (root / "Users/tester/Library/Safari/LocalStorage/site.localstorage").write_text("safari-local-storage")
+        (root / "Users/tester/Library/Safari/Databases/database.sqlite").write_text("safari-web-sql")
+        (
+            root / "Users/tester/Library/WebKit/com.apple.Safari/WebsiteData/IndexedDB/site.example/000003.log"
+        ).write_text("safari-indexeddb")
         (root / "Users/tester/Library/Application Support/Slack/Cache/cache.bin").write_text("slack-cache")
         (
             root / "Users/tester/Library/Application Support/Slack/Service Worker/CacheStorage/cache-a/cache.bin"
@@ -2022,9 +2036,29 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(any(item["default_selected"] for item in cache_report["candidates"]))
             self.assertEqual(cache_report["scope_counts"], {"cache": cache_report["candidate_count"]})
             self.assertGreaterEqual(cache_report["application_counts"]["Chrome"], 1)
+            self.assertGreaterEqual(cache_report["application_counts"]["Safari"], 1)
             self.assertEqual(cache_report["privacy_risk_counts"], {"low": cache_report["candidate_count"]})
             self.assertEqual(cache_report["recommended_next_action"], "review_privacy_plan")
             self.assertTrue(validate_contract_payload("cleanmac.privacy-inspect.v1", cache_report)["valid"])
+
+            safari_all_report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "privacy", "inspect", "--scope", "all"
+                ).stdout
+            )
+            safari_candidates = [item for item in safari_all_report["candidates"] if item["application"] == "Safari"]
+            self.assertGreaterEqual(len(safari_candidates), 7)
+            self.assertTrue(any(item["kind"] == "cache" and item["default_selected"] for item in safari_candidates))
+            self.assertTrue(any(item["scope"] == "cookies" for item in safari_candidates))
+            self.assertTrue(any(item["scope"] == "history" for item in safari_candidates))
+            self.assertTrue(any(item["scope"] == "local-storage" for item in safari_candidates))
+            self.assertTrue(
+                all(
+                    not item["default_selected"]
+                    for item in safari_candidates
+                    if item["scope"] in {"cookies", "history", "local-storage"}
+                )
+            )
 
             credentials_report = json.loads(
                 self.run_cli(

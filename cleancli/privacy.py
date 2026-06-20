@@ -143,6 +143,109 @@ def _firefox_candidates(home_root: Path) -> list[dict[str, Any]]:
     return candidates
 
 
+def _safari_candidates(home_root: Path) -> list[dict[str, Any]]:
+    specs = [
+        (home_root / "Library/Caches/com.apple.Safari", "cache", "cache", "low", "low", True, None),
+        (
+            home_root / "Library/Containers/com.apple.Safari/Data/Library/Caches/com.apple.Safari",
+            "container-cache",
+            "cache",
+            "low",
+            "low",
+            True,
+            None,
+        ),
+        (
+            home_root / "Library/Safari/History.db",
+            "history-db",
+            "history",
+            "medium",
+            "medium",
+            False,
+            "history is personal browsing data",
+        ),
+        (
+            home_root / "Library/Safari/Downloads.plist",
+            "downloads-history",
+            "history",
+            "medium",
+            "medium",
+            False,
+            "download history is personal browsing data",
+        ),
+        (
+            home_root / "Library/Cookies/Cookies.binarycookies",
+            "cookies",
+            "cookies",
+            "high",
+            "medium",
+            False,
+            "cookies preserve signed-in sessions",
+        ),
+        (
+            home_root / "Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies",
+            "container-cookies",
+            "cookies",
+            "high",
+            "medium",
+            False,
+            "cookies preserve signed-in sessions",
+        ),
+        (
+            home_root / "Library/Safari/LocalStorage",
+            "local-storage",
+            "local-storage",
+            "high",
+            "medium",
+            False,
+            "local storage may include app state and sessions",
+        ),
+        (
+            home_root / "Library/Safari/Databases",
+            "web-sql-databases",
+            "local-storage",
+            "high",
+            "medium",
+            False,
+            "website databases may include app state and sessions",
+        ),
+        (
+            home_root / "Library/WebKit/com.apple.Safari/WebsiteData/LocalStorage",
+            "webkit-local-storage",
+            "local-storage",
+            "high",
+            "medium",
+            False,
+            "webkit local storage may include app state and sessions",
+        ),
+        (
+            home_root / "Library/WebKit/com.apple.Safari/WebsiteData/IndexedDB",
+            "webkit-indexeddb",
+            "local-storage",
+            "high",
+            "medium",
+            False,
+            "indexeddb may include app state and sessions",
+        ),
+    ]
+    candidates: list[dict[str, Any]] = []
+    for path, kind, scope, privacy_risk, data_loss_risk, selected, reason in specs:
+        item = _candidate(
+            path,
+            application="Safari",
+            profile="default",
+            kind=kind,
+            scope=scope,
+            privacy_risk=privacy_risk,
+            data_loss_risk=data_loss_risk,
+            default_selected=selected,
+            preserve_reason=reason,
+        )
+        if item:
+            candidates.append(item)
+    return candidates
+
+
 def _electron_candidates(home_root: Path) -> list[dict[str, Any]]:
     apps = [
         ("Slack", home_root / "Library/Application Support/Slack"),
@@ -180,7 +283,12 @@ def _electron_candidates(home_root: Path) -> list[dict[str, Any]]:
 def inspect_privacy(scope: str, *, root: Path, home: Path) -> dict[str, Any]:
     normalized_scope = scope if scope in PRIVACY_SCOPES else "all"
     home_root = _home_root(root, home)
-    all_candidates = _chromium_candidates(home_root) + _firefox_candidates(home_root) + _electron_candidates(home_root)
+    all_candidates = (
+        _chromium_candidates(home_root)
+        + _firefox_candidates(home_root)
+        + _safari_candidates(home_root)
+        + _electron_candidates(home_root)
+    )
     candidates = [item for item in all_candidates if normalized_scope == "all" or item["scope"] == normalized_scope]
     scope_counts = _count_by(candidates, "scope")
     application_counts = _count_by(candidates, "application")
