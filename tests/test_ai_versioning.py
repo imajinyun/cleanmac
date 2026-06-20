@@ -116,6 +116,14 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.release-post-publish-evidence-input.v1", entries)
         self.assertIn("cleanmac.release-post-publish-evidence-template.v1", entries)
         self.assertIn("cleanmac.release-post-publish-result.v1", entries)
+        self.assertIn("cleanmac.mcp-meta-index.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.mcp-meta-index.v1"])
+        self.assertEqual(
+            entries["cleanmac.mcp-meta-index.v1"]["producer_command"], ["read", "cleanmac://mcp/meta-index"]
+        )
+        self.assertIn("mcp", entries["cleanmac.mcp-meta-index.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.mcp-meta-index.v1"]["owner_area"], "mcp")
+        self.assertTrue(entries["cleanmac.mcp-meta-index.v1"]["release_critical"])
         self.assertIn("cleanmac.mcp-resource-index.v1", entries)
         self.assertIn("json_schema", entries["cleanmac.mcp-resource-index.v1"])
         self.assertEqual(
@@ -132,6 +140,14 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("mcp", entries["cleanmac.mcp-prompt-index.v1"]["consumers"])
         self.assertEqual(entries["cleanmac.mcp-prompt-index.v1"]["owner_area"], "mcp")
         self.assertTrue(entries["cleanmac.mcp-prompt-index.v1"]["release_critical"])
+        self.assertIn("cleanmac.mcp-tool-index.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.mcp-tool-index.v1"])
+        self.assertEqual(
+            entries["cleanmac.mcp-tool-index.v1"]["producer_command"], ["read", "cleanmac://mcp/tool-index"]
+        )
+        self.assertIn("tool-policy", entries["cleanmac.mcp-tool-index.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.mcp-tool-index.v1"]["owner_area"], "mcp")
+        self.assertTrue(entries["cleanmac.mcp-tool-index.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
@@ -356,6 +372,25 @@ class AISchemaRegistryTests(unittest.TestCase):
             validate_contract_payload("cleanmac.release-post-publish-result.v1", post_publish_result)["valid"]
         )
 
+        mcp_meta_index = {
+            "schema": "cleanmac.mcp-meta-index.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "index_count": 3,
+            "indexes": [
+                {
+                    "kind": "resource",
+                    "uri": "cleanmac://mcp/resource-index",
+                    "schema": "cleanmac.mcp-resource-index.v1",
+                },
+                {"kind": "prompt", "uri": "cleanmac://mcp/prompt-index", "schema": "cleanmac.mcp-prompt-index.v1"},
+                {"kind": "tool", "uri": "cleanmac://mcp/tool-index", "schema": "cleanmac.mcp-tool-index.v1"},
+            ],
+            "index_uris": ["cleanmac://mcp/resource-index", "cleanmac://mcp/prompt-index", "cleanmac://mcp/tool-index"],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.mcp-meta-index.v1", mcp_meta_index)["valid"])
+
         mcp_resource_index = {
             "schema": "cleanmac.mcp-resource-index.v1",
             "destructive": False,
@@ -377,6 +412,17 @@ class AISchemaRegistryTests(unittest.TestCase):
             "prompt_names": ["review-ai-host-policy"],
         }
         self.assertTrue(validate_contract_payload("cleanmac.mcp-prompt-index.v1", mcp_prompt_index)["valid"])
+
+        mcp_tool_index = {
+            "schema": "cleanmac.mcp-tool-index.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "tool_count": 1,
+            "tools": [{"name": "cleanmac_execute_plan", "safe_for_mcp": True}],
+            "tool_names": ["cleanmac_execute_plan"],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.mcp-tool-index.v1", mcp_tool_index)["valid"])
 
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")

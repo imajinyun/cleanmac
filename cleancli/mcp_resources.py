@@ -5,13 +5,23 @@ from __future__ import annotations
 from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_SCHEMA, MCP_PROMPT_INDEX_URI
+from cleancli.mcp_tools import MCP_TOOL_INDEX_SCHEMA, MCP_TOOL_INDEX_URI
 
+MCP_META_INDEX_SCHEMA = "cleanmac.mcp-meta-index.v1"
+MCP_META_INDEX_URI = "cleanmac://mcp/meta-index"
 MCP_RESOURCE_INDEX_SCHEMA = "cleanmac.mcp-resource-index.v1"
 MCP_RESOURCE_INDEX_URI = "cleanmac://mcp/resource-index"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
 
 _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
+    {
+        "uri": MCP_META_INDEX_URI,
+        "name": "cleanmac MCP meta index",
+        "description": "Top-level MCP governance index aggregating resource, prompt, and tool indexes.",
+        "category": "mcp",
+        "schema": MCP_META_INDEX_SCHEMA,
+    },
     {
         "uri": MCP_RESOURCE_INDEX_URI,
         "name": "cleanmac MCP resource index",
@@ -25,6 +35,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Governed MCP prompt catalog with arguments, categories, and safety metadata.",
         "category": "mcp",
         "schema": MCP_PROMPT_INDEX_SCHEMA,
+    },
+    {
+        "uri": MCP_TOOL_INDEX_URI,
+        "name": "cleanmac MCP tool index",
+        "description": "Governed MCP tool catalog with invocation, risk, and safety metadata.",
+        "category": "mcp",
+        "schema": MCP_TOOL_INDEX_SCHEMA,
     },
     {
         "uri": "cleanmac://capabilities",
@@ -282,5 +299,79 @@ def render_mcp_resource_index() -> dict[str, Any]:
         "resource_uris": [resource["uri"] for resource in resources],
         "validation": validation,
         "sensitive_data_policy": MCP_RESOURCE_SENSITIVE_DATA_POLICY,
-        "recommended_commands": [["make", "mcp-smoke"], ["make", "ai-host-smoke"]],
+        "recommended_commands": [
+            ["make", "mcp-smoke"],
+            ["make", "mcp-resource-index-smoke"],
+            ["make", "ai-host-smoke"],
+        ],
+    }
+
+
+def validate_mcp_meta_index() -> dict[str, Any]:
+    from cleancli.mcp_prompts import validate_mcp_prompt_catalog
+    from cleancli.mcp_tools import validate_mcp_tool_catalog
+
+    resource_validation = validate_mcp_resource_catalog()
+    prompt_validation = validate_mcp_prompt_catalog()
+    tool_validation = validate_mcp_tool_catalog()
+    index_uris = [MCP_RESOURCE_INDEX_URI, MCP_PROMPT_INDEX_URI, MCP_TOOL_INDEX_URI]
+    resource_uris = set(mcp_resource_uris())
+    missing_index_uris = [uri for uri in index_uris if uri not in resource_uris]
+    return {
+        "valid": bool(
+            resource_validation.get("valid")
+            and prompt_validation.get("valid")
+            and tool_validation.get("valid")
+            and not missing_index_uris
+        ),
+        "index_count": len(index_uris),
+        "missing_index_uris": missing_index_uris,
+        "resource_catalog": resource_validation,
+        "prompt_catalog": prompt_validation,
+        "tool_catalog": tool_validation,
+    }
+
+
+def render_mcp_meta_index() -> dict[str, Any]:
+    validation = validate_mcp_meta_index()
+    index_rows = [
+        {
+            "kind": "resource",
+            "uri": MCP_RESOURCE_INDEX_URI,
+            "schema": MCP_RESOURCE_INDEX_SCHEMA,
+            "ready": bool(validation["resource_catalog"].get("valid")),
+            "count": validation["resource_catalog"].get("resource_count", 0),
+        },
+        {
+            "kind": "prompt",
+            "uri": MCP_PROMPT_INDEX_URI,
+            "schema": MCP_PROMPT_INDEX_SCHEMA,
+            "ready": bool(validation["prompt_catalog"].get("valid")),
+            "count": validation["prompt_catalog"].get("prompt_count", 0),
+        },
+        {
+            "kind": "tool",
+            "uri": MCP_TOOL_INDEX_URI,
+            "schema": MCP_TOOL_INDEX_SCHEMA,
+            "ready": bool(validation["tool_catalog"].get("valid")),
+            "count": validation["tool_catalog"].get("tool_count", 0),
+        },
+    ]
+    return {
+        "schema": MCP_META_INDEX_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "ready": validation["valid"],
+        "index_count": len(index_rows),
+        "indexes": index_rows,
+        "index_uris": [row["uri"] for row in index_rows],
+        "validation": validation,
+        "sensitive_data_policy": MCP_RESOURCE_SENSITIVE_DATA_POLICY,
+        "recommended_call_sequence": [
+            f"read {MCP_META_INDEX_URI}",
+            f"read {MCP_RESOURCE_INDEX_URI}",
+            f"read {MCP_PROMPT_INDEX_URI}",
+            f"read {MCP_TOOL_INDEX_URI}",
+        ],
+        "recommended_commands": [["make", "mcp-smoke"], ["make", "mcp-meta-index-smoke"], ["make", "ai-host-smoke"]],
     }

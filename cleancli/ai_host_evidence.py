@@ -6,7 +6,13 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, validate_mcp_prompt_catalog
-from cleancli.mcp_resources import MCP_RESOURCE_INDEX_URI, validate_mcp_resource_catalog
+from cleancli.mcp_resources import (
+    MCP_META_INDEX_URI,
+    MCP_RESOURCE_INDEX_URI,
+    validate_mcp_meta_index,
+    validate_mcp_resource_catalog,
+)
+from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, validate_mcp_tool_catalog
 
 
 def _all_decisions_denied(samples: Sequence[Mapping[str, Any]]) -> bool:
@@ -41,8 +47,11 @@ def render_ai_host_evidence(
     mcp = integration_pack.get("mcp", {})
     resources = mcp.get("resources", []) if isinstance(mcp, Mapping) else []
     prompts = mcp.get("prompts", []) if isinstance(mcp, Mapping) else []
+    tools = mcp.get("tools", []) if isinstance(mcp, Mapping) else []
+    meta_validation = validate_mcp_meta_index()
     resource_validation = validate_mcp_resource_catalog()
     prompt_validation = validate_mcp_prompt_catalog()
+    tool_validation = validate_mcp_tool_catalog()
     evidence_checks = [
         {
             "id": "integration-pack-ready",
@@ -70,6 +79,16 @@ def render_ai_host_evidence(
             "evidence": "cleanmac://ai/host-evidence",
         },
         {
+            "id": "mcp-meta-index-advertised",
+            "passed": MCP_META_INDEX_URI in resources,
+            "evidence": MCP_META_INDEX_URI,
+        },
+        {
+            "id": "mcp-meta-index-valid",
+            "passed": bool(meta_validation.get("valid")),
+            "evidence": "cleanmac.mcp-meta-index.v1",
+        },
+        {
             "id": "mcp-resource-index-advertised",
             "passed": MCP_RESOURCE_INDEX_URI in resources,
             "evidence": MCP_RESOURCE_INDEX_URI,
@@ -92,6 +111,18 @@ def render_ai_host_evidence(
             "evidence": "cleanmac.mcp-prompt-index.v1",
         },
         {
+            "id": "mcp-tool-index-advertised",
+            "passed": MCP_TOOL_INDEX_URI in resources,
+            "evidence": MCP_TOOL_INDEX_URI,
+        },
+        {
+            "id": "mcp-tool-catalog-valid",
+            "passed": bool(tool_validation.get("valid"))
+            and isinstance(tools, list)
+            and "cleanmac_execute_plan" in tools,
+            "evidence": "cleanmac.mcp-tool-index.v1",
+        },
+        {
             "id": "release-readiness-resource-advertised",
             "passed": "cleanmac://release/readiness" in resources,
             "evidence": "cleanmac://release/readiness",
@@ -106,8 +137,10 @@ def render_ai_host_evidence(
         "purpose": "Auditable evidence pack for AI Host runtime governance release gates.",
         "critical_schemas": list(critical_schemas),
         "evidence_checks": evidence_checks,
+        "mcp_meta_index": meta_validation,
         "mcp_resource_catalog": resource_validation,
         "mcp_prompt_catalog": prompt_validation,
+        "mcp_tool_catalog": tool_validation,
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),

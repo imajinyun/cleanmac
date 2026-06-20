@@ -1498,6 +1498,12 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "resources/read",
                     "params": {"uri": "cleanmac://ai/host-policy"},
                 },
+                "resources/read meta-index": {
+                    "jsonrpc": "2.0",
+                    "id": 5,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://mcp/meta-index"},
+                },
                 "resources/read resource-index": {
                     "jsonrpc": "2.0",
                     "id": 6,
@@ -1510,9 +1516,15 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "resources/read",
                     "params": {"uri": "cleanmac://mcp/prompt-index"},
                 },
+                "resources/read tool-index": {
+                    "jsonrpc": "2.0",
+                    "id": 8,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://mcp/tool-index"},
+                },
                 "prompts/get review-ai-host-policy": {
                     "jsonrpc": "2.0",
-                    "id": 5,
+                    "id": 9,
                     "method": "prompts/get",
                     "params": {"name": "review-ai-host-policy", "arguments": {}},
                 },
@@ -1545,6 +1557,14 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     .get("text", "{}")
                 )
                 host_policy = json.loads(host_policy_text)
+                meta_index_text = (
+                    mcp_payloads.get("resources/read meta-index", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                meta_index = json.loads(meta_index_text)
+                indexed_index_uris = set(meta_index.get("index_uris", []))
                 resource_index_text = (
                     mcp_payloads.get("resources/read resource-index", {})
                     .get("result", {})
@@ -1561,6 +1581,14 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 )
                 prompt_index = json.loads(prompt_index_text)
                 indexed_prompt_names = set(prompt_index.get("prompt_names", []))
+                tool_index_text = (
+                    mcp_payloads.get("resources/read tool-index", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                tool_index = json.loads(tool_index_text)
+                indexed_tool_names = set(tool_index.get("tool_names", []))
                 policy_prompt_text = (
                     mcp_payloads.get("prompts/get review-ai-host-policy", {})
                     .get("result", {})
@@ -1574,8 +1602,10 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "cleanmac_execute_plan" in tool_names
                     and "cleanmac_startup_disable" in tool_names
                     and "cleanmac_privacy_execute" in tool_names
+                    and "cleanmac://mcp/meta-index" in resource_uris
                     and "cleanmac://mcp/resource-index" in resource_uris
                     and "cleanmac://mcp/prompt-index" in resource_uris
+                    and "cleanmac://mcp/tool-index" in resource_uris
                     and "cleanmac://capabilities" in resource_uris
                     and "cleanmac://ai/host-policy" in resource_uris
                     and "cleanmac://release/post-publish-verification" in resource_uris
@@ -1586,13 +1616,29 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "review-ai-host-policy" in prompt_names
                     and host_policy.get("schema") == "cleanmac.ai-host-policy.v1"
                     and host_policy.get("valid") is True
+                    and meta_index.get("schema") == "cleanmac.mcp-meta-index.v1"
+                    and meta_index.get("ready") is True
+                    and indexed_index_uris
+                    == {
+                        "cleanmac://mcp/resource-index",
+                        "cleanmac://mcp/prompt-index",
+                        "cleanmac://mcp/tool-index",
+                    }
                     and resource_index.get("schema") == "cleanmac.mcp-resource-index.v1"
                     and resource_index.get("ready") is True
                     and prompt_index.get("schema") == "cleanmac.mcp-prompt-index.v1"
                     and prompt_index.get("ready") is True
+                    and tool_index.get("schema") == "cleanmac.mcp-tool-index.v1"
+                    and tool_index.get("ready") is True
                     and "review-ai-host-policy" in indexed_prompt_names
                     and "safe-cleanup-review" in indexed_prompt_names
+                    and tool_names == indexed_tool_names
+                    and "cleanmac_execute_plan" in tool_index.get("auto_call_denied_tool_names", [])
+                    and "cleanmac_startup_disable" in tool_index.get("auto_call_denied_tool_names", [])
+                    and "cleanmac_privacy_execute" in tool_index.get("auto_call_denied_tool_names", [])
                     and "/Users/" not in prompt_index_text
+                    and "/Users/" not in tool_index_text
+                    and "/Users/" not in meta_index_text
                     and resource_uris == indexed_uris
                     and "/Users/" not in resource_index_text
                     and "cleanmac_execute_plan" in host_policy.get("auto_call", {}).get("deny", [])

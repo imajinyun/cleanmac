@@ -65,8 +65,10 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.ai-execution-ledger.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-policy-simulation.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.mcp-tool-error.v1", 1, "scripts.cleanmac_mcp_server", "stable"),
+    ("cleanmac.mcp-meta-index.v1", 1, "cleancli.mcp_resources", "stable"),
     ("cleanmac.mcp-resource-index.v1", 1, "cleancli.mcp_resources", "stable"),
     ("cleanmac.mcp-prompt-index.v1", 1, "cleancli.mcp_prompts", "stable"),
+    ("cleanmac.mcp-tool-index.v1", 1, "cleancli.mcp_tools", "stable"),
     ("cleanmac.ai-schema-registry.v1", 1, "cleancli.ai_versioning", "stable"),
     ("cleanmac.analyze-tree.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.analyze.v1", 1, "cleancli.core", "stable"),
@@ -168,8 +170,10 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.ai-host-preflight.v1",
     "cleanmac.ai-host-evidence.v1",
     "cleanmac.ai-host-tool-call-decision.v1",
+    "cleanmac.mcp-meta-index.v1",
     "cleanmac.mcp-resource-index.v1",
     "cleanmac.mcp-prompt-index.v1",
+    "cleanmac.mcp-tool-index.v1",
     "cleanmac.release-artifact-manifest.v1",
     "cleanmac.release-readiness.v1",
     "cleanmac.release-diagnostics.v1",
@@ -190,8 +194,10 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
 )
 
 RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
+    "cleanmac.mcp-meta-index.v1",
     "cleanmac.mcp-resource-index.v1",
     "cleanmac.mcp-prompt-index.v1",
+    "cleanmac.mcp-tool-index.v1",
     "cleanmac.release-artifact-manifest.v1",
     "cleanmac.release-readiness.v1",
     "cleanmac.release-diagnostics.v1",
@@ -207,6 +213,20 @@ RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
 )
 
 CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
+    "cleanmac.mcp-meta-index.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "ready", "index_count", "indexes", "index_uris"],
+        "properties": {
+            "schema": {"const": "cleanmac.mcp-meta-index.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "index_count": {"type": "integer"},
+            "indexes": {"type": "array", "items": {"type": "object"}},
+            "index_uris": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": True,
+    },
     "cleanmac.mcp-resource-index.v1": {
         "type": "object",
         "required": ["schema", "destructive", "dry_run", "ready", "resource_count", "resources", "resource_uris"],
@@ -232,6 +252,20 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "prompt_count": {"type": "integer"},
             "prompts": {"type": "array", "items": {"type": "object"}},
             "prompt_names": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.mcp-tool-index.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "ready", "tool_count", "tools", "tool_names"],
+        "properties": {
+            "schema": {"const": "cleanmac.mcp-tool-index.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "tool_count": {"type": "integer"},
+            "tools": {"type": "array", "items": {"type": "object"}},
+            "tool_names": {"type": "array", "items": {"type": "string"}},
         },
         "additionalProperties": True,
     },
@@ -1303,10 +1337,14 @@ def _schema_consumers(name: str) -> tuple[str, ...]:
         return ("ai-self-test", "ai-readiness", "mcp")
     if name == "cleanmac.ai-schema-registry.v1":
         return ("ai-readiness", "ai-self-test", "mcp")
+    if name == "cleanmac.mcp-meta-index.v1":
+        return ("ai-host", "mcp", "ai-host-evidence", "schema-registry")
     if name == "cleanmac.mcp-resource-index.v1":
         return ("ai-host", "mcp", "ai-host-evidence")
     if name == "cleanmac.mcp-prompt-index.v1":
         return ("ai-host", "mcp", "ai-host-evidence")
+    if name == "cleanmac.mcp-tool-index.v1":
+        return ("ai-host", "mcp", "ai-host-evidence", "tool-policy")
     if name.startswith("cleanmac.ai-"):
         return ("ai-host", "mcp")
     return ("cli", "mcp")
@@ -1348,8 +1386,10 @@ def _schema_producer_command(name: str) -> list[str]:
         ],
         "cleanmac.release-post-publish-result.v1": ["cleanmac", "--json", "release-post-publish-result"],
         "cleanmac.release-artifact-manifest.v1": ["python", "scripts/generate_release_manifest.py"],
+        "cleanmac.mcp-meta-index.v1": ["read", "cleanmac://mcp/meta-index"],
         "cleanmac.mcp-resource-index.v1": ["read", "cleanmac://mcp/resource-index"],
         "cleanmac.mcp-prompt-index.v1": ["read", "cleanmac://mcp/prompt-index"],
+        "cleanmac.mcp-tool-index.v1": ["read", "cleanmac://mcp/tool-index"],
         "cleanmac.ai-schema-registry.v1": ["cleanmac", "--json", "ai-schema-registry"],
         "cleanmac.ai-contract-samples.v1": ["cleanmac", "--json", "ai-contract-samples"],
         "cleanmac.ai-contract-validation-summary.v1": ["cleanmac", "--json", "ai-readiness"],
@@ -2231,6 +2271,41 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],
             "recommended_commands": [["make", "release-post-publish-result-smoke"]],
         },
+        "cleanmac.mcp-meta-index.v1": {
+            "schema": "cleanmac.mcp-meta-index.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "index_count": 3,
+            "indexes": [
+                {
+                    "kind": "resource",
+                    "uri": "cleanmac://mcp/resource-index",
+                    "schema": "cleanmac.mcp-resource-index.v1",
+                    "ready": True,
+                    "count": 1,
+                },
+                {
+                    "kind": "prompt",
+                    "uri": "cleanmac://mcp/prompt-index",
+                    "schema": "cleanmac.mcp-prompt-index.v1",
+                    "ready": True,
+                    "count": 1,
+                },
+                {
+                    "kind": "tool",
+                    "uri": "cleanmac://mcp/tool-index",
+                    "schema": "cleanmac.mcp-tool-index.v1",
+                    "ready": True,
+                    "count": 1,
+                },
+            ],
+            "index_uris": [
+                "cleanmac://mcp/resource-index",
+                "cleanmac://mcp/prompt-index",
+                "cleanmac://mcp/tool-index",
+            ],
+        },
         "cleanmac.mcp-resource-index.v1": {
             "schema": "cleanmac.mcp-resource-index.v1",
             "destructive": False,
@@ -2281,6 +2356,31 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 }
             ],
             "prompt_names": ["review-ai-host-policy"],
+        },
+        "cleanmac.mcp-tool-index.v1": {
+            "schema": "cleanmac.mcp-tool-index.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "tool_count": 1,
+            "tools": [
+                {
+                    "name": "cleanmac_execute_plan",
+                    "description": "Execute a validated cleanup plan.",
+                    "risk": "destructive",
+                    "auto_call_allowed": False,
+                    "requires_confirmation": True,
+                    "destructive": True,
+                    "dry_run": False,
+                    "safe_for_mcp": True,
+                    "uses_shell": False,
+                    "invocation_mode": "argv",
+                    "argv_template": ["cleanmac", "--json", "clean", "run"],
+                    "annotations": {"destructiveHint": True},
+                    "inputSchema": {"type": "object"},
+                }
+            ],
+            "tool_names": ["cleanmac_execute_plan"],
         },
     }
     if schema_name == "cleanmac.ai-contract-validation-summary.v1":

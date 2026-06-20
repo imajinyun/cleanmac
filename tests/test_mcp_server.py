@@ -247,9 +247,32 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://release/post-publish-verification", uris)
         self.assertIn("cleanmac://release/post-publish-result", uris)
         self.assertIn("cleanmac://release/post-publish-evidence-template", uris)
+        self.assertIn("cleanmac://mcp/meta-index", uris)
+        self.assertIn("cleanmac://mcp/tool-index", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
         self.assertTrue(all(resource["destructive"] is False for resource in resources))
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in resources))
+
+    def test_resources_read_mcp_meta_index(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 90,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://mcp/meta-index"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://mcp/meta-index")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.mcp-meta-index.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["index_count"], len(payload["indexes"]))
+        self.assertEqual(
+            set(payload["index_uris"]),
+            {"cleanmac://mcp/resource-index", "cleanmac://mcp/prompt-index", "cleanmac://mcp/tool-index"},
+        )
+        self.assertTrue(all(index["ready"] is True for index in payload["indexes"]))
 
     def test_resources_read_mcp_resource_index(self) -> None:
         response = _mcp_request(
@@ -266,7 +289,9 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.mcp-resource-index.v1")
         self.assertTrue(payload["ready"], payload)
         self.assertEqual(payload["resource_count"], len(payload["resources"]))
+        self.assertIn("cleanmac://mcp/meta-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/prompt-index", payload["resource_uris"])
+        self.assertIn("cleanmac://mcp/tool-index", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
 
@@ -290,6 +315,32 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(all(prompt["destructive"] is False for prompt in payload["prompts"]))
         self.assertTrue(all(prompt["dry_run"] is True for prompt in payload["prompts"]))
         self.assertTrue(all(prompt["uses_shell"] is False for prompt in payload["prompts"]))
+
+    def test_resources_read_mcp_tool_index(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 94,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://mcp/tool-index"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://mcp/tool-index")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.mcp-tool-index.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["tool_count"], len(payload["tools"]))
+        self.assertIn("cleanmac_execute_plan", payload["tool_names"])
+        self.assertIn("cleanmac_execute_plan", payload["destructive_tool_names"])
+        self.assertIn("cleanmac_execute_plan", payload["auto_call_denied_tool_names"])
+        self.assertTrue(all(tool["safe_for_mcp"] is True for tool in payload["tools"]))
+        self.assertTrue(all(tool["uses_shell"] is False for tool in payload["tools"]))
+        self.assertTrue(all(tool["invocation_mode"] == "argv" for tool in payload["tools"]))
+        for tool in payload["tools"]:
+            if tool["destructive"]:
+                self.assertFalse(tool["auto_call_allowed"], tool)
+                self.assertTrue(tool["requires_confirmation"], tool)
 
     def test_resources_read_payloads_are_sanitized_for_mcp(self) -> None:
         sensitive_uris = [
@@ -375,8 +426,11 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertTrue(payload["ready"], payload)
         self.assertEqual(payload["mcp"]["resource_uri"], "cleanmac://ai/host-integration-pack")
+        self.assertEqual(payload["mcp"]["meta_index_uri"], "cleanmac://mcp/meta-index")
         self.assertEqual(payload["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
+        self.assertEqual(payload["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertIn("review-ai-host-policy", payload["mcp"]["prompts"])
+        self.assertIn("cleanmac_execute_plan", payload["mcp"]["tools"])
 
     def test_resources_read_host_preflight(self) -> None:
         response = _mcp_request(
@@ -409,7 +463,9 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "cleanmac.ai-host-evidence.v1")
         self.assertTrue(payload["ready"], payload)
         self.assertIn("runtime_policy_evidence", payload)
+        self.assertIn("mcp_meta_index", payload)
         self.assertIn("mcp_prompt_catalog", payload)
+        self.assertIn("mcp_tool_catalog", payload)
 
     def test_resources_read_release_readiness(self) -> None:
         response = _mcp_request(
@@ -464,8 +520,10 @@ class MckServerTests(unittest.TestCase):
 
     def test_resources_read_release_orchestration_reports(self) -> None:
         resources = {
+            "cleanmac://mcp/meta-index": "cleanmac.mcp-meta-index.v1",
             "cleanmac://mcp/resource-index": "cleanmac.mcp-resource-index.v1",
             "cleanmac://mcp/prompt-index": "cleanmac.mcp-prompt-index.v1",
+            "cleanmac://mcp/tool-index": "cleanmac.mcp-tool-index.v1",
             "cleanmac://release/rehearsal": "cleanmac.release-rehearsal.v1",
             "cleanmac://release/promotion-decision": "cleanmac.release-promotion-decision.v1",
             "cleanmac://release/rollback-plan": "cleanmac.release-rollback-plan.v1",
