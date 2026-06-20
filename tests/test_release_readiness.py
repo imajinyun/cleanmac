@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cleancli.core import (
     render_release_diagnostics_report,
@@ -172,6 +173,39 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(summary["status"], "blocked")
         self.assertEqual(summary["must_fix_first"][0]["gate_id"], "release-artifact-manifest-valid")
 
+    def test_release_diagnostics_exposes_mcp_surface_audit_gate_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+            (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+            (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+            manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+            (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+            with patch(
+                "cleancli.core.render_mcp_surface_audit",
+                return_value={
+                    "schema": "cleanmac.mcp-surface-audit.v1",
+                    "ready": False,
+                    "failed_check_ids": ["required-tools-advertised"],
+                    "stop_reason": "mcp-surface-audit failed: required-tools-advertised",
+                },
+            ):
+                diagnostics = render_release_diagnostics_report(dist_dir=dist, assets_dir=assets)
+
+        failed_gates = {gate["id"]: gate for gate in diagnostics["failed_gates"]}
+        self.assertFalse(diagnostics["ready"])
+        self.assertIn("mcp-surface-audit-ready", diagnostics["failed_gate_ids"])
+        self.assertEqual(failed_gates["mcp-surface-audit-ready"]["blocking_code"], "MCP_SURFACE_AUDIT_NOT_READY")
+        self.assertIn("required-tools-advertised", failed_gates["mcp-surface-audit-ready"]["diagnostic"])
+        self.assertIn(["make", "mcp-surface-audit-smoke"], failed_gates["mcp-surface-audit-ready"]["next_actions"])
+        self.assertIn(["make", "mcp-surface-audit-smoke"], diagnostics["recommended_commands"])
+
     def test_release_evidence_bundle_uses_readiness_and_assets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -223,6 +257,38 @@ class ReleaseReadinessTests(unittest.TestCase):
             evidence["post_publish_evidence_template"]["schema"],
             "cleanmac.release-post-publish-evidence-template.v1",
         )
+
+    def test_release_evidence_bundle_includes_mcp_surface_audit_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+            (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+            (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "SHA256SUMS").write_text("", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+            manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+            (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+            with patch(
+                "cleancli.core.render_mcp_surface_audit",
+                return_value={
+                    "schema": "cleanmac.mcp-surface-audit.v1",
+                    "ready": False,
+                    "failed_check_ids": ["required-tools-advertised"],
+                    "stop_reason": "mcp-surface-audit failed: required-tools-advertised",
+                },
+            ):
+                evidence = render_release_evidence_report(dist_dir=dist, assets_dir=assets)
+
+        failed_gates = {gate["id"]: gate for gate in evidence["release_diagnostics"]["failed_gates"]}
+        self.assertFalse(evidence["ready"])
+        self.assertIn("mcp-surface-audit-ready", evidence["release_readiness"]["failed_gate_ids"])
+        self.assertEqual(failed_gates["mcp-surface-audit-ready"]["blocking_code"], "MCP_SURFACE_AUDIT_NOT_READY")
+        self.assertIn(["make", "mcp-surface-audit-smoke"], evidence["release_diagnostics"]["recommended_commands"])
 
 
 def test_pytest_release_readiness_fixture_roundtrip_preserves_unittest_gate(tmp_path: Path) -> None:

@@ -2967,10 +2967,13 @@ def render_release_evidence_report(
     resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
     contract_validation = render_ai_contract_validation_summary()
     contract_validation["ready"] = bool(contract_validation.get("valid"))
+    release_readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+    release_diagnostics = render_release_diagnostics_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     return build_release_evidence_bundle(
         dist_dir=resolved_dist_dir,
         assets_dir=resolved_assets_dir,
-        release_readiness=render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir),
+        release_readiness=release_readiness,
+        release_diagnostics=release_diagnostics,
         contract_validation=contract_validation,
         ai_host_evidence=render_ai_host_evidence_report(),
         eval_smoke=render_ai_eval_smoke_evidence(),
@@ -3000,6 +3003,13 @@ def render_release_diagnostics_report(
     readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     manifest = render_release_manifest_evidence(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     failed_gates = [gate for gate in readiness.get("gates", []) if not gate.get("passed")]
+    recommended_commands = [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]]
+    recommended_commands.extend(
+        list(action) for gate in failed_gates for action in gate.get("next_actions", []) if isinstance(action, list)
+    )
+    recommended_commands = [
+        list(command) for command in dict.fromkeys(tuple(command) for command in recommended_commands)
+    ]
     return {
         "schema": "cleanmac.release-diagnostics.v1",
         "destructive": False,
@@ -3026,7 +3036,7 @@ def render_release_diagnostics_report(
         },
         "readiness_summary": render_release_readiness_summary(readiness),
         "failed_gates": failed_gates,
-        "recommended_commands": [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]],
+        "recommended_commands": recommended_commands,
     }
 
 

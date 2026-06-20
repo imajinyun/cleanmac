@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cleancli.core import render_release_readiness_report
+from cleancli.core import render_release_diagnostics_report, render_release_readiness_report
 from cleancli.release_artifacts import build_release_artifact_manifest
 from cleancli.release_orchestration import (
     render_release_post_publish_evidence_template,
@@ -36,9 +36,8 @@ def _write_ready_release_assets(root: Path) -> tuple[Path, Path]:
     (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
     readiness = render_release_readiness_report(dist_dir=dist, assets_dir=assets)
     (assets / "RELEASE-READINESS.json").write_text(json.dumps(readiness), encoding="utf-8")
-    (assets / "RELEASE-DIAGNOSTICS.json").write_text(
-        json.dumps({"schema": "cleanmac.release-diagnostics.v1", "ready": True}), encoding="utf-8"
-    )
+    diagnostics = render_release_diagnostics_report(dist_dir=dist, assets_dir=assets)
+    (assets / "RELEASE-DIAGNOSTICS.json").write_text(json.dumps(diagnostics), encoding="utf-8")
     (assets / "RELEASE-REHEARSAL.json").write_text(
         json.dumps({"schema": "cleanmac.release-rehearsal.v1", "ready": True}), encoding="utf-8"
     )
@@ -97,6 +96,30 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertFalse(decision["safe_to_publish"])
         self.assertTrue(decision["manual_review_required"])
         self.assertIn("RELEASE_ARTIFACT_MANIFEST_MISSING", decision["blocking_codes"])
+
+    def test_promotion_decision_exposes_mcp_surface_audit_blocking_code(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            dist, assets = _write_ready_release_assets(Path(tmp))
+            readiness = json.loads((assets / "RELEASE-READINESS.json").read_text(encoding="utf-8"))
+            readiness["ready"] = False
+            readiness["manual_review_required"] = True
+            readiness["readiness_score"] = {"passed": 7, "total": 8, "level": "blocked"}
+            readiness["failed_gate_ids"] = ["mcp-surface-audit-ready"]
+            for gate in readiness["gates"]:
+                if gate["id"] == "mcp-surface-audit-ready":
+                    gate["passed"] = False
+                    gate["severity"] = "blocking"
+                    gate["diagnostic"] = "mcp-surface-audit failed: required-tools-advertised"
+                    gate["blocking_code"] = "MCP_SURFACE_AUDIT_NOT_READY"
+            (assets / "RELEASE-READINESS.json").write_text(json.dumps(readiness), encoding="utf-8")
+
+            decision = render_release_promotion_decision(dist_dir=dist, assets_dir=assets)
+
+        self.assertEqual(decision["decision"], "block")
+        self.assertFalse(decision["safe_to_publish"])
+        self.assertIn("RELEASE_READINESS_BLOCKED", decision["blocking_codes"])
+        self.assertIn("MCP_SURFACE_AUDIT_NOT_READY", decision["blocking_codes"])
+        self.assertIn("mcp-surface-audit-ready", decision["rehearsal_summary"]["failed_gate_ids"])
 
     def test_rollback_plan_is_manual_only_without_destructive_commands(self) -> None:
         plan = render_release_rollback_plan(dist_dir="dist", assets_dir="release-assets")
