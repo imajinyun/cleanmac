@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MCP_SERVER = PROJECT_ROOT / "scripts" / "cleanmac_mcp_server.py"
@@ -379,6 +380,222 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(checks["no-shell-invocation"]["passed"])
         self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
         self.assertIn(["make", "mcp-surface-audit-smoke"], payload["remediation_commands"])
+
+    def _assert_surface_audit_blocked(self, payload: dict, failed_check_id: str, command: list[str]) -> None:
+        self.assertFalse(payload["ready"], payload)
+        self.assertIn(failed_check_id, payload["failed_check_ids"])
+        self.assertEqual(payload["readiness_score"]["level"], "blocked")
+        self.assertLess(payload["readiness_score"]["passed"], payload["readiness_score"]["total"])
+        self.assertEqual(payload["next_action"], "stop-and-remediate-mcp-surface")
+        self.assertIn(failed_check_id, payload["stop_reason"])
+        self.assertIn(["make", "mcp-surface-audit-smoke"], payload["remediation_commands"])
+        checks = {check["id"]: check for check in payload["checks"]}
+        self.assertFalse(checks[failed_check_id]["passed"])
+        self.assertIn(command, checks[failed_check_id]["remediation_commands"])
+
+    def test_mcp_surface_audit_fails_closed_when_required_resource_missing(self) -> None:
+        from cleancli.mcp_resources import render_mcp_surface_audit
+
+        with patch("cleancli.mcp_resources.render_mcp_resource_index") as mock_resource:
+            mock_resource.return_value = {
+                "schema": "cleanmac.mcp-resource-index.v1",
+                "destructive": False,
+                "dry_run": True,
+                "ready": True,
+                "resource_count": 0,
+                "resources": [],
+                "resource_uris": [],
+            }
+
+            payload = render_mcp_surface_audit()
+
+        self.assertIn("cleanmac://mcp/surface-audit", payload["missing"]["resources"])
+        self._assert_surface_audit_blocked(
+            payload,
+            "required-resources-advertised",
+            ["make", "mcp-resource-index-smoke"],
+        )
+
+    def test_mcp_surface_audit_fails_closed_when_required_prompt_missing(self) -> None:
+        from cleancli.mcp_resources import render_mcp_surface_audit
+
+        with patch("cleancli.mcp_prompts.render_mcp_prompt_index") as mock_prompt:
+            mock_prompt.return_value = {
+                "schema": "cleanmac.mcp-prompt-index.v1",
+                "destructive": False,
+                "dry_run": True,
+                "ready": True,
+                "prompt_count": 0,
+                "prompts": [],
+                "prompt_names": [],
+            }
+
+            payload = render_mcp_surface_audit()
+
+        self.assertEqual(payload["missing"]["prompts"], ["review-ai-host-policy"])
+        self._assert_surface_audit_blocked(
+            payload,
+            "required-prompts-advertised",
+            ["make", "mcp-prompt-index-smoke"],
+        )
+
+    def test_mcp_surface_audit_fails_closed_when_required_tool_missing(self) -> None:
+        from cleancli.mcp_resources import render_mcp_surface_audit
+
+        with patch("cleancli.mcp_tools.render_mcp_tool_index") as mock_tool:
+            mock_tool.return_value = {
+                "schema": "cleanmac.mcp-tool-index.v1",
+                "destructive": False,
+                "dry_run": True,
+                "ready": True,
+                "tool_count": 0,
+                "tools": [],
+                "tool_names": [],
+            }
+
+            payload = render_mcp_surface_audit()
+
+        self.assertIn("cleanmac_execute_plan", payload["missing"]["tools"])
+        self._assert_surface_audit_blocked(
+            payload,
+            "required-tools-advertised",
+            ["make", "mcp-tool-index-smoke"],
+        )
+
+    def test_mcp_surface_audit_fails_closed_when_destructive_tool_allows_auto_call(self) -> None:
+        from cleancli.mcp_resources import render_mcp_surface_audit
+
+        with patch("cleancli.mcp_tools.render_mcp_tool_index") as mock_tool:
+            mock_tool.return_value = {
+                "schema": "cleanmac.mcp-tool-index.v1",
+                "destructive": False,
+                "dry_run": True,
+                "ready": True,
+                "tool_count": 3,
+                "tools": [
+                    {
+                        "name": "cleanmac_execute_plan",
+                        "destructive": True,
+                        "auto_call_allowed": True,
+                        "requires_confirmation": True,
+                        "safe_for_mcp": True,
+                        "uses_shell": False,
+                        "invocation_mode": "argv",
+                    },
+                    {
+                        "name": "cleanmac_capabilities",
+                        "destructive": False,
+                        "safe_for_mcp": True,
+                        "uses_shell": False,
+                        "invocation_mode": "argv",
+                    },
+                    {
+                        "name": "cleanmac_policy_simulate",
+                        "destructive": False,
+                        "safe_for_mcp": True,
+                        "uses_shell": False,
+                        "invocation_mode": "argv",
+                    },
+                ],
+                "tool_names": ["cleanmac_capabilities", "cleanmac_execute_plan", "cleanmac_policy_simulate"],
+            }
+
+            payload = render_mcp_surface_audit()
+
+        self.assertEqual(payload["missing"]["tools"], [])
+        self._assert_surface_audit_blocked(
+            payload,
+            "destructive-tools-gated",
+            ["make", "ai-governance-smoke"],
+        )
+
+    def test_mcp_surface_audit_fails_closed_when_tool_uses_shell_invocation(self) -> None:
+        from cleancli.mcp_resources import render_mcp_surface_audit
+
+        with patch("cleancli.mcp_tools.render_mcp_tool_index") as mock_tool:
+            mock_tool.return_value = {
+                "schema": "cleanmac.mcp-tool-index.v1",
+                "destructive": False,
+                "dry_run": True,
+                "ready": True,
+                "tool_count": 3,
+                "tools": [
+                    {
+                        "name": "cleanmac_execute_plan",
+                        "destructive": True,
+                        "auto_call_allowed": False,
+                        "requires_confirmation": True,
+                        "safe_for_mcp": True,
+                        "uses_shell": True,
+                        "invocation_mode": "shell",
+                    },
+                    {
+                        "name": "cleanmac_capabilities",
+                        "destructive": False,
+                        "safe_for_mcp": True,
+                        "uses_shell": False,
+                        "invocation_mode": "argv",
+                    },
+                    {
+                        "name": "cleanmac_policy_simulate",
+                        "destructive": False,
+                        "safe_for_mcp": True,
+                        "uses_shell": False,
+                        "invocation_mode": "argv",
+                    },
+                ],
+                "tool_names": ["cleanmac_capabilities", "cleanmac_execute_plan", "cleanmac_policy_simulate"],
+            }
+
+            payload = render_mcp_surface_audit()
+
+        self.assertEqual(payload["missing"]["tools"], [])
+        self._assert_surface_audit_blocked(
+            payload,
+            "no-shell-invocation",
+            ["make", "ai-host-smoke"],
+        )
+
+    def test_mcp_surface_audit_fails_closed_when_sensitive_data_policy_missing(self) -> None:
+        from cleancli.mcp_resources import render_mcp_surface_audit
+
+        required_uris = [
+            "cleanmac://mcp/meta-index",
+            "cleanmac://mcp/resource-index",
+            "cleanmac://mcp/prompt-index",
+            "cleanmac://mcp/tool-index",
+            "cleanmac://mcp/surface-audit",
+            "cleanmac://ai/host-integration-pack",
+            "cleanmac://ai/host-preflight",
+            "cleanmac://ai/host-evidence",
+            "cleanmac://ai/host-policy",
+        ]
+        with patch("cleancli.mcp_resources.render_mcp_resource_index") as mock_resource:
+            mock_resource.return_value = {
+                "schema": "cleanmac.mcp-resource-index.v1",
+                "destructive": False,
+                "dry_run": True,
+                "ready": True,
+                "resource_count": 1,
+                "resources": [
+                    {
+                        "uri": "cleanmac://mcp/surface-audit",
+                        "destructive": False,
+                        "safe_for_mcp": True,
+                        "sensitive_data_policy": "",
+                    }
+                ],
+                "resource_uris": required_uris,
+            }
+
+            payload = render_mcp_surface_audit()
+
+        self.assertEqual(payload["missing"]["resources"], [])
+        self._assert_surface_audit_blocked(
+            payload,
+            "sensitive-data-policy-present",
+            ["make", "mcp-surface-audit-smoke"],
+        )
 
     def test_resources_read_payloads_are_sanitized_for_mcp(self) -> None:
         sensitive_uris = [

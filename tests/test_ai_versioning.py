@@ -449,6 +449,28 @@ class AISchemaRegistryTests(unittest.TestCase):
         }
         self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", mcp_surface_audit)["valid"])
 
+        blocked_mcp_surface_audit = dict(mcp_surface_audit)
+        blocked_mcp_surface_audit.update(
+            {
+                "ready": False,
+                "checks": [
+                    {
+                        "id": "required-tools-advertised",
+                        "passed": False,
+                        "evidence": "cleanmac.mcp-tool-index.v1",
+                        "remediation_commands": [["make", "mcp-tool-index-smoke"]],
+                    }
+                ],
+                "missing": {"resources": [], "prompts": [], "tools": ["cleanmac_execute_plan"]},
+                "failed_check_ids": ["required-tools-advertised"],
+                "readiness_score": {"passed": 12, "total": 13, "level": "blocked"},
+                "next_action": "stop-and-remediate-mcp-surface",
+                "stop_reason": "mcp-surface-audit failed: required-tools-advertised",
+                "remediation_commands": [["make", "mcp-surface-audit-smoke"]],
+            }
+        )
+        self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", blocked_mcp_surface_audit)["valid"])
+
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
         self.assertEqual(samples["sample_count"], len(samples["samples"]))
