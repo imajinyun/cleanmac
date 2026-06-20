@@ -50,6 +50,7 @@ def render_release_readiness(
     ai_host_integration_pack: Mapping[str, Any],
     ai_host_preflight: Mapping[str, Any],
     ai_host_evidence: Mapping[str, Any],
+    mcp_surface_audit: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
     eval_smoke: Mapping[str, Any],
     release_manifest: Mapping[str, Any],
@@ -89,6 +90,21 @@ def render_release_readiness(
             diagnostic="AI Host evidence pack is incomplete.",
             blocking_code="AI_HOST_EVIDENCE_NOT_READY",
             next_actions=[["make", "ai-host-smoke"], ["make", "mcp-smoke"]],
+        ),
+        _gate(
+            gate_id="mcp-surface-audit-ready",
+            passed=_passed_bool(mcp_surface_audit, "ready"),
+            evidence_schema=mcp_surface_audit.get("schema"),
+            evidence_ref={"producer": "cleanmac --json mcp-surface-audit"},
+            diagnostic=str(
+                mcp_surface_audit.get("stop_reason") or "MCP surface audit is not ready for release review."
+            ),
+            blocking_code="MCP_SURFACE_AUDIT_NOT_READY",
+            next_actions=[
+                ["cleanmac", "--json", "mcp-surface-audit"],
+                ["make", "mcp-surface-audit-smoke"],
+                ["make", "mcp-smoke"],
+            ],
         ),
         _gate(
             gate_id="contract-validation-ready",

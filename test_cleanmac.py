@@ -5573,7 +5573,7 @@ class CleanMacCLITests(unittest.TestCase):
 
         self.assertTrue(explicit_readiness["ready"], explicit_readiness)
         self.assertEqual(explicit_readiness["failed_gate_ids"], [])
-        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 7, "total": 7, "level": "release-ready"})
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 8, "total": 8, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"
