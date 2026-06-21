@@ -6628,6 +6628,8 @@ def render_completion_shell(shell: str) -> str:
     global_flags = "--root --home --json --report-file --version --verbose --quiet"
     category_flags = "--categories --default --all"
     category_keys = sorted(cat.key for cat in CATEGORIES)
+    ai_eval_scenarios = [str(row["id"]) for row in render_ai_eval_pack().get("scenarios", [])]
+    ai_eval_run_flags = " ".join(dict.fromkeys(["--scenario", "--trace-file", "smoke", "all", *ai_eval_scenarios]))
     # Command-specific flags: maps command -> list of flag completions
     cmd_flags = {
         "scripts": f"{category_flags} --group",
@@ -6669,7 +6671,7 @@ def render_completion_shell(shell: str) -> str:
         "release-post-publish-evidence-template": "--dist-dir --assets-dir",
         "ai-schema-registry": "",
         "ai-eval-pack": "",
-        "ai-eval-run": "--scenario --trace-file smoke all discover_readiness safe_plan_to_dry_run invalid_category_recovery confirmation_token_policy mcp_resource_prompt_surface",
+        "ai-eval-run": ai_eval_run_flags,
     }
     if shell == "bash":
         return _render_bash_completion(commands, global_flags, category_keys, cmd_flags)
