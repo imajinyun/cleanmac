@@ -6,11 +6,21 @@ import sys
 import unittest
 from pathlib import Path
 
+from cleancli.ai_self_test import render_ai_self_test
+from cleancli.core import render_ai_self_test as render_core_ai_self_test
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
 
 
 class AISelfTestTests(unittest.TestCase):
+    def test_ai_self_test_is_owned_outside_core_and_reexported(self) -> None:
+        report = render_ai_self_test()
+
+        self.assertEqual(report, render_core_ai_self_test())
+        self.assertEqual(report["schema"], "cleanmac.ai-self-test.v1")
+        self.assertTrue(report["passed"], report)
+
     def test_ai_self_test_reports_all_checks_passed(self) -> None:
         result = subprocess.run(
             [sys.executable, str(CLI), "--json", "ai-self-test"],

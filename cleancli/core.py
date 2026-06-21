@@ -37,15 +37,16 @@ from cleancli.ai_errors import classify_cli_error as classify_cli_error
 from cleancli.ai_errors import render_ai_error_report as render_ai_error_report
 from cleancli.ai_errors import render_ai_error_taxonomy as render_ai_error_taxonomy
 from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run
-from cleancli.ai_governance import render_ai_governance_advice, validate_ai_governance_advice
+from cleancli.ai_governance import render_ai_governance_advice
 from cleancli.ai_host_evidence import render_ai_host_evidence
 from cleancli.ai_host_integration import render_ai_host_integration_pack, render_ai_host_preflight
-from cleancli.ai_host_policy import evaluate_ai_host_tool_call, render_ai_host_policy, validate_ai_host_policy
+from cleancli.ai_host_policy import evaluate_ai_host_tool_call, render_ai_host_policy
 from cleancli.ai_policy import render_llm_invocation_guide as render_llm_invocation_guide
 from cleancli.ai_policy import render_plan_policy as render_plan_policy
 from cleancli.ai_policy import render_prompt_injection_policy as render_prompt_injection_policy
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
+from cleancli.ai_self_test import render_ai_self_test as render_ai_self_test
 from cleancli.ai_versioning import (
     AI_HOST_CRITICAL_SCHEMAS,
     negotiate_plan_schema,
@@ -2677,116 +2678,6 @@ def render_ai_contract_validation(schema_name: str, payload_file: str) -> dict[s
             ],
         }
     return validate_contract_payload(schema_name, payload)
-
-
-def render_ai_self_test() -> dict[str, Any]:
-    ai_tool_contract = render_ai_tool_contract()
-    schema_validation = ai_schema.validate_ai_tool_definitions()
-    compatibility = ai_schema.render_contract_compatibility(ai_tool_contract)
-    provider_parity = ai_schema.render_provider_export_parity()
-    runbook = render_ai_runbook()
-    decision_matrix = render_ai_decision_matrix()
-    eval_pack = render_ai_eval_pack()
-    governance_advice = render_ai_governance_advice_report()
-    governance_validation = validate_ai_governance_advice(governance_advice)
-    host_policy = render_ai_host_policy_report()
-    host_policy_validation = validate_ai_host_policy(host_policy)
-    schema_registry = render_ai_schema_registry()
-    contract_validation = render_ai_contract_validation_summary()
-    runtime_lifecycle = render_runtime_lifecycle_policy()
-    runtime_lifecycle_ready = bool(
-        runtime_lifecycle["schema"] == "cleanmac.runtime-lifecycle-policy.v1"
-        and runtime_lifecycle["product_model"] == "ai-first-ephemeral-cli"
-        and runtime_lifecycle["runs_only_when_invoked"] is True
-        and runtime_lifecycle["exits_after_workflow"] is True
-        and runtime_lifecycle["resident_processes"] == 0
-        and runtime_lifecycle["implements_tui"] is False
-        and runtime_lifecycle["implements_gui"] is False
-        and runtime_lifecycle["installs_background_daemon"] is False
-        and runtime_lifecycle["performs_unsolicited_scans"] is False
-    )
-    checks = [
-        {
-            "id": "schema-validation",
-            "passed": bool(schema_validation["valid"]),
-            "detail": schema_validation,
-        },
-        {
-            "id": "contract-compatibility",
-            "passed": bool(compatibility["compatible"]),
-            "detail": compatibility,
-        },
-        {
-            "id": "provider-export-parity",
-            "passed": bool(provider_parity["same_tool_names"] and provider_parity["same_tool_count"]),
-            "detail": provider_parity,
-        },
-        {
-            "id": "runbook-execution-gate",
-            "passed": bool(not runbook["uses_shell"] and not runbook["execution_gate"]["auto_call_allowed"]),
-            "detail": runbook["execution_gate"],
-        },
-        {
-            "id": "runtime-lifecycle-policy",
-            "passed": runtime_lifecycle_ready,
-            "detail": runtime_lifecycle,
-        },
-        {
-            "id": "tool-decision-matrix",
-            "passed": bool(decision_matrix["violation_count"] == 0),
-            "detail": decision_matrix,
-        },
-        {
-            "id": "ai-eval-pack",
-            "passed": bool(
-                eval_pack["schema"] == "cleanmac.ai-eval-pack.v1"
-                and not eval_pack["uses_shell"]
-                and not eval_pack["allows_destructive_execution"]
-                and eval_pack["scenario_count"] >= 4
-            ),
-            "detail": eval_pack,
-        },
-        {
-            "id": "ai-governance-advice",
-            "passed": bool(governance_advice["ready_for_llm_calling"] and governance_validation["valid"]),
-            "detail": {
-                "schema": governance_advice["schema"],
-                "ready_for_llm_calling": governance_advice["ready_for_llm_calling"],
-                "validation": governance_validation,
-            },
-        },
-        {
-            "id": "ai-host-policy",
-            "passed": bool(host_policy["valid"] and host_policy_validation["valid"]),
-            "detail": {
-                "schema": host_policy["schema"],
-                "validation": host_policy_validation,
-            },
-        },
-        {
-            "id": "schema-registry-coverage",
-            "passed": bool(
-                schema_registry["schema"] == "cleanmac.ai-schema-registry.v1" and schema_registry["entry_count"] >= 20
-            ),
-            "detail": {"schema": schema_registry["schema"], "entry_count": schema_registry["entry_count"]},
-        },
-        {
-            "id": "contract-validation-smoke",
-            "passed": bool(contract_validation["valid"]),
-            "detail": contract_validation,
-        },
-        {
-            "id": "mcp-transport",
-            "passed": True,
-            "detail": {"transport": "stdio", "uses_shell": False, "server_command": ["cleanmac-mcp"]},
-        },
-    ]
-    return {
-        "schema": "cleanmac.ai-self-test.v1",
-        "passed": all(check["passed"] for check in checks),
-        "check_count": len(checks),
-        "checks": checks,
-    }
 
 
 def render_doctor(*, root: Path, home: Path) -> dict[str, Any]:
