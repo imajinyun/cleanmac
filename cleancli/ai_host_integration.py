@@ -7,6 +7,7 @@ from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, mcp_prompt_names
 from cleancli.mcp_resources import (
+    AI_WORKFLOW_CONTRACT_URI,
     MCP_META_INDEX_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
@@ -47,6 +48,7 @@ def render_ai_host_integration_pack(
         f"read {MCP_TOOL_INDEX_URI}",
         f"read {MCP_SURFACE_AUDIT_URI}",
         "read cleanmac://ai/host-integration-pack",
+        f"read {AI_WORKFLOW_CONTRACT_URI}",
         f"read {RUNTIME_LIFECYCLE_POLICY_URI}",
         *list(governance_advice.get("recommended_call_sequence", [])),
     ]:
@@ -147,6 +149,7 @@ def render_ai_host_preflight(
                 and isinstance(tools, list)
                 and "cleanmac_execute_plan" in tools
                 and "cleanmac://ai/host-integration-pack" in resources
+                and AI_WORKFLOW_CONTRACT_URI in resources
                 and RUNTIME_LIFECYCLE_POLICY_URI in resources
             ),
             "evidence": RUNTIME_LIFECYCLE_POLICY_URI,
@@ -179,6 +182,7 @@ def render_ai_host_preflight(
             "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
             "mcp_tool_index": MCP_TOOL_INDEX_URI,
             "mcp_surface_audit": MCP_SURFACE_AUDIT_URI,
+            "workflow_contract": AI_WORKFLOW_CONTRACT_URI,
             "runtime_lifecycle_policy": RUNTIME_LIFECYCLE_POLICY_URI,
         },
         "checks": checks,

@@ -73,6 +73,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(pack["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertEqual(pack["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
+        self.assertIn("cleanmac://ai/workflow-contract", pack["mcp"]["resources"])
         self.assertIn("review-ai-host-policy", pack["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", pack["mcp"]["tools"])
         self.assertEqual(pack["recommended_call_sequence"][0], "read cleanmac://mcp/meta-index")
@@ -81,7 +82,9 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["recommended_call_sequence"][3], "read cleanmac://mcp/tool-index")
         self.assertEqual(pack["recommended_call_sequence"][4], "read cleanmac://mcp/surface-audit")
         self.assertEqual(pack["recommended_call_sequence"][5], "read cleanmac://ai/host-integration-pack")
+        self.assertEqual(pack["recommended_call_sequence"][6], "read cleanmac://ai/workflow-contract")
         self.assertEqual(len(pack["recommended_call_sequence"]), len(set(pack["recommended_call_sequence"])))
+        self.assertIn("read cleanmac://ai/workflow-contract", pack["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/runtime-lifecycle-policy", pack["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
@@ -109,6 +112,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(pack["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertEqual(pack["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
+        self.assertIn("cleanmac://ai/workflow-contract", pack["mcp"]["resources"])
 
     def test_readiness_and_governance_recommend_integration_pack_entrypoint(self) -> None:
         pack = render_ai_host_integration_pack_report()
@@ -198,6 +202,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(preflight["entrypoint"]["mcp_prompt_index"], "cleanmac://mcp/prompt-index")
         self.assertEqual(preflight["entrypoint"]["mcp_tool_index"], "cleanmac://mcp/tool-index")
         self.assertEqual(preflight["entrypoint"]["mcp_surface_audit"], "cleanmac://mcp/surface-audit")
+        self.assertEqual(preflight["entrypoint"]["workflow_contract"], "cleanmac://ai/workflow-contract")
         checks = {check["id"]: check for check in preflight["checks"]}
         self.assertTrue(checks["integration-pack-ready"]["passed"])
         self.assertTrue(checks["host-policy-valid"]["passed"])

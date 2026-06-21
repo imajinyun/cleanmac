@@ -212,6 +212,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_host_integration_pack_report,
         render_ai_host_policy_report,
         render_ai_host_preflight_report,
+        render_ai_workflow,
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
@@ -229,6 +230,7 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli.governance import render_runtime_lifecycle_policy  # type: ignore[import-untyped]
     from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, render_mcp_prompt_index  # type: ignore[import-untyped]
     from cleancli.mcp_resources import (  # type: ignore[import-untyped]
+        AI_WORKFLOW_CONTRACT_URI,
         MCP_META_INDEX_URI,
         MCP_RESOURCE_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
@@ -261,6 +263,11 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_runbook()
     elif uri == RUNTIME_LIFECYCLE_POLICY_URI:
         payload = render_runtime_lifecycle_policy()
+    elif uri == AI_WORKFLOW_CONTRACT_URI:
+        from cleancli.core import CATEGORIES  # type: ignore[import-untyped]
+
+        categories = [category for category in CATEGORIES if category.key in {"trash", "downloads", "xcode"}]
+        payload = render_ai_workflow(categories, goal="safe-cleanup", root=Path("/"), home=Path("~/"))
     elif uri == "cleanmac://ai/self-test":
         payload = render_ai_self_test()
     elif uri == "cleanmac://ai/tool-decision-matrix":
