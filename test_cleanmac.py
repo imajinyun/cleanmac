@@ -383,7 +383,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 34
+        EXPECTED_TOOL_COUNT = 35
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -631,6 +631,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac_policy_simulate", tool_names)
         self.assertIn("cleanmac_workflow", tool_names)
         self.assertIn("cleanmac_software_uninstall_plan", tool_names)
+        self.assertIn("cleanmac_software_uninstall_execute", tool_names)
         execute_tool = next(tool for tool in function_schemas["tools"] if tool["name"] == "cleanmac_execute_plan")
         self.assertEqual(execute_tool["risk"], "destructive")
         self.assertTrue(execute_tool["requires_confirmation"])
@@ -824,6 +825,32 @@ class CleanMacCLITests(unittest.TestCase):
                 "/tmp/privacy-plan.json",
                 "--review-selection-file",
                 "/tmp/privacy-selection.json",
+                "--execute",
+                "--yes",
+                "--operation-log",
+                cleancli.OPERATIONS_LOG_FILE,
+            ],
+        )
+        self.assertEqual(
+            ai_schema.build_tool_argv(
+                "cleanmac_software_uninstall_execute",
+                {
+                    "plan_file": "/tmp/software-plan.json",
+                    "review_selection_file": "/tmp/software-selection.json",
+                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                },
+            ),
+            [
+                "cleanmac",
+                "--json",
+                "software",
+                "execute",
+                "--plan-file",
+                "/tmp/software-plan.json",
+                "--review-selection-file",
+                "/tmp/software-selection.json",
+                "--delete-mode",
+                "trash",
                 "--execute",
                 "--yes",
                 "--operation-log",
@@ -1985,6 +2012,108 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("official-uninstaller-required", report["blocked_reasons"])
             self.assertTrue(report["uninstall_plan"]["official_uninstaller_required"])
             self.assertTrue(validate_contract_payload("cleanmac.software-uninstall-plan.v1", report)["valid"])
+
+    def test_software_uninstall_execute_requires_review_selection_and_routes_to_trash(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            app_contents = root / "Applications/Example.app/Contents"
+            app_contents.mkdir(parents=True)
+            (app_contents / "Info.plist").write_bytes(
+                b'<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.example.app</string></dict></plist>'
+            )
+            app_support = root / "Users/tester/Library/Application Support/Example"
+            app_support.mkdir(parents=True)
+            (app_support / "state.db").write_text("preserve until explicit selection", encoding="utf-8")
+            cache_path = root / "Users/tester/Library/Caches/com.example.app"
+            plan_file = root / "software-plan.json"
+            selection_file = root / "software-selection.json"
+            operation_log = root / "logs" / "software-uninstall.jsonl"
+
+            plan = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "software", "uninstall-plan", "--app", "Example"
+                ).stdout
+            )
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            review_report = json.loads(
+                self.run_cli(
+                    "--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)
+                ).stdout
+            )
+            selected_ids = [item["id"] for item in review_report["items"] if item["kind"] in {"app-bundle", "cache"}]
+            selection = dict(review_report["selection"])
+            selection["selected_item_ids"] = selected_ids
+            selection["excluded_item_ids"] = [
+                item["id"] for item in review_report["items"] if item["id"] not in selected_ids
+            ]
+            selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+            missing_selection = self.run_cli_unchecked(
+                "--root", str(root), "--home", str(home), "--json", "software", "execute", "--plan-file", str(plan_file)
+            )
+            self.assertNotEqual(missing_selection.returncode, 0)
+            self.assertEqual(json.loads(missing_selection.stderr)["error"]["code"], "SELECTION_VALIDATION_FAILED")
+
+            dry_run_report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "software",
+                    "execute",
+                    "--plan-file",
+                    str(plan_file),
+                    "--review-selection-file",
+                    str(selection_file),
+                    "--operation-log",
+                    str(operation_log),
+                ).stdout
+            )
+            self.assertEqual(dry_run_report["schema"], "cleanmac.software-uninstall-result.v1")
+            self.assertTrue(dry_run_report["dry_run"])
+            self.assertEqual(dry_run_report["planned_count"], 2)
+            self.assertEqual(dry_run_report["skipped_count"], 1)
+            self.assertTrue((root / "Applications/Example.app").exists())
+            self.assertTrue(cache_path.exists())
+            self.assertTrue(app_support.exists())
+            self.assertTrue(validate_contract_payload("cleanmac.software-uninstall-result.v1", dry_run_report)["valid"])
+
+            execute_report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "software",
+                    "execute",
+                    "--plan-file",
+                    str(plan_file),
+                    "--review-selection-file",
+                    str(selection_file),
+                    "--execute",
+                    "--yes",
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    str(operation_log),
+                ).stdout
+            )
+            records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+            self.assertFalse(execute_report["dry_run"])
+            self.assertEqual(execute_report["deleted_count"], 2)
+            self.assertEqual(execute_report["skipped_count"], 1)
+            self.assertFalse((root / "Applications/Example.app").exists())
+            self.assertFalse(cache_path.exists())
+            self.assertTrue(app_support.exists())
+            self.assertTrue(all(item["delete_mode"] == "trash" for item in execute_report["results"]))
+            self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {2})
+            self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
+            self.assertTrue(any(record.get("trash_path") for record in records if record["status"] == "deleted"))
+            self.assertTrue(validate_contract_payload("cleanmac.software-uninstall-result.v1", execute_report)["valid"])
 
     def test_review_generates_selection_file_from_plan(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -4990,14 +5119,17 @@ class CleanMacCLITests(unittest.TestCase):
         )
         self.assertTrue(report["groups"]["clean"]["command_templates"][2]["destructive"])
         self.assertTrue(report["groups"]["clean"]["command_templates"][2]["manual_review_required"])
-        self.assertTrue(report["groups"]["software"]["safe_to_auto_execute"])
-        self.assertFalse(report["groups"]["software"]["contains_destructive_templates"])
-        self.assertFalse(report["groups"]["software"]["destructive"])
+        self.assertFalse(report["groups"]["software"]["safe_to_auto_execute"])
+        self.assertTrue(report["groups"]["software"]["contains_destructive_templates"])
+        self.assertTrue(report["groups"]["software"]["destructive"])
         self.assertEqual(report["groups"]["software"]["command_templates"][0]["id"], "software-list")
         self.assertEqual(
             report["groups"]["software"]["command_templates"][0]["argv"],
             ["python3", "cleanmac.py", "--json", "software", "list"],
         )
+        self.assertTrue(report["groups"]["software"]["command_templates"][-1]["destructive"])
+        self.assertFalse(report["groups"]["software"]["command_templates"][-1]["safe_to_auto_execute"])
+        self.assertTrue(report["groups"]["software"]["command_templates"][-1]["manual_review_required"])
         self.assertIn("boundary_governance", inventory)
         self.assertFalse(inventory["boundary_governance"]["script_template_policy"]["auto_execute_allowed"])
         self.assertTrue(inventory["boundary_governance"]["script_template_policy"]["global_flags_before_command"])

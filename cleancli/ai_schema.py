@@ -315,6 +315,25 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "software", "uninstall-plan"],
     },
     {
+        "name": "cleanmac_software_uninstall_execute",
+        "description": "Move selected software uninstall candidates from a reviewed uninstall plan to Trash. Requires explicit confirmation.",
+        "risk": "destructive",
+        "auto_call_allowed": False,
+        "requires_confirmation": True,
+        "parameters": object_schema(
+            {
+                "plan_file": string_schema("Path to a cleanmac.software-uninstall-plan.v1 JSON file."),
+                "review_selection_file": string_schema(
+                    "Path to a cleanmac.review-selection.v1 file for this software uninstall plan."
+                ),
+                "confirmation_phrase": string_schema(f"Must exactly equal: {CONFIRMATION_PHRASE}"),
+                "operation_log": string_schema("JSONL operation log path."),
+            },
+            ("plan_file", "review_selection_file", "confirmation_phrase"),
+        ),
+        "argv_template": ["cleanmac", "--json", "software", "execute"],
+    },
+    {
         "name": "cleanmac_software_inspect",
         "description": "Inspect app uninstall candidates without making changes.",
         "risk": "readonly",
@@ -643,6 +662,13 @@ def representative_args(name: str) -> dict[str, Any]:
         return {"categories": ["trash"], "inspect_limit": 10, "dry_run_scope": "selected"}
     if name == "cleanmac_software_uninstall_plan":
         return {"app": "Example.app"}
+    if name == "cleanmac_software_uninstall_execute":
+        return {
+            "plan_file": "/tmp/cleanmac-software-uninstall-plan.json",
+            "review_selection_file": "/tmp/cleanmac-software-uninstall-selection.json",
+            "confirmation_phrase": CONFIRMATION_PHRASE,
+            "operation_log": DEFAULT_OPERATION_LOG,
+        }
     if name == "cleanmac_software_inspect":
         return {"app": "Example.app"}
     if name in {"cleanmac_privacy_inspect", "cleanmac_privacy_plan"}:
@@ -1060,6 +1086,32 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         argv = ["cleanmac", "--json", "software", "inspect"]
         append_option(argv, args, "app", "--app")
         return argv
+    if name == "cleanmac_software_uninstall_execute":
+        if args.get("confirmation_phrase") != CONFIRMATION_PHRASE:
+            raise ValueError("cleanmac_software_uninstall_execute requires explicit user confirmation phrase")
+        plan_file = str(args.get("plan_file") or "")
+        review_selection_file = str(args.get("review_selection_file") or "")
+        if not plan_file:
+            raise ValueError("plan_file is required")
+        if not review_selection_file:
+            raise ValueError("review_selection_file is required")
+        operation_log = str(args.get("operation_log") or DEFAULT_OPERATION_LOG)
+        return [
+            "cleanmac",
+            "--json",
+            "software",
+            "execute",
+            "--plan-file",
+            plan_file,
+            "--review-selection-file",
+            review_selection_file,
+            "--delete-mode",
+            "trash",
+            "--execute",
+            "--yes",
+            "--operation-log",
+            operation_log,
+        ]
     if name == "cleanmac_startup_audit":
         return ["cleanmac", "--json", "startup", "audit"]
     if name == "cleanmac_startup_plan":
