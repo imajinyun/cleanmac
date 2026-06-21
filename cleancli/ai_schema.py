@@ -437,7 +437,11 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "auto_call_allowed": True,
         "requires_confirmation": False,
         "parameters": object_schema(
-            {"tool": string_schema("Tool adapter: all, docker, homebrew, xcode, package-managers.")}
+            {
+                "tool": string_schema(
+                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, pip, uv, cargo."
+                )
+            }
         ),
         "argv_template": ["cleanmac", "--json", "tool-plan"],
     },
@@ -449,7 +453,9 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "requires_confirmation": False,
         "parameters": object_schema(
             {
-                "tool": string_schema("Tool adapter: all, docker, homebrew, xcode, package-managers."),
+                "tool": string_schema(
+                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, pip, uv, cargo."
+                ),
                 "operation_log": string_schema("JSONL operation log path."),
             }
         ),

@@ -87,7 +87,7 @@ from cleancli.review import (
 from cleancli.software_uninstall import execute_software_uninstall
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import disable_startup_items, render_startup
-from cleancli.tool_adapters import execute_tool
+from cleancli.tool_adapters import TOOL_ADAPTER_CHOICES, execute_tool
 from cleancli.tool_adapters import render_tool_plan as render_tool_adapter_plan
 
 VERSION = "0.1.0"
@@ -1132,7 +1132,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     tool_plan_cmd.add_argument(
         "--tool",
-        choices=("all", "docker", "homebrew", "xcode", "package-managers"),
+        choices=TOOL_ADAPTER_CHOICES,
         default="all",
         help="Tool adapter to describe. Plans are read-only and never execute external cleanup commands.",
     )
@@ -1143,7 +1143,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     tool_execute_cmd.add_argument(
         "--tool",
-        choices=("all", "docker", "homebrew", "xcode", "package-managers"),
+        choices=TOOL_ADAPTER_CHOICES,
         default="all",
     )
     tool_execute_cmd.add_argument("--execute", action="store_true", help="Run destructive adapter commands.")
