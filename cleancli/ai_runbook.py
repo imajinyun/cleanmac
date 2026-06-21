@@ -7,6 +7,17 @@ def render_ai_runbook() -> dict[str, Any]:
     return {
         "schema": "cleanmac.ai-runbook.v1",
         "default_mode": "dry-run-first",
+        "runtime_lifecycle": {
+            "product_model": "ai-first-ephemeral-cli",
+            "runs_only_when_invoked": True,
+            "exits_after_workflow": True,
+            "resident_processes": 0,
+            "implements_tui": False,
+            "implements_gui": False,
+            "installs_background_daemon": False,
+            "performs_unsolicited_scans": False,
+            "interaction_layer": "AI host or explicit CLI command",
+        },
         "uses_shell": False,
         "command_transport": "argv-only",
         "execution_gate": {

@@ -1,6 +1,6 @@
 # 🧹 cleanmac
 
-> **macOS 清理工具 · Dry-run 优先 · AI 原生集成**
+> **AI-first macOS 清理 CLI · 一次性运行 · Dry-run 优先 · MCP 集成**
 
 - [📗 English Docs](/docs/doc/README.md)
 - [📕 中文文档](/docs/doc/README.CN.md)
@@ -42,6 +42,18 @@ cleanmac 的目标是在 GitHub 上成为更安全、更可治理、可用性足
 - **比临时 shell 脚本更安全**：默认 dry-run、删除预算、受保护 bundle、Trash-only 执行、operation log 审计链。
 - **比一次性清理器更可审查**：inspect → plan → review → selection → dry-run → execute 全链路显式且机器可读。
 - **比传统清理器更适合 AI/MCP**：工具契约、schema registry、host policy、release readiness 和 smoke gate 都是一等输出。
+- **设计上零常驻**：cleanmac 只在用户或 AI Host 调用时运行，按需输出文件/报告/日志，然后退出；不实现 GUI/TUI、菜单栏进程、后台守护或主动扫描循环。
+
+---
+
+## 🧠 AI-first，而不是 App-first
+
+cleanmac 有意不在 TUI/GUI 留存体验上竞争。AI 时代的交互层应该是 AI Host 或显式 CLI 命令；cleanmac 只做受治理的执行内核，在被请求时出现，完成工作流后退出。
+
+- 不提供常驻 GUI、TUI、菜单栏进程、登录项或清理守护进程
+- 未被调用时不占用后台 CPU 和内存
+- 不主动扫描、不弹提醒、不做遥测、不制造注意力留存循环
+- 持久状态只存在于机器可读 plan、review-selection、报告和 operation log 中，而不是长期运行的 App session
 
 ---
 
@@ -94,6 +106,7 @@ python3 cleanmac.py --json clean run --plan-file /tmp/cleanmac-plan.json --revie
 | 🗂️ **受治理的 MCP 索引** | 通过 meta index 汇总 resource、prompt 与 tool 目录 |
 | 🔐 **多层安全门禁** | Bundle 保护、预算上限、Trash 可恢复、执行确认令牌 |
 | 🧾 **审查到执行契约** | `review` 选择文件可通过 `--review-selection-file` 约束 clean、startup 和 privacy 执行 |
+| 💤 **零常驻占用** | 不提供 GUI/TUI、后台守护、登录项、主动扫描或空闲 CPU/内存占用 |
 | 🧪 **沙箱演练** | `--root` / `--home` 路径重映射，安全测试清理效果 |
 | 📦 **零依赖** | 纯 Python 3.10+，无需外部包即可运行 |
 
