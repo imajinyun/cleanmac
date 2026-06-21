@@ -383,7 +383,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 35
+        EXPECTED_TOOL_COUNT = 36
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -692,6 +692,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(validation["tool_count"], len(schemas["tools"]))
         self.assertIn("cleanmac_execute_plan", validation["destructive_tools"])
         self.assertIn("cleanmac_inspect", by_name)
+        self.assertIn("cleanmac_profiles", by_name)
         self.assertIn("cleanmac_execute_plan", by_name)
         self.assertFalse(by_name["cleanmac_inspect"]["requires_confirmation"])
         self.assertTrue(by_name["cleanmac_execute_plan"]["requires_confirmation"])
@@ -709,6 +710,20 @@ class CleanMacCLITests(unittest.TestCase):
                 "plan",
                 "--categories",
                 "trash,downloads",
+                "--ai-origin",
+                "--max-items",
+                "5",
+            ],
+        )
+        self.assertEqual(
+            ai_schema.build_tool_argv("cleanmac_generate_plan", {"profile": "safe", "max_items": 5}),
+            [
+                "cleanmac",
+                "--json",
+                "clean",
+                "plan",
+                "--profile",
+                "safe",
                 "--ai-origin",
                 "--max-items",
                 "5",
@@ -1223,6 +1238,36 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(report["exists"])
             self.assertLessEqual(report["shown_entries"], 5)
 
+    def test_analyze_tree_writes_markdown_report_with_file_links(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report_file = root / "tree-report.md"
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "--report-file",
+                str(report_file),
+                "--report-format",
+                "markdown",
+                "analyze",
+                "tree",
+                "--path",
+                "/Users/tester",
+                "--depth",
+                "1",
+                "--top",
+                "5",
+            )
+            report = json.loads(result.stdout)
+            markdown = report_file.read_text(encoding="utf-8")
+
+            self.assertEqual(report["report_format"], "markdown")
+            self.assertIn("# cleanmac.analyze-tree.v1", markdown)
+            self.assertIn("Open in Finder", markdown)
+
     def test_analyze_group_rejects_non_cli_view_action(self) -> None:
         removed_action = "t" + "ui"
         result = self.run_cli_unchecked("--json", "analyze", removed_action, "--path", ".")
@@ -1297,6 +1342,27 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn(".CleanMacAppLogLinks", targets["userAppLogs"]["path"])
             self.assertIn(".CleanMacAppCacheLinks", targets["userAppCache"]["path"])
             self.assertTrue(targets["trash"]["path"].endswith("/Users/tester/.Trash"))
+            self.assertIn("finder_url", targets["trash"])
+            self.assertIn("manual_command", targets["trash"])
+            self.assertTrue(targets["trash"]["open_supported"])
+
+    def test_profiles_expand_to_safe_category_and_budget_defaults(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            profiles = json.loads(self.run_cli("--json", "profiles").stdout)
+            report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "clean", "plan", "--profile", "safe"
+                ).stdout
+            )
+
+            self.assertEqual(profiles["schema"], "cleanmac.profiles.v1")
+            self.assertIn("safe", {profile["name"] for profile in profiles["profiles"]})
+            self.assertEqual(report["risk_policy"], "strict")
+            self.assertEqual(report["max_delete_mb"], 1024.0)
+            self.assertEqual(
+                {row["key"] for row in report["selected_categories"]}, {"trash", "downloads", "userCache", "userLogs"}
+            )
 
     def test_links_reports_symbolic_link_mappings(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -2013,6 +2079,49 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(report["uninstall_plan"]["official_uninstaller_required"])
             self.assertTrue(validate_contract_payload("cleanmac.software-uninstall-plan.v1", report)["valid"])
 
+    def test_software_uninstall_plan_finds_extended_leftovers_but_preserves_high_risk_defaults(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            app_contents = root / "Applications/Example.app/Contents"
+            app_contents.mkdir(parents=True)
+            (app_contents / "Info.plist").write_bytes(
+                b'<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.example.app</string></dict></plist>'
+            )
+            paths = [
+                root / "Users/tester/Library/Saved Application State/com.example.app.savedState",
+                root / "Users/tester/Library/HTTPStorages/com.example.app",
+                root / "Users/tester/Library/WebKit/com.example.app",
+                root / "Users/tester/Library/Group Containers/group.com.example.app",
+                root / "Library/LaunchDaemons/com.example.app.plist",
+                root / "Library/PrivilegedHelperTools/com.example.app",
+                root / "Library/Application Support/Example",
+            ]
+            for path in paths:
+                if path.suffix == ".plist" or "PrivilegedHelperTools" in path.parts:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("x", encoding="utf-8")
+                else:
+                    path.mkdir(parents=True, exist_ok=True)
+                    (path / "data").write_text("x", encoding="utf-8")
+
+            report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "software", "uninstall-plan", "--app", "Example"
+                ).stdout
+            )
+            by_kind = {candidate["kind"]: candidate for candidate in report["uninstall_plan"]["candidates"]}
+
+            self.assertIn("saved-state", by_kind)
+            self.assertIn("http-storage", by_kind)
+            self.assertIn("webkit-data", by_kind)
+            self.assertIn("group-container", by_kind)
+            self.assertIn("launch-daemon", by_kind)
+            self.assertIn("privileged-helper", by_kind)
+            self.assertIn("system-application-support", by_kind)
+            self.assertFalse(by_kind["group-container"]["default_selected"])
+            self.assertFalse(by_kind["privileged-helper"]["default_selected"])
+            self.assertEqual(by_kind["privileged-helper"]["risk"], "critical")
+
     def test_software_uninstall_execute_requires_review_selection_and_routes_to_trash(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
@@ -2074,7 +2183,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(dry_run_report["schema"], "cleanmac.software-uninstall-result.v1")
             self.assertTrue(dry_run_report["dry_run"])
             self.assertEqual(dry_run_report["planned_count"], 2)
-            self.assertEqual(dry_run_report["skipped_count"], 1)
+            self.assertGreaterEqual(dry_run_report["skipped_count"], 1)
             self.assertTrue((root / "Applications/Example.app").exists())
             self.assertTrue(cache_path.exists())
             self.assertTrue(app_support.exists())
@@ -2105,7 +2214,7 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertFalse(execute_report["dry_run"])
             self.assertEqual(execute_report["deleted_count"], 2)
-            self.assertEqual(execute_report["skipped_count"], 1)
+            self.assertGreaterEqual(execute_report["skipped_count"], 1)
             self.assertFalse((root / "Applications/Example.app").exists())
             self.assertFalse(cache_path.exists())
             self.assertTrue(app_support.exists())

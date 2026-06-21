@@ -46,6 +46,7 @@ from cleancli.ai_versioning import (
 )
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
+from cleancli.profiles import PROFILES, profile_names, render_profiles
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
 from cleancli.release_orchestration import (
@@ -57,6 +58,7 @@ from cleancli.release_orchestration import (
     render_release_rollback_plan,
 )
 from cleancli.release_readiness import render_release_readiness
+from cleancli.report_renderers import render_html_report, render_markdown_report
 from cleancli.review import (
     apply_item_scope,
     load_json_file,
@@ -1041,6 +1043,16 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
 
 def render_ai_error_report(message: str, *, argv: Sequence[str], exit_code: int) -> dict[str, Any]:
     classification = classify_cli_error(message, exit_code=exit_code)
+    recovery_commands = {
+        "SELECTION_VALIDATION_FAILED": [
+            ["cleanmac", "--json", "review", "--input-file", "<plan.json>", "--selection-file", "<selection.json>"]
+        ],
+        "PLAN_CONTEXT_MISMATCH": [["cleanmac", "--json", "clean", "plan", "--categories", "trash"]],
+        "OPERATION_LOG_UNAVAILABLE": [["cleanmac", "--json", "clean", "policy-simulate", "--plan-file", "<plan.json>"]],
+        "CONFIRMATION_TOKEN_REQUIRED": [["cleanmac", "--json", "clean", "run", "--plan-file", "<plan.json>"]],
+        "CONFIRMATION_TOKEN_MISMATCH": [["cleanmac", "--json", "clean", "run", "--plan-file", "<plan.json>"]],
+        "USER_CONFIRMATION_REQUIRED": [["cleanmac", "--json", "clean", "run", "--plan-file", "<plan.json>"]],
+    }.get(str(classification["code"]), [["cleanmac", "--json", "capabilities"]])
     return {
         "schema": "cleanmac.ai-error.v1",
         "ok": False,
@@ -1051,6 +1063,8 @@ def render_ai_error_report(message: str, *, argv: Sequence[str], exit_code: int)
             **classification,
             "message": message,
             "exit_code": exit_code,
+            "recovery_commands": recovery_commands,
+            "docs_hint": "Run dry-run/review commands before any execute command; cleanmac stays dry-run by default.",
         },
     }
 
@@ -1099,15 +1113,16 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-format",
-        choices=("json", "html"),
+        choices=("json", "html", "markdown"),
         default="json",
-        help="Format used with --report-file. JSON is machine-readable; HTML is a human audit report.",
+        help="Format used with --report-file. JSON is machine-readable; HTML/Markdown are human audit reports.",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True, parser_class=CleanMacArgumentParser)
 
     subparsers.add_parser("list", help="List available cleanup categories.")
     subparsers.add_parser("capabilities", help="Describe commands and safety guardrails.")
+    subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
     scripts = subparsers.add_parser("scripts", help="Print cleanup command templates for selected categories.")
@@ -1755,6 +1770,11 @@ def add_category_flags(parser: argparse.ArgumentParser, default_scope: str) -> N
         "--categories",
         help="Comma-separated category keys. Use 'cleanmac list' to see valid keys.",
     )
+    parser.add_argument(
+        "--profile",
+        choices=profile_names(),
+        help="Use a built-in cleanup profile to select categories and conservative defaults.",
+    )
     parser.add_argument("--default", action="store_true", help="Use default categories.")
     parser.add_argument("--all", action="store_true", help="Include all categories, including advanced/risky ones.")
 
@@ -1847,6 +1867,15 @@ def same_context_path(expected: str | None, actual: Path | str) -> bool:
 
 
 def select_categories(args: argparse.Namespace) -> list[Category]:
+    if getattr(args, "profile", None):
+        requested = [str(key) for key in PROFILES[str(args.profile)]["categories"]]
+        unknown = [key for key in requested if key not in CATEGORY_BY_KEY]
+        if unknown:
+            valid = ", ".join(category.key for category in CATEGORIES)
+            raise SystemExit(
+                f"Profile {args.profile} references unknown category: {', '.join(unknown)}. Valid categories: {valid}"
+            )
+        return [CATEGORY_BY_KEY[key] for key in requested]
     if args.categories:
         requested = list(parse_csv(args.categories))
         unknown = [key for key in requested if key not in CATEGORY_BY_KEY]
@@ -6142,6 +6171,10 @@ def render_open_targets(categories: list[Category], *, root: Path, home: Path, e
                     "category": category.key,
                     "source_pattern": pattern,
                     "path": display_path(path),
+                    "finder_url": f"file://{display_path(path)}" if str(path).startswith("/") else None,
+                    "safe_to_open": not path.is_symlink(),
+                    "open_supported": sys.platform == "darwin",
+                    "manual_command": command,
                     "exists": path.exists(),
                     "command": shell_quote_command(command),
                     "status": status,
@@ -7082,7 +7115,9 @@ def write_report_file(
         "report": report,
     }
     if report_format == "html":
-        path.write_text(render_html_audit_report(audit_record), encoding="utf-8")
+        path.write_text(render_html_report(audit_record), encoding="utf-8")
+    elif report_format == "markdown":
+        path.write_text(render_markdown_report(audit_record), encoding="utf-8")
     else:
         path.write_text(json.dumps(audit_record, indent=2, ensure_ascii=False), encoding="utf-8")
     return audit_record
@@ -7116,11 +7151,23 @@ def _main_impl(argv: Sequence[str]) -> int:
     home = Path(args.home).expanduser()
     plan_metadata = apply_clean_plan_defaults(args)
 
+    if getattr(args, "profile", None):
+        profile = PROFILES[str(args.profile)]
+        if hasattr(args, "risk_policy") and str(getattr(args, "risk_policy", "default")) == "default":
+            args.risk_policy = str(profile["risk_policy"])
+        if hasattr(args, "delete_mode") and str(getattr(args, "delete_mode", "permanent")) == "permanent":
+            args.delete_mode = str(profile["delete_mode"])
+        if hasattr(args, "max_delete_mb") and getattr(args, "max_delete_mb", None) is None:
+            args.max_delete_mb = float(profile["max_delete_mb"])
+
     if args.command == "list":
         print_categories(CATEGORIES, as_json=args.json, quiet=args.quiet)
         return 0
     if args.command == "capabilities":
         emit_report(render_capabilities(), args=args, command="capabilities", root=root, home=home, argv=actual_argv)
+        return 0
+    if args.command == "profiles":
+        emit_report(render_profiles(), args=args, command="profiles", root=root, home=home, argv=actual_argv)
         return 0
     if args.command == "doctor":
         emit_report(

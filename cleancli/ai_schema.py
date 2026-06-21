@@ -83,6 +83,15 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "clean", "list"],
     },
     {
+        "name": "cleanmac_profiles",
+        "description": "List built-in cleanup profiles with their category sets and conservative defaults.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({}),
+        "argv_template": ["cleanmac", "--json", "profiles"],
+    },
+    {
         "name": "cleanmac_diagnose",
         "description": "Analyze selected cleanup categories and emit non-destructive, actionable recommendations including warning thresholds and suggested actions. Does not delete or modify any files. Use after capabilities to guide category selection.",
         "risk": "readonly",
@@ -151,6 +160,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema(
             {
                 "categories": category_array_schema(),
+                "profile": {"type": "string", "enum": ["safe", "developer", "browser"]},
                 "risk_policy": {"type": "string", "enum": ["strict", "default", "permissive"]},
                 "max_delete_mb": number_schema("Maximum planned delete budget in MiB."),
                 "max_items": integer_schema("Maximum planned candidate count."),
@@ -961,6 +971,8 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         return ["cleanmac", "--json", "status", "snapshot"]
     if name == "cleanmac_list_categories":
         return ["cleanmac", "--json", "clean", "list"]
+    if name == "cleanmac_profiles":
+        return ["cleanmac", "--json", "profiles"]
     if name == "cleanmac_diagnose":
         argv = ["cleanmac", "--json", "diagnose"]
         if "categories" in args:
@@ -990,15 +1002,11 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
             argv.extend(["--categories", categories_arg(args["categories"])])
         return argv
     if name == "cleanmac_generate_plan":
-        argv = [
-            "cleanmac",
-            "--json",
-            "clean",
-            "plan",
-            "--categories",
-            categories_arg(args.get("categories")),
-            "--ai-origin",
-        ]
+        argv = ["cleanmac", "--json", "clean", "plan"]
+        if args.get("profile"):
+            argv.extend(["--profile", str(args["profile"]), "--ai-origin"])
+        else:
+            argv.extend(["--categories", categories_arg(args.get("categories")), "--ai-origin"])
         append_option(argv, args, "risk_policy", "--risk-policy")
         append_option(argv, args, "max_delete_mb", "--max-delete-mb")
         append_option(argv, args, "max_items", "--max-items")

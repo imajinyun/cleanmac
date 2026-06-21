@@ -100,6 +100,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.plan-policy.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.plan.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.prompt-injection-policy.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.profiles.v1", 1, "cleancli.profiles", "stable"),
     ("cleanmac.release-artifact-manifest.v1", 1, "cleancli.release_artifacts", "stable"),
     ("cleanmac.release-readiness.v1", 1, "cleancli.release_readiness", "stable"),
     ("cleanmac.release-diagnostics.v1", 1, "cleancli.core", "stable"),
