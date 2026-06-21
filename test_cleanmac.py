@@ -2034,6 +2034,19 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertFalse(report["safe_to_auto_execute"])
         self.assertFalse(any(adapter["auto_execute_allowed"] for adapter in report["adapters"]))
 
+    def test_tool_plan_expands_package_manager_dry_run_adapters(self) -> None:
+        report = json.loads(self.run_cli("--json", "tool-plan", "--tool", "package-managers").stdout)
+        adapters = {adapter["key"]: adapter for adapter in report["adapters"]}
+
+        self.assertEqual(report["schema"], "cleanmac.tool-plan.v1")
+        self.assertEqual(set(adapters), {"npm", "pnpm", "pip", "uv", "cargo"})
+        self.assertIn(["npm", "cache", "verify"], adapters["npm"]["dry_run_commands"])
+        self.assertIn(["pnpm", "store", "status"], adapters["pnpm"]["dry_run_commands"])
+        self.assertIn(["pip", "cache", "info"], adapters["pip"]["dry_run_commands"])
+        self.assertIn(["uv", "cache", "dir"], adapters["uv"]["dry_run_commands"])
+        self.assertIn(["cargo", "--version"], adapters["cargo"]["dry_run_commands"])
+        self.assertFalse(any(adapter["auto_execute_allowed"] for adapter in adapters.values()))
+
     def test_tool_execute_dry_run_uses_allowlisted_commands(self) -> None:
         completed = subprocess.CompletedProcess(["docker", "system", "df"], 0, stdout="TYPE TOTAL", stderr="")
         calls: list[list[str]] = []
@@ -2056,6 +2069,37 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertFalse(report["destructive"])
         self.assertIn(["docker", "system", "df"], calls)
         self.assertNotIn(["docker", "builder", "prune", "--force"], calls)
+        self.assertEqual(report["failed_count"], 0)
+
+    def test_package_manager_tool_execute_dry_run_uses_only_readonly_commands(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_runner(argv: Any, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(list(argv))
+            return subprocess.CompletedProcess(list(argv), 0, stdout="ok", stderr="")
+
+        with mock.patch.object(tool_adapters.shutil, "which", return_value="/usr/local/bin/tool"):
+            report = tool_adapters.execute_tool(
+                "package-managers",
+                execute=False,
+                yes=False,
+                root=Path("/tmp/cleanmac-sandbox"),
+                home=Path("/Users/tester"),
+                runner=fake_runner,
+            )
+
+        self.assertFalse(report["destructive"])
+        self.assertEqual(
+            calls,
+            [
+                ["npm", "cache", "verify"],
+                ["pnpm", "store", "status"],
+                ["pip", "cache", "info"],
+                ["uv", "cache", "dir"],
+                ["cargo", "--version"],
+            ],
+        )
+        self.assertFalse(any("prune" in result["argv"] or "purge" in result["argv"] for result in report["results"]))
         self.assertEqual(report["failed_count"], 0)
 
     def test_tool_execute_blocks_destructive_without_yes(self) -> None:

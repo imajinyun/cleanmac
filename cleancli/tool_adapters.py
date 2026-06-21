@@ -16,6 +16,9 @@ from typing import Any
 
 Runner = Callable[[Sequence[str], float], subprocess.CompletedProcess[str]]
 
+PACKAGE_MANAGER_ADAPTER_KEYS = ("npm", "pnpm", "pip", "uv", "cargo")
+TOOL_ADAPTER_CHOICES = ("all", "docker", "homebrew", "xcode", "package-managers", *PACKAGE_MANAGER_ADAPTER_KEYS)
+
 
 def _run_command(argv: Sequence[str], timeout: float) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -67,22 +70,70 @@ def tool_adapters() -> dict[str, dict[str, Any]]:
             "excluded_destructive_commands": [],
             "preserve": ["active simulators", "current device support", "project archives unless explicitly selected"],
         },
-        "package-managers": {
-            "title": "Package manager cache semantic cleanup plan",
+        "npm": {
+            "title": "npm cache semantic cleanup plan",
             "risk": "medium",
-            "detect_commands": [["npm", "cache", "verify"], ["yarn", "cache", "dir"], ["pip", "cache", "info"]],
-            "dry_run_commands": [["npm", "cache", "verify"], ["pip", "cache", "info"]],
-            "execute_commands": [["npm", "cache", "clean", "--force"], ["pip", "cache", "purge"]],
-            "manual_execute_commands": [["npm", "cache", "clean", "--force"], ["pip", "cache", "purge"]],
+            "detect_commands": [["npm", "cache", "verify"]],
+            "dry_run_commands": [["npm", "cache", "verify"]],
+            "execute_commands": [["npm", "cache", "clean", "--force"]],
+            "manual_execute_commands": [["npm", "cache", "clean", "--force"]],
             "excluded_destructive_commands": [],
-            "preserve": ["registry auth", "publishing tokens", "lock files", "project dependencies"],
+            "preserve": ["~/.npmrc registry auth", "publishing tokens", "lock files", "project node_modules"],
+        },
+        "pnpm": {
+            "title": "pnpm store semantic cleanup plan",
+            "risk": "medium",
+            "detect_commands": [["pnpm", "store", "status"]],
+            "dry_run_commands": [["pnpm", "store", "status"]],
+            "execute_commands": [["pnpm", "store", "prune"]],
+            "manual_execute_commands": [["pnpm", "store", "prune"]],
+            "excluded_destructive_commands": [],
+            "preserve": ["pnpm workspace files", "lock files", "registry auth", "project node_modules"],
+        },
+        "pip": {
+            "title": "pip cache semantic cleanup plan",
+            "risk": "medium",
+            "detect_commands": [["pip", "cache", "info"]],
+            "dry_run_commands": [["pip", "cache", "info"]],
+            "execute_commands": [["pip", "cache", "purge"]],
+            "manual_execute_commands": [["pip", "cache", "purge"]],
+            "excluded_destructive_commands": [],
+            "preserve": ["pip configuration", "index credentials", "virtual environments", "project dependencies"],
+        },
+        "uv": {
+            "title": "uv cache semantic cleanup plan",
+            "risk": "medium",
+            "detect_commands": [["uv", "cache", "dir"]],
+            "dry_run_commands": [["uv", "cache", "dir"]],
+            "execute_commands": [["uv", "cache", "prune"]],
+            "manual_execute_commands": [["uv", "cache", "prune"]],
+            "excluded_destructive_commands": [["uv", "cache", "clean"]],
+            "preserve": ["uv configuration", "Python installations", "virtual environments", "project lock files"],
+        },
+        "cargo": {
+            "title": "Cargo cache discovery plan",
+            "risk": "low",
+            "detect_commands": [["cargo", "--version"]],
+            "dry_run_commands": [["cargo", "--version"]],
+            "execute_commands": [],
+            "manual_execute_commands": [],
+            "excluded_destructive_commands": [["rm", "-rf", "~/.cargo"], ["cargo", "cache", "--remove-dir", "all"]],
+            "preserve": ["Cargo credentials", "Cargo config", "installed binaries", "project target directories"],
+            "notes": [
+                "Cargo has no built-in stable cache dry-run command; cleanmac reports path-based cargo cache candidates separately.",
+                "Use the cargoCaches category for recoverable Trash-mode cleanup after reviewing candidate paths.",
+            ],
         },
     }
 
 
 def selected_adapters(tool: str) -> dict[str, dict[str, Any]]:
     adapters = tool_adapters()
-    return adapters if tool == "all" else {tool: adapters[tool]}
+    if tool == "all":
+        return adapters
+    if tool == "package-managers":
+        return {key: adapters[key] for key in PACKAGE_MANAGER_ADAPTER_KEYS}
+    return {tool: adapters[tool]}
 
 
 def render_tool_plan(tool: str, *, root: Path, home: Path) -> dict[str, Any]:
@@ -103,7 +154,8 @@ def render_tool_plan(tool: str, *, root: Path, home: Path) -> dict[str, Any]:
                 "excluded_destructive_commands": adapter["excluded_destructive_commands"],
                 "preserve": adapter["preserve"],
                 "auto_execute_allowed": False,
-                "notes": [
+                "notes": list(adapter.get("notes", []))
+                + [
                     "This adapter is read-only unless tool-execute is invoked with explicit execution gates.",
                     "Use cleanmac path-based categories for recoverable Trash-mode cleanup; use tool commands only after manual review.",
                 ],
