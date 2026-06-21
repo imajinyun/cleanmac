@@ -3801,12 +3801,29 @@ def filter_reason(
     return None
 
 
+def path_interaction_metadata(path: Path) -> dict[str, Any]:
+    path_text = display_path(path)
+    absolute = path_text.startswith("/")
+    open_command = ["open", path_text]
+    reveal_command = ["open", "-R", path_text]
+    return {
+        "finder_url": f"file://{path_text}" if absolute else None,
+        "open_command": open_command,
+        "open_command_text": shell_quote_command(open_command),
+        "reveal_command": reveal_command,
+        "reveal_command_text": shell_quote_command(reveal_command),
+        "safe_to_open": not path.is_symlink(),
+        "open_supported": sys.platform == "darwin",
+    }
+
+
 def skipped_row(category: str, parent: Path, entry: Path, reason: str) -> dict[str, Any]:
     size = path_size_bytes(entry)
     return {
         "category": category,
         "parent": display_path(parent),
         "path": display_path(entry),
+        **path_interaction_metadata(entry),
         "reason": reason,
         "bytes": size,
         "human": human_size(size),
@@ -3881,6 +3898,7 @@ def inspect_items(
                     "category": target.category,
                     "parent": display_path(target.path),
                     "path": display_path(entry),
+                    **path_interaction_metadata(entry),
                     "depth": depth,
                     "bytes": size,
                     "human": human_size(size),
@@ -5685,6 +5703,7 @@ def clean(
                     "category": target.category,
                     "parent": display_path(target.path),
                     "path": display_entry,
+                    **path_interaction_metadata(entry),
                     "bytes": size,
                     "human": human_size(size),
                     "bundle_id": bundle_id_for_path(entry),
@@ -6196,6 +6215,10 @@ def render_open_targets(categories: list[Category], *, root: Path, home: Path, e
                     "source_pattern": pattern,
                     "path": display_path(path),
                     "finder_url": f"file://{display_path(path)}" if str(path).startswith("/") else None,
+                    "open_command": command,
+                    "open_command_text": shell_quote_command(command),
+                    "reveal_command": ["open", "-R", str(path)],
+                    "reveal_command_text": shell_quote_command(["open", "-R", str(path)]),
                     "safe_to_open": not path.is_symlink(),
                     "open_supported": sys.platform == "darwin",
                     "manual_command": command,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,25 @@ from cleancli import protection
 
 def _display_path(path: Path | str) -> str:
     return str(path)
+
+
+def _shell_quote_command(parts: list[str]) -> str:
+    return " ".join(shlex.quote(part) for part in parts)
+
+
+def _path_interaction_metadata(path: Path) -> dict[str, Any]:
+    path_text = _display_path(path)
+    open_command = ["open", path_text]
+    reveal_command = ["open", "-R", path_text]
+    return {
+        "finder_url": f"file://{path_text}" if path_text.startswith("/") else None,
+        "open_command": open_command,
+        "open_command_text": _shell_quote_command(open_command),
+        "reveal_command": reveal_command,
+        "reveal_command_text": _shell_quote_command(reveal_command),
+        "safe_to_open": not path.is_symlink(),
+        "open_supported": True,
+    }
 
 
 def _review_selection_audit(review_selection: dict[str, Any]) -> dict[str, Any]:
@@ -158,6 +178,7 @@ def _candidate(
     return {
         "id": f"{kind}:{_display_path(path)}",
         "path": _display_path(path),
+        **_path_interaction_metadata(path),
         "kind": kind,
         "bytes": _path_size(path),
         "confidence": confidence,
@@ -433,6 +454,7 @@ def execute_software_uninstall(
         result = {
             "id": item.get("id"),
             "path": str(path),
+            **_path_interaction_metadata(path),
             "kind": item.get("kind"),
             "risk": item.get("risk"),
             "bytes": bytes_value,
