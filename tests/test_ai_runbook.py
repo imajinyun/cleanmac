@@ -36,8 +36,16 @@ class AIRunbookTests(unittest.TestCase):
         self.assertFalse(report["execution_gate"]["auto_call_allowed"])
         self.assertIn("cleanmac_generate_plan", report["execution_gate"]["required_before_execute"])
         self.assertIn("human_confirmation", report["execution_gate"]["required_before_execute"])
+        one_shot = report["one_shot_governed_workflow"]
+        self.assertEqual(one_shot["tool"], "cleanmac_ai_workflow")
+        self.assertEqual(one_shot["schema"], "cleanmac.ai-workflow.v1")
+        self.assertTrue(one_shot["auto_call_allowed"])
+        self.assertFalse(one_shot["destructive"])
         phases = {phase["id"]: phase for phase in report["phases"]}
-        self.assertEqual(phases["discover"]["tools"], ["cleanmac_capabilities", "cleanmac_list_categories"])
+        self.assertEqual(
+            phases["discover"]["tools"],
+            ["cleanmac_capabilities", "cleanmac_list_categories", "cleanmac_ai_workflow"],
+        )
         self.assertIn("cleanmac_policy_simulate", phases["preflight"]["tools"])
         self.assertIn("cleanmac_dry_run_plan", phases["dry_run"]["tools"])
         self.assertIn("cleanmac_execute_plan", phases["execute"]["tools"])

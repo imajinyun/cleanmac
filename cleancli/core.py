@@ -980,6 +980,13 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     workflow_cmd.add_argument("--large-threshold-mb", type=int, default=1024)
     workflow_cmd.add_argument("--dry-run-scope", choices=("recommended", "selected"), default="recommended")
 
+    ai_workflow_cmd = subparsers.add_parser(
+        "ai-workflow",
+        help="Emit a one-shot governed AI host workflow without scanning or deleting files.",
+    )
+    ai_workflow_cmd.add_argument("--goal", choices=("safe-cleanup",), default="safe-cleanup")
+    add_category_flags(ai_workflow_cmd, default_scope="default")
+
     open_cmd = subparsers.add_parser("open", help="Preview or execute Finder targets.")
     add_category_flags(open_cmd, default_scope="default")
     open_cmd.add_argument("--execute", action="store_true")
@@ -1495,6 +1502,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "analyze-tree",
         "diagnose",
         "workflow",
+        "ai-workflow",
         "open",
         "links",
         "clean",
@@ -4662,6 +4670,108 @@ def render_ai_summary(
     }
 
 
+def _append_flag_if_missing(argv: list[str], flag: str) -> None:
+    if flag not in argv:
+        argv.append(flag)
+
+
+def _ensure_json_flag(argv: list[str]) -> None:
+    if "--json" not in argv:
+        argv.insert(1, "--json")
+
+
+def _append_option_if_missing(argv: list[str], option: str, value: str) -> None:
+    if option not in argv:
+        argv.extend([option, value])
+
+
+def _clean_execute_next_command(
+    categories: list[Category],
+    *,
+    command_argv: Sequence[str],
+    delete_mode: str,
+    operation_log: str | None,
+    confirmation_token_value: str,
+    plan_file: str | None,
+) -> list[str]:
+    if command_argv:
+        argv = ["cleanmac", *command_argv]
+    else:
+        argv = [
+            "cleanmac",
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            ",".join(category.key for category in categories),
+            "--delete-mode",
+            delete_mode,
+        ]
+    _ensure_json_flag(argv)
+    _append_flag_if_missing(argv, "--execute")
+    _append_flag_if_missing(argv, "--yes")
+    if operation_log:
+        _append_option_if_missing(argv, "--operation-log", operation_log)
+    if plan_file:
+        _append_flag_if_missing(argv, "--require-plan-context")
+    _append_flag_if_missing(argv, "--require-confirmation-token")
+    _append_option_if_missing(argv, "--confirmation-token", confirmation_token_value)
+    return argv
+
+
+def render_clean_human_summary(
+    categories: list[Category],
+    *,
+    execute: bool,
+    total_bytes: int,
+    item_count: int,
+    skipped_count: int,
+    delete_mode: str,
+    operation_log: str | None,
+    confirmation_token_value: str,
+    plan_file: str | None,
+    command_argv: Sequence[str],
+    warnings: Sequence[str],
+) -> dict[str, Any]:
+    category_keys = [category.key for category in categories]
+    headline_phase = "Executed" if execute else "Dry-run found"
+    reasons: list[str] = []
+    if not execute:
+        reasons.append("Dry-run only; destructive cleanup still requires human confirmation and --execute --yes.")
+    if any(category.risk in {"high", "critical"} for category in categories):
+        risky = ", ".join(category.key for category in categories if category.risk in {"high", "critical"})
+        reasons.append(f"High-risk categories need review: {risky}.")
+    if delete_mode == "trash":
+        reasons.append("Trash routing is selected, so execute can remain recoverable if the user approves.")
+    else:
+        reasons.append("Trash routing is not selected; review delete mode before any execution.")
+    if skipped_count:
+        reasons.append(f"{skipped_count} item(s) were skipped by filters or protection rules.")
+    reasons.extend(str(warning) for warning in warnings if warning)
+    if item_count == 0:
+        reasons.append("No candidate items were found.")
+    next_command = []
+    if not execute:
+        next_command = _clean_execute_next_command(
+            categories,
+            command_argv=command_argv,
+            delete_mode=delete_mode,
+            operation_log=operation_log,
+            confirmation_token_value=confirmation_token_value,
+            plan_file=plan_file,
+        )
+    return {
+        "schema": "cleanmac.human-summary.v1",
+        "headline": (
+            f"{headline_phase} {item_count} item(s) across {len(category_keys)} category/categories "
+            f"for {human_size(total_bytes)}."
+        ),
+        "safe_to_execute": False,
+        "top_reasons_to_review": reasons[:5],
+        "next_command": next_command,
+    }
+
+
 def file_sha256(path: str | None) -> str | None:
     if not path:
         return None
@@ -5268,6 +5378,19 @@ def clean(
         max_delete_mb=max_delete_mb,
         max_items=max_items,
     )
+    human_summary = render_clean_human_summary(
+        categories,
+        execute=execute,
+        total_bytes=candidate_bytes,
+        item_count=len(rows),
+        skipped_count=len(skipped),
+        delete_mode=delete_mode,
+        operation_log=operation_log_path or operation_log,
+        confirmation_token_value=expected_confirmation_token,
+        plan_file=plan_file,
+        command_argv=command_argv,
+        warnings=ai_confirmation_summary["warnings"],
+    )
     return {
         "schema": "cleanmac.clean.v1",
         "destructive": execute,
@@ -5302,6 +5425,7 @@ def clean(
         "ai_confirmation_summary": ai_confirmation_summary,
         "ai_execution_ledger": ai_execution_ledger,
         "ai_summary": ai_summary,
+        "human_summary": human_summary,
         "total_bytes": candidate_bytes,
         "total_human": human_size(candidate_bytes),
         "by_category": rows_by_category(rows),
@@ -6286,6 +6410,270 @@ def render_workflow(
     }
 
 
+def _ai_workflow_step(
+    *,
+    number: int,
+    step_id: str,
+    tool: str,
+    argv: list[str],
+    input_payload: dict[str, Any],
+    output_schema: str,
+    destructive: bool,
+    auto_call_allowed: bool,
+    next_human_action: str,
+    failure_recovery: str,
+    **extra: Any,
+) -> dict[str, Any]:
+    step = {
+        "number": number,
+        "id": step_id,
+        "tool": tool,
+        "argv": argv,
+        "input": input_payload,
+        "input_schema": workflow_input_schema(input_payload),
+        "output_schema": output_schema,
+        "destructive": destructive,
+        "auto_call_allowed": auto_call_allowed,
+        "next_human_action": next_human_action,
+        "failure_recovery": failure_recovery,
+    }
+    step.update(extra)
+    return step
+
+
+def workflow_input_schema(input_payload: dict[str, Any]) -> dict[str, Any]:
+    properties: dict[str, Any] = {}
+    for key, value in input_payload.items():
+        if isinstance(value, bool):
+            properties[key] = {"type": "boolean"}
+        elif isinstance(value, int):
+            properties[key] = {"type": "integer"}
+        elif isinstance(value, list):
+            properties[key] = {"type": "array", "items": {"type": "string"}}
+        else:
+            properties[key] = {"type": "string"}
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(input_payload),
+        "additionalProperties": False,
+    }
+
+
+def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, home: Path) -> dict[str, Any]:
+    category_keys = [category.key for category in categories]
+    categories_arg = ",".join(category_keys)
+    plan_file = "{plan_file}"
+    review_selection_file = "{review_selection_file}"
+    operation_log = "{operation_log}"
+    confirmation_token = "{confirmation_token_from_matching_dry_run}"
+    steps = [
+        _ai_workflow_step(
+            number=1,
+            step_id="discover_contract",
+            tool="cleanmac_capabilities",
+            argv=["cleanmac", "--json", "capabilities"],
+            input_payload={},
+            output_schema="cleanmac.capabilities.v1",
+            destructive=False,
+            auto_call_allowed=True,
+            next_human_action="none",
+            failure_recovery="Stop and show the capabilities error; do not invent categories or shell commands.",
+        ),
+        _ai_workflow_step(
+            number=2,
+            step_id="generate_ai_origin_plan",
+            tool="cleanmac_generate_plan",
+            argv=["cleanmac", "--json", "plan", "--categories", categories_arg, "--ai-origin"],
+            input_payload={"categories": category_keys, "ai_origin": True},
+            output_schema="cleanmac.plan.v1",
+            destructive=False,
+            auto_call_allowed=True,
+            next_human_action="review generated plan summary",
+            failure_recovery="Use cleanmac_list_categories, fix category/filter input, then regenerate the plan.",
+            write_stdout_to=plan_file,
+        ),
+        _ai_workflow_step(
+            number=3,
+            step_id="normalize_review_selection",
+            tool="cleanmac_review",
+            argv=[
+                "cleanmac",
+                "--json",
+                "review",
+                "--input-file",
+                plan_file,
+                "--selection-file",
+                review_selection_file,
+            ],
+            input_payload={"input_file": plan_file, "selection_file": review_selection_file},
+            output_schema="cleanmac.review.v1",
+            destructive=False,
+            auto_call_allowed=True,
+            next_human_action="approve or edit selected_item_ids in the review selection file",
+            failure_recovery="Regenerate review from the same plan; never expand selection beyond reviewed IDs.",
+            produces_schema="cleanmac.review-selection.v1",
+        ),
+        _ai_workflow_step(
+            number=4,
+            step_id="validate_plan_and_selection",
+            tool="cleanmac_validate_plan",
+            argv=["cleanmac", "--json", "validate-plan", "--plan-file", plan_file],
+            input_payload={"plan_file": plan_file, "review_selection_file": review_selection_file},
+            output_schema="cleanmac.validate-plan.v1",
+            destructive=False,
+            auto_call_allowed=True,
+            next_human_action="none unless validation reports stale or unsupported schema",
+            failure_recovery="Regenerate the plan under the current root/home and repeat review.",
+        ),
+        _ai_workflow_step(
+            number=5,
+            step_id="simulate_execute_policy",
+            tool="cleanmac_policy_simulate",
+            argv=[
+                "cleanmac",
+                "--json",
+                "policy-simulate",
+                "--plan-file",
+                plan_file,
+                "--review-selection-file",
+                review_selection_file,
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                operation_log,
+                "--require-plan-context",
+                "--require-confirmation-token",
+            ],
+            input_payload={
+                "plan_file": plan_file,
+                "review_selection_file": review_selection_file,
+                "execute": True,
+                "delete_mode": "trash",
+                "operation_log": operation_log,
+                "require_plan_context": True,
+                "require_confirmation_token": True,
+            },
+            output_schema="cleanmac.ai-policy-simulation.v1",
+            destructive=False,
+            auto_call_allowed=True,
+            next_human_action="resolve blocking_reasons before preparing execution",
+            failure_recovery="Follow blocking_reasons; do not bypass Trash, plan context, token, or operation-log gates.",
+        ),
+        _ai_workflow_step(
+            number=6,
+            step_id="dry_run_selected_plan",
+            tool="cleanmac_dry_run_plan",
+            argv=[
+                "cleanmac",
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                plan_file,
+                "--review-selection-file",
+                review_selection_file,
+                "--delete-mode",
+                "trash",
+                "--require-plan-context",
+            ],
+            input_payload={
+                "plan_file": plan_file,
+                "review_selection_file": review_selection_file,
+                "delete_mode": "trash",
+                "require_plan_context": True,
+            },
+            output_schema="cleanmac.clean.v1",
+            destructive=False,
+            auto_call_allowed=True,
+            next_human_action="read dry-run report and decide whether to confirm Trash execution",
+            failure_recovery="Use cleanmac.ai-error.v1 next_allowed_tools and repeat from the earliest invalid artifact.",
+            required_output="ai_confirmation_summary.confirmation_token",
+        ),
+        _ai_workflow_step(
+            number=7,
+            step_id="execute_after_human_confirmation",
+            tool="cleanmac_execute_plan",
+            argv=[
+                "cleanmac",
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                plan_file,
+                "--review-selection-file",
+                review_selection_file,
+                "--execute",
+                "--yes",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                operation_log,
+                "--require-plan-context",
+                "--require-confirmation-token",
+                "--confirmation-token",
+                confirmation_token,
+            ],
+            input_payload={
+                "plan_file": plan_file,
+                "review_selection_file": review_selection_file,
+                "confirmation_phrase": ai_schema.CONFIRMATION_PHRASE,
+                "confirmation_token": confirmation_token,
+                "operation_log": operation_log,
+            },
+            output_schema="cleanmac.clean.v1",
+            destructive=True,
+            auto_call_allowed=False,
+            next_human_action="explicitly confirm with the displayed phrase and matching dry-run token",
+            failure_recovery="Do not retry execution blindly; regenerate plan or repeat dry-run if context or token changed.",
+            requires_human_confirmation=True,
+        ),
+    ]
+    return {
+        "schema": "cleanmac.ai-workflow.v1",
+        "destructive": False,
+        "dry_run": True,
+        "goal": goal,
+        "workflow_name": "one-shot-governed-safe-cleanup",
+        "purpose": "Give AI hosts a complete governed cleanup route in one read-only response.",
+        "runtime_lifecycle": {
+            "schema": "cleanmac.runtime-lifecycle-policy.v1",
+            "runs_only_when_invoked": True,
+            "exits_after_workflow": True,
+            "resident_processes": 0,
+            "implements_tui": False,
+            "implements_gui": False,
+            "installs_background_daemon": False,
+            "performs_unsolicited_scans": False,
+        },
+        "selected_categories": [category_metadata(category) for category in categories],
+        "inputs": {
+            "root": display_path(root),
+            "home": display_path(home),
+            "categories": category_keys,
+            "placeholders": {
+                "plan_file": plan_file,
+                "review_selection_file": review_selection_file,
+                "operation_log": operation_log,
+                "confirmation_token": confirmation_token,
+            },
+        },
+        "recommended_tool_call_order": [step["tool"] for step in steps],
+        "steps": steps,
+        "governance": {
+            "default_mode": "dry-run-first",
+            "delete_mode_for_execute": "trash",
+            "requires_review_selection": True,
+            "requires_plan_context": True,
+            "requires_operation_log": True,
+            "requires_confirmation_token": True,
+            "destructive_auto_call_allowed": False,
+            "forbidden_patterns": ["raw shell", "background scan", "GUI/TUI session", "permanent AI-originated delete"],
+        },
+    }
+
+
 def human_size(size: int | None) -> str:
     if size is None:
         return "unknown"
@@ -6316,6 +6704,7 @@ def render_completion_shell(shell: str) -> str:
         "analyze-tree",
         "diagnose",
         "workflow",
+        "ai-workflow",
         "open",
         "links",
         "clean",
@@ -7356,6 +7745,10 @@ def _main_impl(argv: Sequence[str]) -> int:
             dry_run_scope=args.dry_run_scope,
         )
         emit_report(report, args=args, command="workflow", root=root, home=home, argv=actual_argv)
+        return 0
+    if args.command == "ai-workflow":
+        report = render_ai_workflow(categories, goal=args.goal, root=root, home=home)
+        emit_report(report, args=args, command="ai-workflow", root=root, home=home, argv=actual_argv)
         return 0
     if args.command == "inspect":
         report = inspect_items(

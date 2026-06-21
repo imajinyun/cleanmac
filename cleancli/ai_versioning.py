@@ -135,8 +135,10 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.privacy-inspect.v1", 1, "cleancli.privacy", "stable"),
     ("cleanmac.privacy-plan.v1", 1, "cleancli.privacy", "stable"),
     ("cleanmac.validate-plan.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.workflow-ux.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.workflow-automation.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.workflow-iteration-status.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.ai-workflow.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.workflow.v1", 1, "cleancli.core", "stable"),
 )
 
@@ -168,6 +170,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.review-selection-constraint.v1",
     "cleanmac.review-selection-validation.v1",
     "cleanmac.ai-policy-simulation.v1",
+    "cleanmac.ai-workflow.v1",
     "cleanmac.runtime-lifecycle-policy.v1",
     "cleanmac.ai-schema-registry.v1",
     "cleanmac.ai-readiness.v1",
@@ -808,6 +811,28 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.ai-workflow.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "goal",
+            "recommended_tool_call_order",
+            "steps",
+            "governance",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-workflow.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "goal": {"const": "safe-cleanup"},
+            "recommended_tool_call_order": {"type": "array", "items": {"type": "string"}},
+            "steps": {"type": "array", "items": {"type": "object"}},
+            "governance": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
     "cleanmac.ai-schema-registry.v1": {
         "type": "object",
         "required": [
@@ -852,8 +877,6 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "default_decision",
             "auto_call",
             "execution_gate",
-            "runtime_lifecycle",
-            "host_runtime_obligations",
         ],
         "properties": {
             "schema": {"const": "cleanmac.ai-host-policy.v1"},
@@ -2101,6 +2124,27 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "dry_run": True,
             "allowed": False,
             "blocking_reasons": [{"code": "AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN"}],
+        },
+        "cleanmac.ai-workflow.v1": {
+            "schema": "cleanmac.ai-workflow.v1",
+            "destructive": False,
+            "dry_run": True,
+            "goal": "safe-cleanup",
+            "recommended_tool_call_order": ["cleanmac_capabilities", "cleanmac_execute_plan"],
+            "steps": [
+                {
+                    "id": "execute_after_human_confirmation",
+                    "tool": "cleanmac_execute_plan",
+                    "destructive": True,
+                    "auto_call_allowed": False,
+                    "requires_human_confirmation": True,
+                }
+            ],
+            "governance": {
+                "delete_mode_for_execute": "trash",
+                "requires_confirmation_token": True,
+                "destructive_auto_call_allowed": False,
+            },
         },
         "cleanmac.ai-schema-registry.v1": render_ai_schema_registry(),
         "cleanmac.ai-readiness.v1": {

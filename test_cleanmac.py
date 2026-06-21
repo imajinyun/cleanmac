@@ -383,7 +383,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 36
+        EXPECTED_TOOL_COUNT = 37
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -935,6 +935,14 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(summary["safe_to_auto_execute"])
             self.assertIn("trash", summary["selected_categories"])
             self.assertIn("downloads", summary["selected_categories"])
+            human_summary = dry_report["human_summary"]
+            self.assertEqual(human_summary["schema"], "cleanmac.human-summary.v1")
+            self.assertIn("Dry-run found", human_summary["headline"])
+            self.assertFalse(human_summary["safe_to_execute"])
+            self.assertIn("--execute", human_summary["next_command"])
+            self.assertIn("--confirmation-token", human_summary["next_command"])
+            self.assertIn(summary["confirmation_token"], human_summary["next_command"])
+            self.assertTrue(human_summary["top_reasons_to_review"])
             ai_summary = dry_report["ai_summary"]
             self.assertEqual(ai_summary["schema"], "cleanmac.ai-summary.v1")
             self.assertEqual(ai_summary["phase"], "clean-dry-run")
@@ -974,6 +982,8 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(execute_ledger["operation_log"]["ready"])
             self.assertEqual(execute_report["ai_summary"]["phase"], "clean-execute")
             self.assertEqual(execute_report["ai_summary"]["recommended_next_action"], "review_operation_log")
+            self.assertEqual(execute_report["human_summary"]["next_command"], [])
+            self.assertFalse(execute_report["human_summary"]["safe_to_execute"])
 
     def test_ai_confirmation_token_is_required_and_bound_before_execute(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -2376,6 +2386,12 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(selection["schema"], "cleanmac.review-selection.v1")
             self.assertEqual(selection["selected_item_ids"], ["cache:/tmp/cache"])
             self.assertEqual(report["selection_summary"], selection["summary"])
+            human_summary = report["human_summary"]
+            self.assertEqual(human_summary["schema"], "cleanmac.human-summary.v1")
+            self.assertIn("Review selected 1 of 1", human_summary["headline"])
+            self.assertFalse(human_summary["safe_to_execute"])
+            self.assertIn("--review-selection-file", human_summary["next_command"])
+            self.assertTrue(human_summary["top_reasons_to_review"])
             self.assertEqual(selection["summary"]["schema"], "cleanmac.review-selection-summary.v1")
             self.assertEqual(selection["summary"]["selected_count"], 1)
             self.assertEqual(selection["summary"]["excluded_count"], 0)
@@ -5808,6 +5824,48 @@ class CleanMacCLITests(unittest.TestCase):
             )
             self.assertTrue((root / "Users/tester/.Trash/old.tmp").exists())
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
+
+    def test_ai_workflow_renders_one_shot_governed_safe_cleanup_route(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "ai-workflow",
+                "--goal",
+                "safe-cleanup",
+                "--categories",
+                "trash,downloads,xcode",
+            )
+            report = json.loads(result.stdout)
+            steps = {step["id"]: step for step in report["steps"]}
+
+            self.assertEqual(report["schema"], "cleanmac.ai-workflow.v1")
+            self.assertEqual(report["goal"], "safe-cleanup")
+            self.assertTrue(report["dry_run"])
+            self.assertFalse(report["destructive"])
+            self.assertEqual(report["inputs"]["categories"], ["trash", "downloads", "xcode"])
+            self.assertIn("cleanmac_generate_plan", report["recommended_tool_call_order"])
+            self.assertIn("cleanmac_execute_plan", report["recommended_tool_call_order"])
+            self.assertEqual(steps["generate_ai_origin_plan"]["output_schema"], "cleanmac.plan.v1")
+            self.assertEqual(steps["generate_ai_origin_plan"]["input_schema"]["type"], "object")
+            self.assertIn("categories", steps["generate_ai_origin_plan"]["input_schema"]["required"])
+            self.assertEqual(steps["normalize_review_selection"]["produces_schema"], "cleanmac.review-selection.v1")
+            self.assertEqual(steps["simulate_execute_policy"]["input"]["delete_mode"], "trash")
+            self.assertEqual(
+                steps["dry_run_selected_plan"]["required_output"], "ai_confirmation_summary.confirmation_token"
+            )
+            execute = steps["execute_after_human_confirmation"]
+            self.assertTrue(execute["destructive"])
+            self.assertFalse(execute["auto_call_allowed"])
+            self.assertTrue(execute["requires_human_confirmation"])
+            self.assertIn("--delete-mode", execute["argv"])
+            self.assertIn("trash", execute["argv"])
+            self.assertIn("--operation-log", execute["argv"])
+            self.assertTrue(report["governance"]["requires_confirmation_token"])
 
     def test_workflow_selected_dry_run_scope_includes_high_risk_without_execute(self) -> None:
         tmp, root, home = self.make_sandbox()

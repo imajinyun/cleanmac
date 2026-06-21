@@ -289,6 +289,21 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "workflow"],
     },
     {
+        "name": "cleanmac_ai_workflow",
+        "description": "Render a one-shot governed AI host workflow for safe cleanup. Returns ordered tool calls, per-step inputs and output schemas, destructive flags, auto-call policy, human actions, and failure recovery guidance without scanning or deleting files.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "goal": {"type": "string", "enum": ["safe-cleanup"], "default": "safe-cleanup"},
+                "categories": category_array_schema(),
+            },
+            required=("categories",),
+        ),
+        "argv_template": ["cleanmac", "--json", "ai-workflow"],
+    },
+    {
         "name": "cleanmac_software_list",
         "description": "List installed software inventory without making changes.",
         "risk": "readonly",
@@ -676,6 +691,8 @@ def representative_args(name: str) -> dict[str, Any]:
         return {"plan_file": "/tmp/cleanmac-plan.json", "execute": True, "delete_mode": "trash"}
     if name == "cleanmac_workflow":
         return {"categories": ["trash"], "inspect_limit": 10, "dry_run_scope": "selected"}
+    if name == "cleanmac_ai_workflow":
+        return {"goal": "safe-cleanup", "categories": ["trash", "downloads", "xcode"]}
     if name == "cleanmac_software_uninstall_plan":
         return {"app": "Example.app"}
     if name == "cleanmac_software_uninstall_execute":
@@ -813,6 +830,7 @@ def render_contract_compatibility(contract: Mapping[str, Any]) -> dict[str, Any]
         violations.append("cleanmac_execute_plan must be manual confirmation only")
     required_contract_tools = {
         "cleanmac_workflow",
+        "cleanmac_ai_workflow",
         "cleanmac_software_list",
         "cleanmac_software_leftovers",
         "cleanmac_software_startup_items",
@@ -1085,6 +1103,12 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         append_option(argv, args, "log_threshold_mb", "--log-threshold-mb")
         append_option(argv, args, "large_threshold_mb", "--large-threshold-mb")
         append_option(argv, args, "dry_run_scope", "--dry-run-scope")
+        return argv
+    if name == "cleanmac_ai_workflow":
+        argv = ["cleanmac", "--json", "ai-workflow"]
+        append_option(argv, args, "goal", "--goal")
+        if "categories" in args:
+            argv.extend(["--categories", categories_arg(args["categories"])])
         return argv
     if name == "cleanmac_software_list":
         return ["cleanmac", "--json", "software", "list"]
