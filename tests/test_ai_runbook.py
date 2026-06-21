@@ -22,6 +22,15 @@ class AIRunbookTests(unittest.TestCase):
 
         self.assertEqual(report["schema"], "cleanmac.ai-runbook.v1")
         self.assertEqual(report["default_mode"], "dry-run-first")
+        runtime_lifecycle = report["runtime_lifecycle"]
+        self.assertEqual(runtime_lifecycle["product_model"], "ai-first-ephemeral-cli")
+        self.assertTrue(runtime_lifecycle["runs_only_when_invoked"])
+        self.assertTrue(runtime_lifecycle["exits_after_workflow"])
+        self.assertEqual(runtime_lifecycle["resident_processes"], 0)
+        self.assertFalse(runtime_lifecycle["implements_tui"])
+        self.assertFalse(runtime_lifecycle["implements_gui"])
+        self.assertFalse(runtime_lifecycle["installs_background_daemon"])
+        self.assertFalse(runtime_lifecycle["performs_unsolicited_scans"])
         self.assertFalse(report["uses_shell"])
         self.assertEqual(report["execution_gate"]["destructive_tool"], "cleanmac_execute_plan")
         self.assertFalse(report["execution_gate"]["auto_call_allowed"])

@@ -1,6 +1,14 @@
 # cleanmac Agent Guide
 
-本文件是维护者和 AI Agent 修改 cleanmac 时的共享操作规约。cleanmac 是 Python CLI，不实现 TUI/GUI。任何改动都必须优先保持机器可读治理模型、dry-run 默认值、no-auth 测试默认值和真实执行安全，不要照搬外部 shell 项目的结构。
+本文件是维护者和 AI Agent 修改 cleanmac 时的共享操作规约。cleanmac 是 AI-first、一次性运行的 Python CLI，不实现 TUI/GUI，不安装后台 daemon、菜单栏常驻进程、登录项或主动扫描循环。任何改动都必须优先保持机器可读治理模型、dry-run 默认值、no-auth 测试默认值和真实执行安全，不要照搬外部 shell 项目或 GUI 清理 App 的结构。
+
+## 产品定位红线
+
+- cleanmac 只在用户、脚本或 AI Host 显式调用时运行，完成当前 workflow 后退出生命周期。
+- 不允许新增常驻 GUI/TUI、menu bar app、LaunchAgent/LaunchDaemon、login item、后台扫描、后台提醒或自动清理循环。
+- 不允许把用户选择状态保存在长期运行的 App session 中；必须使用机器可读 plan、review-selection、report 和 operation log。
+- AI Host / CLI 是交互层，cleanmac 是受治理执行内核；新增能力必须优先暴露稳定 JSON/schema/MCP/argv 合约。
+- 未被调用时，cleanmac 的后台 CPU、内存和进程占用目标必须为 0。
 
 ## 项目地图
 

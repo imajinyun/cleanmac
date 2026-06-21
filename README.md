@@ -1,6 +1,6 @@
 # 🧹 cleanmac
 
-> **macOS cleanup tool · Dry-run first · AI-native MCP integration**
+> **AI-first macOS cleanup CLI · Ephemeral execution · Dry-run first · MCP integration**
 
 - [📗 English Docs](/docs/doc/README.md)
 - [📕 中文文档](/docs/doc/README.CN.md)
@@ -48,6 +48,18 @@ cleanmac aims to be the safest, most governable CLI macOS cleaner on GitHub for 
 - **Safer than ad-hoc shell scripts**: dry-run by default, deletion budgets, protected bundle rules, Trash-only governed execution, operation log audit chain.
 - **More reviewable than one-shot cleaners**: inspect → plan → review → selection → dry-run → execute is explicit and machine-readable.
 - **More AI/MCP ready than traditional cleaners**: tool contracts, schema registry, host policy, release readiness, and smoke gates are first-class outputs.
+- **Zero-resident by design**: cleanmac runs only when invoked by a user or AI host, emits files/reports/logs as requested, then exits without a GUI, TUI, menu bar agent, background daemon, or unsolicited scan loop.
+
+---
+
+## 🧠 AI-first, not app-first
+
+cleanmac intentionally does **not** compete on TUI/GUI retention. In the AI era, the interaction layer is the AI host or an explicit CLI command; cleanmac is the governed execution engine that appears only for the requested workflow.
+
+- no resident GUI, TUI, menu bar process, login item, or cleanup daemon
+- no background CPU or memory consumption when not invoked
+- no unsolicited scans, reminders, telemetry, or attention-retention loops
+- durable state lives in machine-readable plans, review-selection files, reports, and operation logs — not in a long-running app session
 
 ---
 
@@ -101,6 +113,7 @@ If you later choose to execute, cleanmac keeps Trash routing, review-selection c
 | 🔐 **Multi-layer safety** | Bundle protection, budgets, Trash recovery, confirmation tokens |
 | 🧾 **Review-to-execution contract** | `review` selections can constrain clean, startup, and privacy execution via `--review-selection-file` |
 | 🛡️ **AI governance gates** | Machine-readable LLM policy, release smoke, anti-pattern checks |
+| 💤 **Zero-resident footprint** | No GUI/TUI, background daemon, login item, unsolicited scan, or idle CPU/memory use |
 | 🧪 **Sandbox mode** | `--root` / `--home` path remapping for safe testing |
 | 📦 **Zero deps** | Pure Python 3.10+, no external packages required |
 

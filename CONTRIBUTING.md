@@ -1,6 +1,6 @@
 # Contributing to cleanmac
 
-Thank you for helping improve `cleanmac`. This project is a safety-first macOS cleanup CLI, so contributions must preserve the default dry-run behavior and the manual gates around destructive cleanup.
+Thank you for helping improve `cleanmac`. This project is an AI-first, ephemeral macOS cleanup CLI, so contributions must preserve the default dry-run behavior, the manual gates around destructive cleanup, and the zero-resident runtime model.
 
 ## Development setup
 
@@ -37,6 +37,8 @@ If Docker is not available locally, include that limitation in the pull request 
 ## Safety expectations
 
 - Keep cleanup dry-run by default.
+- Keep cleanmac single-shot: no resident GUI/TUI, menu bar app, LaunchAgent/LaunchDaemon, login item, background scan loop, push reminder, or automatic cleanup scheduler.
+- Prefer machine-readable plans, review-selection files, reports, operation logs, and MCP/argv contracts over long-running app state.
 - Do not add automation that runs `clean --execute` without explicit human action.
 - Keep `--yes`, `--allow-live-root`, budgets, skipped-item gates, bundle policy, Trash routing, operation logs, plan context checks, and review-selection constraints covered by tests when changing cleanup behavior.
 - Prefer `--delete-mode trash` in examples that demonstrate real cleanup.

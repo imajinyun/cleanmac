@@ -2241,9 +2241,11 @@ def category_metadata(category: Category) -> dict[str, Any]:
 
 
 def render_boundary_governance() -> dict[str, Any]:
+    runtime_lifecycle = render_runtime_lifecycle_policy()
     return {
         "schema": "cleanmac.boundary-governance.v1",
         "purpose": "Define safe automation boundaries for cleanup operations.",
+        "runtime_lifecycle": runtime_lifecycle,
         "automated_safe_behaviors": [
             "list",
             "capabilities",
@@ -2268,7 +2270,15 @@ def render_boundary_governance() -> dict[str, Any]:
                 "policy": "Granting macOS Full Disk Access remains a manual System Settings action.",
             },
         ],
-        "forbidden_automation": ["clean --execute", "--allow-live-root", "sudo rm", "rm -rf /"],
+        "forbidden_automation": [
+            "clean --execute",
+            "--allow-live-root",
+            "sudo rm",
+            "rm -rf /",
+            "background daemon",
+            "menu bar resident app",
+            "unsolicited scheduled scan",
+        ],
         "script_template_policy": {
             "parse_and_preview_allowed": True,
             "auto_execute_allowed": False,
@@ -2310,6 +2320,40 @@ def render_boundary_governance() -> dict[str, Any]:
     }
 
 
+def render_runtime_lifecycle_policy() -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.runtime-lifecycle-policy.v1",
+        "product_model": "ai-first-ephemeral-cli",
+        "runs_only_when_invoked": True,
+        "exits_after_workflow": True,
+        "resident_processes": 0,
+        "background_cpu_policy": "zero-when-not-invoked",
+        "background_memory_policy": "zero-when-not-invoked",
+        "implements_tui": False,
+        "implements_gui": False,
+        "installs_background_daemon": False,
+        "installs_login_item": False,
+        "performs_unsolicited_scans": False,
+        "retention_pattern": "do-not-retain-user-attention",
+        "interaction_layer": "AI host or explicit CLI command",
+        "state_model": "plan files, review-selection files, reports, and operation logs instead of resident app state",
+        "allowed_long_lived_state": [
+            "cleanmac.plan.v1 files explicitly written by the caller",
+            "cleanmac.review-selection.v1 files explicitly written by the caller",
+            "JSON/HTML/Markdown reports explicitly requested with --report-file",
+            "operation log JSONL records for auditability",
+        ],
+        "forbidden_product_patterns": [
+            "TUI workflow as primary product surface",
+            "GUI workflow as primary product surface",
+            "menu bar resident monitor",
+            "background cleanup daemon",
+            "automatic cleanup without explicit invocation",
+            "push-style cleanup reminders",
+        ],
+    }
+
+
 def render_ai_tool_contract() -> dict[str, Any]:
     return {
         "schema": "cleanmac.ai-tool-contract.v1",
@@ -2318,6 +2362,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "json_required": True,
             "preferred_command_style": "grouped",
             "program": "cleanmac",
+            "runtime_lifecycle": "single-shot process; no resident GUI, TUI, daemon, or background scan",
         },
         "auto_call_allowed": [
             "capabilities",
@@ -2350,6 +2395,9 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "launchctl",
             "rm " + "-rf",
             "shell=true deletion",
+            "background daemon",
+            "resident GUI/TUI workflow",
+            "unsolicited scheduled scan",
         ],
         "execution_requirements": {
             "prefer_delete_mode": "trash",
@@ -2571,6 +2619,7 @@ def render_llm_invocation_guide() -> dict[str, Any]:
         "schema": "cleanmac.llm-invocation-guide.v1",
         "must_start_with": "cleanmac_capabilities",
         "tool_source_of_truth": "ai_function_schemas",
+        "runtime_lifecycle": render_runtime_lifecycle_policy(),
         "never_call_directly": ["cleanmac_execute_plan"],
         "mandatory_before_execute": [
             "cleanmac_generate_plan",
@@ -2619,11 +2668,13 @@ def render_llm_invocation_guide() -> dict[str, Any]:
 
 def render_capabilities() -> dict[str, Any]:
     ai_tool_contract = render_ai_tool_contract()
+    runtime_lifecycle = render_runtime_lifecycle_policy()
     return {
         "schema": "cleanmac.capabilities.v1",
         "name": "cleanmac",
         "destructive": False,
-        "model": "Dry-run-first CLI with sandbox remapping, reusable plans, filters, and execution budgets.",
+        "model": "AI-first ephemeral CLI with dry-run defaults, sandbox remapping, reusable plans, filters, and execution budgets.",
+        "runtime_lifecycle": runtime_lifecycle,
         "category_count": len(CATEGORIES),
         "active_path_count": sum(len(category.paths) for category in CATEGORIES),
         "commands": [
@@ -2670,6 +2721,7 @@ def render_capabilities() -> dict[str, Any]:
         "flat_command_compatibility": True,
         "safety_guardrails": {
             "dry_run_default": True,
+            "zero_resident_footprint": runtime_lifecycle,
             "delete_requires_execute": True,
             "risk_policy": ["strict", "default", "permissive"],
             "high_or_critical_requires_yes_by_default": True,

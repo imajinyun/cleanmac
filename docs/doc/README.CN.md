@@ -1,6 +1,6 @@
 # 🧹 cleanmac — 中文指南
 
-> **macOS 清理工具 · Dry-run 优先 · AI 原生 MCP 集成 · 零依赖**
+> **AI-first macOS 清理 CLI · 一次性运行 · Dry-run 优先 · MCP 集成 · 零依赖**
 
 [![🏠 首页](../../README.md)](/README.md) · [![📗 English Guide](README.md)](README.md)
 
@@ -30,6 +30,8 @@
 
 `cleanmac` 提供 **30+ 项能力**，覆盖 macOS 清理、运营审查和 AI Host 集成全流程：
 
+`cleanmac` 有意保持 **AI-first，而不是 App-first**：它只在用户、脚本或 AI Host 显式调用时运行，完成请求的 workflow 后退出；不提供常驻 GUI/TUI、菜单栏进程、登录项、后台 daemon、主动扫描循环、提醒系统或空闲 CPU/内存占用。持久状态通过 JSON plan、review-selection 文件、显式报告和 operation log 表达。
+
 | # | 能力 | 说明 |
 |---|---|---|
 | 🧹 | **分类管理** | 列出 key、标题、路径、风险等级 |
@@ -41,7 +43,7 @@
 | 🗺️ | **清理计划** | 可复用的 `cleanmac.plan.v1` JSON |
 | 📄 | **清理报告** | 清理前报告、dry-run 明细、执行后报告 |
 | 🧪 | **沙箱模式** | `--root` / `--home` 路径重映射 |
-| 🤖 | **AI 工具** | 34 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
+| 🤖 | **AI 工具** | 36 个工具，支持 Anthropic / OpenAI / MCP 三种格式 |
 | 🏗️ | **MCP Server** | 基于 stdio 的 Model Context Protocol 服务器 |
 | 🧾 | **审查选择** | `cleanmac.review-selection.v1` 文件可约束 clean、startup 和 privacy 执行 |
 | 🔍 | **运营预检** | permissions、startup、privacy、外部工具 dry-run 计划 |
@@ -53,6 +55,7 @@
 | 🔐 | **Bundle 保护** | 应用容器的 allow/block 策略 |
 | ♻️ | **Trash 模式** | 可恢复的删除路由 |
 | 📜 | **操作日志** | 持久化 JSONL 审计轨迹 |
+| 💤 | **零常驻运行时** | 不提供 GUI/TUI、daemon、登录项、主动扫描或后台资源占用 |
 | 🧾 | **删除日志** | 取证 TSV 记录 |
 | ⏱️ | **Debug 计时** | 毫秒级 PERF 日志 |
 | 🧪 | **测试模式** | CI/测试中的授权守卫 |
@@ -114,7 +117,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI 工具定义
 
-导出 **34 个工具**，支持三种格式：
+导出 **36 个工具**，支持三种格式：
 
 ```bash
 # 🧠 Anthropic 格式（Claude）

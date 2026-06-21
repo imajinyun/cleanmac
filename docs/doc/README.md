@@ -1,6 +1,6 @@
 # 🧹 cleanmac — English Guide
 
-> **macOS cleanup tool · Dry-run first · AI-native MCP integration · Zero dependencies**
+> **AI-first macOS cleanup CLI · Ephemeral execution · Dry-run first · MCP integration · Zero dependencies**
 
 [![🏠 Home](../../README.md)](/README.md) · [![📕 中文文档](README.CN.md)](README.CN.md)
 
@@ -30,6 +30,8 @@
 
 `cleanmac` provides **30+ capabilities** for macOS cleanup, operational review, and AI-host integration:
 
+`cleanmac` is intentionally **AI-first, not app-first**: it runs only when invoked by a user, script, or AI host; it exits after the requested workflow; it does not provide a resident GUI/TUI, menu bar agent, login item, background daemon, unsolicited scan loop, reminder system, or idle CPU/memory footprint. Durable state is represented as JSON plans, review-selection files, explicit reports, and operation logs.
+
 | # | Capability | Description |
 |---|---|---|
 | 🧹 | **Category management** | List keys, titles, paths, risk levels |
@@ -41,7 +43,7 @@
 | 🗺️ | **Plans** | Reusable `cleanmac.plan.v1` JSON |
 | 📄 | **Reports** | Pre-clean, dry-run, post-execution, audit |
 | 🧪 | **Sandbox** | `--root` / `--home` path remapping |
-| 🤖 | **AI tools** | 34 tools in Anthropic / OpenAI / MCP formats |
+| 🤖 | **AI tools** | 36 tools in Anthropic / OpenAI / MCP formats |
 | 🏗️ | **MCP Server** | stdio-based Model Context Protocol server |
 | 🧾 | **Review selections** | `cleanmac.review-selection.v1` files constrain clean, startup, and privacy execution |
 | 🔍 | **Operational preflight** | Permissions, startup, privacy, and external-tool dry-run planning |
@@ -53,6 +55,7 @@
 | 🔐 | **Bundle protection** | Allow/block policies for app containers |
 | ♻️ | **Trash mode** | Recoverable deletion routing |
 | 📜 | **Operation log** | Persistent JSONL audit trail |
+| 💤 | **Zero-resident runtime** | No GUI/TUI, daemon, login item, unsolicited scan, or background resource use |
 | 🧾 | **Deletion log** | Forensic TSV records |
 | ⏱️ | **Debug timing** | Millisecond PERF logging |
 | 🧪 | **Test mode** | Auth guards for CI/testing |
@@ -116,7 +119,7 @@ python3 cleanmac.py clean run \
 
 ### 📦 AI Tool Definitions
 
-Export **34 tools** in three formats:
+Export **36 tools** in three formats:
 
 ```bash
 # 🧠 Anthropic format (Claude)
