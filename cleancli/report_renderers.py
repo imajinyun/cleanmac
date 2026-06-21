@@ -7,6 +7,7 @@ import json
 import shlex
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import quote
 
 
 def _title(payload: Mapping[str, Any]) -> str:
@@ -75,7 +76,7 @@ def _path_link(path: Any) -> str:
     text = str(path or "")
     if not text.startswith("/"):
         return html.escape(text)
-    href = "file://" + html.escape(text, quote=True)
+    href = "file://" + quote(text, safe="/")
     return f'<a href="{href}">{html.escape(text)}</a>'
 
 
@@ -83,7 +84,7 @@ def _finder_url(row: Mapping[str, Any], path: str) -> str | None:
     value = row.get("finder_url")
     if isinstance(value, str) and value:
         return value
-    return f"file://{path}" if path.startswith("/") else None
+    return f"file://{quote(path, safe='/')}" if path.startswith("/") else None
 
 
 def _finder_link(row: Mapping[str, Any], path: str) -> str:
@@ -245,7 +246,7 @@ def render_markdown_report(audit_record: Mapping[str, Any]) -> str:
         lines.extend(["", "## Items", "", "| Path | Kind | Status | Bytes |", "| --- | --- | --- | ---: |"])
         for row in rows[:200]:
             path = str(row.get("path") or row.get("source_pattern") or row.get("key") or "")
-            link = f"[Open in Finder](file://{path})" if path.startswith("/") else path
+            link = f"[Open in Finder](file://{quote(path, safe='/')})" if path.startswith("/") else path
             lines.append(
                 "| "
                 + " | ".join(

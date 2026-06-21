@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, NoReturn
+from urllib.parse import quote
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_decision import render_ai_tool_decision_matrix
@@ -44,6 +45,7 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
+from cleancli.governance import render_boundary_governance, render_runtime_lifecycle_policy
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
@@ -2240,120 +2242,6 @@ def category_metadata(category: Category) -> dict[str, Any]:
     }
 
 
-def render_boundary_governance() -> dict[str, Any]:
-    runtime_lifecycle = render_runtime_lifecycle_policy()
-    return {
-        "schema": "cleanmac.boundary-governance.v1",
-        "purpose": "Define safe automation boundaries for cleanup operations.",
-        "runtime_lifecycle": runtime_lifecycle,
-        "automated_safe_behaviors": [
-            "list",
-            "capabilities",
-            "doctor",
-            "analyze",
-            "diagnose",
-            "inspect",
-            "plan",
-            "validate-plan",
-            "policy-simulate",
-            "workflow",
-            "scripts",
-        ],
-        "manual_only_behaviors": [
-            {
-                "id": "destructive-clean-execution",
-                "required_flags": ["clean --execute", "--yes for high/critical categories"],
-            },
-            {"id": "live-root-clean-execution", "required_flags": ["--allow-live-root", "--execute"]},
-            {
-                "id": "full-disk-access-grant",
-                "policy": "Granting macOS Full Disk Access remains a manual System Settings action.",
-            },
-        ],
-        "forbidden_automation": [
-            "clean --execute",
-            "--allow-live-root",
-            "sudo rm",
-            "rm -rf /",
-            "background daemon",
-            "menu bar resident app",
-            "unsolicited scheduled scan",
-        ],
-        "script_template_policy": {
-            "parse_and_preview_allowed": True,
-            "auto_execute_allowed": False,
-            "destructive_templates_require_manual_review": True,
-            "global_flags_before_command": True,
-            "recommended_delete_templates_use_cleanmac_cli": True,
-            "raw_rm_rf_requires_deprecation_metadata": True,
-        },
-        "privileged_command_ownership": {
-            "boundary_modules": ["cleancli/delete_ops.py"],
-            "blocked_commands": ["sudo", "osascript", "launchctl"],
-            "scan_command": "python3 scripts/security_scan.py",
-        },
-        "verification": {
-            "python_test_environment": {
-                "requires_virtualenv": True,
-                "workflow_python_env": "PYTHON=.venv/bin/python",
-                "ci_policy": "GitHub Actions must create a venv before running Python test or smoke commands.",
-            },
-            "required_commands": [
-                "make quality-check",
-                "make local-test",
-                "make build-check",
-                "make package-smoke",
-                "make script-smoke",
-                "make bundle-audit-smoke",
-                "make macos-smoke",
-                "make security-smoke",
-                "make dependency-audit-smoke",
-                "make docs-smoke",
-                "make governance-smoke",
-                "make ai-governance-smoke",
-                "make open-source-smoke",
-                "make distribution-smoke",
-                "make docker-test",
-                "make release-check",
-            ],
-        },
-    }
-
-
-def render_runtime_lifecycle_policy() -> dict[str, Any]:
-    return {
-        "schema": "cleanmac.runtime-lifecycle-policy.v1",
-        "product_model": "ai-first-ephemeral-cli",
-        "runs_only_when_invoked": True,
-        "exits_after_workflow": True,
-        "resident_processes": 0,
-        "background_cpu_policy": "zero-when-not-invoked",
-        "background_memory_policy": "zero-when-not-invoked",
-        "implements_tui": False,
-        "implements_gui": False,
-        "installs_background_daemon": False,
-        "installs_login_item": False,
-        "performs_unsolicited_scans": False,
-        "retention_pattern": "do-not-retain-user-attention",
-        "interaction_layer": "AI host or explicit CLI command",
-        "state_model": "plan files, review-selection files, reports, and operation logs instead of resident app state",
-        "allowed_long_lived_state": [
-            "cleanmac.plan.v1 files explicitly written by the caller",
-            "cleanmac.review-selection.v1 files explicitly written by the caller",
-            "JSON/HTML/Markdown reports explicitly requested with --report-file",
-            "operation log JSONL records for auditability",
-        ],
-        "forbidden_product_patterns": [
-            "TUI workflow as primary product surface",
-            "GUI workflow as primary product surface",
-            "menu bar resident monitor",
-            "background cleanup daemon",
-            "automatic cleanup without explicit invocation",
-            "push-style cleanup reminders",
-        ],
-    }
-
-
 def render_ai_tool_contract() -> dict[str, Any]:
     return {
         "schema": "cleanmac.ai-tool-contract.v1",
@@ -3887,7 +3775,7 @@ def path_interaction_metadata(path: Path) -> dict[str, Any]:
     open_command = ["open", path_text]
     reveal_command = ["open", "-R", path_text]
     return {
-        "finder_url": f"file://{path_text}" if absolute else None,
+        "finder_url": f"file://{quote(path_text, safe='/')}" if absolute else None,
         "open_command": open_command,
         "open_command_text": shell_quote_command(open_command),
         "reveal_command": reveal_command,
@@ -6276,6 +6164,7 @@ def render_open_targets(categories: list[Category], *, root: Path, home: Path, e
         for pattern in open_patterns(category):
             path = Path(remap_path(pattern, root=root, home=home))
             command = ["open", str(path)]
+            interaction_metadata = path_interaction_metadata(path)
             status = "planned"
             error = None
             if execute:
@@ -6294,13 +6183,7 @@ def render_open_targets(categories: list[Category], *, root: Path, home: Path, e
                     "category": category.key,
                     "source_pattern": pattern,
                     "path": display_path(path),
-                    "finder_url": f"file://{display_path(path)}" if str(path).startswith("/") else None,
-                    "open_command": command,
-                    "open_command_text": shell_quote_command(command),
-                    "reveal_command": ["open", "-R", str(path)],
-                    "reveal_command_text": shell_quote_command(["open", "-R", str(path)]),
-                    "safe_to_open": not path.is_symlink(),
-                    "open_supported": sys.platform == "darwin",
+                    **interaction_metadata,
                     "manual_command": command,
                     "exists": path.exists(),
                     "command": shell_quote_command(command),
