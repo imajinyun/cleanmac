@@ -299,8 +299,22 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("ai-tools", result.stdout)
         self.assertIn("ai-eval-pack", result.stdout)
         self.assertIn("ai-eval-run", result.stdout)
+        self.assertIn("release_promotion_decision_surface_audit_blocker", result.stdout)
         self.assertIn("trash", result.stdout)
         self.assertIn("complete -F _cleanmac_completion cleanmac", result.stdout)
+
+    def test_completion_ai_eval_scenarios_match_eval_pack(self) -> None:
+        from cleancli.ai_eval import render_ai_eval_pack
+
+        completion = cleancli.render_completion_shell("bash")
+        scenarios = [scenario["id"] for scenario in render_ai_eval_pack()["scenarios"]]
+
+        self.assertIn("smoke", completion)
+        self.assertIn("all", completion)
+        self.assertTrue(scenarios)
+        for scenario_id in scenarios:
+            with self.subTest(scenario_id=scenario_id):
+                self.assertIn(scenario_id, completion)
 
     def test_completion_zsh_includes_commands(self) -> None:
         result = self.run_cli("completion", "zsh")
