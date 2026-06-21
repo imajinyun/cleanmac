@@ -1344,6 +1344,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(targets["trash"]["path"].endswith("/Users/tester/.Trash"))
             self.assertIn("finder_url", targets["trash"])
             self.assertIn("manual_command", targets["trash"])
+            self.assertEqual(targets["trash"]["open_command"][0], "open")
+            self.assertEqual(targets["trash"]["reveal_command"][:2], ["open", "-R"])
+            self.assertIn("open -R", targets["trash"]["reveal_command_text"])
             self.assertTrue(targets["trash"]["open_supported"])
 
     def test_profiles_expand_to_safe_category_and_budget_defaults(self) -> None:
@@ -2129,6 +2132,10 @@ class CleanMacCLITests(unittest.TestCase):
                 self.assertTrue(candidate["recovery"])
                 self.assertTrue(candidate["matched_rule"].startswith("software-uninstall."))
                 self.assertEqual(candidate["app_owner"], "example")
+                self.assertTrue(candidate["finder_url"].startswith("file://"))
+                self.assertEqual(candidate["open_command"][0], "open")
+                self.assertEqual(candidate["reveal_command"][:2], ["open", "-R"])
+                self.assertIn("open -R", candidate["reveal_command_text"])
             self.assertFalse(by_kind["group-container"]["default_selected"])
             self.assertEqual(
                 by_kind["group-container"]["why_not_default"],
@@ -2225,6 +2232,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(dry_run_report["dry_run"])
             self.assertEqual(dry_run_report["planned_count"], 2)
             self.assertGreaterEqual(dry_run_report["skipped_count"], 1)
+            planned_result = next(item for item in dry_run_report["results"] if item["status"] == "planned")
+            self.assertTrue(planned_result["finder_url"].startswith("file://"))
+            self.assertEqual(planned_result["reveal_command"][:2], ["open", "-R"])
             self.assertTrue((root / "Applications/Example.app").exists())
             self.assertTrue(cache_path.exists())
             self.assertTrue(app_support.exists())
@@ -3190,12 +3200,60 @@ class CleanMacCLITests(unittest.TestCase):
             )
             report = json.loads(result.stdout)
             html_text = report_file.read_text(encoding="utf-8")
+            first_item = report["items"][0]
 
             self.assertEqual(report["report_file"], str(report_file))
             self.assertEqual(report["report_format"], "html")
+            self.assertIn("finder_url", first_item)
+            self.assertEqual(first_item["open_command"][0], "open")
+            self.assertEqual(first_item["reveal_command"][:2], ["open", "-R"])
             self.assertIn("<!doctype html>", html_text)
             self.assertIn("cleanmac audit report", html_text)
+            self.assertIn("Scan summary", html_text)
+            self.assertIn("Top reclaimable", html_text)
+            self.assertIn("Category cards", html_text)
+            self.assertIn("Skipped reasons", html_text)
+            self.assertIn("Selected-to-delete review", html_text)
+            self.assertIn("Copyable execution command", html_text)
+            self.assertIn("<input type='checkbox' disabled", html_text)
+            self.assertIn("open -R", html_text)
             self.assertIn("old.tmp", html_text)
+
+    def test_report_file_html_productizes_plan_candidates_and_execution_command(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report_file = root / "cleanmac-plan.html"
+            result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "--report-file",
+                str(report_file),
+                "--report-format",
+                "html",
+                "clean",
+                "plan",
+                "--categories",
+                "trash",
+                "--max-items",
+                "10",
+                "--max-delete-mb",
+                "1",
+            )
+            report = json.loads(result.stdout)
+            html_text = report_file.read_text(encoding="utf-8")
+
+            self.assertEqual(report["schema"], "cleanmac.plan.v1")
+            self.assertIn("old.tmp", html_text)
+            self.assertIn("cleanmac-confirm", html_text)
+            self.assertIn("python3 cleanmac.py --json clean run", html_text)
+            self.assertIn("--review-selection-file", html_text)
+            self.assertIn("--require-plan-context", html_text)
+            self.assertIn("--delete-mode trash", html_text)
+            self.assertIn("Trash", html_text)
+            self.assertIn("open -R", html_text)
 
     def test_report_file_html_escapes_audit_content(self) -> None:
         tmp, root, home = self.make_sandbox()
