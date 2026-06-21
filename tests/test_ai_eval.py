@@ -280,6 +280,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_post_publish_result_discovery", scenario_ids)
         self.assertIn("release_post_publish_evidence_template_discovery", scenario_ids)
         self.assertIn("schema_registry_release_contract_coverage", scenario_ids)
+        self.assertIn("one_shot_governed_workflow", scenario_ids)
         self.assertIn("mcp_raw_command_argument_denial", scenario_ids)
         self.assertIn("mcp_destructive_policy_denial", scenario_ids)
         self.assertIn("schema_registry_discovery", scenario_ids)

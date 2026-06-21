@@ -150,6 +150,49 @@ def _selection_summary(
     }
 
 
+def _review_human_summary(selection_summary: dict[str, Any]) -> dict[str, Any]:
+    selected_count = int(selection_summary.get("selected_count") or 0)
+    item_count = int(selection_summary.get("item_count") or 0)
+    selected_bytes = int(selection_summary.get("selected_bytes") or 0)
+    reasons: list[str] = [
+        "Review output only; destructive execution is still blocked until a dry-run and explicit confirmation.",
+    ]
+    selected_risks = selection_summary.get("selected_risk_counts")
+    if isinstance(selected_risks, dict):
+        critical_count = int(selected_risks.get("critical") or 0)
+        high_count = int(selected_risks.get("high") or 0)
+        if critical_count or high_count:
+            reasons.append(f"Selected items include {critical_count} critical and {high_count} high risk item(s).")
+    if selection_summary.get("requires_sensitive_review"):
+        reasons.append("Selected items require sensitive human review before execution.")
+    protected_count = int(selection_summary.get("protected_count") or 0)
+    if protected_count:
+        reasons.append(f"{protected_count} protected item(s) are present and excluded from default selection.")
+    unknown_count = int(selection_summary.get("unknown_item_count") or 0)
+    if unknown_count:
+        reasons.append(f"{unknown_count} requested item ID(s) were not found in the reviewed source.")
+    if selected_count == 0:
+        reasons.append("No items are currently selected for the next dry-run.")
+    return {
+        "schema": "cleanmac.human-summary.v1",
+        "headline": f"Review selected {selected_count} of {item_count} item(s), {selected_bytes} byte(s) total.",
+        "safe_to_execute": False,
+        "top_reasons_to_review": reasons[:5],
+        "next_command": [
+            "cleanmac",
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            "{plan_file}",
+            "--review-selection-file",
+            "{review_selection_file}",
+            "--delete-mode",
+            "trash",
+        ],
+    }
+
+
 def validate_review_selection(payload: dict[str, Any], selection: dict[str, Any]) -> dict[str, Any]:
     items = normalize_review_items(payload)
     known_ids = {str(item["id"]) for item in items}
@@ -207,6 +250,7 @@ def render_review(
     ]
     unknown_item_ids = [item_id for item_id in [*explicit_selected, *explicit_excluded] if item_id not in known_ids]
     selection_summary = _selection_summary(items, selected, _string_list(unknown_item_ids))
+    human_summary = _review_human_summary(selection_summary)
     return {
         "schema": "cleanmac.review.v1",
         "destructive": False,
@@ -222,6 +266,7 @@ def render_review(
             "source_item_count": len(items),
         },
         "selection_summary": selection_summary,
+        "human_summary": human_summary,
         "items": items,
         "selection": {
             "schema": "cleanmac.review-selection.v1",

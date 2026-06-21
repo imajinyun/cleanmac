@@ -34,11 +34,27 @@ def render_ai_runbook() -> dict[str, Any]:
                 "human_confirmation",
             ],
         },
+        "one_shot_governed_workflow": {
+            "tool": "cleanmac_ai_workflow",
+            "cli": [
+                "cleanmac",
+                "--json",
+                "ai-workflow",
+                "--goal",
+                "safe-cleanup",
+                "--categories",
+                "trash,downloads,xcode",
+            ],
+            "schema": "cleanmac.ai-workflow.v1",
+            "auto_call_allowed": True,
+            "destructive": False,
+            "purpose": "Fetch the full governed plan/review/policy/dry-run/confirmation/execute route in one read-only call.",
+        },
         "phases": [
             {
                 "id": "discover",
                 "description": "Discover cleanmac capabilities and valid cleanup categories.",
-                "tools": ["cleanmac_capabilities", "cleanmac_list_categories"],
+                "tools": ["cleanmac_capabilities", "cleanmac_list_categories", "cleanmac_ai_workflow"],
                 "auto_call_allowed": True,
                 "stop_on_error": True,
             },

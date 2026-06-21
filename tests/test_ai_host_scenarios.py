@@ -11,6 +11,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CLI = PROJECT_ROOT / "cleanmac.py"
 SAFE_PLAN_TO_DRY_RUN_SCENARIO = "safe_plan_to_dry_run"
+ONE_SHOT_GOVERNED_WORKFLOW_SCENARIO = "one_shot_governed_workflow"
 INVALID_CATEGORY_RECOVERY_SCENARIO = "invalid_category_recovery"
 CONFIRMATION_TOKEN_POLICY_SCENARIO = "confirmation_token_policy"
 
@@ -43,6 +44,36 @@ def run_cli_process(*args: str, root: Path, home: Path) -> subprocess.CompletedP
 
 
 class AIHostScenarioTests(unittest.TestCase):
+    def test_one_shot_governed_workflow_exposes_safe_cleanup_route(self) -> None:
+        self.assertEqual(ONE_SHOT_GOVERNED_WORKFLOW_SCENARIO, "one_shot_governed_workflow")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            home = root / "Users" / "tester"
+            home.mkdir(parents=True)
+
+            report = run_cli(
+                "ai-workflow",
+                "--goal",
+                "safe-cleanup",
+                "--categories",
+                "trash,downloads,xcode",
+                root=root,
+                home=home,
+            )
+            steps = {step["id"]: step for step in report["steps"]}
+
+            self.assertEqual(report["schema"], "cleanmac.ai-workflow.v1")
+            self.assertFalse(report["destructive"])
+            self.assertTrue(report["dry_run"])
+            self.assertIn("cleanmac_policy_simulate", report["recommended_tool_call_order"])
+            self.assertEqual(steps["simulate_execute_policy"]["output_schema"], "cleanmac.ai-policy-simulation.v1")
+            self.assertEqual(steps["simulate_execute_policy"]["input_schema"]["type"], "object")
+            self.assertEqual(steps["simulate_execute_policy"]["input"]["delete_mode"], "trash")
+            self.assertFalse(steps["execute_after_human_confirmation"]["auto_call_allowed"])
+            self.assertTrue(steps["execute_after_human_confirmation"]["requires_human_confirmation"])
+            self.assertEqual(report["governance"]["delete_mode_for_execute"], "trash")
+            self.assertFalse(report["governance"]["destructive_auto_call_allowed"])
+
     def test_safe_ai_host_plan_to_dry_run_sequence(self) -> None:
         self.assertEqual(SAFE_PLAN_TO_DRY_RUN_SCENARIO, "safe_plan_to_dry_run")
         with tempfile.TemporaryDirectory() as tmp:
@@ -90,6 +121,17 @@ class AIHostScenarioTests(unittest.TestCase):
             )
             self.assertTrue(dry_run["dry_run"])
             self.assertTrue(dry_run["ai_confirmation_summary"]["confirmation_token_embedded"])
+            self.assertEqual(dry_run["human_summary"]["schema"], "cleanmac.human-summary.v1")
+            self.assertFalse(dry_run["human_summary"]["safe_to_execute"])
+            self.assertIn("--execute", dry_run["human_summary"]["next_command"])
+            self.assertIn("--confirmation-token", dry_run["human_summary"]["next_command"])
+            self.assertTrue(dry_run["human_summary"]["top_reasons_to_review"])
+
+            review = run_cli("review", "--input-file", str(plan_file), root=root, home=home)
+            self.assertEqual(review["human_summary"]["schema"], "cleanmac.human-summary.v1")
+            self.assertFalse(review["human_summary"]["safe_to_execute"])
+            self.assertIn("Review selected", review["human_summary"]["headline"])
+            self.assertIn("--review-selection-file", review["human_summary"]["next_command"])
 
     def test_ai_host_policy_simulate_allows_execute_intent_with_dry_run_token(self) -> None:
         self.assertEqual(CONFIRMATION_TOKEN_POLICY_SCENARIO, "confirmation_token_policy")

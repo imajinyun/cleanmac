@@ -219,6 +219,26 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "one_shot_governed_workflow",
+            "description": "Verify AI Hosts can fetch a full governed safe-cleanup route in one read-only workflow call.",
+            "required_tools": ["cleanmac_ai_workflow", "cleanmac_execute_plan"],
+            "required_cli_commands": [
+                [
+                    "cleanmac",
+                    "--json",
+                    "ai-workflow",
+                    "--goal",
+                    "safe-cleanup",
+                    "--categories",
+                    "trash,downloads,xcode",
+                ]
+            ],
+            "expected_final_schema": "cleanmac.ai-workflow.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+            "destructive_execution_allowed": False,
+        },
+        {
             "id": "safe_plan_to_dry_run",
             "description": "Generate an AI-originated plan, validate it, simulate policy, and dry-run with Trash routing.",
             "required_tools": [
@@ -612,6 +632,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "release_post_publish_evidence_template_discovery",
             "schema_registry_release_contract_coverage",
             "discover_readiness",
+            "one_shot_governed_workflow",
             "schema_registry_discovery",
             "contract_validation_plan",
             "contract_samples_roundtrip",
@@ -1239,6 +1260,33 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 )
             )
 
+        if "one_shot_governed_workflow" in selected:
+            workflow, event = _run_cli(
+                cli,
+                ["ai-workflow", "--goal", "safe-cleanup", "--categories", "trash,downloads,xcode"],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            steps = workflow.get("steps", [])
+            execute_steps = [step for step in steps if step.get("destructive")]
+            results.append(
+                _scenario_result(
+                    "one_shot_governed_workflow",
+                    passed=bool(
+                        workflow["schema"] == "cleanmac.ai-workflow.v1"
+                        and workflow["dry_run"] is True
+                        and workflow["destructive"] is False
+                        and workflow["governance"]["delete_mode_for_execute"] == "trash"
+                        and "cleanmac_execute_plan" in workflow["recommended_tool_call_order"]
+                        and len(execute_steps) == 1
+                        and execute_steps[0]["auto_call_allowed"] is False
+                        and execute_steps[0]["requires_human_confirmation"] is True
+                    ),
+                    observed_schema=workflow["schema"],
+                )
+            )
+
         plan: dict[str, Any] | None = None
         dry_run: dict[str, Any] | None = None
         plan_required_scenarios = {
@@ -1765,7 +1813,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     .get("text", "")
                 )
                 mcp_passed = bool(
-                    len(tools) == 36
+                    len(tools) == 37
                     and "cleanmac_capabilities" in tool_names
                     and "cleanmac_profiles" in tool_names
                     and "cleanmac_execute_plan" in tool_names
