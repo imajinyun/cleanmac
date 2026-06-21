@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from cleancli import protection
 
@@ -24,7 +25,7 @@ def _path_interaction_metadata(path: Path) -> dict[str, Any]:
     open_command = ["open", path_text]
     reveal_command = ["open", "-R", path_text]
     return {
-        "finder_url": f"file://{path_text}" if path_text.startswith("/") else None,
+        "finder_url": f"file://{quote(path_text, safe='/')}" if path_text.startswith("/") else None,
         "open_command": open_command,
         "open_command_text": _shell_quote_command(open_command),
         "reveal_command": reveal_command,

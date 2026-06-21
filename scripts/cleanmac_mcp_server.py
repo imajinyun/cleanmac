@@ -208,7 +208,6 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
-        render_runtime_lifecycle_policy,
         render_release_diagnostics_report,
         render_release_evidence_report,
         render_release_operator_summary,
@@ -220,6 +219,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_release_rehearsal_report,
         render_release_rollback_plan_report,
     )
+    from cleancli.governance import render_runtime_lifecycle_policy  # type: ignore[import-untyped]
     from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, render_mcp_prompt_index  # type: ignore[import-untyped]
     from cleancli.mcp_resources import (  # type: ignore[import-untyped]
         MCP_META_INDEX_URI,

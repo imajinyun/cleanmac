@@ -3282,7 +3282,7 @@ class CleanMacCLITests(unittest.TestCase):
             unsafe.parent.mkdir(parents=True, exist_ok=True)
             unsafe.write_text("unsafe", encoding="utf-8")
             report_file = root / "cleanmac-audit.html"
-            self.run_cli(
+            result = self.run_cli(
                 "--root",
                 str(root),
                 "--home",
@@ -3296,10 +3296,14 @@ class CleanMacCLITests(unittest.TestCase):
                 "--categories",
                 "trash",
             )
+            report = json.loads(result.stdout)
             html_text = report_file.read_text(encoding="utf-8")
+            first_item = report["items"][0]
 
+            self.assertIn("%3Cscript%3Ealert%281%29.tmp", first_item["finder_url"])
             self.assertNotIn("<script>alert(1).tmp", html_text)
             self.assertIn("&lt;script&gt;alert(1).tmp", html_text)
+            self.assertIn("%3Cscript%3Ealert%281%29.tmp", html_text)
 
     def test_report_file_defaults_to_json_audit_report(self) -> None:
         tmp, root, home = self.make_sandbox()
