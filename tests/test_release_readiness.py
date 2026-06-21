@@ -154,6 +154,28 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertTrue(evidence["valid"], evidence)
         self.assertEqual(evidence["path"], str(assets / "ARTIFACT-MANIFEST.json"))
 
+    def test_missing_release_manifest_evidence_exposes_publishable_asset_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+
+            evidence = render_release_manifest_evidence(dist_dir=dist, assets_dir=assets)
+
+        self.assertEqual(evidence["schema"], "cleanmac.release-artifact-manifest.v1")
+        self.assertFalse(evidence["valid"])
+        self.assertEqual(evidence["error_code"], "RELEASE_ARTIFACT_MANIFEST_MISSING")
+        self.assertIn(str(assets / "ARTIFACT-MANIFEST.json"), evidence["expected_assets"])
+        self.assertEqual(evidence["downloadable_asset_manifest"]["manifest"], str(assets / "ARTIFACT-MANIFEST.json"))
+        self.assertEqual(evidence["downloadable_asset_manifest"]["sha256sums"], str(assets / "SHA256SUMS"))
+        self.assertIn(["make", "release-artifacts-smoke"], evidence["verification_commands"])
+        channels = {channel["name"]: channel for channel in evidence["publish_channels"]}
+        self.assertIn("GitHub Releases", channels)
+        self.assertEqual(channels["Homebrew"]["tap"], "cleanmac/tap")
+        self.assertIn("trusted-publishing", channels["PyPI"]["requires"])
+
     def test_release_diagnostics_and_operator_summary_explain_missing_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -13,7 +13,15 @@
 # 🧪 安全预览
 python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 10
 
-# 🤖 AI 工具清单（34 个工具）
+# 🧩 面向普通用户的安全 Profile
+python3 cleanmac.py --json profiles
+python3 cleanmac.py --json clean plan --profile safe --ai-origin
+
+# 🗑️ 软件卸载审查闭环
+python3 cleanmac.py --json software inspect --app "Example"
+python3 cleanmac.py --json software uninstall-plan --app "Example"
+
+# 🤖 AI 工具清单（36 个工具）
 python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 
 # 🧭 安全工作流（AI 推荐入口）
@@ -27,12 +35,61 @@ python3 cleanmac.py --json ai-host-integration-pack | jq '.recommended_call_sequ
 
 ---
 
+## 🥇 cleanmac 为什么存在
+
+cleanmac 的目标是在 GitHub 上成为更安全、更可治理、可用性足够好的 CLI macOS cleaner，而不是另一个高风险递归 `rm` 脚本。
+
+- **比临时 shell 脚本更安全**：默认 dry-run、删除预算、受保护 bundle、Trash-only 执行、operation log 审计链。
+- **比一次性清理器更可审查**：inspect → plan → review → selection → dry-run → execute 全链路显式且机器可读。
+- **比传统清理器更适合 AI/MCP**：工具契约、schema registry、host policy、release readiness 和 smoke gate 都是一等输出。
+
+---
+
+## ⚡ 三分钟安全清理流程
+
+```bash
+# 1) 查看最保守的内置 Profile
+python3 cleanmac.py --json profiles
+
+# 2) 生成安全计划
+python3 cleanmac.py --json clean plan --profile safe --ai-origin > /tmp/cleanmac-plan.json
+
+# 3) 审查并收窄选择范围
+python3 cleanmac.py --json review --input-file /tmp/cleanmac-plan.json --selection-file /tmp/cleanmac-selection.json
+
+# 4) 基于审查选择 dry-run
+python3 cleanmac.py --json clean run --plan-file /tmp/cleanmac-plan.json --review-selection-file /tmp/cleanmac-selection.json --require-plan-context --delete-mode trash
+```
+
+如果之后选择真实执行，cleanmac 仍会保留 Trash 路由、review-selection 约束和 operation-log 记录，而不是直接进入不可恢复删除。
+
+---
+
+## 🛡️ 为什么比 `rm` 脚本安全
+
+`rm` 脚本通常依赖字符串匹配和 shell 展开。cleanmac 增加了明确的安全门禁：
+
+- 受保护 Apple App、敏感用户数据、Containers、Group Containers 会被策略阻断
+- 真实执行要求显式 review selection 文件，而不是“匹配到就删”
+- 真实删除路径仍通过 Trash 路由和可审计 operation-log entries
+- AI/MCP 破坏性工具默认禁止自动调用，并需要确认契约
+
+---
+
+## 🆚 和 Pearcleaner / CleanMyMac / mac-cleanup-py 的区别
+
+- **Pearcleaner**：偏 app-centric UX；cleanmac 更偏 CLI-first governance、机器可读 review handoff、AI/MCP 安全编排。
+- **CleanMyMac**：商业化体验完整；cleanmac 强调可审计契约、开放 release evidence、无隐藏后台启发式。
+- **mac-cleanup-py / shell cleanup scripts**：适合作为自动化片段；cleanmac 增加 policy gates、protected bundle 逻辑、reviewed execution 和 release-readiness evidence。
+
+---
+
 ## ✨ 核心亮点
 
 | 🏷️ | 说明 |
 |---|---|
 | 🧹 **Dry-run 优先** | 所有清理命令默认只预览，不删除任何文件 |
-| 🤖 **AI 原生 · 34 个工具** | 输出 Anthropic / OpenAI / MCP 格式的完整工具定义 |
+| 🤖 **AI 原生 · 36 个工具** | 输出 Anthropic / OpenAI / MCP 格式的完整工具定义 |
 | 🏗️ **MCP Server** | 内置 Model Context Protocol stdio server，即开即用 |
 | 🗂️ **受治理的 MCP 索引** | 通过 meta index 汇总 resource、prompt 与 tool 目录 |
 | 🔐 **多层安全门禁** | Bundle 保护、预算上限、Trash 可恢复、执行确认令牌 |
