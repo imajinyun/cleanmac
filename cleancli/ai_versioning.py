@@ -1998,6 +1998,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "root": "/tmp/cleanmac-sandbox",
             "home": "/Users/tester",
             "scope": "cache",
+            "delete_mode": "trash",
             "review_selection": {
                 "schema": "cleanmac.review-selection-constraint.v1",
                 "source_fingerprint": "a" * 64,
@@ -2013,6 +2014,8 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     "id": "privacy:Chrome:Default:cache:/Users/tester/Library/Caches/Google/Chrome/Default/Cache",
                     "path": "/Users/tester/Library/Caches/Google/Chrome/Default/Cache",
                     "scope": "cache",
+                    "delete_mode": "trash",
+                    "trash_path": "/Users/tester/.Trash/cleanmac-example-Chrome-Default-Cache",
                     "status": "deleted",
                     "executed": True,
                 }

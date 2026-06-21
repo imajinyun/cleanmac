@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from cleancli import protection
+from cleancli import delete_ops, protection
 
 PRIVACY_SCOPES = ("all", "cache", "cookies", "history", "local-storage", "credentials")
 
@@ -521,9 +521,14 @@ def execute_privacy_cleanup(
     root: Path,
     home: Path,
     delete_path_func: Callable[[Path], Path | None],
+    delete_mode: str = "trash",
 ) -> dict[str, Any]:
     if plan.get("schema") != "cleanmac.privacy-plan.v1":
         raise SystemExit("Privacy cleanup requires a cleanmac.privacy-plan.v1 plan file.")
+    try:
+        delete_ops.require_trash_first_delete_mode(delete_mode, surface="privacy cleanup")
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
     if str(plan.get("root")) != _display_path(root):
         raise SystemExit(f"Plan root mismatch: expected {plan.get('root')} actual {_display_path(root)}")
     if str(plan.get("home")) != _display_path(home):
@@ -549,6 +554,7 @@ def execute_privacy_cleanup(
         reason = None
         error = None
         executed = False
+        trash_path = None
 
         if item_id not in selected_ids:
             status = "skipped"
@@ -573,7 +579,8 @@ def execute_privacy_cleanup(
             reason = "missing-privacy-candidate"
         elif execute:
             try:
-                delete_path_func(path)
+                moved_path = delete_path_func(path)
+                trash_path = _display_path(moved_path) if moved_path else None
                 status = "deleted"
                 executed = True
             except Exception as exc:
@@ -591,7 +598,8 @@ def execute_privacy_cleanup(
             "privacy_risk": item.get("privacy_risk"),
             "data_loss_risk": item.get("data_loss_risk"),
             "bytes": bytes_value,
-            "delete_mode": "permanent",
+            "delete_mode": "trash",
+            "trash_path": trash_path,
             "status": status,
             "reason": reason,
             "error": error,
@@ -607,7 +615,8 @@ def execute_privacy_cleanup(
                 "path": str(path),
                 "bytes": bytes_value,
                 "human": str(item.get("human") or ""),
-                "delete_mode": "permanent",
+                "delete_mode": "trash",
+                "trash_path": trash_path,
                 "deleted": executed,
                 "status": status,
                 "reason": reason,
@@ -627,6 +636,7 @@ def execute_privacy_cleanup(
         "root": _display_path(root),
         "home": _display_path(home),
         "scope": plan.get("scope"),
+        "delete_mode": "trash",
         "review_selection": review_selection,
         "result_count": len(results),
         "planned_count": sum(1 for item in results if item["status"] == "planned"),

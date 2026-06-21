@@ -1111,9 +1111,15 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="cleanmac.review-selection.v1 file that selects privacy cleanup items from the plan.",
     )
     privacy_cmd.add_argument(
-        "--execute", action="store_true", help="Permanently delete selected privacy cleanup candidates."
+        "--execute", action="store_true", help="Move selected privacy cleanup candidates to Trash."
     )
     privacy_cmd.add_argument("--yes", action="store_true", help="Confirm governed privacy cleanup execution.")
+    privacy_cmd.add_argument(
+        "--delete-mode",
+        choices=("trash",),
+        default="trash",
+        help="Privacy cleanup execute only supports Trash routing for recovery.",
+    )
     privacy_cmd.add_argument(
         "--operation-log",
         default=OPERATIONS_LOG_FILE,
@@ -5845,6 +5851,269 @@ def workflow_steps(selected_keys: Sequence[str], dry_run_keys: Sequence[str]) ->
     ]
 
 
+def render_workflow_ux_guide(
+    selected_keys: Sequence[str],
+    dry_run_keys: Sequence[str],
+    *,
+    root: Path,
+    home: Path,
+    dry_run_scope: str,
+    dry_run_report: dict[str, Any],
+) -> dict[str, Any]:
+    categories_arg = ",".join(selected_keys)
+    dry_run_categories_arg = ",".join(dry_run_keys)
+    plan_file = "{plan_file}"
+    review_selection_file = "{review_selection_file}"
+    operation_log = "{operation_log}"
+    confirmation_token = "{confirmation_token_from_matching_dry_run}"
+    item_count = len(dry_run_report.get("items", []))
+    total_bytes = int(dry_run_report.get("total_bytes") or 0)
+    return {
+        "schema": "cleanmac.workflow-ux.v1",
+        "destructive": False,
+        "dry_run": True,
+        "purpose": "Make the safe CLI/AI workflow understandable without adding GUI, TUI, or background scanning.",
+        "one_command": {
+            "description": "Run the common safe workflow once: scripts, analyze, diagnose, inspect, and dry-run summary.",
+            "argv": [
+                "cleanmac",
+                "--json",
+                "workflow",
+                "--categories",
+                categories_arg,
+                "--dry-run-scope",
+                dry_run_scope,
+            ],
+            "safe_to_auto_call": True,
+            "performs_background_scan": False,
+            "executes_cleanup": False,
+        },
+        "dry_run_summary": {
+            "category_keys": list(dry_run_keys),
+            "item_count": item_count,
+            "total_bytes": total_bytes,
+            "total_human": dry_run_report.get("total_human", human_size(total_bytes)),
+            "user_visible_summary": f"Dry-run found {item_count} candidate item(s) totaling {human_size(total_bytes)}.",
+            "next_action": "review_candidates" if item_count else "no_cleanup_needed",
+        },
+        "tool_choice_hints": [
+            {
+                "intent": "understand_available_actions",
+                "first_tool": "cleanmac_capabilities",
+                "cli": ["cleanmac", "--json", "capabilities"],
+                "safe_to_auto_call": True,
+                "next_action": "choose_category_or_workflow",
+            },
+            {
+                "intent": "common_safe_cleanup_workflow",
+                "first_tool": "cleanmac_workflow",
+                "cli": ["cleanmac", "--json", "workflow", "--categories", categories_arg],
+                "safe_to_auto_call": True,
+                "next_action": "read_dry_run_summary_then_review_candidates",
+            },
+            {
+                "intent": "review_existing_plan_or_report",
+                "first_tool": "cleanmac_review",
+                "cli": ["cleanmac", "--json", "review", "--input-file", plan_file],
+                "safe_to_auto_call": True,
+                "next_action": "write_or_validate_review_selection_file",
+            },
+            {
+                "intent": "check_execute_readiness",
+                "first_tool": "cleanmac_policy_simulate",
+                "cli": [
+                    "cleanmac",
+                    "--json",
+                    "policy-simulate",
+                    "--plan-file",
+                    plan_file,
+                    "--review-selection-file",
+                    review_selection_file,
+                    "--execute",
+                    "--delete-mode",
+                    "trash",
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                ],
+                "safe_to_auto_call": True,
+                "next_action": "fix_blockers_or_run_dry_run_selected_plan",
+            },
+            {
+                "intent": "execute_cleanup",
+                "first_tool": "cleanmac_execute_plan",
+                "cli": ["cleanmac", "--json", "clean", "run", "--execute"],
+                "safe_to_auto_call": False,
+                "requires_human_confirmation": True,
+                "next_action": "require_human_confirmation_token_and_operation_log",
+            },
+        ],
+        "common_workflows": [
+            {
+                "name": "safe_preview_once",
+                "description": "One command for common non-destructive UX: inspect, diagnose, and dry-run summary.",
+                "argv": ["cleanmac", "--json", "workflow", "--categories", categories_arg],
+                "safe_to_auto_call": True,
+                "destructive": False,
+            },
+            {
+                "name": "ai_governed_plan_review_dry_run",
+                "description": "Generate a governed plan, produce a review selection, simulate policy, then dry-run selected items.",
+                "steps": [
+                    "generate_plan",
+                    "review_plan",
+                    "validate_plan",
+                    "policy_simulate_execute_intent",
+                    "dry_run_selected_plan",
+                ],
+                "safe_to_auto_call_until": "dry_run_selected_plan",
+                "destructive": False,
+            },
+            {
+                "name": "human_confirmed_trash_execute",
+                "description": "Final Trash-mode execution only after matching dry-run token and explicit human confirmation.",
+                "steps": ["execute_after_human_confirmation"],
+                "safe_to_auto_call": False,
+                "requires_human_confirmation": True,
+                "destructive": True,
+            },
+        ],
+        "file_relationships": [
+            {
+                "name": "plan_file",
+                "schema": "cleanmac.plan.v1",
+                "producer": "cleanmac --json plan --ai-origin",
+                "consumers": ["validate-plan", "policy-simulate", "review", "clean run --plan-file"],
+                "purpose": "Reusable snapshot of candidate categories, root/home context, and execution policy.",
+            },
+            {
+                "name": "review_selection_file",
+                "schema": "cleanmac.review-selection.v1",
+                "producer": "cleanmac --json review --input-file {plan_file} --selection-file {review_selection_file}",
+                "consumers": ["policy-simulate", "clean run --review-selection-file"],
+                "purpose": "Human-readable selection constraint; execution may only touch selected reviewed items.",
+            },
+            {
+                "name": "confirmation_token",
+                "schema": "cleanmac.ai-confirmation-summary.v1",
+                "producer": "matching dry-run clean report",
+                "consumers": ["clean run --execute --require-confirmation-token"],
+                "purpose": "Binds final execution to the reviewed plan, root/home, budget, delete mode, and selection context.",
+            },
+            {
+                "name": "operation_log",
+                "schema": "cleanmac.operation-log-entry.v1",
+                "producer": "clean run --operation-log {operation_log}",
+                "consumers": ["audit/review after execution"],
+                "purpose": "Append-only JSONL audit trail for every evaluated cleanup operation.",
+            },
+        ],
+        "safe_chain": [
+            {
+                "step": "generate_plan",
+                "argv": ["cleanmac", "--json", "plan", "--categories", dry_run_categories_arg, "--ai-origin"],
+                "write_stdout_to": plan_file,
+                "destructive": False,
+                "next_action_on_error": "fix_categories_or_filters_then_regenerate_plan",
+            },
+            {
+                "step": "review_plan",
+                "argv": [
+                    "cleanmac",
+                    "--json",
+                    "review",
+                    "--input-file",
+                    plan_file,
+                    "--selection-file",
+                    review_selection_file,
+                ],
+                "destructive": False,
+                "next_action_on_error": "inspect_plan_schema_and_regenerate_review_selection",
+            },
+            {
+                "step": "validate_plan",
+                "argv": ["cleanmac", "--json", "validate-plan", "--plan-file", plan_file],
+                "destructive": False,
+                "next_action_on_error": "regenerate_plan_for_current_root_home_context",
+            },
+            {
+                "step": "policy_simulate_execute_intent",
+                "argv": [
+                    "cleanmac",
+                    "--json",
+                    "policy-simulate",
+                    "--plan-file",
+                    plan_file,
+                    "--review-selection-file",
+                    review_selection_file,
+                    "--execute",
+                    "--delete-mode",
+                    "trash",
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                ],
+                "destructive": False,
+                "next_action_on_error": "resolve_blocking_reasons_before_dry_run_or_execute",
+            },
+            {
+                "step": "dry_run_selected_plan",
+                "argv": [
+                    "cleanmac",
+                    "--json",
+                    "clean",
+                    "run",
+                    "--plan-file",
+                    plan_file,
+                    "--review-selection-file",
+                    review_selection_file,
+                    "--delete-mode",
+                    "trash",
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                ],
+                "destructive": False,
+                "next_action_on_error": "follow_cleanmac_ai_error_next_allowed_tools",
+            },
+            {
+                "step": "execute_after_human_confirmation",
+                "argv": [
+                    "cleanmac",
+                    "--json",
+                    "clean",
+                    "run",
+                    "--plan-file",
+                    plan_file,
+                    "--review-selection-file",
+                    review_selection_file,
+                    "--execute",
+                    "--yes",
+                    "--delete-mode",
+                    "trash",
+                    "--require-plan-context",
+                    "--require-confirmation-token",
+                    "--confirmation-token",
+                    confirmation_token,
+                    "--operation-log",
+                    operation_log,
+                ],
+                "destructive": True,
+                "safe_to_auto_call": False,
+                "requires_human_confirmation": True,
+                "next_action_on_error": "do_not_bypass_policy_regenerate_plan_or_repeat_dry_run",
+            },
+        ],
+        "concept_map": {
+            "plan": "What could be cleaned and under which root/home/policy context.",
+            "review": "Human-readable normalization of a plan/report.",
+            "selection": "Constraint file selecting reviewed items; it narrows but never expands execution scope.",
+            "policy_simulate": "Read-only check that explains whether execute intent would be allowed.",
+            "confirmation_token": "Dry-run-derived token required before AI-originated execute.",
+            "operation_log": "JSONL audit trail written during execution evaluation.",
+            "delete_mode": "Use trash for recoverability; permanent mode is not allowed for AI-originated execute.",
+            "require_plan_context": "Reject stale plans created for a different root/home context.",
+        },
+    }
+
+
 def workflow_iteration_status(*, script_report: dict[str, Any], dry_run_report: dict[str, Any]) -> dict[str, Any]:
     inventory = script_report.get("script_inventory")
     gaps = []
@@ -5995,6 +6264,14 @@ def render_workflow(
         "dry_run_scope": dry_run_scope,
         "dry_run_categories": [category_metadata(category) for category in dry_run_categories],
         "steps": workflow_steps(selected_keys, dry_run_keys),
+        "ux_guide": render_workflow_ux_guide(
+            selected_keys,
+            dry_run_keys,
+            root=root,
+            home=home,
+            dry_run_scope=dry_run_scope,
+            dry_run_report=dry_run_report,
+        ),
         "automation_playbook": workflow_automation_playbook(
             selected_keys, dry_run_keys, root=root, home=home, dry_run_scope=dry_run_scope
         ),
@@ -6898,7 +7175,8 @@ def _main_impl(argv: Sequence[str]) -> int:
                 yes=args.yes,
                 root=root,
                 home=home,
-                delete_path_func=lambda path: delete_path(path, root=root, home=home, delete_mode="permanent"),
+                delete_mode=args.delete_mode,
+                delete_path_func=lambda path: delete_path(path, root=root, home=home, delete_mode="trash"),
             )
             if report["operation_log_entries"]:
                 report["operation_log"] = append_operation_log(

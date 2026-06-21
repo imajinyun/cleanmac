@@ -34,6 +34,23 @@ class DeletePolicy:
 OperationLogHook = Callable[[str, Path, str], Any]
 
 
+def require_trash_first_delete_mode(
+    delete_mode: str,
+    *,
+    surface: str,
+    non_trashable: bool = False,
+    explicit_non_trash_gate: bool = False,
+) -> None:
+    if delete_mode == "trash":
+        return
+    if non_trashable and explicit_non_trash_gate:
+        return
+    raise RuntimeError(
+        f"{surface} destructive execution requires --delete-mode trash; "
+        "non-Trash deletion requires an explicit non-trashable-object gate."
+    )
+
+
 def is_test_mode() -> bool:
     return os.environ.get("CLEANMAC_TEST_MODE") == "1"
 
