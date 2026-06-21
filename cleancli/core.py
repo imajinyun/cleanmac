@@ -65,6 +65,7 @@ from cleancli.review import (
     render_review_html,
     validate_review_selection,
 )
+from cleancli.software_uninstall import execute_software_uninstall
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import disable_startup_items, render_startup
 from cleancli.tool_adapters import execute_tool
@@ -726,13 +727,14 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
     },
     "software": {
         "title": "软件 / Software",
-        "description": "Read-only app inventory and uninstall-plan placeholders for app cleanup governance.",
+        "description": "App inventory, uninstall inspection/planning, and governed review-selection Trash execution.",
         "commands": [
             "software list",
             "software leftovers",
             "software startup-items",
             "software inspect",
             "software uninstall-plan",
+            "software execute",
         ],
         "flat_command_aliases": [],
     },
@@ -1013,6 +1015,8 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
         "Review selection is invalid" in message
         or "--review-selection-file requires --plan-file" in message
         or "startup disable requires --review-selection-file" in message
+        or "software execute requires --plan-file" in message
+        or "software execute requires --review-selection-file" in message
         or "privacy execute requires --plan-file" in message
         or "privacy execute requires --review-selection-file" in message
     ):
@@ -1261,10 +1265,30 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     software_cmd.add_argument(
         "action",
         nargs="?",
-        choices=("list", "leftovers", "startup-items", "inspect", "uninstall-plan"),
+        choices=("list", "leftovers", "startup-items", "inspect", "uninstall-plan", "execute"),
         default="list",
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
+    software_cmd.add_argument("--plan-file", help="cleanmac.software-uninstall-plan.v1 file to dry-run or execute.")
+    software_cmd.add_argument(
+        "--review-selection-file",
+        help="cleanmac.review-selection.v1 file that selects software uninstall candidates from the plan.",
+    )
+    software_cmd.add_argument(
+        "--execute", action="store_true", help="Move selected software uninstall candidates to Trash."
+    )
+    software_cmd.add_argument("--yes", action="store_true", help="Confirm governed software uninstall Trash execution.")
+    software_cmd.add_argument(
+        "--delete-mode",
+        choices=("trash",),
+        default="trash",
+        help="Software uninstall execute only supports Trash routing for recovery.",
+    )
+    software_cmd.add_argument(
+        "--operation-log",
+        default=OPERATIONS_LOG_FILE,
+        help="Append JSONL audit records when software uninstall candidates are evaluated.",
+    )
 
     startup_cmd = subparsers.add_parser("startup", help="Startup item audit, disable planning, and governed disable.")
     startup_cmd.add_argument("action", nargs="?", choices=("audit", "plan", "disable"), default="audit")
@@ -2274,6 +2298,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "software list",
             "software leftovers",
             "software startup-items",
+            "software inspect",
             "software uninstall-plan",
             "analyze categories",
             "analyze tree",
@@ -2282,6 +2307,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "clean run --execute",
             "clean links --execute",
             "clean open --execute",
+            "software execute --execute --review-selection-file",
         ],
         "forbidden": [
             "--allow-live-root without explicit user instruction",
@@ -4521,6 +4547,28 @@ def non_clean_script_groups() -> dict[str, Any]:
             safe_to_auto_execute=True,
             placeholders=["AppName"],
         ),
+        command_template(
+            "software-uninstall-execute-reviewed-trash",
+            [
+                "python3",
+                "cleanmac.py",
+                "--json",
+                "software",
+                "execute",
+                "--plan-file",
+                "<PlanFile>",
+                "--review-selection-file",
+                "<SelectionFile>",
+                "--delete-mode",
+                "trash",
+                "--execute",
+                "--yes",
+            ],
+            destructive=True,
+            safe_to_auto_execute=False,
+            manual_review_required=True,
+            placeholders=["PlanFile", "SelectionFile"],
+        ),
     ]
     optimize_templates = [
         command_template(
@@ -4584,10 +4632,10 @@ def non_clean_script_groups() -> dict[str, Any]:
     ]
     return {
         "software": {
-            "safe_to_execute": True,
-            "safe_to_auto_execute": True,
-            "contains_destructive_templates": False,
-            "destructive": False,
+            "safe_to_execute": False,
+            "safe_to_auto_execute": False,
+            "contains_destructive_templates": True,
+            "destructive": True,
             "commands": [str(template["command"]) for template in software_templates],
             "command_templates": software_templates,
         },
@@ -4637,7 +4685,7 @@ def command_template_contract() -> dict[str, Any]:
         "required_fields": COMMAND_TEMPLATE_REQUIRED_FIELDS,
         "kind_values": ["argv", "shell"],
         "destructive_rule": "destructive templates must set safe_to_auto_execute=false and manual_review_required=true",
-        "destructive_delete_rule": "destructive cleanup/delete templates must be argv-only cleanmac CLI invocations using clean run, --delete-mode trash, --execute, and --yes",
+        "destructive_delete_rule": "destructive cleanup/delete templates must be argv-only governed cleanmac CLI invocations using clean run or software execute with --delete-mode trash, --execute, and --yes",
         "placeholder_rule": "templates with placeholders must be substituted before execution",
     }
 
@@ -4653,6 +4701,17 @@ def is_cleanmac_clean_run_argv(argv: object) -> bool:
     return clean_index > 0 and clean_index + 1 < len(parts) and parts[clean_index + 1] == "run"
 
 
+def is_cleanmac_software_execute_argv(argv: object) -> bool:
+    if not isinstance(argv, list):
+        return False
+    parts = [str(part) for part in argv]
+    try:
+        software_index = parts.index("software")
+    except ValueError:
+        return False
+    return software_index > 0 and software_index + 1 < len(parts) and parts[software_index + 1] == "execute"
+
+
 def validate_destructive_cleanmac_template(location: str, template: dict[str, Any], add_violation: Any) -> None:
     argv = template["argv"]
     kind = template["kind"]
@@ -4664,12 +4723,12 @@ def validate_destructive_cleanmac_template(location: str, template: dict[str, An
             "destructive-shell-template",
             "destructive cleanup templates must be argv-only and must not invoke a shell",
         )
-    if not is_cleanmac_clean_run_argv(argv):
+    if not is_cleanmac_clean_run_argv(argv) and not is_cleanmac_software_execute_argv(argv):
         add_violation(
             location,
             template,
             "destructive-not-cleanmac-cli",
-            "destructive cleanup templates must invoke cleanmac clean run",
+            "destructive cleanup templates must invoke a governed cleanmac destructive command",
         )
         return
     parts = [str(part) for part in argv]
@@ -6644,7 +6703,7 @@ def render_completion_shell(shell: str) -> str:
         "open": f"{category_flags} --execute",
         "links": "--kind --execute --remove",
         "clean": f"{category_flags} --execute --yes --risk-policy --delete-mode --max-delete-mb --exclude --include --min-size-mb --name-regex --max-items --older-than-days --fail-on-skipped --bundle-allowlist --bundle-blocklist --delete-mode --operation-log --require-plan-context --require-confirmation-token --confirmation-token --plan-file --allow-live-root",
-        "software": "list leftovers startup-items uninstall-plan --app",
+        "software": "list leftovers startup-items inspect uninstall-plan execute --app --plan-file --review-selection-file --execute --yes --delete-mode --operation-log",
         "optimize": "list plan run --execute",
         "status": "snapshot",
         "completion": "bash zsh fish",
@@ -7348,6 +7407,33 @@ def _main_impl(argv: Sequence[str]) -> int:
         )
         return 0
     if args.command == "software":
+        if args.action == "execute":
+            if not args.plan_file:
+                raise SystemExit("software execute requires --plan-file.")
+            if not args.review_selection_file:
+                raise SystemExit("software execute requires --review-selection-file.")
+            review_selection = review_selection_constraints(args.plan_file, args.review_selection_file)
+            operation_log_status = preflight_operation_log(args.operation_log, root=root, home=home)
+            if operation_log_status["status"] != "ready":
+                raise SystemExit(
+                    f"Refusing to execute software uninstall because operation log preflight failed: {operation_log_status['error']}"
+                )
+            report = execute_software_uninstall(
+                load_json_file(args.plan_file),
+                review_selection=review_selection or {},
+                execute=args.execute,
+                yes=args.yes,
+                root=root,
+                home=home,
+                delete_mode=args.delete_mode,
+                delete_path_func=lambda path: delete_path(path, root=root, home=home, delete_mode="trash"),
+            )
+            if report["operation_log_entries"]:
+                report["operation_log"] = append_operation_log(
+                    args.operation_log, report.pop("operation_log_entries"), root=root, home=home, rotate=False
+                )
+            emit_report(report, args=args, command="software", root=root, home=home, argv=actual_argv)
+            return 0
         emit_report(
             render_software_report(args.action, app=args.app, root=root, home=home),
             args=args,
