@@ -128,6 +128,25 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "release_promotion_decision_surface_audit_blocker",
+            "description": "Verify promotion decisions expose MCP surface audit gate blockers from readiness evidence.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [
+                [
+                    "cleanmac",
+                    "--json",
+                    "release-promotion-decision",
+                    "--dist-dir",
+                    "{dist_dir}",
+                    "--assets-dir",
+                    "{assets_dir}",
+                ]
+            ],
+            "expected_final_schema": "cleanmac.release-promotion-decision.v1",
+            "expected_blocking_codes": ["MCP_SURFACE_AUDIT_NOT_READY"],
+            "may_execute_delete": False,
+        },
+        {
             "id": "release_rollback_plan_discovery",
             "description": "Verify AI Hosts can discover the manual-only release rollback plan.",
             "required_tools": ["cleanmac_capabilities"],
@@ -573,6 +592,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "release_diagnostics_explains_readiness_failure",
             "release_rehearsal_discovery",
             "release_promotion_decision_blocks_missing_evidence",
+            "release_promotion_decision_surface_audit_blocker",
             "release_rollback_plan_discovery",
             "release_post_publish_verification_discovery",
             "release_post_publish_result_discovery",
@@ -694,6 +714,59 @@ def _prepare_sandbox(tmp: str) -> tuple[Path, Path]:
         group_cache.mkdir(parents=True, exist_ok=True)
         (group_cache / "shared-cache.db").write_text("example group cache", encoding="utf-8")
     return root, home
+
+
+def _write_release_artifact_fixture(dist_dir: Path, assets_dir: Path) -> None:
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    (dist_dir / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+    (dist_dir / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+    (assets_dir / "SBOM.json").write_text("{}", encoding="utf-8")
+    (assets_dir / "SHA256SUMS").write_text("", encoding="utf-8")
+    (assets_dir / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+    manifest = build_release_artifact_manifest(dist_dir=dist_dir, assets_dir=assets_dir)
+    (assets_dir / "ARTIFACT-MANIFEST.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_surface_audit_blocked_readiness(
+    cli: Path, *, root: Path, home: Path, dist_dir: Path, assets_dir: Path
+) -> None:
+    readiness, _event = _run_cli(
+        cli,
+        ["release-readiness", "--dist-dir", str(dist_dir), "--assets-dir", str(assets_dir)],
+        root=root,
+        home=home,
+    )
+    readiness["ready"] = False
+    readiness["manual_review_required"] = True
+    readiness["readiness_score"] = {"passed": 7, "total": 8, "level": "blocked"}
+    readiness["failed_gate_ids"] = ["mcp-surface-audit-ready"]
+    for gate in readiness.get("gates", []):
+        if gate.get("id") == "mcp-surface-audit-ready":
+            gate["passed"] = False
+            gate["severity"] = "blocking"
+            gate["diagnostic"] = "mcp-surface-audit failed: required-tools-advertised"
+            gate["blocking_code"] = "MCP_SURFACE_AUDIT_NOT_READY"
+    (assets_dir / "RELEASE-READINESS.json").write_text(json.dumps(readiness), encoding="utf-8")
+    (assets_dir / "RELEASE-DIAGNOSTICS.json").write_text(
+        json.dumps({"schema": "cleanmac.release-diagnostics.v1", "ready": False}), encoding="utf-8"
+    )
+    (assets_dir / "RELEASE-REHEARSAL.json").write_text(
+        json.dumps({"schema": "cleanmac.release-rehearsal.v1", "ready": False}), encoding="utf-8"
+    )
+    (assets_dir / "RELEASE-POST-PUBLISH-VERIFICATION.json").write_text(
+        json.dumps({"schema": "cleanmac.release-post-publish-verification.v1", "manual_only": True}), encoding="utf-8"
+    )
+    (assets_dir / "RELEASE-POST-PUBLISH-RESULT.json").write_text(
+        json.dumps({"schema": "cleanmac.release-post-publish-result.v1", "ready": False, "manual_only": True}),
+        encoding="utf-8",
+    )
+    (assets_dir / "RELEASE-ROLLBACK-PLAN.json").write_text(
+        json.dumps({"schema": "cleanmac.release-rollback-plan.v1", "manual_only": True}), encoding="utf-8"
+    )
 
 
 def _trace(events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -901,17 +974,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
         if "release_readiness_artifact_present_ready" in selected:
             dist_dir = Path(tmp) / "dist"
             assets_dir = Path(tmp) / "release-assets"
-            dist_dir.mkdir()
-            assets_dir.mkdir()
-            (dist_dir / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
-            (dist_dir / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
-            (assets_dir / "SBOM.json").write_text("{}", encoding="utf-8")
-            (assets_dir / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
-            manifest = build_release_artifact_manifest(dist_dir=dist_dir, assets_dir=assets_dir)
-            (assets_dir / "ARTIFACT-MANIFEST.json").write_text(
-                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
+            _write_release_artifact_fixture(dist_dir, assets_dir)
             readiness, event = _run_cli(
                 cli,
                 ["release-readiness", "--dist-dir", str(dist_dir), "--assets-dir", str(assets_dir)],
@@ -995,6 +1058,34 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and decision["safe_to_publish"] is False
                         and decision["manual_review_required"] is True
                         and "RELEASE_ARTIFACT_MANIFEST_MISSING" in decision.get("blocking_codes", [])
+                    ),
+                    observed_schema=decision["schema"],
+                    observed_blocking_codes=decision.get("blocking_codes", []),
+                )
+            )
+
+        if "release_promotion_decision_surface_audit_blocker" in selected:
+            dist_dir = Path(tmp) / "surface-audit-dist"
+            assets_dir = Path(tmp) / "surface-audit-release-assets"
+            _write_release_artifact_fixture(dist_dir, assets_dir)
+            _write_surface_audit_blocked_readiness(cli, root=root, home=home, dist_dir=dist_dir, assets_dir=assets_dir)
+            decision, event = _run_cli(
+                cli,
+                ["release-promotion-decision", "--dist-dir", str(dist_dir), "--assets-dir", str(assets_dir)],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            results.append(
+                _scenario_result(
+                    "release_promotion_decision_surface_audit_blocker",
+                    passed=bool(
+                        decision["schema"] == "cleanmac.release-promotion-decision.v1"
+                        and decision["decision"] == "block"
+                        and decision["safe_to_publish"] is False
+                        and "MCP_SURFACE_AUDIT_NOT_READY" in decision.get("blocking_codes", [])
+                        and "mcp-surface-audit-ready"
+                        in decision.get("rehearsal_summary", {}).get("failed_gate_ids", [])
                     ),
                     observed_schema=decision["schema"],
                     observed_blocking_codes=decision.get("blocking_codes", []),

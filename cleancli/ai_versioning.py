@@ -1143,6 +1143,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "ready",
             "artifact_manifest",
             "release_readiness",
+            "release_diagnostics",
             "assets",
         ],
         "properties": {
@@ -1152,6 +1153,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "ready": {"type": "boolean"},
             "artifact_manifest": {"type": "object"},
             "release_readiness": {"type": "object"},
+            "release_diagnostics": {"type": "object"},
             "assets": {"type": "object"},
         },
         "additionalProperties": True,
@@ -2202,6 +2204,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "ready": True,
             "artifact_manifest": {"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
             "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True, "failed_gate_ids": []},
+            "release_diagnostics": {"schema": "cleanmac.release-diagnostics.v1", "ready": True, "failed_gates": []},
             "assets": {"required": ["SBOM.json"], "missing": [], "items": []},
         },
         "cleanmac.release-operator-summary.v1": {

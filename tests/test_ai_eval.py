@@ -43,6 +43,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_diagnostics_explains_readiness_failure", scenarios)
         self.assertIn("release_rehearsal_discovery", scenarios)
         self.assertIn("release_promotion_decision_blocks_missing_evidence", scenarios)
+        self.assertIn("release_promotion_decision_surface_audit_blocker", scenarios)
         self.assertIn("release_rollback_plan_discovery", scenarios)
         self.assertIn("release_post_publish_verification_discovery", scenarios)
         self.assertIn("release_post_publish_result_discovery", scenarios)
@@ -110,6 +111,9 @@ class AIEvalTests(unittest.TestCase):
         promotion = scenarios["release_promotion_decision_blocks_missing_evidence"]
         self.assertEqual(promotion["expected_final_schema"], "cleanmac.release-promotion-decision.v1")
         self.assertIn("RELEASE_ARTIFACT_MANIFEST_MISSING", promotion["expected_blocking_codes"])
+        surface_promotion = scenarios["release_promotion_decision_surface_audit_blocker"]
+        self.assertEqual(surface_promotion["expected_final_schema"], "cleanmac.release-promotion-decision.v1")
+        self.assertIn("MCP_SURFACE_AUDIT_NOT_READY", surface_promotion["expected_blocking_codes"])
         rollback = scenarios["release_rollback_plan_discovery"]
         self.assertEqual(rollback["expected_final_schema"], "cleanmac.release-rollback-plan.v1")
         post_publish = scenarios["release_post_publish_verification_discovery"]
@@ -172,6 +176,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["release_diagnostics_explains_readiness_failure"]["passed"])
         self.assertTrue(scenario_results["release_rehearsal_discovery"]["passed"])
         self.assertTrue(scenario_results["release_promotion_decision_blocks_missing_evidence"]["passed"])
+        self.assertTrue(scenario_results["release_promotion_decision_surface_audit_blocker"]["passed"])
         self.assertTrue(scenario_results["release_rollback_plan_discovery"]["passed"])
         self.assertTrue(scenario_results["release_post_publish_verification_discovery"]["passed"])
         self.assertTrue(scenario_results["release_post_publish_result_discovery"]["passed"])
@@ -264,6 +269,7 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_diagnostics_explains_readiness_failure", scenario_ids)
         self.assertIn("release_rehearsal_discovery", scenario_ids)
         self.assertIn("release_promotion_decision_blocks_missing_evidence", scenario_ids)
+        self.assertIn("release_promotion_decision_surface_audit_blocker", scenario_ids)
         self.assertIn("release_rollback_plan_discovery", scenario_ids)
         self.assertIn("release_post_publish_verification_discovery", scenario_ids)
         self.assertIn("release_post_publish_result_discovery", scenario_ids)
