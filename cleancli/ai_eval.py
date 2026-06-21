@@ -2178,8 +2178,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and {"docker", "homebrew", "xcode", *package_adapter_keys}.issubset(set(adapters))
                         and ["brew", "cleanup", "--dry-run"] in adapters["homebrew"].get("dry_run_commands", [])
                         and ["docker", "system", "df", "--verbose"] in adapters["docker"].get("dry_run_commands", [])
-                        and ["docker", "volume", "prune"]
-                        in adapters["docker"].get("excluded_destructive_commands", [])
+                        and ["docker", "volume", "prune"] in adapters["docker"].get("excluded_destructive_commands", [])
                         and "DerivedData" in " ".join(adapters["xcode"].get("cleanup_scope", []))
                         and "Archives" in " ".join(adapters["xcode"].get("cleanup_scope", []))
                         and "CoreSimulator" in " ".join(adapters["xcode"].get("cleanup_scope", []))
