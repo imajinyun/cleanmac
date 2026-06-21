@@ -277,6 +277,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "ready": True,
             "artifact_manifest": {"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
             "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True},
+            "release_diagnostics": {"schema": "cleanmac.release-diagnostics.v1", "ready": True},
             "assets": {"required": ["SBOM.json"], "missing": []},
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"])
