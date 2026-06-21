@@ -95,8 +95,10 @@ def test_software_leftovers_classify_and_default_skip_credentials_and_user_docum
             "cache": root / "Users/tester/Library/Caches/com.example.app/cache.bin",
             "logs": root / "Users/tester/Library/Logs/com.example.app/app.log",
             "preferences": root / "Users/tester/Library/Preferences/com.example.app.plist",
-            "saved_state": root / "Users/tester/Library/Saved Application State/com.example.app.savedState/window.plist",
-            "containers": root / "Users/tester/Library/Containers/com.example.app/Data/Library/Application Support/state.db",
+            "saved_state": root
+            / "Users/tester/Library/Saved Application State/com.example.app.savedState/window.plist",
+            "containers": root
+            / "Users/tester/Library/Containers/com.example.app/Data/Library/Application Support/state.db",
             "credentials": root / "Users/tester/Library/Application Support/Example/Credentials/token.json",
             "user_documents": root / "Users/tester/Documents/Example/project.cleanmac-test",
         }
