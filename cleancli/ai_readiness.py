@@ -10,6 +10,7 @@ from cleancli.ai_governance import render_ai_governance_advice, validate_ai_gove
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.ai_versioning import render_ai_contract_validation_summary, render_ai_schema_registry
+from cleancli.mcp_resources import RUNTIME_LIFECYCLE_POLICY_URI
 
 
 def render_ai_readiness(
@@ -24,6 +25,17 @@ def render_ai_readiness(
     decision_matrix = render_ai_tool_decision_matrix(ai_schema.AI_TOOL_DEFINITIONS, runbook)
     decision_matrix_ready = decision_matrix["violation_count"] == 0
     eval_pack = render_ai_eval_pack()
+    runtime_lifecycle = runbook.get("runtime_lifecycle", {})
+    runtime_lifecycle_ready = bool(
+        isinstance(runtime_lifecycle, Mapping)
+        and runtime_lifecycle.get("schema") == "cleanmac.runtime-lifecycle-policy.v1"
+        and runtime_lifecycle.get("product_model") == "ai-first-ephemeral-cli"
+        and runtime_lifecycle.get("resident_processes") == 0
+        and runtime_lifecycle.get("implements_tui") is False
+        and runtime_lifecycle.get("implements_gui") is False
+        and runtime_lifecycle.get("installs_background_daemon") is False
+        and runtime_lifecycle.get("performs_unsolicited_scans") is False
+    )
     eval_pack_ready = bool(
         eval_pack["schema"] == "cleanmac.ai-eval-pack.v1"
         and not eval_pack["uses_shell"]
@@ -43,7 +55,11 @@ def render_ai_readiness(
     )
     governance_validation = validate_ai_governance_advice(governance_advice)
     governance_ready = bool(governance_advice["ready_for_llm_calling"] and governance_validation["valid"])
-    host_policy = render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
+    host_policy = render_ai_host_policy(
+        decision_matrix=decision_matrix,
+        governance_advice=governance_advice,
+        runtime_lifecycle=runtime_lifecycle,
+    )
     host_policy_validation = validate_ai_host_policy(host_policy)
     host_policy_ready = bool(host_policy["valid"] and host_policy_validation["valid"])
     schema_registry = render_ai_schema_registry()
@@ -77,6 +93,7 @@ def render_ai_readiness(
             and provider_parity["same_tool_names"]
             and provider_parity["same_tool_count"]
             and runbook_ready
+            and runtime_lifecycle_ready
             and decision_matrix_ready
             and eval_pack_ready
             and governance_ready
@@ -113,6 +130,15 @@ def render_ai_readiness(
             "ready": runbook_ready,
             "phase_count": len(runbook["phases"]),
             "execution_auto_call_allowed": runbook["execution_gate"]["auto_call_allowed"],
+        },
+        "runtime_lifecycle": {
+            "schema": runtime_lifecycle.get("schema") if isinstance(runtime_lifecycle, Mapping) else None,
+            "ready": runtime_lifecycle_ready,
+            "resource_uri": RUNTIME_LIFECYCLE_POLICY_URI,
+            "product_model": runtime_lifecycle.get("product_model") if isinstance(runtime_lifecycle, Mapping) else None,
+            "resident_processes": runtime_lifecycle.get("resident_processes")
+            if isinstance(runtime_lifecycle, Mapping)
+            else None,
         },
         "decision_matrix": {
             "schema": decision_matrix["schema"],

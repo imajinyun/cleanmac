@@ -13,6 +13,7 @@ MCP_RESOURCE_INDEX_SCHEMA = "cleanmac.mcp-resource-index.v1"
 MCP_RESOURCE_INDEX_URI = "cleanmac://mcp/resource-index"
 MCP_SURFACE_AUDIT_SCHEMA = "cleanmac.mcp-surface-audit.v1"
 MCP_SURFACE_AUDIT_URI = "cleanmac://mcp/surface-audit"
+RUNTIME_LIFECYCLE_POLICY_URI = "cleanmac://ai/runtime-lifecycle-policy"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
 
@@ -86,6 +87,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Ordered safe workflow phases and execution gate for AI hosts.",
         "category": "ai",
         "schema": "cleanmac.ai-runbook.v1",
+    },
+    {
+        "uri": RUNTIME_LIFECYCLE_POLICY_URI,
+        "name": "cleanmac runtime lifecycle policy",
+        "description": "First-class AI Host policy proving cleanmac is AI-first, ephemeral, and zero-resident.",
+        "category": "ai",
+        "schema": "cleanmac.runtime-lifecycle-policy.v1",
     },
     {
         "uri": "cleanmac://ai/self-test",
@@ -408,6 +416,7 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         MCP_PROMPT_INDEX_URI,
         MCP_TOOL_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
+        RUNTIME_LIFECYCLE_POLICY_URI,
         "cleanmac://ai/host-integration-pack",
         "cleanmac://ai/host-preflight",
         "cleanmac://ai/host-evidence",
@@ -432,6 +441,10 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             ["make", "mcp-prompt-index-smoke"],
         ],
         "required-tools-advertised": [["cleanmac", "--json", "mcp-surface-audit"], ["make", "mcp-tool-index-smoke"]],
+        "runtime-lifecycle-policy-advertised": [
+            ["cleanmac", "--json", "mcp-surface-audit"],
+            ["make", "mcp-resource-index-smoke"],
+        ],
         "all-resources-mcp-safe": [["make", "mcp-resource-index-smoke"], ["make", "ai-host-smoke"]],
         "all-prompts-mcp-safe": [["make", "mcp-prompt-index-smoke"], ["make", "ai-host-smoke"]],
         "all-tools-mcp-safe": [["make", "mcp-tool-index-smoke"], ["make", "ai-host-smoke"]],
@@ -467,6 +480,11 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             "evidence": MCP_PROMPT_INDEX_SCHEMA,
         },
         {"id": "required-tools-advertised", "passed": not missing_tools, "evidence": MCP_TOOL_INDEX_SCHEMA},
+        {
+            "id": "runtime-lifecycle-policy-advertised",
+            "passed": RUNTIME_LIFECYCLE_POLICY_URI in resource_uris,
+            "evidence": RUNTIME_LIFECYCLE_POLICY_URI,
+        },
         {
             "id": "all-resources-mcp-safe",
             "passed": all(row.get("safe_for_mcp") is True and row.get("destructive") is False for row in resources),

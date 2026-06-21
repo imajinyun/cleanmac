@@ -366,7 +366,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["resource_uri"], "cleanmac://mcp/surface-audit")
         self.assertEqual(payload["missing"], {"resources": [], "prompts": [], "tools": []})
         self.assertEqual(payload["failed_check_ids"], [])
-        self.assertEqual(payload["readiness_score"], {"passed": 13, "total": 13, "level": "ready"})
+        self.assertEqual(payload["readiness_score"], {"passed": 14, "total": 14, "level": "ready"})
         self.assertEqual(payload["next_action"], "proceed-to-host-integration-pack")
         self.assertEqual(payload["stop_reason"], "")
         checks = {check["id"]: check for check in payload["checks"]}
@@ -378,6 +378,7 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(checks["required-resources-advertised"]["passed"])
         self.assertTrue(checks["required-prompts-advertised"]["passed"])
         self.assertTrue(checks["required-tools-advertised"]["passed"])
+        self.assertTrue(checks["runtime-lifecycle-policy-advertised"]["passed"])
         self.assertTrue(checks["destructive-tools-gated"]["passed"])
         self.assertTrue(checks["no-shell-invocation"]["passed"])
         self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
@@ -567,6 +568,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://mcp/prompt-index",
             "cleanmac://mcp/tool-index",
             "cleanmac://mcp/surface-audit",
+            "cleanmac://ai/runtime-lifecycle-policy",
             "cleanmac://ai/host-integration-pack",
             "cleanmac://ai/host-preflight",
             "cleanmac://ai/host-evidence",
@@ -844,6 +846,7 @@ class MckServerTests(unittest.TestCase):
 
         self.assertIn("cleanmac://ai/readiness", uris)
         self.assertIn("cleanmac://ai/runbook", uris)
+        self.assertIn("cleanmac://ai/runtime-lifecycle-policy", uris)
         self.assertIn("cleanmac://ai/self-test", uris)
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
         self.assertIn("cleanmac://ai/governance-advice", uris)
@@ -866,6 +869,21 @@ class MckServerTests(unittest.TestCase):
         payload = json.loads(read_response["result"]["contents"][0]["text"])
         self.assertEqual(payload["schema"], "cleanmac.ai-runbook.v1")
         self.assertFalse(payload["execution_gate"]["auto_call_allowed"])
+
+        lifecycle_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 33,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/runtime-lifecycle-policy"},
+            }
+        )
+        lifecycle_payload = json.loads(lifecycle_response["result"]["contents"][0]["text"])
+        self.assertEqual(lifecycle_payload["schema"], "cleanmac.runtime-lifecycle-policy.v1")
+        self.assertEqual(lifecycle_payload["product_model"], "ai-first-ephemeral-cli")
+        self.assertEqual(lifecycle_payload["resident_processes"], 0)
+        self.assertFalse(lifecycle_payload["implements_gui"])
+        self.assertFalse(lifecycle_payload["installs_background_daemon"])
 
         decision_response = _mcp_request(
             {

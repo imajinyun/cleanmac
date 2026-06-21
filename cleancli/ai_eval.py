@@ -36,6 +36,18 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "runtime_lifecycle_policy_discovery",
+            "description": "Verify AI Hosts can discover the zero-resident runtime lifecycle policy before orchestration.",
+            "required_tools": ["cleanmac_capabilities"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "ai-runbook"],
+                ["cleanmac", "--json", "ai-host-policy"],
+            ],
+            "expected_final_schema": "cleanmac.ai-host-policy.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "host_evidence_discovery",
             "description": "Verify AI Hosts can load the auditable runtime governance evidence pack.",
             "required_tools": ["cleanmac_capabilities"],
@@ -582,6 +594,7 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
         return [
             "host_integration_pack_discovery",
             "host_preflight_discovery",
+            "runtime_lifecycle_policy_discovery",
             "host_evidence_discovery",
             "host_evidence_runtime_denial_coverage",
             "release_readiness_discovery",
@@ -881,9 +894,30 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and preflight["ready"]
                         and checks.get("integration-pack-ready", {}).get("passed") is True
                         and checks.get("mcp-runtime-policy-present", {}).get("passed") is True
+                        and checks.get("runtime-lifecycle-policy-valid", {}).get("passed") is True
                         and "matching_confirmation_token" in preflight["required_before_destructive_tool"]
                     ),
                     observed_schema=preflight["schema"],
+                )
+            )
+
+        if "runtime_lifecycle_policy_discovery" in selected:
+            host_policy, event = _run_cli(cli, ["ai-host-policy"], root=root, home=home)
+            events.append(event)
+            runtime_lifecycle = host_policy.get("runtime_lifecycle", {})
+            results.append(
+                _scenario_result(
+                    "runtime_lifecycle_policy_discovery",
+                    passed=bool(
+                        host_policy["schema"] == "cleanmac.ai-host-policy.v1"
+                        and host_policy["valid"]
+                        and runtime_lifecycle.get("schema") == "cleanmac.runtime-lifecycle-policy.v1"
+                        and runtime_lifecycle.get("product_model") == "ai-first-ephemeral-cli"
+                        and runtime_lifecycle.get("resident_processes") == 0
+                        and "cleanmac://ai/runtime-lifecycle-policy"
+                        in host_policy.get("required_resources_before_execution", [])
+                    ),
+                    observed_schema=host_policy["schema"],
                 )
             )
 
@@ -1744,6 +1778,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "cleanmac://mcp/tool-index" in resource_uris
                     and "cleanmac://mcp/surface-audit" in resource_uris
                     and "cleanmac://capabilities" in resource_uris
+                    and "cleanmac://ai/runtime-lifecycle-policy" in resource_uris
                     and "cleanmac://ai/host-policy" in resource_uris
                     and "cleanmac://release/post-publish-verification" in resource_uris
                     and "cleanmac://release/post-publish-result" in resource_uris
@@ -1771,7 +1806,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and surface_audit.get("ready") is True
                     and surface_audit.get("resource_uri") == "cleanmac://mcp/surface-audit"
                     and surface_audit.get("missing") == {"resources": [], "prompts": [], "tools": []}
-                    and len(surface_audit.get("checks", [])) == 13
+                    and len(surface_audit.get("checks", [])) == 14
                     and {
                         "mcp-meta-index-ready",
                         "mcp-resource-index-ready",
@@ -1780,6 +1815,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         "required-resources-advertised",
                         "required-prompts-advertised",
                         "required-tools-advertised",
+                        "runtime-lifecycle-policy-advertised",
                         "all-resources-mcp-safe",
                         "all-prompts-mcp-safe",
                         "all-tools-mcp-safe",

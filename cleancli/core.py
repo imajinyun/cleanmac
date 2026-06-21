@@ -2920,7 +2920,11 @@ def render_ai_governance_advice_report() -> dict[str, Any]:
 def render_ai_host_policy_report() -> dict[str, Any]:
     decision_matrix = render_ai_decision_matrix()
     governance_advice = render_ai_governance_advice_report()
-    return render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
+    return render_ai_host_policy(
+        decision_matrix=decision_matrix,
+        governance_advice=governance_advice,
+        runtime_lifecycle=render_runtime_lifecycle_policy(),
+    )
 
 
 def render_ai_host_integration_pack_report() -> dict[str, Any]:
@@ -2929,7 +2933,12 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
     runbook = render_ai_runbook()
     decision_matrix = render_ai_decision_matrix()
     governance_advice = render_ai_governance_advice_report()
-    host_policy = render_ai_host_policy(decision_matrix=decision_matrix, governance_advice=governance_advice)
+    runtime_lifecycle = render_runtime_lifecycle_policy()
+    host_policy = render_ai_host_policy(
+        decision_matrix=decision_matrix,
+        governance_advice=governance_advice,
+        runtime_lifecycle=runtime_lifecycle,
+    )
     return render_ai_host_integration_pack(
         readiness=readiness,
         release_readiness=release_readiness,
@@ -2937,6 +2946,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
         decision_matrix=decision_matrix,
         governance_advice=governance_advice,
         host_policy=host_policy,
+        runtime_lifecycle=runtime_lifecycle,
         schema_registry=render_ai_schema_registry(),
         eval_pack=render_ai_eval_pack(),
         contract_validation=render_ai_contract_validation_summary(),
@@ -2948,7 +2958,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
 def render_ai_host_preflight_report() -> dict[str, Any]:
     return render_ai_host_preflight(
         integration_pack=render_ai_host_integration_pack_report(),
-        runtime_policy_schema_registered="cleanmac.ai-host-tool-call-decision.v1" in AI_HOST_CRITICAL_SCHEMAS,
+        runtime_policy_schema_registered="cleanmac.runtime-lifecycle-policy.v1" in AI_HOST_CRITICAL_SCHEMAS,
     )
 
 
@@ -2973,6 +2983,7 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
         preflight=render_ai_host_preflight_report(),
         contract_validation=render_ai_contract_validation_summary(),
         release_readiness=render_runtime_release_readiness_summary(),
+        runtime_lifecycle=render_runtime_lifecycle_policy(),
         runtime_policy_evidence=[
             {"id": "raw-command-argument-denied", "decision": raw_denial},
             {"id": "destructive-missing-confirmation-denied", "decision": destructive_denial},
@@ -3341,6 +3352,18 @@ def render_ai_self_test() -> dict[str, Any]:
     host_policy_validation = validate_ai_host_policy(host_policy)
     schema_registry = render_ai_schema_registry()
     contract_validation = render_ai_contract_validation_summary()
+    runtime_lifecycle = render_runtime_lifecycle_policy()
+    runtime_lifecycle_ready = bool(
+        runtime_lifecycle["schema"] == "cleanmac.runtime-lifecycle-policy.v1"
+        and runtime_lifecycle["product_model"] == "ai-first-ephemeral-cli"
+        and runtime_lifecycle["runs_only_when_invoked"] is True
+        and runtime_lifecycle["exits_after_workflow"] is True
+        and runtime_lifecycle["resident_processes"] == 0
+        and runtime_lifecycle["implements_tui"] is False
+        and runtime_lifecycle["implements_gui"] is False
+        and runtime_lifecycle["installs_background_daemon"] is False
+        and runtime_lifecycle["performs_unsolicited_scans"] is False
+    )
     checks = [
         {
             "id": "schema-validation",
@@ -3361,6 +3384,11 @@ def render_ai_self_test() -> dict[str, Any]:
             "id": "runbook-execution-gate",
             "passed": bool(not runbook["uses_shell"] and not runbook["execution_gate"]["auto_call_allowed"]),
             "detail": runbook["execution_gate"],
+        },
+        {
+            "id": "runtime-lifecycle-policy",
+            "passed": runtime_lifecycle_ready,
+            "detail": runtime_lifecycle,
         },
         {
             "id": "tool-decision-matrix",

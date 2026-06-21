@@ -29,6 +29,26 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertTrue(self.report["valid"], self.report)
         self.assertEqual(self.report["default_decision"], "deny")
 
+    def test_host_policy_embeds_runtime_lifecycle_obligations(self) -> None:
+        lifecycle = self.report["runtime_lifecycle"]
+        self.assertEqual(lifecycle["schema"], "cleanmac.runtime-lifecycle-policy.v1")
+        self.assertEqual(lifecycle["product_model"], "ai-first-ephemeral-cli")
+        self.assertTrue(lifecycle["runs_only_when_invoked"])
+        self.assertTrue(lifecycle["exits_after_workflow"])
+        self.assertEqual(lifecycle["resident_processes"], 0)
+        self.assertFalse(lifecycle["implements_tui"])
+        self.assertFalse(lifecycle["implements_gui"])
+        self.assertFalse(lifecycle["installs_background_daemon"])
+        self.assertFalse(lifecycle["performs_unsolicited_scans"])
+        obligations = self.report["host_runtime_obligations"]
+        self.assertEqual(
+            obligations["must_read_resource_before_execution"],
+            "cleanmac://ai/runtime-lifecycle-policy",
+        )
+        self.assertTrue(obligations["must_not_expect_resident_process"])
+        self.assertTrue(obligations["must_not_schedule_background_scans"])
+        self.assertTrue(obligations["must_not_install_login_item_or_daemon"])
+
     def test_host_policy_transport_restrictions(self) -> None:
         self.assertFalse(self.report["transport"]["shell_allowed"])
         self.assertFalse(self.report["transport"]["raw_command_input_allowed"])
@@ -65,6 +85,10 @@ class AIHostPolicyTests(unittest.TestCase):
             "cleanmac://ai/host-policy",
             self.report["required_resources_before_execution"],
         )
+        self.assertIn(
+            "cleanmac://ai/runtime-lifecycle-policy",
+            self.report["required_resources_before_execution"],
+        )
 
     def test_host_policy_renderer_handles_partial_decision_matrix(self) -> None:
         from cleancli.ai_host_policy import render_ai_host_policy
@@ -80,6 +104,7 @@ class AIHostPolicyTests(unittest.TestCase):
                 ],
             },
             governance_advice={"ready_for_llm_calling": False, "release_gate_commands": [], "anti_patterns": []},
+            runtime_lifecycle={"schema": "cleanmac.runtime-lifecycle-policy.v1"},
         )
 
         self.assertEqual(report["schema"], "cleanmac.ai-host-policy.v1")
@@ -112,6 +137,8 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertIn("transport.shell_allowed must be false", joined)
         self.assertIn("auto_call must be an object", joined)
         self.assertIn("execution_gate must be an object", joined)
+        self.assertIn("runtime_lifecycle must be an object", joined)
+        self.assertIn("host_runtime_obligations must be an object", joined)
         self.assertIn("host policy valid flag must be true", joined)
 
     def test_host_policy_validation_reports_missing_destructive_gate_flags(self) -> None:
@@ -130,6 +157,8 @@ class AIHostPolicyTests(unittest.TestCase):
                     "requires_operation_log": False,
                     "requires_plan_context_match": False,
                 },
+                "runtime_lifecycle": {"schema": "cleanmac.runtime-lifecycle-policy.v1"},
+                "host_runtime_obligations": {},
                 "valid": True,
             }
         )
@@ -140,6 +169,8 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertIn("cleanmac_execute_plan must be marked destructive", joined)
         self.assertIn("execution_gate.requires_human_confirmation must be true", joined)
         self.assertIn("execution_gate.requires_plan_context_match must be true", joined)
+        self.assertIn("runtime_lifecycle.product_model must be 'ai-first-ephemeral-cli'", joined)
+        self.assertIn("required_resources_before_execution must include runtime lifecycle policy resource", joined)
 
     def test_tool_call_decision_allows_readonly_structured_arguments(self) -> None:
         from cleancli.ai_host_policy import evaluate_ai_host_tool_call

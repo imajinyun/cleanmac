@@ -8,6 +8,7 @@ def render_ai_runbook() -> dict[str, Any]:
         "schema": "cleanmac.ai-runbook.v1",
         "default_mode": "dry-run-first",
         "runtime_lifecycle": {
+            "schema": "cleanmac.runtime-lifecycle-policy.v1",
             "product_model": "ai-first-ephemeral-cli",
             "runs_only_when_invoked": True,
             "exits_after_workflow": True,

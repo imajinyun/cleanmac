@@ -61,6 +61,7 @@ class AIGovernanceTests(unittest.TestCase):
 
     def test_governance_advice_recommendation_statuses(self) -> None:
         self.assertIn("read cleanmac://ai/host-policy", self.report["recommended_call_sequence"])
+        self.assertIn("read cleanmac://ai/runtime-lifecycle-policy", self.report["recommended_call_sequence"])
         self.assertIn("read cleanmac://mcp/surface-audit", self.report["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/host-evidence", self.report["recommended_call_sequence"])
         self.assertIn("read cleanmac://release/readiness", self.report["recommended_call_sequence"])
@@ -84,7 +85,9 @@ class AIGovernanceTests(unittest.TestCase):
         self.assertIn("cleanmac.ai-host-policy.v1", "\n".join(self.report["anti_patterns"]))
         self.assertIn("ai-readiness.ready=true", "\n".join(self.report["anti_patterns"]))
         self.assertIn("failed_gate_ids", "\n".join(self.report["anti_patterns"]))
+        self.assertIn("resident GUI", "\n".join(self.report["anti_patterns"]))
         self.assertIn("cleanmac://mcp/surface-audit", "\n".join(self.report["required_host_controls"]))
+        self.assertIn("cleanmac://ai/runtime-lifecycle-policy", "\n".join(self.report["required_host_controls"]))
 
     def test_governance_advice_governance_route_all_satisfied(self) -> None:
         route = {item["id"]: item for item in self.report["governance_route"]}

@@ -6,7 +6,13 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, mcp_prompt_names
-from cleancli.mcp_resources import MCP_META_INDEX_URI, MCP_RESOURCE_INDEX_URI, MCP_SURFACE_AUDIT_URI, mcp_resource_uris
+from cleancli.mcp_resources import (
+    MCP_META_INDEX_URI,
+    MCP_RESOURCE_INDEX_URI,
+    MCP_SURFACE_AUDIT_URI,
+    RUNTIME_LIFECYCLE_POLICY_URI,
+    mcp_resource_uris,
+)
 from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, mcp_tool_names
 
 
@@ -18,6 +24,7 @@ def render_ai_host_integration_pack(
     decision_matrix: Mapping[str, Any],
     governance_advice: Mapping[str, Any],
     host_policy: Mapping[str, Any],
+    runtime_lifecycle: Mapping[str, Any],
     schema_registry: Mapping[str, Any],
     eval_pack: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
@@ -40,6 +47,7 @@ def render_ai_host_integration_pack(
         f"read {MCP_TOOL_INDEX_URI}",
         f"read {MCP_SURFACE_AUDIT_URI}",
         "read cleanmac://ai/host-integration-pack",
+        f"read {RUNTIME_LIFECYCLE_POLICY_URI}",
         *list(governance_advice.get("recommended_call_sequence", [])),
     ]:
         if step not in recommended_call_sequence:
@@ -78,6 +86,7 @@ def render_ai_host_integration_pack(
             "uses_shell": False,
         },
         "critical_schemas": list(critical_schemas),
+        "runtime_lifecycle": dict(runtime_lifecycle),
         "recommended_preflight_commands": recommended_preflight_commands,
         "recommended_call_sequence": recommended_call_sequence,
         "readiness": readiness,
@@ -101,6 +110,7 @@ def render_ai_host_preflight(
     """Return a runtime preflight gate report for AI Host orchestration."""
 
     host_policy = integration_pack.get("host_policy", {})
+    runtime_lifecycle = integration_pack.get("runtime_lifecycle", {})
     contract_validation = integration_pack.get("contract_validation", {})
     mcp = integration_pack.get("mcp", {})
     resources = mcp.get("resources", []) if isinstance(mcp, Mapping) else []
@@ -137,8 +147,23 @@ def render_ai_host_preflight(
                 and isinstance(tools, list)
                 and "cleanmac_execute_plan" in tools
                 and "cleanmac://ai/host-integration-pack" in resources
+                and RUNTIME_LIFECYCLE_POLICY_URI in resources
             ),
-            "evidence": "cleanmac.ai-host-tool-call-decision.v1",
+            "evidence": RUNTIME_LIFECYCLE_POLICY_URI,
+        },
+        {
+            "id": "runtime-lifecycle-policy-valid",
+            "passed": bool(
+                isinstance(runtime_lifecycle, Mapping)
+                and runtime_lifecycle.get("schema") == "cleanmac.runtime-lifecycle-policy.v1"
+                and runtime_lifecycle.get("product_model") == "ai-first-ephemeral-cli"
+                and runtime_lifecycle.get("resident_processes") == 0
+                and runtime_lifecycle.get("implements_tui") is False
+                and runtime_lifecycle.get("implements_gui") is False
+                and runtime_lifecycle.get("installs_background_daemon") is False
+                and runtime_lifecycle.get("performs_unsolicited_scans") is False
+            ),
+            "evidence": "cleanmac.runtime-lifecycle-policy.v1",
         },
     ]
     return {
@@ -154,6 +179,7 @@ def render_ai_host_preflight(
             "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
             "mcp_tool_index": MCP_TOOL_INDEX_URI,
             "mcp_surface_audit": MCP_SURFACE_AUDIT_URI,
+            "runtime_lifecycle_policy": RUNTIME_LIFECYCLE_POLICY_URI,
         },
         "checks": checks,
         "required_before_destructive_tool": [

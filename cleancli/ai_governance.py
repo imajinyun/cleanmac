@@ -206,6 +206,7 @@ def render_ai_governance_advice(
         },
         "required_host_controls": [
             "Load cleanmac://ai/host-integration-pack as the default one-stop discovery entrypoint.",
+            "Read cleanmac://ai/runtime-lifecycle-policy and reject resident GUI/TUI, daemon, login item, or unsolicited scan assumptions.",
             "Read cleanmac://mcp/surface-audit after the governed MCP indexes and stop if ready=false.",
             "Run cleanmac.ai-host-preflight.v1 before MCP tool orchestration and stop if it is not ready.",
             "Run cleanmac.ai-host-evidence.v1 in CI/review to capture runtime governance evidence.",
@@ -222,6 +223,7 @@ def render_ai_governance_advice(
             "read cleanmac://ai/host-preflight",
             "read cleanmac://ai/host-evidence",
             "read cleanmac://release/readiness",
+            "read cleanmac://ai/runtime-lifecycle-policy",
             "cleanmac_capabilities",
             "read cleanmac://ai/readiness",
             "read cleanmac://ai/runbook",
@@ -243,6 +245,7 @@ def render_ai_governance_advice(
             "Running an AI Host without loading cleanmac.ai-host-policy.v1 allow/deny decisions.",
             "Treating release artifacts as ready without reading cleanmac.release-readiness.v1.",
             "Treating ai-readiness.ready=true as release readiness; release review must inspect failed_gate_ids in cleanmac.release-readiness.v1.",
+            "Assuming cleanmac installs or maintains a resident GUI, TUI, daemon, login item, scheduler, or background scanner.",
         ],
         "governance_route": governance_route,
         "release_gate_commands": [
