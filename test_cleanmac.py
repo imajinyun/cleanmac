@@ -860,6 +860,8 @@ class CleanMacCLITests(unittest.TestCase):
                 "/tmp/privacy-plan.json",
                 "--review-selection-file",
                 "/tmp/privacy-selection.json",
+                "--delete-mode",
+                "trash",
                 "--execute",
                 "--yes",
                 "--operation-log",
@@ -3066,11 +3068,14 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(dry_run_report["planned_count"], 1)
             self.assertGreaterEqual(dry_run_report["skipped_count"], 1)
             self.assertTrue(validate_contract_payload("cleanmac.privacy-execute-result.v1", dry_run_report)["valid"])
+            self.assertEqual(dry_run_report["delete_mode"], "trash")
+            self.assertEqual({item["delete_mode"] for item in dry_run_report["results"]}, {"trash"})
             self.assertTrue(Path(selected_path).exists())
             self.assertTrue(all(Path(path).exists() for path in skipped_paths[:2]))
             dry_run_records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in dry_run_records}, {1})
             self.assertIn("not-in-review-selection", {record.get("reason") for record in dry_run_records})
+            self.assertEqual({record["delete_mode"] for record in dry_run_records}, {"trash"})
 
             execute_result = self.run_cli(
                 "--root",
@@ -3093,12 +3098,37 @@ class CleanMacCLITests(unittest.TestCase):
             all_records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
 
             self.assertFalse(execute_report["dry_run"])
+            self.assertEqual(execute_report["delete_mode"], "trash")
             self.assertEqual(execute_report["deleted_count"], 1)
             self.assertGreaterEqual(execute_report["skipped_count"], 1)
+            deleted_result = next(item for item in execute_report["results"] if item["status"] == "deleted")
+            self.assertEqual(deleted_result["delete_mode"], "trash")
+            self.assertTrue(deleted_result["trash_path"])
+            self.assertTrue(Path(deleted_result["trash_path"]).exists())
             self.assertFalse(Path(selected_path).exists())
             self.assertTrue(all(Path(path).exists() for path in skipped_paths[:2]))
             self.assertIn("not-in-review-selection", {record.get("reason") for record in all_records})
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in all_records}, {1})
+            self.assertEqual({record["delete_mode"] for record in all_records}, {"trash"})
+
+            permanent_result = self.run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "privacy",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--delete-mode",
+                "permanent",
+                "--execute",
+                "--yes",
+            )
+            self.assertNotEqual(permanent_result.returncode, 0)
 
     def test_privacy_execute_blocks_outside_symlink_and_credential_candidates(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -5681,6 +5711,7 @@ class CleanMacCLITests(unittest.TestCase):
             report = json.loads(result.stdout)
             automation = report["automation_playbook"]
             iteration = report["reports"]["iteration_status"]
+            ux_guide = report["ux_guide"]
 
             self.assertEqual(report["workflow_name"], "safe-cleaning-workflow")
             self.assertEqual(
@@ -5737,6 +5768,44 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(iteration["destructive_cleanup_allowed"])
             self.assertEqual(iteration["next_checkpoint"], "test-acceptance")
             self.assertTrue(iteration["acceptance_gate"]["ready_for_docker_validation"])
+            self.assertEqual(ux_guide["schema"], "cleanmac.workflow-ux.v1")
+            self.assertTrue(ux_guide["one_command"]["safe_to_auto_call"])
+            self.assertFalse(ux_guide["one_command"]["performs_background_scan"])
+            self.assertFalse(ux_guide["one_command"]["executes_cleanup"])
+            self.assertEqual(ux_guide["dry_run_summary"]["next_action"], "review_candidates")
+            tool_hints = {row["intent"]: row for row in ux_guide["tool_choice_hints"]}
+            self.assertEqual(tool_hints["understand_available_actions"]["first_tool"], "cleanmac_capabilities")
+            self.assertEqual(tool_hints["common_safe_cleanup_workflow"]["first_tool"], "cleanmac_workflow")
+            self.assertTrue(tool_hints["check_execute_readiness"]["safe_to_auto_call"])
+            self.assertEqual(tool_hints["execute_cleanup"]["first_tool"], "cleanmac_execute_plan")
+            self.assertFalse(tool_hints["execute_cleanup"]["safe_to_auto_call"])
+            common_workflows = {row["name"]: row for row in ux_guide["common_workflows"]}
+            self.assertTrue(common_workflows["safe_preview_once"]["safe_to_auto_call"])
+            self.assertFalse(common_workflows["safe_preview_once"]["destructive"])
+            self.assertEqual(
+                common_workflows["ai_governed_plan_review_dry_run"]["safe_to_auto_call_until"],
+                "dry_run_selected_plan",
+            )
+            self.assertFalse(common_workflows["human_confirmed_trash_execute"]["safe_to_auto_call"])
+            self.assertTrue(common_workflows["human_confirmed_trash_execute"]["requires_human_confirmation"])
+            file_relationships = {row["name"]: row for row in ux_guide["file_relationships"]}
+            self.assertEqual(file_relationships["plan_file"]["schema"], "cleanmac.plan.v1")
+            self.assertIn("review", file_relationships["plan_file"]["consumers"])
+            self.assertEqual(file_relationships["review_selection_file"]["schema"], "cleanmac.review-selection.v1")
+            self.assertEqual(file_relationships["confirmation_token"]["schema"], "cleanmac.ai-confirmation-summary.v1")
+            self.assertEqual(file_relationships["operation_log"]["schema"], "cleanmac.operation-log-entry.v1")
+            safe_chain = {row["step"]: row for row in ux_guide["safe_chain"]}
+            self.assertIn("--ai-origin", safe_chain["generate_plan"]["argv"])
+            self.assertIn("--selection-file", safe_chain["review_plan"]["argv"])
+            self.assertIn("--review-selection-file", safe_chain["policy_simulate_execute_intent"]["argv"])
+            self.assertIn("--require-plan-context", safe_chain["dry_run_selected_plan"]["argv"])
+            self.assertTrue(safe_chain["execute_after_human_confirmation"]["destructive"])
+            self.assertFalse(safe_chain["execute_after_human_confirmation"]["safe_to_auto_call"])
+            self.assertIn("--confirmation-token", safe_chain["execute_after_human_confirmation"]["argv"])
+            self.assertEqual(
+                ux_guide["concept_map"]["delete_mode"],
+                "Use trash for recoverability; permanent mode is not allowed for AI-originated execute.",
+            )
             self.assertTrue((root / "Users/tester/.Trash/old.tmp").exists())
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 

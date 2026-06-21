@@ -91,3 +91,17 @@ def test_safe_sudo_remove_blocks_no_auth_and_symlinks() -> None:
         link.symlink_to(target)
         with unittest.TestCase().assertRaisesRegex(RuntimeError, "sudo remove symlink"):
             delete_ops.safe_sudo_remove(link, policy=policy, dry_run=True)
+
+
+def test_require_trash_first_delete_mode_blocks_permanent_without_explicit_gate() -> None:
+    delete_ops.require_trash_first_delete_mode("trash", surface="privacy cleanup")
+
+    with unittest.TestCase().assertRaisesRegex(RuntimeError, "requires --delete-mode trash"):
+        delete_ops.require_trash_first_delete_mode("permanent", surface="privacy cleanup")
+
+    delete_ops.require_trash_first_delete_mode(
+        "permanent",
+        surface="non-trashable cleanup",
+        non_trashable=True,
+        explicit_non_trash_gate=True,
+    )

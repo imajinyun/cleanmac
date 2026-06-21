@@ -413,7 +413,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_privacy_execute",
-        "description": "Permanently delete selected privacy data from a reviewed privacy plan. Requires explicit confirmation.",
+        "description": "Move selected privacy data from a reviewed privacy plan to Trash. Requires explicit confirmation.",
         "risk": "destructive",
         "auto_call_allowed": False,
         "requires_confirmation": True,
@@ -1181,6 +1181,8 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
             plan_file,
             "--review-selection-file",
             review_selection_file,
+            "--delete-mode",
+            "trash",
             "--execute",
             "--yes",
             "--operation-log",
