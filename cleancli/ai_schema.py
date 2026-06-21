@@ -9,6 +9,17 @@ from cleancli.ai_decision import mcp_annotations_for_tool
 
 DEFAULT_OPERATION_LOG = "~/.cleanmac/operations.jsonl"
 CONFIRMATION_PHRASE = "确认执行 cleanmac 清理"
+STANDARD_BLOCKED_NEXT_ALLOWED_TOOLS = ("cleanmac_validate_plan", "cleanmac_policy_simulate")
+
+
+def next_allowed_tools_for_block(extra_tools: Sequence[str] = ()) -> list[str]:
+    """Return the standard non-destructive recovery tools for AI-blocked flows."""
+
+    tools: list[str] = []
+    for tool in [*STANDARD_BLOCKED_NEXT_ALLOWED_TOOLS, *extra_tools]:
+        if tool not in tools:
+            tools.append(tool)
+    return tools
 
 
 def string_schema(description: str) -> dict[str, Any]:

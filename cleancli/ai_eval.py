@@ -845,12 +845,14 @@ def _scenario_result(
     passed: bool,
     observed_schema: str,
     observed_blocking_codes: Sequence[str] = (),
+    observed_next_allowed_tools: Sequence[str] = (),
 ) -> dict[str, Any]:
     return {
         "id": scenario_id,
         "passed": passed,
         "observed_schema": observed_schema,
         "observed_blocking_codes": list(observed_blocking_codes),
+        "observed_next_allowed_tools": list(observed_next_allowed_tools),
     }
 
 
@@ -1436,6 +1438,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     ),
                     "observed_schema": dry_run["schema"],
                     "observed_blocking_codes": blocking_codes,
+                    "observed_next_allowed_tools": list(simulation.get("next_allowed_tools", [])),
                 }
             )
 
@@ -1925,6 +1928,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             structured = result.get("structuredContent", {})
             decision = result.get("governanceDecision", {})
             blocking_codes = [row["code"] for row in decision.get("blocking_reasons", [])]
+            next_allowed_tools = list(decision.get("next_allowed_tools", []))
             results.append(
                 _scenario_result(
                     "mcp_raw_command_argument_denial",
@@ -1933,9 +1937,11 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and structured.get("schema") == "cleanmac.mcp-tool-error.v1"
                         and decision.get("allowed") is False
                         and "RAW_COMMAND_ARGUMENT_DENIED" in blocking_codes
+                        and next_allowed_tools[:2] == ["cleanmac_validate_plan", "cleanmac_policy_simulate"]
                     ),
                     observed_schema=str(structured.get("schema") or ""),
                     observed_blocking_codes=blocking_codes,
+                    observed_next_allowed_tools=next_allowed_tools,
                 )
             )
 
@@ -1956,6 +1962,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             structured = result.get("structuredContent", {})
             decision = result.get("governanceDecision", {})
             blocking_codes = [row["code"] for row in decision.get("blocking_reasons", [])]
+            next_allowed_tools = list(decision.get("next_allowed_tools", []))
             results.append(
                 _scenario_result(
                     "mcp_destructive_policy_denial",
@@ -1965,9 +1972,11 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         and decision.get("allowed") is False
                         and "HUMAN_CONFIRMATION_PHRASE_REQUIRED" in blocking_codes
                         and "CONFIRMATION_TOKEN_REQUIRED" in blocking_codes
+                        and next_allowed_tools[:2] == ["cleanmac_validate_plan", "cleanmac_policy_simulate"]
                     ),
                     observed_schema=str(structured.get("schema") or ""),
                     observed_blocking_codes=blocking_codes,
+                    observed_next_allowed_tools=next_allowed_tools,
                 )
             )
 

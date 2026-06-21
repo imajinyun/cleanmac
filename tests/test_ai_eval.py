@@ -421,10 +421,18 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(raw_report["passed"], raw_report)
         self.assertEqual(raw_report["results"][0]["observed_schema"], "cleanmac.mcp-tool-error.v1")
         self.assertIn("RAW_COMMAND_ARGUMENT_DENIED", raw_report["results"][0]["observed_blocking_codes"])
+        self.assertEqual(
+            raw_report["results"][0]["observed_next_allowed_tools"][:2],
+            ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
+        )
 
         self.assertTrue(destructive_report["passed"], destructive_report)
         self.assertEqual(destructive_report["results"][0]["observed_schema"], "cleanmac.mcp-tool-error.v1")
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", destructive_report["results"][0]["observed_blocking_codes"])
+        self.assertEqual(
+            destructive_report["results"][0]["observed_next_allowed_tools"][:2],
+            ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
+        )
 
 
 class AITracePersistenceTests(unittest.TestCase):

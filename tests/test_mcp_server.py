@@ -201,8 +201,10 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(decision["schema"], "cleanmac.ai-host-tool-call-decision.v1")
         self.assertFalse(decision["allowed"])
         self.assertEqual(decision["blocking_reasons"][0]["code"], "RAW_COMMAND_ARGUMENT_DENIED")
+        self.assertEqual(decision["next_allowed_tools"], ["cleanmac_validate_plan", "cleanmac_policy_simulate"])
         structured = result["structuredContent"]
         self.assertEqual(structured["schema"], "cleanmac.mcp-tool-error.v1")
+        self.assertEqual(structured["next_allowed_tools"], decision["next_allowed_tools"])
         self.assertEqual(structured["policy_decision"], decision)
 
     def test_tools_call_destructive_missing_runtime_gates_denied_by_policy(self) -> None:
@@ -224,6 +226,11 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("HUMAN_CONFIRMATION_PHRASE_REQUIRED", codes)
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", codes)
         self.assertFalse(decision["safe_to_auto_retry"])
+        self.assertEqual(decision["next_allowed_tools"], ["cleanmac_validate_plan", "cleanmac_policy_simulate"])
+        self.assertEqual(
+            result["structuredContent"]["next_allowed_tools"],
+            ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
+        )
 
     def test_resources_list_exposes_ai_governance_resources(self) -> None:
         response = _mcp_request({"jsonrpc": "2.0", "id": 21, "method": "resources/list"})

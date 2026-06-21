@@ -61,6 +61,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.ai-tools.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-error.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-summary.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.human-summary.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-confirmation-summary.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-execution-ledger.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-policy-simulation.v1", 1, "cleancli.core", "stable"),
@@ -801,13 +802,14 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "cleanmac.ai-policy-simulation.v1": {
         "type": "object",
-        "required": ["schema", "destructive", "dry_run", "allowed", "blocking_reasons"],
+        "required": ["schema", "destructive", "dry_run", "allowed", "blocking_reasons", "next_allowed_tools"],
         "properties": {
             "schema": {"const": "cleanmac.ai-policy-simulation.v1"},
             "destructive": {"const": False},
             "dry_run": {"const": True},
             "allowed": {"type": "boolean"},
             "blocking_reasons": {"type": "array", "items": {"type": "object"}},
+            "next_allowed_tools": {"type": "array", "items": {"type": "string"}},
         },
         "additionalProperties": True,
     },
@@ -960,6 +962,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "requires_human_confirmation",
             "blocking_reasons",
             "safe_to_auto_retry",
+            "next_allowed_tools",
         ],
         "properties": {
             "schema": {"const": "cleanmac.ai-host-tool-call-decision.v1"},
@@ -971,6 +974,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "requires_human_confirmation": {"type": "boolean"},
             "blocking_reasons": {"type": "array", "items": {"type": "object"}},
             "safe_to_auto_retry": {"type": "boolean"},
+            "next_allowed_tools": {"type": "array", "items": {"type": "string"}},
         },
         "additionalProperties": True,
     },
@@ -2124,6 +2128,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "dry_run": True,
             "allowed": False,
             "blocking_reasons": [{"code": "AI_ORIGIN_REQUIRES_CONFIRMATION_TOKEN"}],
+            "next_allowed_tools": ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
         },
         "cleanmac.ai-workflow.v1": {
             "schema": "cleanmac.ai-workflow.v1",
@@ -2277,6 +2282,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                         "requires_human_confirmation": False,
                         "blocking_reasons": [{"code": "RAW_COMMAND_ARGUMENT_DENIED", "field": "raw_command"}],
                         "safe_to_auto_retry": False,
+                        "next_allowed_tools": ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
                     },
                 }
             ],
@@ -2293,6 +2299,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "requires_human_confirmation": False,
             "blocking_reasons": [],
             "safe_to_auto_retry": True,
+            "next_allowed_tools": [],
         },
         "cleanmac.ai-contract-validation.v1": {
             "schema": "cleanmac.ai-contract-validation.v1",

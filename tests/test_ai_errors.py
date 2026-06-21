@@ -40,6 +40,11 @@ class AIErrorTests(unittest.TestCase):
         self.assertEqual(report["schema"], "cleanmac.ai-error.v1")
         self.assertEqual(report["error"]["code"], "SELECTION_VALIDATION_FAILED")
         self.assertTrue(report["safe_to_auto_retry"])
+        self.assertEqual(report["next_allowed_tools"], report["error"]["next_allowed_tools"])
+        self.assertEqual(
+            report["error"]["next_allowed_tools"][:2], ["cleanmac_validate_plan", "cleanmac_policy_simulate"]
+        )
+        self.assertIn("cleanmac_review", report["error"]["next_allowed_tools"])
         self.assertEqual(
             report["error"]["recovery_commands"],
             [["cleanmac", "--json", "review", "--input-file", "<plan.json>", "--selection-file", "<selection.json>"]],
@@ -50,4 +55,8 @@ class AIErrorTests(unittest.TestCase):
 
         self.assertEqual(classification["code"], "CLI_ARGUMENT_ERROR")
         self.assertTrue(classification["safe_to_auto_retry"])
-        self.assertEqual(classification["next_allowed_tools"], ["cleanmac_capabilities", "cleanmac_list_categories"])
+        self.assertEqual(
+            classification["next_allowed_tools"][:2], ["cleanmac_validate_plan", "cleanmac_policy_simulate"]
+        )
+        self.assertIn("cleanmac_capabilities", classification["next_allowed_tools"])
+        self.assertIn("cleanmac_list_categories", classification["next_allowed_tools"])

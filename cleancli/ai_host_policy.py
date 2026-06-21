@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from cleancli.ai_schema import CONFIRMATION_PHRASE
+from cleancli.ai_schema import CONFIRMATION_PHRASE, next_allowed_tools_for_block
 from cleancli.mcp_resources import RUNTIME_LIFECYCLE_POLICY_URI
 
 RAW_COMMAND_ARGUMENT_KEYS = frozenset(
@@ -67,6 +67,7 @@ def evaluate_ai_host_tool_call(
             )
 
     allowed = not blocking_reasons
+    next_allowed_tools = [] if allowed else next_allowed_tools_for_block()
     return {
         "schema": "cleanmac.ai-host-tool-call-decision.v1",
         "source": source,
@@ -77,6 +78,7 @@ def evaluate_ai_host_tool_call(
         "requires_human_confirmation": bool(tool.get("requires_confirmation")),
         "blocking_reasons": blocking_reasons,
         "safe_to_auto_retry": bool(allowed and risk in {"readonly", "planning", "dry-run"}),
+        "next_allowed_tools": next_allowed_tools,
     }
 
 
@@ -210,7 +212,9 @@ def validate_ai_host_policy(report: Mapping[str, Any]) -> dict[str, Any]:
         violations.append("host_runtime_obligations must be an object")
     else:
         if obligations.get("must_read_resource_before_execution") != RUNTIME_LIFECYCLE_POLICY_URI:
-            violations.append("host_runtime_obligations.must_read_resource_before_execution must load runtime lifecycle policy")
+            violations.append(
+                "host_runtime_obligations.must_read_resource_before_execution must load runtime lifecycle policy"
+            )
         for flag in (
             "must_not_expect_resident_process",
             "must_not_schedule_background_scans",
