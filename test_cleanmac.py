@@ -2036,7 +2036,10 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertFalse(report["safe_to_auto_execute"])
         self.assertEqual(adapter["key"], "docker")
         self.assertIn(["docker", "system", "df"], adapter["dry_run_commands"])
+        self.assertIn(["docker", "system", "df", "--verbose"], adapter["dry_run_commands"])
         self.assertIn(["docker", "builder", "prune"], adapter["manual_execute_commands"])
+        self.assertIn(["docker", "volume", "prune"], adapter["excluded_destructive_commands"])
+        self.assertTrue(adapter["execution_policy"]["external_prune_commands_are_recommendations_only_in_plan"])
 
     def test_tool_plan_validates_against_contract_schema(self) -> None:
         report = json.loads(self.run_cli("--json", "tool-plan", "--tool", "docker").stdout)
@@ -2051,13 +2054,42 @@ class CleanMacCLITests(unittest.TestCase):
         adapters = {adapter["key"]: adapter for adapter in report["adapters"]}
 
         self.assertEqual(report["schema"], "cleanmac.tool-plan.v1")
-        self.assertEqual(set(adapters), {"npm", "pnpm", "pip", "uv", "cargo"})
+        self.assertEqual(set(adapters), {"npm", "pnpm", "yarn", "pip", "uv", "poetry", "cargo"})
         self.assertIn(["npm", "cache", "verify"], adapters["npm"]["dry_run_commands"])
+        self.assertIn(["npm", "config", "get", "cache"], adapters["npm"]["dry_run_commands"])
         self.assertIn(["pnpm", "store", "status"], adapters["pnpm"]["dry_run_commands"])
+        self.assertIn(["pnpm", "store", "path"], adapters["pnpm"]["dry_run_commands"])
+        self.assertIn(["yarn", "cache", "dir"], adapters["yarn"]["dry_run_commands"])
         self.assertIn(["pip", "cache", "info"], adapters["pip"]["dry_run_commands"])
+        self.assertIn(["pip", "cache", "dir"], adapters["pip"]["dry_run_commands"])
         self.assertIn(["uv", "cache", "dir"], adapters["uv"]["dry_run_commands"])
+        self.assertIn(["poetry", "cache", "list"], adapters["poetry"]["dry_run_commands"])
         self.assertIn(["cargo", "--version"], adapters["cargo"]["dry_run_commands"])
         self.assertFalse(any(adapter["auto_execute_allowed"] for adapter in adapters.values()))
+
+    def test_developer_tool_plan_explains_cleanup_scope_and_risks(self) -> None:
+        report = json.loads(self.run_cli("--json", "tool-plan", "--tool", "all").stdout)
+        adapters = {adapter["key"]: adapter for adapter in report["adapters"]}
+
+        self.assertFalse(report["execution_policy"]["auto_execute_allowed"])
+        self.assertTrue(report["execution_policy"]["requires_human_confirmation_for_execute"])
+        self.assertTrue(report["execution_policy"]["external_prune_commands_are_recommendations_only_in_plan"])
+        self.assertIn("DerivedData", " ".join(adapters["xcode"]["cleanup_scope"]))
+        self.assertIn("Archives", " ".join(adapters["xcode"]["cleanup_scope"]))
+        self.assertIn("CoreSimulator", " ".join(adapters["xcode"]["cleanup_scope"]))
+        self.assertIn("homebrewCaches", adapters["homebrew"]["path_categories"])
+        self.assertIn("nodePackageCaches", adapters["yarn"]["path_categories"])
+        self.assertIn("pythonPackageCaches", adapters["poetry"]["path_categories"])
+        self.assertIn("cargoCaches", adapters["cargo"]["path_categories"])
+        self.assertTrue(all(adapter["risk_explanation"] for adapter in adapters.values()))
+        self.assertTrue(
+            all(
+                command["auto_call_allowed"] is False
+                for adapter in adapters.values()
+                for command in adapter["recommended_commands"]
+                if command["purpose"] == "manual-human-confirmed-cleanup"
+            )
+        )
 
     def test_tool_execute_dry_run_uses_allowlisted_commands(self) -> None:
         completed = subprocess.CompletedProcess(["docker", "system", "df"], 0, stdout="TYPE TOTAL", stderr="")
@@ -2105,9 +2137,14 @@ class CleanMacCLITests(unittest.TestCase):
             calls,
             [
                 ["npm", "cache", "verify"],
+                ["npm", "config", "get", "cache"],
                 ["pnpm", "store", "status"],
+                ["pnpm", "store", "path"],
+                ["yarn", "cache", "dir"],
                 ["pip", "cache", "info"],
+                ["pip", "cache", "dir"],
                 ["uv", "cache", "dir"],
+                ["poetry", "cache", "list"],
                 ["cargo", "--version"],
             ],
         )
@@ -2200,12 +2237,25 @@ class CleanMacCLITests(unittest.TestCase):
             expected_fields = set(report["uninstall_plan"]["candidate_explainability_fields"])
             self.assertEqual(
                 expected_fields,
-                {"reason", "risk_reason", "recovery", "matched_rule", "app_owner", "confidence", "why_not_default"},
+                {
+                    "reason",
+                    "risk_reason",
+                    "risk_explanation",
+                    "recovery",
+                    "matched_rule",
+                    "app_owner",
+                    "confidence",
+                    "leftover_type",
+                    "contains_user_data",
+                    "why_not_default",
+                },
             )
             for candidate in report["uninstall_plan"]["candidates"]:
                 self.assertTrue(candidate["reason"])
                 self.assertTrue(candidate["risk_reason"])
+                self.assertTrue(candidate["risk_explanation"])
                 self.assertTrue(candidate["recovery"])
+                self.assertTrue(candidate["leftover_type"])
                 self.assertTrue(candidate["matched_rule"].startswith("software-uninstall."))
                 self.assertEqual(candidate["app_owner"], "example")
                 self.assertTrue(candidate["finder_url"].startswith("file://"))

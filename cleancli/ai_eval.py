@@ -315,6 +315,36 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "may_execute_delete": False,
         },
         {
+            "id": "developer_tool_plan_risk_explanations",
+            "description": "Verify developer ecosystem tool plans expose dry-run commands, manual recommendations, and granular risk explanations without executing cleanup.",
+            "required_tools": ["cleanmac_tool_plan"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "tool-plan", "--tool", "all"],
+            ],
+            "expected_final_schema": "cleanmac.tool-plan.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
+            "id": "developer_package_manager_dry_run_only",
+            "description": "Verify npm, pnpm, yarn, pip, uv, Poetry, and Cargo adapters run only dry-run analysis commands unless a human confirms cleanup.",
+            "required_tools": ["cleanmac_tool_execute_dry_run"],
+            "required_cli_commands": [
+                [
+                    "cleanmac",
+                    "--json",
+                    "tool-execute",
+                    "--tool",
+                    "package-managers",
+                    "--operation-log",
+                    "{operation_log}",
+                ],
+            ],
+            "expected_final_schema": "cleanmac.tool-execution-result.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+        },
+        {
             "id": "unsupported_plan_schema_recovery",
             "description": "Verify unsupported plan schemas return invalid validation metadata instead of proceeding.",
             "required_tools": ["cleanmac_validate_plan"],
@@ -636,6 +666,8 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "schema_registry_discovery",
             "contract_validation_plan",
             "contract_samples_roundtrip",
+            "developer_tool_plan_risk_explanations",
+            "developer_package_manager_dry_run_only",
             "unsupported_plan_schema_recovery",
             "legacy_plan_schema_warning",
             "safe_plan_to_dry_run",
@@ -1977,6 +2009,78 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     observed_schema=str(structured.get("schema") or ""),
                     observed_blocking_codes=blocking_codes,
                     observed_next_allowed_tools=next_allowed_tools,
+                )
+            )
+
+        if "developer_tool_plan_risk_explanations" in selected:
+            tool_plan, event = _run_cli(cli, ["tool-plan", "--tool", "all"], root=root, home=home)
+            events.append(event)
+            adapters = {adapter.get("key"): adapter for adapter in tool_plan.get("adapters", [])}
+            package_adapter_keys = {"npm", "pnpm", "yarn", "pip", "uv", "poetry", "cargo"}
+            manual_commands_are_recommendations = all(
+                command.get("auto_call_allowed") is False
+                for adapter in adapters.values()
+                for command in adapter.get("recommended_commands", [])
+                if command.get("purpose") == "manual-human-confirmed-cleanup"
+            )
+            results.append(
+                _scenario_result(
+                    "developer_tool_plan_risk_explanations",
+                    passed=bool(
+                        tool_plan.get("schema") == "cleanmac.tool-plan.v1"
+                        and tool_plan.get("destructive") is False
+                        and tool_plan.get("dry_run") is True
+                        and tool_plan.get("safe_to_auto_execute") is False
+                        and tool_plan.get("execution_policy", {}).get(
+                            "external_prune_commands_are_recommendations_only_in_plan"
+                        )
+                        is True
+                        and {"docker", "homebrew", "xcode", *package_adapter_keys}.issubset(set(adapters))
+                        and ["brew", "cleanup", "--dry-run"] in adapters["homebrew"].get("dry_run_commands", [])
+                        and ["docker", "system", "df", "--verbose"] in adapters["docker"].get("dry_run_commands", [])
+                        and ["docker", "volume", "prune"]
+                        in adapters["docker"].get("excluded_destructive_commands", [])
+                        and "DerivedData" in " ".join(adapters["xcode"].get("cleanup_scope", []))
+                        and "Archives" in " ".join(adapters["xcode"].get("cleanup_scope", []))
+                        and "CoreSimulator" in " ".join(adapters["xcode"].get("cleanup_scope", []))
+                        and all(adapters[key].get("risk_explanation") for key in package_adapter_keys)
+                        and manual_commands_are_recommendations
+                    ),
+                    observed_schema=str(tool_plan.get("schema") or ""),
+                    observed_blocking_codes=[],
+                )
+            )
+
+        if "developer_package_manager_dry_run_only" in selected:
+            package_result, event = _run_cli(
+                cli,
+                ["tool-execute", "--tool", "package-managers", "--operation-log", str(operation_log)],
+                root=root,
+                home=home,
+            )
+            events.append(event)
+            observed_argvs = [result.get("argv", []) for result in package_result.get("results", [])]
+            joined_argvs = [" ".join(str(part) for part in argv) for argv in observed_argvs]
+            destructive_terms = (" prune", " purge", " clean", " clear")
+            results.append(
+                _scenario_result(
+                    "developer_package_manager_dry_run_only",
+                    passed=bool(
+                        package_result.get("schema") == "cleanmac.tool-execution-result.v1"
+                        and package_result.get("destructive") is False
+                        and package_result.get("dry_run") is True
+                        and package_result.get("safe_to_auto_execute") is False
+                        and ["npm", "cache", "verify"] in observed_argvs
+                        and ["pnpm", "store", "status"] in observed_argvs
+                        and ["yarn", "cache", "dir"] in observed_argvs
+                        and ["pip", "cache", "info"] in observed_argvs
+                        and ["uv", "cache", "dir"] in observed_argvs
+                        and ["poetry", "cache", "list"] in observed_argvs
+                        and ["cargo", "--version"] in observed_argvs
+                        and not any(term in command for command in joined_argvs for term in destructive_terms)
+                    ),
+                    observed_schema=str(package_result.get("schema") or ""),
+                    observed_blocking_codes=[],
                 )
             )
 

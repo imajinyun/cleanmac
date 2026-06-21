@@ -458,14 +458,14 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_tool_plan",
-        "description": "Render read-only semantic cleanup plans for external tools.",
+        "description": "Render read-only semantic cleanup plans for external developer tools, including dry-run analysis commands, manual cleanup recommendations, and risk explanations.",
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
         "parameters": object_schema(
             {
                 "tool": string_schema(
-                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, pip, uv, cargo."
+                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, yarn, pip, uv, poetry, cargo."
                 )
             }
         ),
@@ -473,14 +473,14 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_tool_execute_dry_run",
-        "description": "Run allowlisted external tool dry-run commands without cleanup.",
+        "description": "Run allowlisted external tool dry-run analysis commands without cleanup. External prune/cleanup commands are not run unless a separate human-confirmed CLI execute flow is used.",
         "risk": "dry-run",
         "auto_call_allowed": True,
         "requires_confirmation": False,
         "parameters": object_schema(
             {
                 "tool": string_schema(
-                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, pip, uv, cargo."
+                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, yarn, pip, uv, poetry, cargo."
                 ),
                 "operation_log": string_schema("JSONL operation log path."),
             }

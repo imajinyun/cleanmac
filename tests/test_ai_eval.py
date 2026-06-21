@@ -55,6 +55,8 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("schema_registry_discovery", scenarios)
         self.assertIn("contract_validation_plan", scenarios)
         self.assertIn("contract_samples_roundtrip", scenarios)
+        self.assertIn("developer_tool_plan_risk_explanations", scenarios)
+        self.assertIn("developer_package_manager_dry_run_only", scenarios)
         self.assertIn("unsupported_plan_schema_recovery", scenarios)
         self.assertIn("legacy_plan_schema_warning", scenarios)
         self.assertIn("invalid_category_recovery", scenarios)
@@ -79,6 +81,12 @@ class AIEvalTests(unittest.TestCase):
         contract_samples = scenarios["contract_samples_roundtrip"]
         self.assertEqual(contract_samples["expected_final_schema"], "cleanmac.ai-contract-samples.v1")
         self.assertFalse(contract_samples["may_execute_delete"])
+        developer_plan = scenarios["developer_tool_plan_risk_explanations"]
+        self.assertEqual(developer_plan["expected_final_schema"], "cleanmac.tool-plan.v1")
+        self.assertFalse(developer_plan["may_execute_delete"])
+        developer_dry_run = scenarios["developer_package_manager_dry_run_only"]
+        self.assertEqual(developer_dry_run["expected_final_schema"], "cleanmac.tool-execution-result.v1")
+        self.assertFalse(developer_dry_run["may_execute_delete"])
         integration_pack = scenarios["host_integration_pack_discovery"]
         self.assertEqual(integration_pack["expected_final_schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertFalse(integration_pack["may_execute_delete"])
@@ -191,6 +199,8 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
         self.assertTrue(scenario_results["contract_samples_roundtrip"]["passed"])
+        self.assertTrue(scenario_results["developer_tool_plan_risk_explanations"]["passed"])
+        self.assertTrue(scenario_results["developer_package_manager_dry_run_only"]["passed"])
         self.assertTrue(scenario_results["unsupported_plan_schema_recovery"]["passed"])
         self.assertTrue(scenario_results["legacy_plan_schema_warning"]["passed"])
         self.assertTrue(scenario_results["safe_plan_to_dry_run"]["passed"])
@@ -286,6 +296,8 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("schema_registry_discovery", scenario_ids)
         self.assertIn("contract_validation_plan", scenario_ids)
         self.assertIn("contract_samples_roundtrip", scenario_ids)
+        self.assertIn("developer_tool_plan_risk_explanations", scenario_ids)
+        self.assertIn("developer_package_manager_dry_run_only", scenario_ids)
         self.assertIn("unsupported_plan_schema_recovery", scenario_ids)
         self.assertIn("legacy_plan_schema_warning", scenario_ids)
         self.assertIn("invalid_category_recovery", scenario_ids)
@@ -433,6 +445,17 @@ class AIEvalTests(unittest.TestCase):
             destructive_report["results"][0]["observed_next_allowed_tools"][:2],
             ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
         )
+
+    def test_ai_eval_run_developer_tool_scenarios(self) -> None:
+        plan_report = self.run_json("ai-eval-run", "--scenario", "developer_tool_plan_risk_explanations")
+        dry_run_report = self.run_json("ai-eval-run", "--scenario", "developer_package_manager_dry_run_only")
+
+        self.assertTrue(plan_report["passed"], plan_report)
+        self.assertEqual(plan_report["results"][0]["observed_schema"], "cleanmac.tool-plan.v1")
+        self.assertEqual(plan_report["results"][0]["observed_blocking_codes"], [])
+        self.assertTrue(dry_run_report["passed"], dry_run_report)
+        self.assertEqual(dry_run_report["results"][0]["observed_schema"], "cleanmac.tool-execution-result.v1")
+        self.assertEqual(dry_run_report["results"][0]["observed_blocking_codes"], [])
 
 
 class AITracePersistenceTests(unittest.TestCase):

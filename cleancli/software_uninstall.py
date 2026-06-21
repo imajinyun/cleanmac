@@ -112,13 +112,18 @@ def list_apps(*, root: Path, home: Path) -> list[dict[str, Any]]:
 
 def _find_app(app: str, *, root: Path, home: Path) -> dict[str, Any] | None:
     needle = app.lower().removesuffix(".app")
+    normalized_needle = needle.replace("-", "").replace("_", "").replace(" ", "")
     for entry in list_apps(root=root, home=home):
+        bundle_id = str(entry.get("bundle_id") or "").lower()
+        bundle_tail = bundle_id.rsplit(".", 1)[-1] if bundle_id else ""
         names = {
             str(entry.get("name") or "").lower(),
             str(entry.get("display_name") or "").lower(),
-            str(entry.get("bundle_id") or "").lower(),
+            bundle_id,
+            bundle_tail,
         }
-        if app.lower() in names or needle in names:
+        normalized_names = {name.replace("-", "").replace("_", "").replace(" ", "") for name in names}
+        if app.lower() in names or needle in names or normalized_needle in normalized_names:
             return entry
     return None
 
@@ -128,6 +133,41 @@ RISK_REASONS = {
     "medium": "app-scoped support data that may include preferences or offline state",
     "high": "application bundle, launch item, or app container that can change installed software behavior",
     "critical": "privileged helper or group container that may affect shared services, credentials, or system extensions",
+}
+
+
+LEFTOVER_TYPE_BY_KIND = {
+    "app-bundle": "app_bundle",
+    "preferences": "preferences",
+    "cache": "cache",
+    "logs": "logs",
+    "container": "containers",
+    "group-container": "containers",
+    "saved-state": "saved_state",
+    "http-storage": "containers",
+    "webkit-data": "containers",
+    "launch-agent": "launch_items",
+    "launch-daemon": "launch_items",
+    "privileged-helper": "privileged_helpers",
+    "application-support": "support_data",
+    "system-application-support": "support_data",
+    "credentials": "credentials",
+    "user-documents": "user_documents",
+}
+
+
+LEFTOVER_TYPE_RISK_EXPLANATIONS = {
+    "app_bundle": "The application bundle is the installed app package itself; removing it changes installed software state.",
+    "cache": "Caches are normally rebuildable and are safe default selections when matched by exact bundle id.",
+    "logs": "Logs are diagnostic records and are normally safe to remove after review.",
+    "preferences": "Preferences can reset app settings; they are reviewable and Trash-first recoverable.",
+    "saved_state": "Saved state stores previous windows/session UI and is usually rebuildable by macOS.",
+    "containers": "Container data may include sandboxed app state, databases, cookies, web storage, or files shared across apps.",
+    "credentials": "Credentials, auth tokens, keys, and secrets are protected user data and are skipped by default.",
+    "user_documents": "User documents may be authored project/work files and are never default-selected for uninstall cleanup.",
+    "launch_items": "Launch agents/daemons can affect background services and should be selected only after explicit review.",
+    "privileged_helpers": "Privileged helpers can affect system-level services; prefer vendor uninstallers or explicit human review.",
+    "support_data": "Application support data may include app state or offline data; it is not selected by conservative defaults.",
 }
 
 
@@ -146,7 +186,39 @@ RECOVERY_GUIDANCE = {
     "group-container": "Do not remove casually; may be shared across apps from the same vendor.",
     "application-support": "Restore from Trash if user state or app support files are still needed.",
     "system-application-support": "Restore from Trash or reinstall the app/vendor package if support files were selected.",
+    "credentials": "Credentials are protected and skipped by default; restore from Trash immediately if explicitly selected by mistake.",
+    "user-documents": "User documents are not default-selected; restore from Trash if explicitly selected and still needed.",
 }
+
+
+def _looks_like_credential_path(path: Path) -> bool:
+    lowered_parts = {part.lower() for part in path.parts}
+    lowered_name = path.name.lower()
+    credential_terms = {
+        "credential",
+        "credentials",
+        "secret",
+        "secrets",
+        "token",
+        "tokens",
+        "auth",
+        "keychain",
+        "keystore",
+    }
+    return bool(lowered_parts & credential_terms) or any(term in lowered_name for term in credential_terms)
+
+
+def _is_user_document_path(path: Path, *, home_root: Path) -> bool:
+    document_roots = (home_root / "Documents", home_root / "Desktop")
+    return any(path == root or root in path.parents for root in document_roots)
+
+
+def _leftover_type_for_path(path: Path, *, kind: str, home_root: Path) -> str:
+    if _looks_like_credential_path(path):
+        return "credentials"
+    if _is_user_document_path(path, home_root=home_root):
+        return "user_documents"
+    return LEFTOVER_TYPE_BY_KIND.get(kind, kind.replace("-", "_"))
 
 
 def _why_not_default(*, default_selected: bool, protected: bool, risk: str, confidence: str) -> str | None:
@@ -172,15 +244,20 @@ def _candidate(
     risk: str,
     default_selected: bool,
     app_owner: str,
+    home_root: Path,
     protected_override: bool = False,
 ) -> dict[str, Any]:
-    protected = bool(protected_override or protection.should_protect_path(path))
+    leftover_type = _leftover_type_for_path(path, kind=kind, home_root=home_root)
+    contains_user_data = leftover_type in {"credentials", "user_documents", "containers", "support_data"}
+    shared_container = kind == "group-container"
+    protected = bool(protected_override or leftover_type == "credentials" or protection.should_protect_path(path))
     effective_default = bool(default_selected and not protected)
     return {
         "id": f"{kind}:{_display_path(path)}",
         "path": _display_path(path),
         **_path_interaction_metadata(path),
         "kind": kind,
+        "leftover_type": leftover_type,
         "bytes": _path_size(path),
         "confidence": confidence,
         "match_reason": match_reason,
@@ -188,8 +265,13 @@ def _candidate(
         "reason": f"Matched {kind} by {match_reason} for the selected app.",
         "risk": risk,
         "risk_reason": RISK_REASONS.get(risk, "risk level assigned by software uninstall policy"),
+        "risk_explanation": LEFTOVER_TYPE_RISK_EXPLANATIONS.get(
+            leftover_type, RISK_REASONS.get(risk, "risk level assigned by software uninstall policy")
+        ),
         "recovery": RECOVERY_GUIDANCE.get(kind, "Execution routes to Trash; restore from Trash if needed."),
         "app_owner": app_owner,
+        "contains_user_data": contains_user_data,
+        "shared_container": shared_container,
         "default_selected": effective_default,
         "protected": protected,
         "why_not_default": _why_not_default(
@@ -216,6 +298,7 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
             risk="high",
             default_selected=True,
             app_owner=app_owner,
+            home_root=home_root,
             protected_override=app_protected,
         )
     )
@@ -254,11 +337,15 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
                         risk=risk,
                         default_selected=kind in {"cache", "logs", "preferences", "saved-state"},
                         app_owner=app_owner,
+                        home_root=home_root,
                     )
                 )
         group_root = home_root / "Library/Group Containers"
         if group_root.exists():
-            for path in sorted(group_root.glob(f"*{bundle_id}*")):
+            for path in sorted(group_root.iterdir()):
+                group_bundle_id = protection.bundle_id_for_path(path)
+                if group_bundle_id != bundle_id:
+                    continue
                 candidates.append(
                     _candidate(
                         path,
@@ -268,8 +355,42 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
                         risk="critical",
                         default_selected=False,
                         app_owner=app_owner,
+                        home_root=home_root,
                     )
                 )
+        support_root = home_root / "Library/Application Support" / app_name
+        if support_root.exists():
+            for path in sorted(support_root.rglob("*")):
+                if not (path.exists() or path.is_symlink()) or path.is_dir():
+                    continue
+                if _leftover_type_for_path(path, kind="application-support", home_root=home_root) != "credentials":
+                    continue
+                candidates.append(
+                    _candidate(
+                        path,
+                        kind="credentials",
+                        confidence="high",
+                        match_reason="credential-path",
+                        risk="critical",
+                        default_selected=False,
+                        app_owner=app_owner,
+                        home_root=home_root,
+                    )
+                )
+        documents_root = home_root / "Documents" / app_name
+        if documents_root.exists():
+            candidates.append(
+                _candidate(
+                    documents_root,
+                    kind="user-documents",
+                    confidence="medium",
+                    match_reason="app-name-documents",
+                    risk="critical",
+                    default_selected=False,
+                    app_owner=app_owner,
+                    home_root=home_root,
+                )
+            )
     name_patterns = [
         (home_root / "Library/Application Support" / app_name, "application-support"),
         (home_root / "Library/Caches" / app_name, "cache"),
@@ -287,9 +408,13 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
                     risk="medium",
                     default_selected=False,
                     app_owner=app_owner,
+                    home_root=home_root,
                 )
             )
-    return candidates
+    deduped: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        deduped.setdefault(str(candidate["path"]), candidate)
+    return list(deduped.values())
 
 
 def inspect_software_uninstall(app: str, *, root: Path, home: Path) -> dict[str, Any]:
@@ -325,9 +450,13 @@ def plan_software_uninstall(app: str | None, *, root: Path, home: Path) -> dict[
         }
     inspection = inspect_software_uninstall(app, root=root, home=home)
     identity = inspection.get("app_identity") if isinstance(inspection.get("app_identity"), dict) else None
-    vendor = (
-        identity.get("official_uninstaller_vendor") if identity else protection.official_uninstaller_vendor(name=app)
-    )
+    vendor = identity.get("official_uninstaller_vendor") if identity else None
+    if not vendor:
+        vendor = protection.official_uninstaller_vendor(
+            bundle_id=str(identity.get("bundle_id") or "") if identity else None,
+            name=str(identity.get("display_name") or app) if identity else app,
+            app_path=Path(str(identity.get("path"))) if identity and identity.get("path") else None,
+        )
     protected = bool(identity and identity.get("protected_from_uninstall"))
     blocked_reasons: list[str] = []
     if not inspection["found"]:
@@ -341,6 +470,17 @@ def plan_software_uninstall(app: str | None, *, root: Path, home: Path) -> dict[
         if blocked_reasons:
             item["default_selected"] = False
             item["why_not_default"] = f"plan blocked: {', '.join(blocked_reasons)}"
+    leftover_type_counts: dict[str, int] = {}
+    default_selected_count = 0
+    protected_count = 0
+    for item in candidates:
+        leftover_type = str(item.get("leftover_type") or "unknown")
+        leftover_type_counts[leftover_type] = leftover_type_counts.get(leftover_type, 0) + 1
+        if item.get("default_selected"):
+            default_selected_count += 1
+        if item.get("protected"):
+            protected_count += 1
+    recommended_action = "use-official-uninstaller-first" if vendor else "review-leftovers-then-trash-first-execute"
     return {
         "schema": "cleanmac.software-uninstall-plan.v1",
         "destructive": False,
@@ -360,17 +500,34 @@ def plan_software_uninstall(app: str | None, *, root: Path, home: Path) -> dict[
                 if vendor
                 else None
             ),
-            "protected_data_policy": "preserve app data unless selected by explicit governed uninstall execution",
+            "official_uninstaller_priority": "highest" if vendor else "not-required",
+            "recommended_action": recommended_action,
+            "protected_data_policy": "skip credentials and user documents by default; route any selected leftovers to Trash only after review-selection confirmation",
             "requires_explicit_execute": True,
             "candidate_count": len(candidates),
+            "default_selected_count": default_selected_count,
+            "protected_candidate_count": protected_count,
             "candidate_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
+            "leftover_type_counts": leftover_type_counts,
+            "leftover_types": [
+                "cache",
+                "logs",
+                "preferences",
+                "saved_state",
+                "containers",
+                "credentials",
+                "user_documents",
+            ],
             "candidate_explainability_fields": [
                 "reason",
                 "risk_reason",
+                "risk_explanation",
                 "recovery",
                 "matched_rule",
                 "app_owner",
                 "confidence",
+                "leftover_type",
+                "contains_user_data",
                 "why_not_default",
             ],
             "safe_to_auto_execute": False,
