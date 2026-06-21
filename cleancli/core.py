@@ -1141,18 +1141,18 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     tool_plan_cmd = subparsers.add_parser(
         "tool-plan",
-        help="Render read-only semantic cleanup plans for external tools such as Docker, Homebrew, and Xcode.",
+        help="Render read-only semantic cleanup plans for developer tools such as Docker, Homebrew, package managers, and Xcode.",
     )
     tool_plan_cmd.add_argument(
         "--tool",
         choices=TOOL_ADAPTER_CHOICES,
         default="all",
-        help="Tool adapter to describe. Plans are read-only and never execute external cleanup commands.",
+        help="Tool adapter to describe. Plans are read-only and only recommend external prune/cleanup commands.",
     )
 
     tool_execute_cmd = subparsers.add_parser(
         "tool-execute",
-        help="Run allowlisted external tool dry-run or cleanup commands with explicit execution gates.",
+        help="Run allowlisted external tool dry-run analysis commands, or cleanup commands only with explicit execution gates.",
     )
     tool_execute_cmd.add_argument(
         "--tool",

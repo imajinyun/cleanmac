@@ -80,6 +80,10 @@ def should_protect_from_uninstall(bundle_id: str | None) -> bool:
 
 def _contains_sensitive_fragment(path_text: str, fragment: str) -> bool:
     normalized_fragment = fragment.rstrip("/")
+    if any(char in normalized_fragment for char in "*?["):
+        return fnmatch.fnmatchcase(path_text, f"*{normalized_fragment}*") or fnmatch.fnmatchcase(
+            path_text, f"*{normalized_fragment}/*"
+        )
     return path_text.endswith(normalized_fragment) or fragment in path_text or f"{normalized_fragment}/" in path_text
 
 
