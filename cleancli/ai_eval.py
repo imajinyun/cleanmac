@@ -239,6 +239,40 @@ def render_ai_eval_pack() -> dict[str, Any]:
             "destructive_execution_allowed": False,
         },
         {
+            "id": "mcp_workflow_contract_resource",
+            "description": "Verify MCP resources expose the governed cleanmac.ai-workflow.v1 contract for AI Host discovery.",
+            "required_tools": ["cleanmac_ai_workflow"],
+            "required_cli_commands": [["python3", "scripts/cleanmac_mcp_server.py"]],
+            "expected_final_schema": "cleanmac.ai-workflow.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+            "destructive_execution_allowed": False,
+        },
+        {
+            "id": "dry_run_human_summary_recovery",
+            "description": "Verify AI-origin dry-runs emit human_summary with the confirmation-token next command and review reasons.",
+            "required_tools": ["cleanmac_generate_plan", "cleanmac_dry_run_plan"],
+            "required_cli_commands": [
+                ["cleanmac", "--json", "clean", "plan", "--categories", "downloads", "--ai-origin"],
+                ["cleanmac", "--json", "clean", "run", "--plan-file", "{plan_file}", "--delete-mode", "trash"],
+            ],
+            "expected_final_schema": "cleanmac.clean.v1",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+            "destructive_execution_allowed": False,
+        },
+        {
+            "id": "ai_error_next_allowed_tools_recovery",
+            "description": "Verify AI error envelopes expose next_allowed_tools at both top level and nested error fields.",
+            "required_tools": ["cleanmac_inspect", "cleanmac_list_categories"],
+            "required_cli_commands": [["cleanmac", "--json", "clean", "inspect", "--categories", "notACategory"]],
+            "expected_final_schema": "cleanmac.ai-error.v1",
+            "expected_error_code": "UNKNOWN_CATEGORY",
+            "expected_blocking_codes": [],
+            "may_execute_delete": False,
+            "destructive_execution_allowed": False,
+        },
+        {
             "id": "safe_plan_to_dry_run",
             "description": "Generate an AI-originated plan, validate it, simulate policy, and dry-run with Trash routing.",
             "required_tools": [
@@ -663,6 +697,9 @@ def selected_scenario_ids(requested: str, all_ids: Sequence[str]) -> list[str]:
             "schema_registry_release_contract_coverage",
             "discover_readiness",
             "one_shot_governed_workflow",
+            "mcp_workflow_contract_resource",
+            "dry_run_human_summary_recovery",
+            "ai_error_next_allowed_tools_recovery",
             "schema_registry_discovery",
             "contract_validation_plan",
             "contract_samples_roundtrip",
@@ -1301,6 +1338,37 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 root=root,
                 home=home,
             )
+
+        if "mcp_workflow_contract_resource" in selected:
+            response, event = _run_mcp_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 11,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://ai/workflow-contract"},
+                }
+            )
+            events.append(event)
+            resource = response.get("result", {}).get("contents", [{}])[0]
+            workflow = json.loads(resource["text"])
+            steps = workflow.get("steps", [])
+            execute_steps = [step for step in steps if step.get("destructive")]
+            results.append(
+                _scenario_result(
+                    "mcp_workflow_contract_resource",
+                    passed=bool(
+                        resource["uri"] == "cleanmac://ai/workflow-contract"
+                        and workflow["schema"] == "cleanmac.ai-workflow.v1"
+                        and workflow["dry_run"] is True
+                        and workflow["destructive"] is False
+                        and "cleanmac_policy_simulate" in workflow["recommended_tool_call_order"]
+                        and "cleanmac_execute_plan" in workflow["recommended_tool_call_order"]
+                        and len(execute_steps) == 1
+                        and execute_steps[0]["auto_call_allowed"] is False
+                    ),
+                    observed_schema=workflow["schema"],
+                )
+            )
             events.append(event)
             steps = workflow.get("steps", [])
             execute_steps = [step for step in steps if step.get("destructive")]
@@ -1331,6 +1399,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
             "plan_context_mismatch_policy",
             "permanent_delete_deny_policy",
             "contract_validation_plan",
+            "dry_run_human_summary_recovery",
         }
         if plan_required_scenarios.intersection(selected):
             plan, event = _run_cli(
@@ -1474,6 +1543,33 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 }
             )
 
+        if "dry_run_human_summary_recovery" in selected:
+            if dry_run is None:
+                dry_run, event = _run_cli(
+                    cli,
+                    ["clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash"],
+                    root=root,
+                    home=home,
+                )
+                events.append(event)
+            human_summary = dry_run.get("human_summary", {})
+            next_command = human_summary.get("next_command", [])
+            results.append(
+                _scenario_result(
+                    "dry_run_human_summary_recovery",
+                    passed=bool(
+                        dry_run.get("schema") == "cleanmac.clean.v1"
+                        and dry_run.get("dry_run") is True
+                        and human_summary.get("schema") == "cleanmac.human-summary.v1"
+                        and human_summary.get("safe_to_execute") is False
+                        and "--execute" in next_command
+                        and "--confirmation-token" in next_command
+                        and human_summary.get("top_reasons_to_review")
+                    ),
+                    observed_schema=str(dry_run.get("schema")),
+                )
+            )
+
         if "invalid_category_recovery" in selected:
             error_report, event = _run_cli(
                 cli,
@@ -1481,6 +1577,33 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 root=root,
                 home=home,
                 expect_success=False,
+            )
+
+        if "ai_error_next_allowed_tools_recovery" in selected:
+            error_report, event = _run_cli(
+                cli,
+                ["clean", "inspect", "--categories", "notACategory"],
+                root=root,
+                home=home,
+                expect_success=False,
+            )
+            events.append(event)
+            top_level_tools = list(error_report.get("next_allowed_tools", []))
+            nested_tools = list(error_report.get("error", {}).get("next_allowed_tools", []))
+            results.append(
+                _scenario_result(
+                    "ai_error_next_allowed_tools_recovery",
+                    passed=bool(
+                        error_report.get("schema") == "cleanmac.ai-error.v1"
+                        and error_report.get("error", {}).get("code") == "UNKNOWN_CATEGORY"
+                        and top_level_tools
+                        and nested_tools
+                        and top_level_tools == nested_tools
+                        and "cleanmac_list_categories" in nested_tools
+                    ),
+                    observed_schema=str(error_report.get("schema")),
+                    observed_next_allowed_tools=nested_tools,
+                )
             )
             events.append(event)
             results.append(
@@ -1765,6 +1888,12 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "resources/read",
                     "params": {"uri": "cleanmac://mcp/surface-audit"},
                 },
+                "resources/read workflow-contract": {
+                    "jsonrpc": "2.0",
+                    "id": 11,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://ai/workflow-contract"},
+                },
                 "prompts/get review-ai-host-policy": {
                     "jsonrpc": "2.0",
                     "id": 10,
@@ -1840,6 +1969,13 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 )
                 surface_audit = json.loads(surface_audit_text)
                 surface_audit_check_ids = {check.get("id") for check in surface_audit.get("checks", [])}
+                workflow_contract_text = (
+                    mcp_payloads.get("resources/read workflow-contract", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                workflow_contract = json.loads(workflow_contract_text)
                 policy_prompt_text = (
                     mcp_payloads.get("prompts/get review-ai-host-policy", {})
                     .get("result", {})
@@ -1862,6 +1998,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "cleanmac://mcp/surface-audit" in resource_uris
                     and "cleanmac://capabilities" in resource_uris
                     and "cleanmac://ai/runtime-lifecycle-policy" in resource_uris
+                    and "cleanmac://ai/workflow-contract" in resource_uris
                     and "cleanmac://ai/host-policy" in resource_uris
                     and "cleanmac://release/post-publish-verification" in resource_uris
                     and "cleanmac://release/post-publish-result" in resource_uris
@@ -1888,6 +2025,9 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and surface_audit.get("schema") == "cleanmac.mcp-surface-audit.v1"
                     and surface_audit.get("ready") is True
                     and surface_audit.get("resource_uri") == "cleanmac://mcp/surface-audit"
+                    and workflow_contract.get("schema") == "cleanmac.ai-workflow.v1"
+                    and workflow_contract.get("dry_run") is True
+                    and workflow_contract.get("destructive") is False
                     and surface_audit.get("missing") == {"resources": [], "prompts": [], "tools": []}
                     and len(surface_audit.get("checks", [])) == 14
                     and {

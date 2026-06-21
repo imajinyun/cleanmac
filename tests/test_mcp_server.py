@@ -244,6 +244,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
         self.assertIn("cleanmac://ai/contract-validation", uris)
         self.assertIn("cleanmac://ai/contract-samples", uris)
+        self.assertIn("cleanmac://ai/workflow-contract", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/host-preflight", uris)
         self.assertIn("cleanmac://ai/host-evidence", uris)
@@ -305,6 +306,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/tool-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/surface-audit", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
+        self.assertIn("cleanmac://ai/workflow-contract", payload["resource_uris"])
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
 
     def test_resources_read_mcp_prompt_index(self) -> None:
@@ -576,6 +578,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://mcp/tool-index",
             "cleanmac://mcp/surface-audit",
             "cleanmac://ai/runtime-lifecycle-policy",
+            "cleanmac://ai/workflow-contract",
             "cleanmac://ai/host-integration-pack",
             "cleanmac://ai/host-preflight",
             "cleanmac://ai/host-evidence",
@@ -696,8 +699,32 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(payload["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertEqual(payload["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
+        self.assertIn("cleanmac://ai/workflow-contract", payload["mcp"]["resources"])
         self.assertIn("review-ai-host-policy", payload["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", payload["mcp"]["tools"])
+
+    def test_resources_read_workflow_contract(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 128,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/workflow-contract"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/workflow-contract")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-workflow.v1")
+        self.assertFalse(payload["destructive"])
+        self.assertTrue(payload["dry_run"])
+        self.assertEqual(payload["goal"], "safe-cleanup")
+        self.assertIn("cleanmac_policy_simulate", payload["recommended_tool_call_order"])
+        self.assertIn("cleanmac_execute_plan", payload["recommended_tool_call_order"])
+        execute_steps = [step for step in payload["steps"] if step.get("destructive")]
+        self.assertEqual(len(execute_steps), 1)
+        self.assertFalse(execute_steps[0]["auto_call_allowed"])
+        self.assertTrue(execute_steps[0]["requires_human_confirmation"])
 
     def test_resources_read_host_preflight(self) -> None:
         response = _mcp_request(
@@ -854,6 +881,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/readiness", uris)
         self.assertIn("cleanmac://ai/runbook", uris)
         self.assertIn("cleanmac://ai/runtime-lifecycle-policy", uris)
+        self.assertIn("cleanmac://ai/workflow-contract", uris)
         self.assertIn("cleanmac://ai/self-test", uris)
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
         self.assertIn("cleanmac://ai/governance-advice", uris)
@@ -891,6 +919,18 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(lifecycle_payload["resident_processes"], 0)
         self.assertFalse(lifecycle_payload["implements_gui"])
         self.assertFalse(lifecycle_payload["installs_background_daemon"])
+
+        workflow_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 34,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/workflow-contract"},
+            }
+        )
+        workflow_payload = json.loads(workflow_response["result"]["contents"][0]["text"])
+        self.assertEqual(workflow_payload["schema"], "cleanmac.ai-workflow.v1")
+        self.assertEqual(workflow_payload["governance"]["delete_mode_for_execute"], "trash")
 
         decision_response = _mcp_request(
             {

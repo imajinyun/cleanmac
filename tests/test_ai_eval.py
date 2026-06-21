@@ -51,6 +51,10 @@ class AIEvalTests(unittest.TestCase):
         self.assertIn("release_post_publish_evidence_template_discovery", scenarios)
         self.assertIn("schema_registry_release_contract_coverage", scenarios)
         self.assertIn("discover_readiness", scenarios)
+        self.assertIn("one_shot_governed_workflow", scenarios)
+        self.assertIn("mcp_workflow_contract_resource", scenarios)
+        self.assertIn("dry_run_human_summary_recovery", scenarios)
+        self.assertIn("ai_error_next_allowed_tools_recovery", scenarios)
         self.assertIn("safe_plan_to_dry_run", scenarios)
         self.assertIn("schema_registry_discovery", scenarios)
         self.assertIn("contract_validation_plan", scenarios)
@@ -87,6 +91,15 @@ class AIEvalTests(unittest.TestCase):
         developer_dry_run = scenarios["developer_package_manager_dry_run_only"]
         self.assertEqual(developer_dry_run["expected_final_schema"], "cleanmac.tool-execution-result.v1")
         self.assertFalse(developer_dry_run["may_execute_delete"])
+        workflow_resource = scenarios["mcp_workflow_contract_resource"]
+        self.assertEqual(workflow_resource["expected_final_schema"], "cleanmac.ai-workflow.v1")
+        self.assertFalse(workflow_resource["may_execute_delete"])
+        human_summary = scenarios["dry_run_human_summary_recovery"]
+        self.assertEqual(human_summary["expected_final_schema"], "cleanmac.clean.v1")
+        self.assertFalse(human_summary["may_execute_delete"])
+        ai_error = scenarios["ai_error_next_allowed_tools_recovery"]
+        self.assertEqual(ai_error["expected_final_schema"], "cleanmac.ai-error.v1")
+        self.assertFalse(ai_error["may_execute_delete"])
         integration_pack = scenarios["host_integration_pack_discovery"]
         self.assertEqual(integration_pack["expected_final_schema"], "cleanmac.ai-host-integration-pack.v1")
         self.assertFalse(integration_pack["may_execute_delete"])
@@ -196,6 +209,10 @@ class AIEvalTests(unittest.TestCase):
         self.assertTrue(scenario_results["release_post_publish_evidence_template_discovery"]["passed"])
         self.assertTrue(scenario_results["schema_registry_release_contract_coverage"]["passed"])
         self.assertTrue(scenario_results["discover_readiness"]["passed"])
+        self.assertTrue(scenario_results["one_shot_governed_workflow"]["passed"])
+        self.assertTrue(scenario_results["mcp_workflow_contract_resource"]["passed"])
+        self.assertTrue(scenario_results["dry_run_human_summary_recovery"]["passed"])
+        self.assertTrue(scenario_results["ai_error_next_allowed_tools_recovery"]["passed"])
         self.assertTrue(scenario_results["schema_registry_discovery"]["passed"])
         self.assertTrue(scenario_results["contract_validation_plan"]["passed"])
         self.assertTrue(scenario_results["contract_samples_roundtrip"]["passed"])
