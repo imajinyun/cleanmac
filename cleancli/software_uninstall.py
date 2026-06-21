@@ -128,8 +128,23 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
             (home_root / "Library/Caches" / str(bundle_id), "cache", "bundle-id", "low"),
             (home_root / "Library/Logs" / str(bundle_id), "logs", "bundle-id", "low"),
             (home_root / "Library/Containers" / str(bundle_id), "container", "bundle-id", "high"),
+            (
+                home_root / "Library/Saved Application State" / f"{bundle_id}.savedState",
+                "saved-state",
+                "bundle-id",
+                "low",
+            ),
+            (home_root / "Library/HTTPStorages" / str(bundle_id), "http-storage", "bundle-id", "medium"),
+            (home_root / "Library/WebKit" / str(bundle_id), "webkit-data", "bundle-id", "medium"),
             (home_root / "Library/LaunchAgents" / f"{bundle_id}.plist", "launch-agent", "bundle-id", "high"),
             (_system_path(root, "/Library/LaunchAgents") / f"{bundle_id}.plist", "launch-agent", "bundle-id", "high"),
+            (_system_path(root, "/Library/LaunchDaemons") / f"{bundle_id}.plist", "launch-daemon", "bundle-id", "high"),
+            (
+                _system_path(root, "/Library/PrivilegedHelperTools") / str(bundle_id),
+                "privileged-helper",
+                "bundle-id",
+                "critical",
+            ),
         ]
         for path, kind, reason, risk in patterns:
             if path.exists() or path.is_symlink():
@@ -140,13 +155,27 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
                         confidence="high",
                         match_reason=reason,
                         risk=risk,
-                        default_selected=kind in {"cache", "logs", "preferences"},
+                        default_selected=kind in {"cache", "logs", "preferences", "saved-state"},
+                    )
+                )
+        group_root = home_root / "Library/Group Containers"
+        if group_root.exists():
+            for path in sorted(group_root.glob(f"*{bundle_id}*")):
+                candidates.append(
+                    _candidate(
+                        path,
+                        kind="group-container",
+                        confidence="medium",
+                        match_reason="bundle-id",
+                        risk="critical",
+                        default_selected=False,
                     )
                 )
     name_patterns = [
         (home_root / "Library/Application Support" / app_name, "application-support"),
         (home_root / "Library/Caches" / app_name, "cache"),
         (home_root / "Library/Logs" / app_name, "logs"),
+        (_system_path(root, "/Library/Application Support") / app_name, "system-application-support"),
     ]
     for path, kind in name_patterns:
         if path.exists() or path.is_symlink():
