@@ -33,6 +33,9 @@ class AIHostEvidenceTests(unittest.TestCase):
             report["release_readiness"]["not_required_for"],
             "runtime-readonly-ai-host-discovery",
         )
+        self.assertEqual(report["runtime_lifecycle"]["schema"], "cleanmac.runtime-lifecycle-policy.v1")
+        self.assertEqual(report["runtime_lifecycle"]["product_model"], "ai-first-ephemeral-cli")
+        self.assertEqual(report["runtime_lifecycle"]["resident_processes"], 0)
         checks = {check["id"]: check for check in report["evidence_checks"]}
         self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
         self.assertTrue(checks["mcp-meta-index-advertised"]["passed"])
@@ -40,6 +43,8 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-ready"]["passed"])
+        self.assertTrue(checks["runtime-lifecycle-policy-advertised"]["passed"])
+        self.assertTrue(checks["runtime-lifecycle-policy-valid"]["passed"])
         self.assertTrue(checks["mcp-resource-catalog-valid"]["passed"])
         self.assertTrue(checks["mcp-prompt-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-prompt-catalog-valid"]["passed"])
@@ -101,6 +106,8 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-ready"]["passed"])
+        self.assertTrue(checks["runtime-lifecycle-policy-advertised"]["passed"])
+        self.assertTrue(checks["runtime-lifecycle-policy-valid"]["passed"])
         self.assertTrue(checks["mcp-resource-catalog-valid"]["passed"])
         self.assertTrue(checks["mcp-prompt-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-prompt-catalog-valid"]["passed"])

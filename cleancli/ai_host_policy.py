@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from cleancli.ai_schema import CONFIRMATION_PHRASE
+from cleancli.mcp_resources import RUNTIME_LIFECYCLE_POLICY_URI
 
 RAW_COMMAND_ARGUMENT_KEYS = frozenset(
     {
@@ -83,6 +84,7 @@ def render_ai_host_policy(
     *,
     decision_matrix: Mapping[str, Any],
     governance_advice: Mapping[str, Any],
+    runtime_lifecycle: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Return an explicit host-side policy for model/tool orchestration."""
 
@@ -103,6 +105,14 @@ def render_ai_host_policy(
             "shell_allowed": False,
             "raw_command_input_allowed": False,
             "path_and_log_text_are_untrusted_data": True,
+        },
+        "runtime_lifecycle": dict(runtime_lifecycle),
+        "host_runtime_obligations": {
+            "must_read_resource_before_execution": RUNTIME_LIFECYCLE_POLICY_URI,
+            "must_not_expect_resident_process": True,
+            "must_not_schedule_background_scans": True,
+            "must_not_install_login_item_or_daemon": True,
+            "interaction_layer": "AI host or explicit CLI command",
         },
         "auto_call": {
             "allow": auto_allowed,
@@ -145,6 +155,7 @@ def render_ai_host_policy(
             "cleanmac://ai/host-preflight",
             "cleanmac://ai/readiness",
             "cleanmac://ai/runbook",
+            RUNTIME_LIFECYCLE_POLICY_URI,
             "cleanmac://ai/tool-decision-matrix",
             "cleanmac://ai/governance-advice",
             "cleanmac://ai/host-policy",
@@ -156,6 +167,13 @@ def render_ai_host_policy(
             and "cleanmac_execute_plan" in auto_denied
             and governance_advice.get("ready_for_llm_calling") is True
             and decision_matrix.get("violation_count") == 0
+            and runtime_lifecycle.get("schema") == "cleanmac.runtime-lifecycle-policy.v1"
+            and runtime_lifecycle.get("product_model") == "ai-first-ephemeral-cli"
+            and runtime_lifecycle.get("resident_processes") == 0
+            and runtime_lifecycle.get("implements_tui") is False
+            and runtime_lifecycle.get("implements_gui") is False
+            and runtime_lifecycle.get("installs_background_daemon") is False
+            and runtime_lifecycle.get("performs_unsolicited_scans") is False
         ),
     }
 
@@ -169,6 +187,37 @@ def validate_ai_host_policy(report: Mapping[str, Any]) -> dict[str, Any]:
     transport = report.get("transport", {})
     if not isinstance(transport, Mapping) or transport.get("shell_allowed") is not False:
         violations.append("transport.shell_allowed must be false")
+    runtime_lifecycle = report.get("runtime_lifecycle")
+    if not isinstance(runtime_lifecycle, Mapping):
+        violations.append("runtime_lifecycle must be an object")
+    else:
+        expected_runtime_flags = {
+            "schema": "cleanmac.runtime-lifecycle-policy.v1",
+            "product_model": "ai-first-ephemeral-cli",
+            "runs_only_when_invoked": True,
+            "exits_after_workflow": True,
+            "resident_processes": 0,
+            "implements_tui": False,
+            "implements_gui": False,
+            "installs_background_daemon": False,
+            "performs_unsolicited_scans": False,
+        }
+        for key, expected in expected_runtime_flags.items():
+            if runtime_lifecycle.get(key) != expected:
+                violations.append(f"runtime_lifecycle.{key} must be {expected!r}")
+    obligations = report.get("host_runtime_obligations")
+    if not isinstance(obligations, Mapping):
+        violations.append("host_runtime_obligations must be an object")
+    else:
+        if obligations.get("must_read_resource_before_execution") != RUNTIME_LIFECYCLE_POLICY_URI:
+            violations.append("host_runtime_obligations.must_read_resource_before_execution must load runtime lifecycle policy")
+        for flag in (
+            "must_not_expect_resident_process",
+            "must_not_schedule_background_scans",
+            "must_not_install_login_item_or_daemon",
+        ):
+            if obligations.get(flag) is not True:
+                violations.append(f"host_runtime_obligations.{flag} must be true")
     auto_call = report.get("auto_call", {})
     if not isinstance(auto_call, Mapping):
         violations.append("auto_call must be an object")
@@ -193,6 +242,9 @@ def validate_ai_host_policy(report: Mapping[str, Any]) -> dict[str, Any]:
                 violations.append(f"execution_gate.{flag} must be true")
     if not report.get("valid"):
         violations.append("host policy valid flag must be true")
+    required_resources = report.get("required_resources_before_execution", [])
+    if not isinstance(required_resources, list) or RUNTIME_LIFECYCLE_POLICY_URI not in required_resources:
+        violations.append("required_resources_before_execution must include runtime lifecycle policy resource")
     return {
         "schema": "cleanmac.ai-host-policy-validation.v1",
         "valid": not violations,

@@ -29,6 +29,9 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["readiness"]["schema"], "cleanmac.ai-readiness.v1")
         self.assertEqual(pack["runbook"]["schema"], "cleanmac.ai-runbook.v1")
         self.assertEqual(pack["host_policy"]["schema"], "cleanmac.ai-host-policy.v1")
+        self.assertEqual(pack["runtime_lifecycle"]["schema"], "cleanmac.runtime-lifecycle-policy.v1")
+        self.assertEqual(pack["runtime_lifecycle"]["product_model"], "ai-first-ephemeral-cli")
+        self.assertEqual(pack["runtime_lifecycle"]["resident_processes"], 0)
         self.assertEqual(pack["governance_advice"]["schema"], "cleanmac.ai-governance-advice.v1")
         self.assertEqual(pack["eval_pack"]["schema"], "cleanmac.ai-eval-pack.v1")
         self.assertEqual(pack["contract_validation"]["schema"], "cleanmac.ai-contract-validation-summary.v1")
@@ -49,6 +52,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
             pack["recommended_preflight_commands"],
         )
         self.assertIn("cleanmac://ai/host-integration-pack", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://ai/runtime-lifecycle-policy", pack["mcp"]["resources"])
         self.assertIn("cleanmac://ai/host-evidence", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/readiness", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/diagnostics", pack["mcp"]["resources"])
@@ -78,6 +82,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["recommended_call_sequence"][4], "read cleanmac://mcp/surface-audit")
         self.assertEqual(pack["recommended_call_sequence"][5], "read cleanmac://ai/host-integration-pack")
         self.assertEqual(len(pack["recommended_call_sequence"]), len(set(pack["recommended_call_sequence"])))
+        self.assertIn("read cleanmac://ai/runtime-lifecycle-policy", pack["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
     def test_pack_validates_against_registered_contract_schema(self) -> None:
@@ -198,7 +203,9 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(checks["host-policy-valid"]["passed"])
         self.assertTrue(checks["contract-validation-valid"]["passed"])
         self.assertTrue(checks["mcp-runtime-policy-present"]["passed"])
-        self.assertEqual(checks["mcp-runtime-policy-present"]["evidence"], "cleanmac.ai-host-tool-call-decision.v1")
+        self.assertTrue(checks["runtime-lifecycle-policy-valid"]["passed"])
+        self.assertEqual(checks["mcp-runtime-policy-present"]["evidence"], "cleanmac://ai/runtime-lifecycle-policy")
+        self.assertEqual(preflight["entrypoint"]["runtime_lifecycle_policy"], "cleanmac://ai/runtime-lifecycle-policy")
         self.assertIn("matching_confirmation_token", preflight["required_before_destructive_tool"])
 
     def test_preflight_validates_against_registered_contract_schema(self) -> None:

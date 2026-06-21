@@ -10,6 +10,7 @@ from cleancli.mcp_resources import (
     MCP_META_INDEX_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
+    RUNTIME_LIFECYCLE_POLICY_URI,
     render_mcp_surface_audit,
     validate_mcp_meta_index,
     validate_mcp_resource_catalog,
@@ -41,6 +42,7 @@ def render_ai_host_evidence(
     preflight: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
     release_readiness: Mapping[str, Any],
+    runtime_lifecycle: Mapping[str, Any],
     runtime_policy_evidence: Sequence[Mapping[str, Any]],
     critical_schemas: Sequence[str],
 ) -> dict[str, Any]:
@@ -107,6 +109,27 @@ def render_ai_host_evidence(
             "evidence": "cleanmac.mcp-surface-audit.v1",
         },
         {
+            "id": "runtime-lifecycle-policy-advertised",
+            "passed": RUNTIME_LIFECYCLE_POLICY_URI in resources,
+            "evidence": RUNTIME_LIFECYCLE_POLICY_URI,
+        },
+        {
+            "id": "runtime-lifecycle-policy-valid",
+            "passed": bool(
+                isinstance(runtime_lifecycle, Mapping)
+                and runtime_lifecycle.get("schema") == "cleanmac.runtime-lifecycle-policy.v1"
+                and runtime_lifecycle.get("product_model") == "ai-first-ephemeral-cli"
+                and runtime_lifecycle.get("runs_only_when_invoked") is True
+                and runtime_lifecycle.get("exits_after_workflow") is True
+                and runtime_lifecycle.get("resident_processes") == 0
+                and runtime_lifecycle.get("implements_tui") is False
+                and runtime_lifecycle.get("implements_gui") is False
+                and runtime_lifecycle.get("installs_background_daemon") is False
+                and runtime_lifecycle.get("performs_unsolicited_scans") is False
+            ),
+            "evidence": "cleanmac.runtime-lifecycle-policy.v1",
+        },
+        {
             "id": "mcp-resource-catalog-valid",
             "passed": bool(resource_validation.get("valid")),
             "evidence": "cleanmac.mcp-resource-index.v1",
@@ -155,6 +178,7 @@ def render_ai_host_evidence(
         "mcp_resource_catalog": resource_validation,
         "mcp_prompt_catalog": prompt_validation,
         "mcp_tool_catalog": tool_validation,
+        "runtime_lifecycle": dict(runtime_lifecycle),
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),

@@ -208,6 +208,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_self_test,
         render_ai_tool_contract,
         render_capabilities,
+        render_runtime_lifecycle_policy,
         render_release_diagnostics_report,
         render_release_evidence_report,
         render_release_operator_summary,
@@ -224,6 +225,7 @@ def read_mcp_resource(uri: str) -> dict:
         MCP_META_INDEX_URI,
         MCP_RESOURCE_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
+        RUNTIME_LIFECYCLE_POLICY_URI,
         render_mcp_meta_index,
         render_mcp_resource_index,
         render_mcp_surface_audit,
@@ -250,6 +252,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_readiness(render_ai_tool_contract())
     elif uri == "cleanmac://ai/runbook":
         payload = render_ai_runbook()
+    elif uri == RUNTIME_LIFECYCLE_POLICY_URI:
+        payload = render_runtime_lifecycle_policy()
     elif uri == "cleanmac://ai/self-test":
         payload = render_ai_self_test()
     elif uri == "cleanmac://ai/tool-decision-matrix":

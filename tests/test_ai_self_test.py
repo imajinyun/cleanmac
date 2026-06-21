@@ -27,6 +27,7 @@ class AISelfTestTests(unittest.TestCase):
         self.assertIn("contract-compatibility", check_ids)
         self.assertIn("provider-export-parity", check_ids)
         self.assertIn("runbook-execution-gate", check_ids)
+        self.assertIn("runtime-lifecycle-policy", check_ids)
         self.assertIn("tool-decision-matrix", check_ids)
         self.assertIn("ai-eval-pack", check_ids)
         self.assertIn("ai-governance-advice", check_ids)
@@ -36,6 +37,12 @@ class AISelfTestTests(unittest.TestCase):
         checks = {check["id"]: check for check in report["checks"]}
         self.assertTrue(checks["tool-decision-matrix"]["passed"])
         self.assertEqual(checks["tool-decision-matrix"]["detail"]["violation_count"], 0)
+        self.assertTrue(checks["runtime-lifecycle-policy"]["passed"])
+        self.assertEqual(
+            checks["runtime-lifecycle-policy"]["detail"]["schema"],
+            "cleanmac.runtime-lifecycle-policy.v1",
+        )
+        self.assertEqual(checks["runtime-lifecycle-policy"]["detail"]["resident_processes"], 0)
         self.assertTrue(checks["ai-eval-pack"]["passed"])
         self.assertEqual(checks["ai-eval-pack"]["detail"]["schema"], "cleanmac.ai-eval-pack.v1")
         self.assertTrue(checks["ai-governance-advice"]["passed"])

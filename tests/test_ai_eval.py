@@ -33,6 +33,7 @@ class AIEvalTests(unittest.TestCase):
         scenarios = {scenario["id"]: scenario for scenario in report["scenarios"]}
         self.assertIn("host_integration_pack_discovery", scenarios)
         self.assertIn("host_preflight_discovery", scenarios)
+        self.assertIn("runtime_lifecycle_policy_discovery", scenarios)
         self.assertIn("host_evidence_discovery", scenarios)
         self.assertIn("host_evidence_runtime_denial_coverage", scenarios)
         self.assertIn("release_readiness_discovery", scenarios)
@@ -84,6 +85,10 @@ class AIEvalTests(unittest.TestCase):
         preflight = scenarios["host_preflight_discovery"]
         self.assertEqual(preflight["expected_final_schema"], "cleanmac.ai-host-preflight.v1")
         self.assertFalse(preflight["may_execute_delete"])
+        lifecycle = scenarios["runtime_lifecycle_policy_discovery"]
+        self.assertIn(["cleanmac", "--json", "ai-host-policy"], lifecycle["required_cli_commands"])
+        self.assertEqual(lifecycle["expected_final_schema"], "cleanmac.ai-host-policy.v1")
+        self.assertFalse(lifecycle["may_execute_delete"])
         evidence = scenarios["host_evidence_discovery"]
         self.assertEqual(evidence["expected_final_schema"], "cleanmac.ai-host-evidence.v1")
         self.assertFalse(evidence["may_execute_delete"])
