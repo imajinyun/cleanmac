@@ -51,6 +51,19 @@ def _bundle_id_for_app(app_path: Path) -> str | None:
     return protection.bundle_id_for_app(app_path)
 
 
+def _app_owner(*, bundle_id: str | None, vendor: str | None) -> str:
+    if vendor:
+        return vendor
+    if not bundle_id:
+        return "unknown"
+    parts = bundle_id.split(".")
+    if len(parts) >= 2 and parts[0] == "com":
+        return parts[1]
+    if len(parts) >= 2 and parts[0] == "org":
+        return parts[1]
+    return parts[0]
+
+
 def _app_identity(app_path: Path) -> dict[str, Any]:
     bundle_id = _bundle_id_for_app(app_path)
     vendor = protection.official_uninstaller_vendor(bundle_id=bundle_id, name=app_path.stem, app_path=app_path)
@@ -60,6 +73,7 @@ def _app_identity(app_path: Path) -> dict[str, Any]:
         "path": _display_path(app_path),
         "bundle": app_path.suffix == ".app",
         "bundle_id": bundle_id,
+        "app_owner": _app_owner(bundle_id=bundle_id, vendor=vendor),
         "protected_from_uninstall": protection.should_protect_from_uninstall(bundle_id),
         "official_uninstaller_vendor": vendor,
     }
@@ -88,10 +102,59 @@ def _find_app(app: str, *, root: Path, home: Path) -> dict[str, Any] | None:
     return None
 
 
+RISK_REASONS = {
+    "low": "rebuildable or cosmetic app data such as caches, logs, or saved UI state",
+    "medium": "app-scoped support data that may include preferences or offline state",
+    "high": "application bundle, launch item, or app container that can change installed software behavior",
+    "critical": "privileged helper or group container that may affect shared services, credentials, or system extensions",
+}
+
+
+RECOVERY_GUIDANCE = {
+    "app-bundle": "Restore the app bundle from Trash or reinstall the app if execution was confirmed.",
+    "preferences": "Restore the plist from Trash to recover app preferences.",
+    "cache": "Usually rebuilt by the app; restore from Trash if the app needs the previous cache state.",
+    "logs": "Restore from Trash only if logs are needed for troubleshooting.",
+    "container": "Restore from Trash before reopening the app if container data was selected.",
+    "saved-state": "Usually rebuilt by macOS; restore from Trash to recover previous window/session state.",
+    "http-storage": "Restore from Trash if the app needs previous HTTP cache or web storage state.",
+    "webkit-data": "Restore from Trash if embedded web views need previous local web data.",
+    "launch-agent": "Restore from Trash and reload manually only after reviewing the launch item.",
+    "launch-daemon": "Restore from Trash and reload manually only after reviewing the daemon and privileges.",
+    "privileged-helper": "Do not remove casually; use vendor uninstall instructions or restore from Trash immediately.",
+    "group-container": "Do not remove casually; may be shared across apps from the same vendor.",
+    "application-support": "Restore from Trash if user state or app support files are still needed.",
+    "system-application-support": "Restore from Trash or reinstall the app/vendor package if support files were selected.",
+}
+
+
+def _why_not_default(*, default_selected: bool, protected: bool, risk: str, confidence: str) -> str | None:
+    if protected:
+        return "protected by bundle/path safety policy"
+    if default_selected:
+        return None
+    if risk == "critical":
+        return "critical-risk candidate requires explicit review selection"
+    if risk == "high":
+        return "high-risk candidate requires explicit review selection unless it is the selected app bundle"
+    if confidence != "high":
+        return "medium-confidence or name-only match requires explicit review selection"
+    return "not selected by conservative default policy"
+
+
 def _candidate(
-    path: Path, *, kind: str, confidence: str, match_reason: str, risk: str, default_selected: bool
+    path: Path,
+    *,
+    kind: str,
+    confidence: str,
+    match_reason: str,
+    risk: str,
+    default_selected: bool,
+    app_owner: str,
+    protected_override: bool = False,
 ) -> dict[str, Any]:
-    protected = protection.should_protect_path(path)
+    protected = bool(protected_override or protection.should_protect_path(path))
+    effective_default = bool(default_selected and not protected)
     return {
         "id": f"{kind}:{_display_path(path)}",
         "path": _display_path(path),
@@ -99,9 +162,17 @@ def _candidate(
         "bytes": _path_size(path),
         "confidence": confidence,
         "match_reason": match_reason,
+        "matched_rule": f"software-uninstall.{kind}.{match_reason}",
+        "reason": f"Matched {kind} by {match_reason} for the selected app.",
         "risk": risk,
-        "default_selected": bool(default_selected and not protected),
+        "risk_reason": RISK_REASONS.get(risk, "risk level assigned by software uninstall policy"),
+        "recovery": RECOVERY_GUIDANCE.get(kind, "Execution routes to Trash; restore from Trash if needed."),
+        "app_owner": app_owner,
+        "default_selected": effective_default,
         "protected": protected,
+        "why_not_default": _why_not_default(
+            default_selected=effective_default, protected=protected, risk=risk, confidence=confidence
+        ),
         "delete_mode": "trash",
     }
 
@@ -110,6 +181,8 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
     app_path = Path(str(app_identity["path"]))
     app_name = str(app_identity["display_name"])
     bundle_id = app_identity.get("bundle_id")
+    app_owner = str(app_identity.get("app_owner") or "unknown")
+    app_protected = bool(app_identity.get("protected_from_uninstall"))
     home_root = _home_root(root, home)
     candidates: list[dict[str, Any]] = []
     candidates.append(
@@ -120,6 +193,8 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
             match_reason="selected-app",
             risk="high",
             default_selected=True,
+            app_owner=app_owner,
+            protected_override=app_protected,
         )
     )
     if bundle_id:
@@ -156,6 +231,7 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
                         match_reason=reason,
                         risk=risk,
                         default_selected=kind in {"cache", "logs", "preferences", "saved-state"},
+                        app_owner=app_owner,
                     )
                 )
         group_root = home_root / "Library/Group Containers"
@@ -169,6 +245,7 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
                         match_reason="bundle-id",
                         risk="critical",
                         default_selected=False,
+                        app_owner=app_owner,
                     )
                 )
     name_patterns = [
@@ -181,7 +258,13 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
         if path.exists() or path.is_symlink():
             candidates.append(
                 _candidate(
-                    path, kind=kind, confidence="medium", match_reason="app-name", risk="medium", default_selected=False
+                    path,
+                    kind=kind,
+                    confidence="medium",
+                    match_reason="app-name",
+                    risk="medium",
+                    default_selected=False,
+                    app_owner=app_owner,
                 )
             )
     return candidates
@@ -235,6 +318,7 @@ def plan_software_uninstall(app: str | None, *, root: Path, home: Path) -> dict[
     for item in candidates:
         if blocked_reasons:
             item["default_selected"] = False
+            item["why_not_default"] = f"plan blocked: {', '.join(blocked_reasons)}"
     return {
         "schema": "cleanmac.software-uninstall-plan.v1",
         "destructive": False,
@@ -258,6 +342,15 @@ def plan_software_uninstall(app: str | None, *, root: Path, home: Path) -> dict[
             "requires_explicit_execute": True,
             "candidate_count": len(candidates),
             "candidate_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
+            "candidate_explainability_fields": [
+                "reason",
+                "risk_reason",
+                "recovery",
+                "matched_rule",
+                "app_owner",
+                "confidence",
+                "why_not_default",
+            ],
             "safe_to_auto_execute": False,
             "candidates": candidates,
         },

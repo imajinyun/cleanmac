@@ -2118,9 +2118,50 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("launch-daemon", by_kind)
             self.assertIn("privileged-helper", by_kind)
             self.assertIn("system-application-support", by_kind)
+            expected_fields = set(report["uninstall_plan"]["candidate_explainability_fields"])
+            self.assertEqual(
+                expected_fields,
+                {"reason", "risk_reason", "recovery", "matched_rule", "app_owner", "confidence", "why_not_default"},
+            )
+            for candidate in report["uninstall_plan"]["candidates"]:
+                self.assertTrue(candidate["reason"])
+                self.assertTrue(candidate["risk_reason"])
+                self.assertTrue(candidate["recovery"])
+                self.assertTrue(candidate["matched_rule"].startswith("software-uninstall."))
+                self.assertEqual(candidate["app_owner"], "example")
             self.assertFalse(by_kind["group-container"]["default_selected"])
+            self.assertEqual(
+                by_kind["group-container"]["why_not_default"],
+                "critical-risk candidate requires explicit review selection",
+            )
             self.assertFalse(by_kind["privileged-helper"]["default_selected"])
             self.assertEqual(by_kind["privileged-helper"]["risk"], "critical")
+
+    def test_software_uninstall_plan_protects_system_bundle_with_explainable_default_skip(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            app_contents = root / "Applications/Safari.app/Contents"
+            app_contents.mkdir(parents=True)
+            (app_contents / "Info.plist").write_bytes(
+                b'<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.apple.Safari</string></dict></plist>'
+            )
+
+            report = json.loads(
+                self.run_cli(
+                    "--root", str(root), "--home", str(home), "--json", "software", "uninstall-plan", "--app", "Safari"
+                ).stdout
+            )
+            app_bundle = next(
+                candidate for candidate in report["uninstall_plan"]["candidates"] if candidate["kind"] == "app-bundle"
+            )
+
+            self.assertFalse(report["valid"])
+            self.assertIn("protected-from-uninstall", report["blocked_reasons"])
+            self.assertTrue(report["uninstall_plan"]["safe_to_auto_execute"] is False)
+            self.assertTrue(app_bundle["protected"])
+            self.assertFalse(app_bundle["default_selected"])
+            self.assertEqual(app_bundle["why_not_default"], "plan blocked: protected-from-uninstall")
+            self.assertEqual(app_bundle["app_owner"], "apple")
 
     def test_software_uninstall_execute_requires_review_selection_and_routes_to_trash(self) -> None:
         tmp, root, home = self.make_sandbox()

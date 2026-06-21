@@ -48,7 +48,12 @@ from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
-from cleancli.release_artifacts import build_release_evidence_bundle, verify_release_artifact_manifest
+from cleancli.release_artifacts import (
+    HOMEBREW_TAP,
+    REQUIRED_RELEASE_ASSET_NAMES,
+    build_release_evidence_bundle,
+    verify_release_artifact_manifest,
+)
 from cleancli.release_orchestration import (
     render_release_post_publish_evidence_template,
     render_release_post_publish_result,
@@ -2938,6 +2943,25 @@ def render_release_manifest_evidence(*, dist_dir: Path | None = None, assets_dir
             "assets_dir": str(resolved_assets_dir),
             "error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING",
             "error": "release artifact manifest is missing; run make release-artifacts-smoke before release review",
+            "expected_assets": [str(resolved_assets_dir / name) for name in REQUIRED_RELEASE_ASSET_NAMES],
+            "downloadable_asset_manifest": {
+                "manifest": str(manifest_path),
+                "sha256sums": str(resolved_assets_dir / "SHA256SUMS"),
+                "sbom": str(resolved_assets_dir / "SBOM.json"),
+                "homebrew_formula": str(resolved_assets_dir / "cleanmac.rb"),
+                "dist_dir": str(resolved_dist_dir),
+                "assets_dir": str(resolved_assets_dir),
+            },
+            "verification_commands": [
+                ["make", "release-artifacts-smoke"],
+                ["make", "release-readiness-smoke"],
+                ["python3", "cleanmac.py", "--json", "release-evidence"],
+            ],
+            "publish_channels": [
+                {"name": "GitHub Releases", "requires": ["ARTIFACT-MANIFEST.json", "SHA256SUMS", "SBOM.json"]},
+                {"name": "Homebrew", "tap": HOMEBREW_TAP, "requires": ["cleanmac.rb", "SHA256SUMS"]},
+                {"name": "PyPI", "requires": ["wheel", "sdist", "trusted-publishing"]},
+            ],
         }
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
