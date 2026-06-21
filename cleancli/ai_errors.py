@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from cleancli.ai_schema import next_allowed_tools_for_block
+
 
 def render_ai_error_taxonomy() -> list[dict[str, Any]]:
     entries = [
@@ -97,72 +99,72 @@ def render_ai_error_taxonomy() -> list[dict[str, Any]]:
         "CLI_ARGUMENT_ERROR": {
             "safe_to_auto_retry": True,
             "requires_user_visible_summary": False,
-            "next_allowed_tools": ["cleanmac_capabilities", "cleanmac_list_categories"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_capabilities", "cleanmac_list_categories")),
         },
         "UNKNOWN_CATEGORY": {
             "safe_to_auto_retry": True,
             "requires_user_visible_summary": False,
-            "next_allowed_tools": ["cleanmac_capabilities", "cleanmac_list_categories"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_capabilities", "cleanmac_list_categories")),
         },
         "PLAN_CONTEXT_REQUIRED": {
             "safe_to_auto_retry": True,
             "requires_user_visible_summary": False,
-            "next_allowed_tools": ["cleanmac_validate_plan", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(),
         },
         "PLAN_CONTEXT_MISMATCH": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_generate_plan", "cleanmac_validate_plan"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_generate_plan",)),
         },
         "PLAN_STALE_OR_DRIFTED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_generate_plan", "cleanmac_dry_run_plan", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_generate_plan", "cleanmac_dry_run_plan")),
         },
         "AI_GUARD_REQUIRED": {
             "safe_to_auto_retry": True,
             "requires_user_visible_summary": False,
-            "next_allowed_tools": ["cleanmac_policy_simulate", "cleanmac_dry_run_plan"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_dry_run_plan",)),
         },
         "CONFIRMATION_TOKEN_REQUIRED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_dry_run_plan", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_dry_run_plan",)),
         },
         "CONFIRMATION_TOKEN_MISMATCH": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_dry_run_plan", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_dry_run_plan",)),
         },
         "OPERATION_LOG_UNAVAILABLE": {
             "safe_to_auto_retry": True,
             "requires_user_visible_summary": False,
-            "next_allowed_tools": ["cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(),
         },
         "SAFETY_BUDGET_EXCEEDED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_inspect", "cleanmac_generate_plan"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_inspect", "cleanmac_generate_plan")),
         },
         "SELECTION_VALIDATION_FAILED": {
             "safe_to_auto_retry": True,
             "requires_user_visible_summary": False,
-            "next_allowed_tools": ["cleanmac_review", "cleanmac_dry_run_plan"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_review", "cleanmac_dry_run_plan")),
         },
         "LIVE_ROOT_REFUSED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_dry_run_plan", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_dry_run_plan",)),
         },
         "USER_CONFIRMATION_REQUIRED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_dry_run_plan", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_dry_run_plan",)),
         },
         "EXECUTION_REFUSED": {
             "safe_to_auto_retry": False,
             "requires_user_visible_summary": True,
-            "next_allowed_tools": ["cleanmac_capabilities", "cleanmac_policy_simulate"],
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_capabilities",)),
         },
     }
     for entry in entries:
@@ -239,6 +241,7 @@ def render_ai_error_report(message: str, *, argv: Sequence[str], exit_code: int)
         "ok": False,
         "destructive_operation_started": False,
         "safe_to_auto_retry": classification["safe_to_auto_retry"],
+        "next_allowed_tools": classification["next_allowed_tools"],
         "argv": list(argv),
         "error": {
             **classification,

@@ -190,6 +190,15 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertTrue(decision["allowed"], decision)
         self.assertTrue(decision["safe_to_auto_retry"])
         self.assertEqual(decision["blocking_reasons"], [])
+        self.assertEqual(decision["next_allowed_tools"], [])
+
+    def test_standard_blocked_next_allowed_tools_are_deduplicated(self) -> None:
+        from cleancli.ai_schema import next_allowed_tools_for_block
+
+        self.assertEqual(
+            next_allowed_tools_for_block(("cleanmac_policy_simulate", "cleanmac_dry_run_plan")),
+            ["cleanmac_validate_plan", "cleanmac_policy_simulate", "cleanmac_dry_run_plan"],
+        )
 
     def test_tool_call_decision_denies_raw_command_arguments(self) -> None:
         from cleancli.ai_host_policy import evaluate_ai_host_tool_call
@@ -211,6 +220,7 @@ class AIHostPolicyTests(unittest.TestCase):
         codes = [reason["code"] for reason in decision["blocking_reasons"]]
         self.assertEqual(codes, ["RAW_COMMAND_ARGUMENT_DENIED", "RAW_COMMAND_ARGUMENT_DENIED"])
         self.assertEqual([reason["field"] for reason in decision["blocking_reasons"]], ["raw_command", "shell"])
+        self.assertEqual(decision["next_allowed_tools"], ["cleanmac_validate_plan", "cleanmac_policy_simulate"])
 
     def test_tool_call_decision_denies_destructive_call_without_runtime_gates(self) -> None:
         from cleancli.ai_host_policy import evaluate_ai_host_tool_call
@@ -232,6 +242,7 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertIn("HUMAN_CONFIRMATION_PHRASE_REQUIRED", codes)
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", codes)
         self.assertIn("PLAN_CONTEXT_REQUIRED", codes)
+        self.assertEqual(decision["next_allowed_tools"], ["cleanmac_validate_plan", "cleanmac_policy_simulate"])
 
     def test_tool_call_decision_allows_destructive_call_only_with_runtime_gates(self) -> None:
         from cleancli.ai_host_policy import evaluate_ai_host_tool_call
@@ -255,6 +266,7 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertTrue(decision["allowed"], decision)
         self.assertFalse(decision["safe_to_auto_retry"])
         self.assertEqual(decision["blocking_reasons"], [])
+        self.assertEqual(decision["next_allowed_tools"], [])
 
 
 if __name__ == "__main__":

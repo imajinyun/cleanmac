@@ -86,6 +86,8 @@ def parse_json_output(output: str) -> dict | None:
 
 
 def structured_error(tool_name: str, message: str) -> dict:
+    from cleancli.ai_schema import next_allowed_tools_for_block  # type: ignore[import-untyped]
+
     parsed = parse_json_output(message)
     lower_message = message.lower()
     missing_or_invalid_arguments: list[str] = []
@@ -106,10 +108,14 @@ def structured_error(tool_name: str, message: str) -> dict:
         "missing_or_invalid_arguments": missing_or_invalid_arguments,
         "retryable": argument_error,
         "safe_to_auto_retry": False,
+        "next_allowed_tools": next_allowed_tools_for_block(),
     }
 
 
 def policy_denial_result(tool_name: str, decision: dict) -> dict:
+    from cleancli.ai_schema import next_allowed_tools_for_block  # type: ignore[import-untyped]
+
+    next_allowed_tools = decision.get("next_allowed_tools") or next_allowed_tools_for_block()
     return {
         "content": [{"type": "text", "text": "cleanmac MCP policy denied this tool call"}],
         "structuredContent": {
@@ -121,6 +127,7 @@ def policy_denial_result(tool_name: str, decision: dict) -> dict:
             "missing_or_invalid_arguments": [],
             "retryable": False,
             "safe_to_auto_retry": False,
+            "next_allowed_tools": next_allowed_tools,
             "policy_decision": decision,
         },
         "governanceDecision": decision,

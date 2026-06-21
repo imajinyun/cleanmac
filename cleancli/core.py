@@ -2637,11 +2637,13 @@ def render_release_post_publish_evidence_template_report(
 
 
 def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> dict[str, Any]:
+    next_allowed_tools = ai_schema.next_allowed_tools_for_block(("cleanmac_ai_eval_pack",))
     return {
         "schema": "cleanmac.ai-error.v1",
         "ok": False,
         "destructive_operation_started": False,
         "safe_to_auto_retry": True,
+        "next_allowed_tools": next_allowed_tools,
         "argv": list(argv),
         "error": {
             "code": "AI_EVAL_UNKNOWN_SCENARIO",
@@ -2650,6 +2652,7 @@ def render_ai_eval_unknown_scenario_error(message: str, argv: Sequence[str]) -> 
             "safe_to_auto_retry": True,
             "message": message,
             "next_allowed_commands": ["ai-eval-pack", "ai-eval-run --scenario smoke"],
+            "next_allowed_tools": next_allowed_tools,
             "exit_code": 1,
         },
     }
@@ -5877,6 +5880,7 @@ def render_ai_policy_simulation(
     if review_selection_file:
         policy_decisions.append({"rule": "review_selection_valid", "result": "pass"})
     allowed = execute is False or not missing_requirements
+    next_allowed_tools = [] if allowed else ai_schema.next_allowed_tools_for_block(("cleanmac_dry_run_plan",))
     safe_argv = [
         "cleanmac",
         "--json",
@@ -5913,6 +5917,7 @@ def render_ai_policy_simulation(
         "review_selection": review_selection,
         "missing_requirements": missing_requirements,
         "blocking_reasons": blocking_reasons,
+        "next_allowed_tools": next_allowed_tools,
         "safe_to_auto_retry": bool(blocking_reasons) and all(row["safe_to_auto_fix"] for row in blocking_reasons),
         "retry_requires_user_confirmation": any(not row["safe_to_auto_fix"] for row in blocking_reasons),
         "context_warnings": context_warnings,
