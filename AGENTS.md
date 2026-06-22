@@ -1,45 +1,45 @@
 # cleanmac Agent Guide
 
-本文件是维护者和 AI Agent 修改 cleanmac 时的共享操作规约。cleanmac 是 AI-first、一次性运行的 Python CLI，不实现 TUI/GUI，不安装后台 daemon、菜单栏常驻进程、登录项或主动扫描循环。任何改动都必须优先保持机器可读治理模型、dry-run 默认值、no-auth 测试默认值和真实执行安全，不要照搬外部 shell 项目或 GUI 清理 App 的结构。
+This guide is the shared operating agreement for maintainers and AI Agents changing cleanmac. cleanmac is an AI-first, single-shot Python CLI: it does not implement a TUI/GUI, install a background daemon, run a menu-bar resident process, create login items, or start unsolicited scanning loops. Every change must preserve machine-readable governance, dry-run defaults, no-auth test defaults, and safe real-execution behavior. Do not copy the architecture of external shell cleanup projects or GUI cleaner apps.
 
-## 产品定位红线
+## 🚧 Product Boundary Red Lines
 
-- cleanmac 只在用户、脚本或 AI Host 显式调用时运行，完成当前 workflow 后退出生命周期。
-- 不允许新增常驻 GUI/TUI、menu bar app、LaunchAgent/LaunchDaemon、login item、后台扫描、后台提醒或自动清理循环。
-- 不允许把用户选择状态保存在长期运行的 App session 中；必须使用机器可读 plan、review-selection、report 和 operation log。
-- AI Host / CLI 是交互层，cleanmac 是受治理执行内核；新增能力必须优先暴露稳定 JSON/schema/MCP/argv 合约。
-- 未被调用时，cleanmac 的后台 CPU、内存和进程占用目标必须为 0。
+- cleanmac runs only after an explicit user, script, or AI Host invocation, then exits after the current workflow completes.
+- Do not add a resident GUI/TUI, menu bar app, LaunchAgent/LaunchDaemon, login item, background scanner, background reminder, or automatic cleanup loop.
+- Do not keep user-selection state inside a long-running app session; use machine-readable plans, review selections, reports, and operation logs.
+- The AI Host / CLI is the interaction layer, and cleanmac is the governed execution kernel; new capabilities must expose stable JSON/schema/MCP/argv contracts first.
+- When not invoked, cleanmac must target zero background CPU, zero background memory, and zero resident processes.
 
-## 项目地图
+## 🗺️ Project Map
 
-- `cleanmac.py`：命令行入口，仅负责把执行交给 `cleancli.main`。
-- `cleancli/core.py`：当前主编排层，注册 CLI 参数、清理分类、候选发现、报告输出、计划 replay、operation log 和 grouped command 兼容逻辑。这里可以编排，但不能拥有真实删除 primitive。
-- `cleancli/delete_ops.py`：唯一真实删除出口，负责 path validation、Trash 路由、永久删除、test/no-auth 命令阻断。
-- `cleancli/protection_data.py`：保护策略纯数据，包含 bundle blocklist、系统路径、敏感用户数据片段、官方卸载器和 app cleanup 规则。不要在这里写逻辑。
-- `cleancli/protection.py`：保护策略逻辑，包含 bundle/container/group-container 判断、敏感数据保护、官方卸载器 vendor 匹配、protected descendant 检查。
-- `cleancli/scripts.py` / `cleancli/governance.py`：脚本模板、自动化边界、命令模板安全验证和 governance 报告。
-- `cleancli/workflow.py`：固定安全工作流和 automation playbook，不允许把破坏性清理塞进 workflow 默认路径。
-- `cleancli/software.py`：软件 inventory、startup item、leftover 和 uninstall-plan 相关能力。
-- `cleancli/analyze.py`、`cleancli/status.py`、`cleancli/optimize.py`、`cleancli/finder.py`：只读分析、状态、维护计划和 Finder preview 能力。
-- `scripts/test.sh`：默认本地测试入口，设置 no-auth/test-mode，并 stub `sudo`、`osascript`、`launchctl`、`rm`。
-- `tests/`：事故驱动回归测试，覆盖 delete safety、path safety、Trash fail-closed、sudo guard、Group Containers、operation log、script governance、app protection。
-- `tests/data/dangerous_paths.txt`：高风险路径测试数据，新增危险路径时必须追加并保持测试通过。
-- `scripts/cleanmac_mcp_server.py`：MCP stdio server entry point（JSON-RPC 2.0）
-- `cleancli/ai_schema.py`：AI 工具定义、schema 校验、三种 provider 格式导出
-- `cleancli/ai_readiness.py`：AI readiness 检查
-- `cleancli/ai_runbook.py`：AI runbook / invocation patterns
-- `cleancli/ai_decision.py`：AI 工具决策矩阵
-- `cleancli/ai_governance.py`：AI 治理建议与路线验证
-- `cleancli/ai_host_policy.py`：AI 主机允许/拒绝策略
-- `cleancli/ai_eval.py`：AI 评估场景编排与 runner
-- `cleancli/review.py`：把 plan/report/startup/privacy/tool/software 输出归一化为 `cleanmac.review.v1`，生成和校验 `cleanmac.review-selection.v1`，为执行前 selection handoff 提供 source fingerprint。
-- `tests/test_ai_readiness.py`、`tests/test_ai_runbook.py`、`tests/test_ai_self_test.py`、
-  `tests/test_ai_decision_matrix.py`、`tests/test_ai_governance.py`、`tests/test_ai_eval.py`、
-  `tests/test_ai_host_scenarios.py`、`tests/test_mcp_server.py`：AI/MCP 专项测试
-- `.github/workflows/ci.yml`：真实 CI，包含 quality、smoke、macOS smoke、security/gitleaks、no-cache、Linux container smoke、MCP smoke、AI governance smoke、AI host smoke。
-- `.github/workflows/release.yml`：release 构建、`SHA256SUMS`、artifact attestation、wheel 安装验证、PyPI trusted publishing。
+- `cleanmac.py`: CLI entry point; only delegates execution to `cleancli.main`.
+- `cleancli/core.py`: Main orchestration layer for CLI arguments, cleanup categories, candidate discovery, report output, plan replay, operation logs, and grouped-command compatibility. This file may orchestrate, but it must not own real deletion primitives.
+- `cleancli/delete_ops.py`: The only real deletion exit; owns path validation, Trash routing, permanent deletion, and test/no-auth command blocking.
+- `cleancli/protection_data.py`: Pure protection-policy data, including bundle blocklists, system paths, sensitive user-data fragments, official uninstallers, and app cleanup rules. Do not put logic here.
+- `cleancli/protection.py`: Protection-policy logic, including bundle/container/group-container decisions, sensitive-data protection, official uninstaller vendor matching, and protected descendant checks.
+- `cleancli/scripts.py` / `cleancli/governance.py`: Script templates, automation boundaries, command-template safety validation, and governance reports.
+- `cleancli/workflow.py`: Fixed safe workflows and automation playbooks; never place destructive cleanup in the default workflow path.
+- `cleancli/software.py`: Software inventory, startup items, leftovers, and uninstall-plan capabilities.
+- `cleancli/analyze.py`, `cleancli/status.py`, `cleancli/optimize.py`, `cleancli/finder.py`: Read-only analysis, status, maintenance planning, and Finder preview capabilities.
+- `scripts/test.sh`: Default local test entry point; enables no-auth/test-mode and stubs `sudo`, `osascript`, `launchctl`, and `rm`.
+- `tests/`: Incident-driven regression tests covering delete safety, path safety, Trash fail-closed behavior, sudo guards, Group Containers, operation logs, script governance, and app protection.
+- `tests/data/dangerous_paths.txt`: High-risk path fixture data; append new dangerous paths here and keep the related tests passing.
+- `scripts/cleanmac_mcp_server.py`: MCP stdio server entry point (JSON-RPC 2.0).
+- `cleancli/ai_schema.py`: AI tool definitions, schema validation, and provider-format exports.
+- `cleancli/ai_readiness.py`: AI readiness checks.
+- `cleancli/ai_runbook.py`: AI runbook and invocation patterns.
+- `cleancli/ai_decision.py`: AI tool decision matrix.
+- `cleancli/ai_governance.py`: AI governance advice and route validation.
+- `cleancli/ai_host_policy.py`: AI Host allow/deny policy.
+- `cleancli/ai_eval.py`: AI evaluation scenario orchestration and runner.
+- `cleancli/review.py`: Normalizes plan/report/startup/privacy/tool/software outputs into `cleanmac.review.v1`, generates and validates `cleanmac.review-selection.v1`, and provides source fingerprints for pre-execution selection handoff.
+- `tests/test_ai_readiness.py`, `tests/test_ai_runbook.py`, `tests/test_ai_self_test.py`,
+  `tests/test_ai_decision_matrix.py`, `tests/test_ai_governance.py`, `tests/test_ai_eval.py`,
+  `tests/test_ai_host_scenarios.py`, `tests/test_mcp_server.py`: AI/MCP-specific tests.
+- `.github/workflows/ci.yml`: Real CI with quality, smoke, macOS smoke, security/gitleaks, no-cache, Linux container smoke, MCP smoke, AI governance smoke, and AI host smoke checks.
+- `.github/workflows/release.yml`: Release build, `SHA256SUMS`, artifact attestation, wheel installation verification, and PyPI trusted publishing.
 
-## 常用命令
+## ⚙️ Common Commands
 
 ```bash
 python3 cleanmac.py --json capabilities
@@ -49,7 +49,7 @@ python3 cleanmac.py --json validate-plan --plan-file /tmp/cleanmac-plan.json
 python3 cleanmac.py --json workflow --categories trash,mails,xcode --dry-run-scope selected
 ```
 
-验证命令：
+Validation commands:
 
 ```bash
 python3 -m unittest -v
@@ -69,7 +69,7 @@ make release-artifacts-smoke
 make docker-test
 ```
 
-pytest 验证必须使用 `make pytest-test`，该目标会创建临时 venv、安装 test extra，并在 venv 中运行 pytest；不要直接依赖全局 pytest。如果全局环境缺少 `mypy`、`ruff`、`build` 或 `twine`，使用临时 venv 验证，不要把虚拟环境写入仓库：
+Pytest validation must use `make pytest-test`; that target creates a temporary venv, installs the test extra, and runs pytest inside the venv. Do not rely on global pytest. If the global environment lacks `mypy`, `ruff`, `build`, or `twine`, validate with a temporary venv and never write that virtual environment into the repository:
 
 ```bash
 tmpdir=$(mktemp -d)
@@ -83,37 +83,38 @@ python3 -m venv "$tmpdir/venv"
 rm -R "$tmpdir"
 ```
 
-## 关键安全规则
+## 🛡️ Critical Safety Rules
 
-- 默认必须是 dry-run。真实删除必须同时满足用户显式选择 `clean`、传入 `--execute`，且高风险分类按 policy 需要 `--yes` 时必须提供确认。
-- 所有真实删除、递归删除、Trash 路由、覆盖旧 symlink/file 的动作都必须走 `cleancli/delete_ops.py`。
-- 不允许在 `cleancli/core.py` 或其他业务模块中新增 `shutil.rmtree(...)`、`shutil.move(...)`、`.unlink(...)` 作为清理删除路径。
-- 不允许业务逻辑直接通过 `subprocess` 调用 `rm`、`sudo rm`、Finder 删除或 AppleScript 删除。
-- `cleancli/delete_ops.py` 是唯一可以拥有低层删除 primitive 的模块；调用者只能传入 `DeletePolicy` 和候选路径。
-- 测试和普通验证必须使用 no-auth/test-mode：`CLEANMAC_TEST_MODE=1`、`CLEANMAC_TEST_NO_AUTH=1`。
-- 测试或 no-auth 模式下，`sudo`、`osascript`、`launchctl` 必须被阻断或 stub；新增直接调用必须有 test-mode guard 和测试覆盖。
-- Trash 模式必须 fail-closed：Trash 目录是 symlink、不可创建、不可写或移动失败时，不能 fallback 到永久删除。
-- 计划 replay 使用 `--require-plan-context` 时必须校验 root/home，一旦不一致必须在删除前失败。
-- operation log 写入失败不能伪装成功；执行报告必须暴露失败状态，避免用户误以为已经安全记录。
-- 脚本模板和 workflow 只能生成/展示命令，不能自动执行破坏性模板；`safe_to_auto_execute` 对 destructive template 必须为 false。
+- The default must be dry-run. Real deletion requires the user to explicitly choose `clean`, pass `--execute`, and provide confirmation with `--yes` when policy requires it for high-risk categories.
+- All real deletion, recursive deletion, Trash routing, and replacement of old symlinks/files must go through `cleancli/delete_ops.py`.
+- Do not add `shutil.rmtree(...)`, `shutil.move(...)`, or `.unlink(...)` as cleanup deletion paths in `cleancli/core.py` or any other business module.
+- Business logic must not call `rm`, `sudo rm`, Finder deletion, or AppleScript deletion directly through `subprocess`.
+- `cleancli/delete_ops.py` is the only module allowed to own low-level deletion primitives; callers may only pass a `DeletePolicy` and candidate paths.
+- Tests and routine validation must use no-auth/test-mode: `CLEANMAC_TEST_MODE=1`, `CLEANMAC_TEST_NO_AUTH=1`.
+- In tests or no-auth mode, `sudo`, `osascript`, and `launchctl` must be blocked or stubbed. Any new direct invocation must include a test-mode guard and test coverage.
+- Trash mode must fail closed: if the Trash directory is a symlink, cannot be created, is not writable, or move-to-Trash fails, never fall back to permanent deletion.
+- Plan replay with `--require-plan-context` must validate root/home and fail before deletion if they do not match.
+- Operation-log write failures must not masquerade as success; execution reports must expose the failure so callers do not believe the action was safely recorded.
+- Script templates and workflows may only generate or display commands; they must not auto-execute destructive templates. `safe_to_auto_execute` must be false for destructive templates.
 
-## AI & MCP 安全规则
-- MCP server（`scripts/cleanmac_mcp_server.py`）不接受 shell/raw command 输入；所有工具调用必须走 argv_template
-- 破坏性工具（`cleanmac_execute_plan`、`cleanmac_startup_disable`、`cleanmac_privacy_execute`）必须同时 deny auto_call 且 require confirmation
-- 确认令牌是 SHA-256 绑定的上下文令牌，不匹配时拒绝执行
-- MCP resources 不能暴露敏感路径或凭证信息
-- 修改 MCP server 后必须运行 `make mcp-smoke` 和 `make ai-host-smoke`
-- AI 工具定义修改后必须运行 `python3 cleanmac.py --json ai-tools` 验证 provider 导出 parity
-- `review` 选择文件只能作为约束输入；`--review-selection-file` 必须搭配 `--plan-file`，校验 source fingerprint 后才允许进入 dry-run / execute 路径，失败必须映射为 `SELECTION_VALIDATION_FAILED`。
-- AI/MCP 的 `cleanmac_dry_run_plan`、`cleanmac_execute_plan`、`cleanmac_policy_simulate`、`cleanmac_startup_disable`、`cleanmac_privacy_execute` 如暴露 `review_selection_file`，argv_template 必须保留对应执行门禁，不能绕过 review selection 校验。Clean 执行路径还必须保留 `--require-plan-context`、Trash 路由和确认令牌门禁。
+## 🤖 AI & MCP Safety Rules
 
-## 高风险模块所有权与必跑测试
+- The MCP server (`scripts/cleanmac_mcp_server.py`) must not accept shell/raw command input; all tool calls must go through `argv_template`.
+- Destructive tools (`cleanmac_execute_plan`, `cleanmac_startup_disable`, `cleanmac_privacy_execute`) must both deny auto-call and require confirmation.
+- Confirmation tokens are SHA-256-bound context tokens; reject execution when tokens do not match.
+- MCP resources must not expose sensitive paths or credentials.
+- After changing the MCP server, run `make mcp-smoke` and `make ai-host-smoke`.
+- After changing AI tool definitions, run `python3 cleanmac.py --json ai-tools` to verify provider export parity.
+- `review` selection files are constraint inputs only; `--review-selection-file` must be paired with `--plan-file`, and source fingerprints must be validated before entering dry-run / execute paths. Failures must map to `SELECTION_VALIDATION_FAILED`.
+- If AI/MCP tools such as `cleanmac_dry_run_plan`, `cleanmac_execute_plan`, `cleanmac_policy_simulate`, `cleanmac_startup_disable`, or `cleanmac_privacy_execute` expose `review_selection_file`, their `argv_template` must preserve the execution gate and must not bypass review-selection validation. The clean execution path must also preserve `--require-plan-context`, Trash routing, and confirmation-token gates.
+
+## 🧪 High-Risk Module Ownership and Required Tests
 
 ### `cleancli/delete_ops.py`
 
-职责：唯一删除出口、路径校验、symlink 防护、Trash 路由、test-mode 命令阻断。
+Responsibility: the only deletion exit, path validation, symlink protection, Trash routing, and test-mode command blocking.
 
-修改后必须运行：
+Run after changes:
 
 ```bash
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_real_delete_primitives_are_owned_by_delete_ops -v
@@ -124,11 +125,11 @@ python3 -m unittest tests.test_delete_ops tests.test_path_safety tests.test_tras
 make docker-test
 ```
 
-### `cleancli/protection_data.py` 和 `cleancli/protection.py`
+### `cleancli/protection_data.py` and `cleancli/protection.py`
 
-职责：bundle blocklist/allowlist、Apple container 和 Group Container 保护、敏感用户数据保护、官方卸载器规则、protected descendant 检查。
+Responsibility: bundle blocklists/allowlists, Apple container and Group Container protection, sensitive user-data protection, official uninstaller rules, and protected descendant checks.
 
-修改后必须运行：
+Run after changes:
 
 ```bash
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_protection_data_is_centralized_outside_core -v
@@ -139,9 +140,9 @@ python3 -m unittest tests.test_group_containers tests.test_app_protection -v
 
 ### `cleancli/core.py` clean execution
 
-职责：分类选择、候选过滤、budget/max-items、plan replay、review-selection constraint、execute 前置检查、operation log 汇总。
+Responsibility: category selection, candidate filtering, budget/max-items gates, plan replay, review-selection constraints, pre-execute checks, and operation-log summaries.
 
-修改后必须运行：
+Run after changes:
 
 ```bash
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_clean_defaults_to_dry_run -v
@@ -156,11 +157,11 @@ python3 -m unittest tests.test_operation_log -v
 make local-test
 ```
 
-### `cleancli/scripts.py`、`cleancli/governance.py`、`cleancli/workflow.py`
+### `cleancli/scripts.py`, `cleancli/governance.py`, and `cleancli/workflow.py`
 
-职责：脚本模板 inventory、template validation、automation playbook、workflow 安全边界。
+Responsibility: script-template inventory, template validation, automation playbooks, and workflow safety boundaries.
 
-修改后必须运行：
+Run after changes:
 
 ```bash
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_command_template_validation_reports_policy_violations -v
@@ -171,13 +172,13 @@ make script-smoke
 make governance-smoke
 ```
 
-### package、CI、release 与供应链
+### 📦 Package, CI, release, and supply chain
 
-职责：`pyproject.toml`、`.github/workflows/*`、`.gitleaks.toml`、README/CONTRIBUTING/SECURITY、release artifact 证明。
+Responsibility: `pyproject.toml`, `.github/workflows/*`, `.gitleaks.toml`, README/CONTRIBUTING/SECURITY, and release artifact evidence.
 
 - `cleancli/release_artifacts.py` and `scripts/generate_release_manifest.py` own release manifest generation; do not duplicate checksum/manifest logic in workflow YAML or Makefile one-liners.
 
-修改后必须运行：
+Run after changes:
 
 ```bash
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_python_quality_tooling_is_configured -v
@@ -187,11 +188,11 @@ make open-source-smoke
 make release-artifacts-smoke
 ```
 
-### AI schema / governance / eval
+### 🧠 AI schema / governance / eval
 
-职责：AI 工具定义、provider 格式导出、确认令牌、治理路线、主机策略、评估场景。
+Responsibility: AI tool definitions, provider-format exports, confirmation tokens, governance routes, host policy, and evaluation scenarios.
 
-修改后必须运行：
+Run after changes:
 
 ```bash
 python3 -m unittest tests.test_ai_governance tests.test_ai_readiness tests.test_ai_runbook -v
@@ -204,32 +205,32 @@ make ai-host-smoke
 make ai-governance-smoke
 ```
 
-## 高风险路径回归规则
+## 🧯 High-Risk Path Regression Rules
 
-- 新增清理分类时必须考虑 `/`、`/System`、`/Library`、`/private`、`~/Library/Mail`、`~/Library/Messages`、Keychains、CloudDocs、Group Containers、应用 Containers。
-- 新增事故路径必须追加到 `tests/data/dangerous_paths.txt`，并保持以下测试通过：
+- When adding a cleanup category, consider `/`, `/System`, `/Library`, `/private`, `~/Library/Mail`, `~/Library/Messages`, Keychains, CloudDocs, Group Containers, and application Containers.
+- When adding an incident path, append it to `tests/data/dangerous_paths.txt` and keep these tests passing:
 
 ```bash
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_path_safety_rejects_dangerous_path_data -v
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_malformed_and_protected_paths -v
 ```
 
-## 历史事故和踩坑案例
+## 🧭 Historical Incidents and Pitfalls
 
-- **Symlink 指向系统路径**：候选位于 sandbox 内不代表安全。必须 resolve symlink 并按 policy path 检查目标；指向 `/System`、`/Library`、Keychains 等保护路径时拒绝删除。
-- **Group Container wildcard**：不要使用 TeamID 前缀或宽泛 wildcard 去匹配 Group Containers。`group.com.apple.*`、Safari extension、受保护 bundle 的 container/cache 必须默认跳过。
-- **Trash fail-closed**：Trash 目录为 symlink、不可用或移动失败时，必须失败并保留原文件，不能改走永久删除。
-- **sudo prompt / AppleScript prompt**：测试不能触发真实 `sudo`、Touch ID、密码框、`osascript` 授权弹窗或 `launchctl` 系统服务变更。默认通过 `scripts/test.sh` 或 no-auth 环境验证。
-- **Plan replay root/home 不一致**：plan 文件来自另一个 root/home 时，`--require-plan-context` 必须在执行前拒绝，避免把旧计划应用到真实用户目录或错误 sandbox。
-- **Operation log 不可写**：执行模式下日志不可写、目录不可创建或轮转失败不能静默吞掉。报告必须让调用者看到失败，避免审计链断裂。
-- **Shell template unsafe auto execution**：`clean scripts` 可以展示破坏性 shell 模板，但必须标记为 destructive、manual review required，并禁止自动执行。
-- **测试依赖缺失**：全局 Python 经常缺少 `mypy` 或 `pytest`。遇到缺失时创建临时 venv 安装 `.[dev,build]`，不要降低验证标准。
-- **文档示例也会被安全扫描**：README/AGENTS/CI 中出现危险命令文本会触发 unsafe grep。示例应使用 `mktemp -d` sandbox 和安全清理方式，避免教用户复制危险命令。
-- **默认 bundle blocklist 文档漂移**：不要把默认保护列表写成只有 `com.apple.mail,com.apple.MobileSMS`。完整列表以 `capabilities.safety_guardrails.default_protected_bundle_ids` 为准。
+- **Symlink to a system path**: A candidate living inside a sandbox does not make it safe. Resolve symlinks and check the target against policy paths; reject targets under `/System`, `/Library`, Keychains, and other protected locations.
+- **Group Container wildcard**: Do not match Group Containers with TeamID prefixes or broad wildcards. `group.com.apple.*`, Safari extensions, and protected bundle containers/caches must be skipped by default.
+- **Trash fail-closed**: If Trash is a symlink, unavailable, or move-to-Trash fails, fail and preserve the original file; never switch to permanent deletion.
+- **sudo prompt / AppleScript prompt**: Tests must not trigger real `sudo`, Touch ID, password dialogs, `osascript` permission prompts, or `launchctl` service changes. Validate by default through `scripts/test.sh` or the no-auth environment.
+- **Plan replay root/home mismatch**: If a plan file came from another root/home, `--require-plan-context` must reject it before execution to avoid applying an old plan to a real user directory or the wrong sandbox.
+- **Operation log not writable**: In execute mode, unwritable logs, uncreatable directories, or rotation failures must not be swallowed. Reports must expose the failure so callers can see the audit chain is broken.
+- **Shell template unsafe auto execution**: `clean scripts` may display destructive shell templates, but they must be marked destructive, require manual review, and forbid auto execution.
+- **Missing test dependencies**: Global Python often lacks `mypy` or `pytest`. When dependencies are missing, create a temporary venv and install `.[dev,build]`; do not lower the validation standard.
+- **Documentation examples are safety-scanned too**: Dangerous command text in README/AGENTS/CI can trigger unsafe scans. Use `mktemp -d` sandboxes and safe cleanup patterns in examples instead of teaching users to copy dangerous commands.
+- **Default bundle blocklist documentation drift**: Do not describe the default protection list as only `com.apple.mail,com.apple.MobileSMS`. The complete source of truth is `capabilities.safety_guardrails.default_protected_bundle_ids`.
 
-## 最低交付标准
+## ✅ Minimum Delivery Standard
 
-- 任何改动至少运行与 touched file 对应的 targeted unittest。
-- 触碰安全、删除、保护、CI、release、脚本模板时，必须额外运行 `make local-test` 或对应 smoke。
-- 发布前或大范围改动后运行临时 venv 的 lint/type/pytest，加上 `make docker-test`。
-- 不要因为本机缺少依赖就跳过验证；先用临时 venv 补齐依赖，再记录实际结果。
+- Every change must run at least the targeted unittest corresponding to the touched file.
+- Changes touching safety, deletion, protection, CI, release, or script templates must also run `make local-test` or the matching smoke target.
+- Before release or after broad changes, run temporary-venv lint/type/pytest plus `make docker-test`.
+- Do not skip validation because local dependencies are missing; install them in a temporary venv first, then report the actual results.
