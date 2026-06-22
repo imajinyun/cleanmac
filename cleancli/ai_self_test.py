@@ -16,7 +16,7 @@ from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_poli
 from cleancli.ai_readiness import render_ai_readiness
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.ai_versioning import render_ai_contract_validation_summary, render_ai_schema_registry
-from cleancli.governance import render_runtime_lifecycle_policy
+from cleancli.governance import render_runtime_lifecycle_policy, render_zero_resident_audit
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.release_artifacts import HOMEBREW_TAP, REQUIRED_RELEASE_ASSET_NAMES, verify_release_artifact_manifest
 from cleancli.release_readiness import render_release_readiness
@@ -99,17 +99,21 @@ def _render_release_manifest_evidence(
 
 def _render_ai_eval_smoke_evidence() -> dict[str, Any]:
     eval_pack = render_ai_eval_pack()
+    scenario_count = int(eval_pack.get("scenario_count") or 0)
+    passed = bool(
+        eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
+        and not eval_pack.get("uses_shell")
+        and not eval_pack.get("allows_destructive_execution")
+        and scenario_count > 0
+    )
     return {
         "schema": "cleanmac.ai-eval-run.v1",
         "scenario": "smoke",
-        "passed": bool(
-            eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
-            and not eval_pack.get("uses_shell")
-            and not eval_pack.get("allows_destructive_execution")
-            and int(eval_pack.get("scenario_count") or 0) > 0
-        ),
-        "passed_count": int(eval_pack.get("scenario_count") or 0),
-        "failed_count": 0,
+        "selected_scenarios": ["eval-pack-static-smoke-readiness"],
+        "passed": passed,
+        "passed_count": 1 if passed else 0,
+        "failed_count": 0 if passed else 1,
+        "results": [{"id": "eval-pack-static-smoke-readiness", "passed": passed}],
         "evidence_source": "ai-eval-pack-static-smoke-readiness",
         "recommended_runner_command": eval_pack.get("recommended_runner_command"),
     }
@@ -124,11 +128,13 @@ def _render_runtime_release_readiness_summary() -> dict[str, Any]:
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
             mcp_surface_audit=render_mcp_surface_audit(),
+            zero_resident_audit=render_zero_resident_audit(),
             contract_validation=contract_validation,
             eval_smoke=_render_ai_eval_smoke_evidence(),
             release_manifest=_render_release_manifest_evidence(),
             required_make_targets=[
                 "quality-check",
+                "zero-resident-audit-smoke",
                 "governed-execution-smoke",
                 "ai-contract-smoke",
                 "mcp-smoke",

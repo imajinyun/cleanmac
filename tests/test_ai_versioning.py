@@ -237,7 +237,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "dry_run": True,
             "ready": True,
             "manual_review_required": False,
-            "readiness_score": {"passed": 8, "total": 8, "level": "release-ready"},
+            "readiness_score": {"passed": 9, "total": 9, "level": "release-ready"},
             "failed_gate_ids": [],
             "gates": [
                 {

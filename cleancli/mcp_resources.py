@@ -14,6 +14,7 @@ MCP_RESOURCE_INDEX_URI = "cleanmac://mcp/resource-index"
 MCP_SURFACE_AUDIT_SCHEMA = "cleanmac.mcp-surface-audit.v1"
 MCP_SURFACE_AUDIT_URI = "cleanmac://mcp/surface-audit"
 RUNTIME_LIFECYCLE_POLICY_URI = "cleanmac://ai/runtime-lifecycle-policy"
+ZERO_RESIDENT_AUDIT_URI = "cleanmac://ai/zero-resident-audit"
 AI_WORKFLOW_CONTRACT_URI = "cleanmac://ai/workflow-contract"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
@@ -95,6 +96,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "First-class AI Host policy proving cleanmac is AI-first, ephemeral, and zero-resident.",
         "category": "ai",
         "schema": "cleanmac.runtime-lifecycle-policy.v1",
+    },
+    {
+        "uri": ZERO_RESIDENT_AUDIT_URI,
+        "name": "cleanmac zero-resident audit",
+        "description": "Release-gateable audit proving cleanmac has no GUI, TUI, daemon, login item, or unsolicited scan surface.",
+        "category": "ai",
+        "schema": "cleanmac.zero-resident-audit.v1",
     },
     {
         "uri": AI_WORKFLOW_CONTRACT_URI,
@@ -425,6 +433,7 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         MCP_TOOL_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
         RUNTIME_LIFECYCLE_POLICY_URI,
+        ZERO_RESIDENT_AUDIT_URI,
         AI_WORKFLOW_CONTRACT_URI,
         "cleanmac://ai/host-integration-pack",
         "cleanmac://ai/host-preflight",
@@ -453,6 +462,10 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         "runtime-lifecycle-policy-advertised": [
             ["cleanmac", "--json", "mcp-surface-audit"],
             ["make", "mcp-resource-index-smoke"],
+        ],
+        "zero-resident-audit-advertised": [
+            ["cleanmac", "--json", "mcp-surface-audit"],
+            ["make", "zero-resident-audit-smoke"],
         ],
         "all-resources-mcp-safe": [["make", "mcp-resource-index-smoke"], ["make", "ai-host-smoke"]],
         "all-prompts-mcp-safe": [["make", "mcp-prompt-index-smoke"], ["make", "ai-host-smoke"]],
@@ -493,6 +506,11 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             "id": "runtime-lifecycle-policy-advertised",
             "passed": RUNTIME_LIFECYCLE_POLICY_URI in resource_uris,
             "evidence": RUNTIME_LIFECYCLE_POLICY_URI,
+        },
+        {
+            "id": "zero-resident-audit-advertised",
+            "passed": ZERO_RESIDENT_AUDIT_URI in resource_uris,
+            "evidence": ZERO_RESIDENT_AUDIT_URI,
         },
         {
             "id": "all-resources-mcp-safe",

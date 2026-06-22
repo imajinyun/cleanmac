@@ -2252,6 +2252,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             release_manifest=render_release_manifest_evidence(),
             required_make_targets=[
                 "quality-check",
+                "zero-resident-audit-smoke",
                 "governed-execution-smoke",
                 "ai-contract-smoke",
                 "mcp-smoke",
@@ -2413,17 +2414,21 @@ def render_release_manifest_evidence(*, dist_dir: Path | None = None, assets_dir
 
 def render_ai_eval_smoke_evidence() -> dict[str, Any]:
     eval_pack = render_ai_eval_pack()
+    scenario_count = int(eval_pack.get("scenario_count") or 0)
+    passed = bool(
+        eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
+        and not eval_pack.get("uses_shell")
+        and not eval_pack.get("allows_destructive_execution")
+        and scenario_count > 0
+    )
     return {
         "schema": "cleanmac.ai-eval-run.v1",
         "scenario": "smoke",
-        "passed": bool(
-            eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
-            and not eval_pack.get("uses_shell")
-            and not eval_pack.get("allows_destructive_execution")
-            and int(eval_pack.get("scenario_count") or 0) > 0
-        ),
-        "passed_count": int(eval_pack.get("scenario_count") or 0),
-        "failed_count": 0,
+        "selected_scenarios": ["eval-pack-static-smoke-readiness"],
+        "passed": passed,
+        "passed_count": 1 if passed else 0,
+        "failed_count": 0 if passed else 1,
+        "results": [{"id": "eval-pack-static-smoke-readiness", "passed": passed}],
         "evidence_source": "ai-eval-pack-static-smoke-readiness",
         "recommended_runner_command": eval_pack.get("recommended_runner_command"),
     }
@@ -2438,6 +2443,7 @@ def render_release_readiness_report(
     contract_validation["ready"] = bool(contract_validation.get("valid"))
     required_make_targets = [
         "quality-check",
+        "zero-resident-audit-smoke",
         "governed-execution-smoke",
         "ai-contract-smoke",
         "mcp-smoke",
@@ -3148,7 +3154,7 @@ def path_interaction_metadata(path: Path) -> dict[str, Any]:
         "reveal_command": reveal_command,
         "reveal_command_text": shell_quote_command(reveal_command),
         "safe_to_open": not path.is_symlink(),
-        "open_supported": sys.platform == "darwin",
+        "open_supported": True,
     }
 
 
