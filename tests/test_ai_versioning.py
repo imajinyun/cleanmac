@@ -88,6 +88,10 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("validate-plan", entries["cleanmac.plan.v1"]["consumers"])
         self.assertEqual(entries["cleanmac.geo-discoverability-policy.v1"]["owner_area"], "execution")
         self.assertEqual(entries["cleanmac.governance-integrity.v1"]["module"], "cleancli.governance")
+        self.assertEqual(
+            entries["cleanmac.governance-integrity.v1"]["producer_command"],
+            ["cleanmac", "--json", "governance-integrity"],
+        )
 
     def test_registry_exposes_core_json_schema_fragments(self) -> None:
         from cleancli import ai_versioning

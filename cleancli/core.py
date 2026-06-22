@@ -902,6 +902,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     subparsers.add_parser("list", help="List available cleanup categories.")
     subparsers.add_parser("capabilities", help="Describe commands and safety guardrails.")
+    subparsers.add_parser(
+        "governance-integrity",
+        help="Emit governance contract integrity and drift checks.",
+    )
     subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
@@ -1538,6 +1542,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-integration-pack",
         "ai-host-preflight",
         "ai-host-evidence",
+        "governance-integrity",
         "mcp-surface-audit",
         "release-readiness",
         "release-diagnostics",
@@ -2038,13 +2043,8 @@ def category_metadata(category: Category) -> dict[str, Any]:
     }
 
 
-def render_capabilities() -> dict[str, Any]:
-    ai_tool_contract = render_ai_tool_contract()
-    runtime_lifecycle = render_runtime_lifecycle_policy()
-    product_surface_policy = render_product_surface_policy()
-    geo_discoverability_policy = render_geo_discoverability_policy()
-    boundary_governance = render_boundary_governance()
-    product_positioning = {
+def _render_product_positioning(geo_discoverability_policy: dict[str, Any]) -> dict[str, Any]:
+    return {
         "schema": "cleanmac.product-positioning.v1",
         "positioning": "AI-first cleanup execution kernel, not a GUI/TUI retention app.",
         "primary_users": ["AI Hosts", "CLI users", "scripts", "automation with explicit invocation"],
@@ -2061,6 +2061,32 @@ def render_capabilities() -> dict[str, Any]:
             "GUI/TUI feature parity with app-first cleaners",
         ],
     }
+
+
+def render_governance_integrity() -> dict[str, Any]:
+    ai_tool_contract = render_ai_tool_contract()
+    runtime_lifecycle = render_runtime_lifecycle_policy()
+    product_surface_policy = render_product_surface_policy()
+    geo_discoverability_policy = render_geo_discoverability_policy()
+    boundary_governance = render_boundary_governance()
+    product_positioning = _render_product_positioning(geo_discoverability_policy)
+    return render_governance_integrity_report(
+        runtime_lifecycle=runtime_lifecycle,
+        product_surface_policy=product_surface_policy,
+        geo_discoverability_policy=geo_discoverability_policy,
+        boundary_governance=boundary_governance,
+        ai_tool_contract=ai_tool_contract,
+        product_positioning=product_positioning,
+    )
+
+
+def render_capabilities() -> dict[str, Any]:
+    ai_tool_contract = render_ai_tool_contract()
+    runtime_lifecycle = render_runtime_lifecycle_policy()
+    product_surface_policy = render_product_surface_policy()
+    geo_discoverability_policy = render_geo_discoverability_policy()
+    boundary_governance = render_boundary_governance()
+    product_positioning = _render_product_positioning(geo_discoverability_policy)
     governance_integrity = render_governance_integrity_report(
         runtime_lifecycle=runtime_lifecycle,
         product_surface_policy=product_surface_policy,
@@ -2113,6 +2139,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-host-integration-pack",
             "ai-host-preflight",
             "ai-host-evidence",
+            "governance-integrity",
             "release-readiness",
             "ai-schema-registry",
             "ai-eval-pack",
@@ -2180,7 +2207,7 @@ def render_capabilities() -> dict[str, Any]:
                 },
                 "standalone_smoke_command": "python cleanmac.pyz --json capabilities",
             },
-            "privileged_command_ownership": render_boundary_governance()["privileged_command_ownership"],
+            "privileged_command_ownership": boundary_governance["privileged_command_ownership"],
             "log_rotation": {
                 "log_file": LOG_FILE,
                 "debug_session_log_file": DEBUG_SESSION_LOG_FILE,
@@ -7378,6 +7405,16 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "capabilities":
         emit_report(render_capabilities(), args=args, command="capabilities", root=root, home=home, argv=actual_argv)
+        return 0
+    if args.command == "governance-integrity":
+        emit_report(
+            render_governance_integrity(),
+            args=args,
+            command="governance-integrity",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
         return 0
     if args.command == "profiles":
         emit_report(render_profiles(), args=args, command="profiles", root=root, home=home, argv=actual_argv)

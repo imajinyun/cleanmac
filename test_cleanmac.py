@@ -6288,6 +6288,7 @@ class CleanMacCLITests(unittest.TestCase):
             (("ai-host-policy",), "cleanmac.ai-host-policy.v1"),
             (("ai-host-integration-pack",), "cleanmac.ai-host-integration-pack.v1"),
             (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
+            (("governance-integrity",), "cleanmac.governance-integrity.v1"),
             (("ai-schema-registry",), "cleanmac.ai-schema-registry.v1"),
             (("release-readiness",), "cleanmac.release-readiness.v1"),
             (("release-diagnostics",), "cleanmac.release-diagnostics.v1"),
@@ -6312,6 +6313,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(release_readiness["dry_run"])
         self.assertIn(["make", "governed-execution-smoke"], release_readiness["release_gate_commands"])
         self.assertIn("release-artifact-manifest-valid", release_readiness["failed_gate_ids"])
+
+        governance_integrity = run_main_json("governance-integrity")
+        self.assertTrue(governance_integrity["ready"], governance_integrity)
+        self.assertEqual(governance_integrity["failed_check_ids"], [])
+        self.assertIn("cleanmac.geo-discoverability-policy.v1", governance_integrity["governed_contracts"])
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

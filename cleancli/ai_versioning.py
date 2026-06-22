@@ -1561,6 +1561,7 @@ def _schema_producer_command(name: str) -> list[str]:
         ],
         "cleanmac.release-post-publish-result.v1": ["cleanmac", "--json", "release-post-publish-result"],
         "cleanmac.release-artifact-manifest.v1": ["python", "scripts/generate_release_manifest.py"],
+        "cleanmac.governance-integrity.v1": ["cleanmac", "--json", "governance-integrity"],
         "cleanmac.mcp-meta-index.v1": ["read", "cleanmac://mcp/meta-index"],
         "cleanmac.mcp-resource-index.v1": ["read", "cleanmac://mcp/resource-index"],
         "cleanmac.mcp-prompt-index.v1": ["read", "cleanmac://mcp/prompt-index"],
