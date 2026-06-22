@@ -43,7 +43,7 @@ def render_ai_governance_advice(
             "id": "preflight-first",
             "priority": "p0",
             "status": "satisfied" if readiness_ready else "needs_attention",
-            "advice": "AI Host 每次接入前先读取 readiness、runbook、decision matrix 和 eval smoke 结果。",
+            "advice": "🧭 Before each AI Host integration, load readiness, runbook, decision matrix, host evidence, and eval smoke results.",
             "commands": [
                 ["cleanmac", "--json", "ai-host-integration-pack"],
                 ["cleanmac", "--json", "ai-host-preflight"],
@@ -63,7 +63,7 @@ def render_ai_governance_advice(
             "status": "satisfied"
             if gate_locked and "cleanmac_execute_plan" in destructive_tools
             else "needs_attention",
-            "advice": "模型可以准备执行前材料，但不能自动调用破坏性工具；执行必须等待人类确认。",
+            "advice": "🛑 The model may prepare execution artifacts, but it must never auto-call destructive tools; execution must wait for explicit human confirmation.",
             "blocked_tools": destructive_tools,
             "required_gate": execution_gate,
         },
@@ -71,21 +71,21 @@ def render_ai_governance_advice(
             "id": "argv-only-transport",
             "priority": "p0",
             "status": "satisfied" if not runbook.get("uses_shell") else "needs_attention",
-            "advice": "AI Host 必须使用结构化 argv / MCP tools 调用，禁止把模型输出拼接成 shell。",
+            "advice": "🔒 AI Hosts must call cleanmac through structured argv or MCP tools; never concatenate model output into a shell command.",
             "forbidden_patterns": ["shell=true", "sudo", "osascript", "launchctl", "rm " + "-rf"],
         },
         {
             "id": "dry-run-token-gate",
             "priority": "p0",
             "status": "satisfied" if execution_gate.get("requires_confirmation_token") else "needs_attention",
-            "advice": "执行前必须完成 plan -> validate -> policy-simulate -> dry-run，并绑定 dry-run 产生的 confirmation token。",
+            "advice": "🎟️ Before execution, complete plan → validate → policy-simulate → dry-run, then bind execution to the dry-run confirmation token.",
             "required_before_execute": execution_gate.get("required_before_execute", []),
         },
         {
             "id": "trace-and-eval-regression",
             "priority": "p1",
             "status": "satisfied" if eval_ready else "needs_attention",
-            "advice": "把 AI eval smoke 纳入发布门禁，要求场景 ID、trace event_count、passed_count/failed_count 可审计。",
+            "advice": "🧪 Include AI eval smoke in release gates, with auditable scenario IDs, trace event_count, passed_count, and failed_count.",
             "eval_schema": eval_pack.get("schema"),
             "scenario_count": eval_pack.get("scenario_count"),
         },
@@ -93,7 +93,7 @@ def render_ai_governance_advice(
             "id": "structured-error-recovery",
             "priority": "p1",
             "status": "satisfied" if matrix_clean else "needs_attention",
-            "advice": "模型遇到 cleanmac.ai-error.v1 时只能按 next_allowed_tools 恢复，不允许绕过策略重试执行。",
+            "advice": "🧯 When cleanmac.ai-error.v1 appears, recover only through next_allowed_tools; never bypass policy and retry execution.",
             "decision_matrix_violations": decision_matrix.get("violations", []),
         },
     ]

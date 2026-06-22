@@ -8,7 +8,7 @@ from typing import Any
 from cleancli.ai_decision import mcp_annotations_for_tool
 
 DEFAULT_OPERATION_LOG = "~/.cleanmac/operations.jsonl"
-CONFIRMATION_PHRASE = "确认执行 cleanmac 清理"
+CONFIRMATION_PHRASE = "Confirm cleanmac cleanup execution"
 STANDARD_BLOCKED_NEXT_ALLOWED_TOOLS = ("cleanmac_validate_plan", "cleanmac_policy_simulate")
 
 
