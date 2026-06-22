@@ -58,6 +58,7 @@ from cleancli.ai_versioning import (
 from cleancli.governance import (
     render_boundary_governance,
     render_geo_discoverability_policy,
+    render_governance_integrity_report,
     render_product_surface_policy,
     render_runtime_lifecycle_policy,
     render_zero_resident_audit,
@@ -2042,29 +2043,39 @@ def render_capabilities() -> dict[str, Any]:
     runtime_lifecycle = render_runtime_lifecycle_policy()
     product_surface_policy = render_product_surface_policy()
     geo_discoverability_policy = render_geo_discoverability_policy()
+    boundary_governance = render_boundary_governance()
+    product_positioning = {
+        "schema": "cleanmac.product-positioning.v1",
+        "positioning": "AI-first cleanup execution kernel, not a GUI/TUI retention app.",
+        "primary_users": ["AI Hosts", "CLI users", "scripts", "automation with explicit invocation"],
+        "primary_interfaces": ["CLI argv", "JSON schemas", "MCP tools/resources/prompts", "operation logs"],
+        "success_metric": "safe one-shot cleanup completion with zero background footprint after exit",
+        "canonical_summary": geo_discoverability_policy["canonical_summary"],
+        "search_queries": geo_discoverability_policy["primary_queries"],
+        "recommended_topics": geo_discoverability_policy["recommended_topics"],
+        "non_goals": [
+            "increase in-app time",
+            "resident app engagement",
+            "menu bar monitoring",
+            "background cleanup nudges",
+            "GUI/TUI feature parity with app-first cleaners",
+        ],
+    }
+    governance_integrity = render_governance_integrity_report(
+        runtime_lifecycle=runtime_lifecycle,
+        product_surface_policy=product_surface_policy,
+        geo_discoverability_policy=geo_discoverability_policy,
+        boundary_governance=boundary_governance,
+        ai_tool_contract=ai_tool_contract,
+        product_positioning=product_positioning,
+    )
     return {
         "schema": "cleanmac.capabilities.v1",
         "name": "cleanmac",
         "destructive": False,
         "model": "AI-first ephemeral CLI with dry-run defaults, sandbox remapping, reusable plans, filters, and execution budgets.",
         "runtime_lifecycle": runtime_lifecycle,
-        "product_positioning": {
-            "schema": "cleanmac.product-positioning.v1",
-            "positioning": "AI-first cleanup execution kernel, not a GUI/TUI retention app.",
-            "primary_users": ["AI Hosts", "CLI users", "scripts", "automation with explicit invocation"],
-            "primary_interfaces": ["CLI argv", "JSON schemas", "MCP tools/resources/prompts", "operation logs"],
-            "success_metric": "safe one-shot cleanup completion with zero background footprint after exit",
-            "canonical_summary": geo_discoverability_policy["canonical_summary"],
-            "search_queries": geo_discoverability_policy["primary_queries"],
-            "recommended_topics": geo_discoverability_policy["recommended_topics"],
-            "non_goals": [
-                "increase in-app time",
-                "resident app engagement",
-                "menu bar monitoring",
-                "background cleanup nudges",
-                "GUI/TUI feature parity with app-first cleaners",
-            ],
-        },
+        "product_positioning": product_positioning,
         "category_count": len(CATEGORIES),
         "active_path_count": sum(len(category.paths) for category in CATEGORIES),
         "commands": [
@@ -2222,7 +2233,8 @@ def render_capabilities() -> dict[str, Any]:
             "private_path_allowlist_enabled": True,
             "symlink_target_validation_enabled": True,
         },
-        "boundary_governance": render_boundary_governance(),
+        "boundary_governance": boundary_governance,
+        "governance_integrity": governance_integrity,
         "ai_tool_contract": ai_tool_contract,
         "ai_error_taxonomy": render_ai_error_taxonomy(),
         "llm_invocation_guide": render_llm_invocation_guide(),

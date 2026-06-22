@@ -639,6 +639,20 @@ class CleanMacCLITests(unittest.TestCase):
             boundaries["verification"]["python_test_environment"]["workflow_python_env"],
             "PYTHON=.venv/bin/python",
         )
+        governance_integrity = report["governance_integrity"]
+        self.assertEqual(governance_integrity["schema"], "cleanmac.governance-integrity.v1")
+        self.assertTrue(governance_integrity["ready"], governance_integrity)
+        self.assertEqual(governance_integrity["failed_check_ids"], [])
+        self.assertEqual(governance_integrity["readiness_score"]["level"], "ready")
+        self.assertIn("cleanmac.geo-discoverability-policy.v1", governance_integrity["governed_contracts"])
+        self.assertIn("cleanmac.ai-tool-contract.v1", governance_integrity["governed_contracts"])
+        integrity_checks = {row["id"]: row for row in governance_integrity["checks"]}
+        self.assertTrue(integrity_checks["boundary-runtime-lifecycle-single-source"]["passed"])
+        self.assertTrue(integrity_checks["boundary-product-surface-single-source"]["passed"])
+        self.assertTrue(integrity_checks["boundary-geo-policy-single-source"]["passed"])
+        self.assertTrue(integrity_checks["positioning-reuses-geo-summary"]["passed"])
+        self.assertTrue(integrity_checks["ai-contract-geo-entrypoints-covered"]["passed"])
+        self.assertIn(["make", "governance-smoke"], governance_integrity["release_gate_commands"])
         self.assertEqual(
             report["safety_guardrails"]["bundle_drift_audit"]["command"],
             "python3 scripts/audit_bundle_drift.py --json --fail-on-drift",
