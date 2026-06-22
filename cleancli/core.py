@@ -2557,6 +2557,7 @@ def render_release_evidence_report(
     resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
     contract_validation = render_ai_contract_validation_summary()
     contract_validation["ready"] = bool(contract_validation.get("valid"))
+    governance_integrity = render_governance_integrity()
     release_readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     release_diagnostics = render_release_diagnostics_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     return build_release_evidence_bundle(
@@ -2564,6 +2565,7 @@ def render_release_evidence_report(
         assets_dir=resolved_assets_dir,
         release_readiness=release_readiness,
         release_diagnostics=release_diagnostics,
+        governance_integrity=governance_integrity,
         contract_validation=contract_validation,
         ai_host_evidence=render_ai_host_evidence_report(),
         eval_smoke=render_ai_eval_smoke_evidence(),
@@ -2592,6 +2594,7 @@ def render_release_diagnostics_report(
     resolved_dist_dir, resolved_assets_dir = _release_dirs(dist_dir=dist_dir, assets_dir=assets_dir)
     readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     manifest = render_release_manifest_evidence(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
+    governance_integrity = render_governance_integrity()
     failed_gates = [gate for gate in readiness.get("gates", []) if not gate.get("passed")]
     recommended_commands = [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]]
     recommended_commands.extend(
@@ -2623,6 +2626,14 @@ def render_release_diagnostics_report(
             "missing_files": ["ARTIFACT-MANIFEST.json"]
             if manifest.get("error_code") == "RELEASE_ARTIFACT_MANIFEST_MISSING"
             else [],
+        },
+        "governance_integrity": {
+            "schema": governance_integrity.get("schema"),
+            "ready": bool(governance_integrity.get("ready")),
+            "failed_check_ids": list(governance_integrity.get("failed_check_ids", [])),
+            "stop_reason": str(governance_integrity.get("stop_reason") or ""),
+            "readiness_score": dict(governance_integrity.get("readiness_score", {})),
+            "remediation_commands": [list(command) for command in governance_integrity.get("remediation_commands", [])],
         },
         "readiness_summary": render_release_readiness_summary(readiness),
         "failed_gates": failed_gates,

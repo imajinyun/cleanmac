@@ -274,6 +274,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "failed_gate_ids": ["release-artifact-manifest-valid"],
             "environment": {"platform": "darwin"},
             "artifacts": {"error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING"},
+            "governance_integrity": {"schema": "cleanmac.governance-integrity.v1", "ready": True},
             "recommended_commands": [["make", "release-artifacts-smoke"]],
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-diagnostics.v1", release_diagnostics)["valid"])
@@ -286,6 +287,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "artifact_manifest": {"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
             "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True},
             "release_diagnostics": {"schema": "cleanmac.release-diagnostics.v1", "ready": True},
+            "governance_integrity": {"schema": "cleanmac.governance-integrity.v1", "ready": True},
             "assets": {"required": ["SBOM.json"], "missing": []},
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"])

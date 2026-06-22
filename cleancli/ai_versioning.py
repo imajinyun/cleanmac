@@ -1292,6 +1292,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "failed_gate_ids",
             "environment",
             "artifacts",
+            "governance_integrity",
             "recommended_commands",
         ],
         "properties": {
@@ -1302,6 +1303,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "failed_gate_ids": {"type": "array", "items": {"type": "string"}},
             "environment": {"type": "object"},
             "artifacts": {"type": "object"},
+            "governance_integrity": {"type": "object"},
             "recommended_commands": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
         },
         "additionalProperties": True,
@@ -1316,6 +1318,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "artifact_manifest",
             "release_readiness",
             "release_diagnostics",
+            "governance_integrity",
             "assets",
         ],
         "properties": {
@@ -1326,6 +1329,7 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
             "artifact_manifest": {"type": "object"},
             "release_readiness": {"type": "object"},
             "release_diagnostics": {"type": "object"},
+            "governance_integrity": {"type": "object"},
             "assets": {"type": "object"},
         },
         "additionalProperties": True,
@@ -2562,6 +2566,14 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 "error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING",
                 "missing_files": ["ARTIFACT-MANIFEST.json"],
             },
+            "governance_integrity": {
+                "schema": "cleanmac.governance-integrity.v1",
+                "ready": True,
+                "failed_check_ids": [],
+                "stop_reason": "",
+                "readiness_score": {"passed": 8, "total": 8, "level": "ready"},
+                "remediation_commands": [["make", "governance-integrity-smoke"]],
+            },
             "recommended_commands": [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]],
         },
         "cleanmac.release-evidence.v1": {
@@ -2572,6 +2584,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "artifact_manifest": {"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
             "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True, "failed_gate_ids": []},
             "release_diagnostics": {"schema": "cleanmac.release-diagnostics.v1", "ready": True, "failed_gates": []},
+            "governance_integrity": {"schema": "cleanmac.governance-integrity.v1", "ready": True},
             "assets": {"required": ["SBOM.json"], "missing": [], "items": []},
         },
         "cleanmac.release-operator-summary.v1": {
@@ -2597,6 +2610,14 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     "evidence_schema": "cleanmac.release-artifact-manifest.v1",
                     "diagnostic": "passed",
                     "next_actions": [["make", "release-artifacts-smoke"]],
+                },
+                {
+                    "id": "release-diagnostics",
+                    "status": "passed",
+                    "evidence_schema": "cleanmac.release-diagnostics.v1",
+                    "diagnostic": "passed",
+                    "governance_integrity": {"schema": "cleanmac.governance-integrity.v1", "ready": True},
+                    "next_actions": [["make", "release-diagnostics-smoke"], ["make", "governance-integrity-smoke"]],
                 }
             ],
             "failed_phase_ids": [],
@@ -2628,7 +2649,11 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     "safe_copy_paste_commands": [],
                 }
             ],
-            "pre_rollback_checks": [["cleanmac", "--json", "release-diagnostics"]],
+            "pre_rollback_checks": [
+                ["cleanmac", "--json", "governance-integrity"],
+                ["cleanmac", "--json", "release-diagnostics"],
+                ["make", "governance-integrity-smoke"],
+            ],
         },
         "cleanmac.release-post-publish-verification.v1": {
             "schema": "cleanmac.release-post-publish-verification.v1",

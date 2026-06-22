@@ -137,6 +137,62 @@ def _readiness_phase(*, assets_dir: Path) -> dict[str, Any]:
     }
 
 
+def _diagnostics_phase(*, assets_dir: Path) -> dict[str, Any]:
+    payload = _json_payload(assets_dir / "RELEASE-DIAGNOSTICS.json")
+    if payload is None:
+        return {
+            "id": "release-diagnostics",
+            "status": "blocked",
+            "evidence_schema": "cleanmac.release-diagnostics.v1",
+            "blocking_code": "RELEASE_DIAGNOSTICS_MISSING",
+            "diagnostic": "Release diagnostics evidence is missing.",
+            "next_actions": [["make", "release-diagnostics-smoke"]],
+        }
+    governance_integrity = payload.get("governance_integrity") if isinstance(payload, dict) else None
+    if not isinstance(governance_integrity, dict):
+        return {
+            "id": "release-diagnostics",
+            "status": "blocked",
+            "evidence_schema": "cleanmac.release-diagnostics.v1",
+            "blocking_code": "GOVERNANCE_INTEGRITY_EVIDENCE_MISSING",
+            "diagnostic": "Release diagnostics must include governance integrity evidence.",
+            "next_actions": [["make", "release-diagnostics-smoke"], ["make", "governance-integrity-smoke"]],
+        }
+    if governance_integrity.get("ready") is not True:
+        remediation_commands = [
+            list(command) for command in governance_integrity.get("remediation_commands", []) if isinstance(command, list)
+        ]
+        return {
+            "id": "release-diagnostics",
+            "status": "blocked",
+            "evidence_schema": "cleanmac.release-diagnostics.v1",
+            "blocking_code": "GOVERNANCE_INTEGRITY_NOT_READY",
+            "diagnostic": str(
+                governance_integrity.get("stop_reason") or "Governance integrity evidence is not ready."
+            ),
+            "governance_integrity": {
+                "schema": governance_integrity.get("schema"),
+                "ready": False,
+                "failed_check_ids": list(governance_integrity.get("failed_check_ids", [])),
+                "readiness_score": dict(governance_integrity.get("readiness_score", {})),
+            },
+            "next_actions": [["make", "release-diagnostics-smoke"], *remediation_commands],
+        }
+    return {
+        "id": "release-diagnostics",
+        "status": "passed",
+        "evidence_schema": "cleanmac.release-diagnostics.v1",
+        "diagnostic": "passed",
+        "governance_integrity": {
+            "schema": governance_integrity.get("schema"),
+            "ready": True,
+            "failed_check_ids": list(governance_integrity.get("failed_check_ids", [])),
+            "readiness_score": dict(governance_integrity.get("readiness_score", {})),
+        },
+        "next_actions": [["make", "release-diagnostics-smoke"], ["make", "governance-integrity-smoke"]],
+    }
+
+
 def render_release_rehearsal(*, dist_dir: Path | str, assets_dir: Path | str) -> dict[str, Any]:
     resolved_dist_dir = Path(dist_dir)
     resolved_assets_dir = Path(assets_dir)
@@ -144,6 +200,7 @@ def render_release_rehearsal(*, dist_dir: Path | str, assets_dir: Path | str) ->
     phases = [
         _manifest_phase(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir),
         _readiness_phase(assets_dir=resolved_assets_dir),
+        _diagnostics_phase(assets_dir=resolved_assets_dir),
         {
             "id": "release-assets",
             "status": "passed" if not missing_assets else "blocked",
@@ -250,8 +307,10 @@ def render_release_rollback_plan(*, dist_dir: Path | str, assets_dir: Path | str
             },
         ],
         "pre_rollback_checks": [
+            ["cleanmac", "--json", "governance-integrity"],
             ["cleanmac", "--json", "release-diagnostics"],
             ["cleanmac", "--json", "release-evidence"],
+            ["make", "governance-integrity-smoke"],
         ],
         "recommended_commands": [["make", "release-rollback-smoke"], ["make", "release-diagnostics-smoke"]],
     }

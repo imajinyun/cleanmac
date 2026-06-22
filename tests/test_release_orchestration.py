@@ -75,8 +75,16 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             dist, assets = _write_ready_release_assets(Path(tmp))
 
+            rehearsal = render_release_rehearsal(dist_dir=dist, assets_dir=assets)
             decision = render_release_promotion_decision(dist_dir=dist, assets_dir=assets)
 
+        phases = {phase["id"]: phase for phase in rehearsal["phases"]}
+        self.assertEqual(phases["release-diagnostics"]["status"], "passed")
+        self.assertEqual(
+            phases["release-diagnostics"]["governance_integrity"]["schema"],
+            "cleanmac.governance-integrity.v1",
+        )
+        self.assertTrue(phases["release-diagnostics"]["governance_integrity"]["ready"])
         self.assertEqual(decision["schema"], "cleanmac.release-promotion-decision.v1")
         self.assertEqual(decision["decision"], "promote")
         self.assertTrue(decision["safe_to_publish"])
@@ -121,12 +129,44 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertIn("MCP_SURFACE_AUDIT_NOT_READY", decision["blocking_codes"])
         self.assertIn("mcp-surface-audit-ready", decision["rehearsal_summary"]["failed_gate_ids"])
 
+    def test_rehearsal_blocks_when_diagnostics_governance_integrity_is_not_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            dist, assets = _write_ready_release_assets(Path(tmp))
+            diagnostics = json.loads((assets / "RELEASE-DIAGNOSTICS.json").read_text(encoding="utf-8"))
+            diagnostics["ready"] = False
+            diagnostics["governance_integrity"] = {
+                "schema": "cleanmac.governance-integrity.v1",
+                "ready": False,
+                "failed_check_ids": ["boundary-geo-policy-single-source"],
+                "stop_reason": "governance-integrity failed: boundary-geo-policy-single-source",
+                "readiness_score": {"passed": 7, "total": 8, "level": "blocked"},
+                "remediation_commands": [
+                    ["cleanmac", "--json", "governance-integrity"],
+                    ["make", "governance-integrity-smoke"],
+                ],
+            }
+            (assets / "RELEASE-DIAGNOSTICS.json").write_text(json.dumps(diagnostics), encoding="utf-8")
+
+            rehearsal = render_release_rehearsal(dist_dir=dist, assets_dir=assets)
+            decision = render_release_promotion_decision(dist_dir=dist, assets_dir=assets)
+
+        phases = {phase["id"]: phase for phase in rehearsal["phases"]}
+        self.assertFalse(rehearsal["ready"])
+        self.assertIn("release-diagnostics", rehearsal["failed_phase_ids"])
+        self.assertEqual(phases["release-diagnostics"]["blocking_code"], "GOVERNANCE_INTEGRITY_NOT_READY")
+        self.assertIn("boundary-geo-policy-single-source", phases["release-diagnostics"]["diagnostic"])
+        self.assertIn(["make", "governance-integrity-smoke"], phases["release-diagnostics"]["next_actions"])
+        self.assertEqual(decision["decision"], "block")
+        self.assertIn("GOVERNANCE_INTEGRITY_NOT_READY", decision["blocking_codes"])
+
     def test_rollback_plan_is_manual_only_without_destructive_commands(self) -> None:
         plan = render_release_rollback_plan(dist_dir="dist", assets_dir="release-assets")
         forbidden = "rm " + "-rf"
 
         self.assertEqual(plan["schema"], "cleanmac.release-rollback-plan.v1")
         self.assertTrue(plan["manual_only"])
+        self.assertIn(["cleanmac", "--json", "governance-integrity"], plan["pre_rollback_checks"])
+        self.assertIn(["make", "governance-integrity-smoke"], plan["pre_rollback_checks"])
         self.assertEqual(
             {surface["id"] for surface in plan["rollback_surfaces"]}, {"pypi", "github-release", "homebrew-tap"}
         )
