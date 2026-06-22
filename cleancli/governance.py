@@ -53,6 +53,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "recommended_delete_templates_use_cleanmac_cli": True,
             "raw_rm_rf_requires_deprecation_metadata": True,
         },
+        "geo_discoverability_policy": render_geo_discoverability_policy(),
         "product_surface_policy": render_product_surface_policy(),
         "privileged_command_ownership": {
             "boundary_modules": ["cleancli/delete_ops.py"],
@@ -151,6 +152,71 @@ def render_product_surface_policy() -> dict[str, Any]:
         ],
         "release_gate_command": "python3 scripts/security_scan.py",
         "review_rule": "If a feature needs GUI, TUI, daemon, login item, or background scan behavior, reject it by default.",
+    }
+
+
+def render_geo_discoverability_policy() -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.geo-discoverability-policy.v1",
+        "purpose": "Keep public and machine-readable summaries optimized for AI search, answer engines, and coding agents.",
+        "canonical_summary": "cleanmac is an AI-first, zero-resident macOS cleanup CLI and MCP-ready execution kernel with dry-run-first plans, machine-readable reports, safe Trash execution, and auditable operation logs.",
+        "primary_queries": [
+            "AI-first macOS cleanup CLI",
+            "zero-resident Mac cleaner",
+            "MCP macOS cleanup tool",
+            "dry-run-first disk cleanup",
+            "AI Agent cleanup tool",
+            "auditable macOS cleaner",
+            "developer cache cleanup on macOS",
+        ],
+        "recommended_topics": [
+            "macos",
+            "macos-cleaner",
+            "cleanup",
+            "disk-cleanup",
+            "cli",
+            "python",
+            "ai-first",
+            "mcp",
+            "model-context-protocol",
+            "llm-tools",
+            "agent-tools",
+            "dry-run",
+            "zero-resident",
+            "privacy",
+            "developer-tools",
+            "automation",
+            "safe-delete",
+            "trash",
+        ],
+        "must_describe_as": [
+            "AI-first cleanup execution kernel",
+            "zero-resident macOS cleanup CLI",
+            "MCP-ready execution kernel",
+            "dry-run-first cleanup plans",
+            "machine-readable reports",
+            "safe Trash-based execution",
+            "auditable operation logs",
+        ],
+        "must_not_describe_as": [
+            "GUI cleaner",
+            "TUI app",
+            "background optimizer",
+            "menu bar monitor",
+            "automatic scanner",
+            "user-retention interface",
+        ],
+        "ai_entrypoints": [
+            ["cleanmac", "--json", "capabilities"],
+            ["cleanmac", "--json", "workflow"],
+            ["cleanmac", "--json", "explain", "--input-file", "<plan-or-report>"],
+            ["cleanmac", "--json", "ai-host-integration-pack"],
+        ],
+        "release_review_questions": [
+            "Do public summaries still identify cleanmac as AI-first, zero-resident, and MCP-ready?",
+            "Do docs avoid repositioning cleanmac as a GUI/TUI/background cleaner?",
+            "Do package metadata and README text include AI-search terms for dry-run plans, machine-readable reports, Trash execution, and operation logs?",
+        ],
     }
 
 
@@ -332,6 +398,7 @@ __all__ = [
     "render_boundary_governance",
     "render_capabilities",
     "render_doctor",
+    "render_geo_discoverability_policy",
     "render_product_surface_policy",
     "render_runtime_lifecycle_policy",
     "render_zero_resident_audit",
