@@ -236,9 +236,55 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(diagnostics["ready"])
         self.assertIn("release-artifact-manifest-valid", diagnostics["failed_gate_ids"])
         self.assertEqual(diagnostics["artifacts"]["error_code"], "RELEASE_ARTIFACT_MANIFEST_MISSING")
+        self.assertEqual(diagnostics["governance_integrity"]["schema"], "cleanmac.governance-integrity.v1")
+        self.assertTrue(diagnostics["governance_integrity"]["ready"], diagnostics["governance_integrity"])
+        self.assertEqual(diagnostics["governance_integrity"]["failed_check_ids"], [])
+        self.assertIn(["make", "governance-integrity-smoke"], diagnostics["governance_integrity"]["remediation_commands"])
         self.assertEqual(summary["schema"], "cleanmac.release-operator-summary.v1")
         self.assertEqual(summary["status"], "blocked")
         self.assertEqual(summary["must_fix_first"][0]["gate_id"], "release-artifact-manifest-valid")
+
+    def test_release_diagnostics_exposes_governance_integrity_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dist = root / "dist"
+            assets = root / "release-assets"
+            dist.mkdir()
+            assets.mkdir()
+            (dist / "cleanmac-0.1.0-py3-none-any.whl").write_text("wheel", encoding="utf-8")
+            (dist / "cleanmac-0.1.0.tar.gz").write_text("sdist", encoding="utf-8")
+            (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+            (assets / "cleanmac.rb").write_text("class Cleanmac < Formula\nend\n", encoding="utf-8")
+            manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+            (assets / "ARTIFACT-MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+            with patch(
+                "cleancli.core.render_governance_integrity",
+                return_value={
+                    "schema": "cleanmac.governance-integrity.v1",
+                    "ready": False,
+                    "failed_check_ids": ["boundary-geo-policy-single-source"],
+                    "stop_reason": "governance-integrity failed: boundary-geo-policy-single-source",
+                    "readiness_score": {"passed": 7, "total": 8, "level": "blocked"},
+                    "remediation_commands": [
+                        ["cleanmac", "--json", "governance-integrity"],
+                        ["make", "governance-integrity-smoke"],
+                    ],
+                },
+            ):
+                diagnostics = render_release_diagnostics_report(dist_dir=dist, assets_dir=assets)
+
+        failed_gates = {gate["id"]: gate for gate in diagnostics["failed_gates"]}
+        self.assertFalse(diagnostics["ready"])
+        self.assertIn("governance-integrity-ready", diagnostics["failed_gate_ids"])
+        self.assertEqual(
+            diagnostics["governance_integrity"]["stop_reason"],
+            "governance-integrity failed: boundary-geo-policy-single-source",
+        )
+        self.assertEqual(
+            failed_gates["governance-integrity-ready"]["blocking_code"], "GOVERNANCE_INTEGRITY_NOT_READY"
+        )
+        self.assertIn(["make", "governance-integrity-smoke"], diagnostics["recommended_commands"])
 
     def test_release_diagnostics_exposes_mcp_surface_audit_gate_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -320,6 +366,8 @@ class ReleaseReadinessTests(unittest.TestCase):
         )
         self.assertEqual(evidence["post_publish_result"]["schema"], "cleanmac.release-post-publish-result.v1")
         self.assertFalse(evidence["post_publish_result"]["ready"])
+        self.assertEqual(evidence["governance_integrity"]["schema"], "cleanmac.governance-integrity.v1")
+        self.assertTrue(evidence["governance_integrity"]["ready"], evidence["governance_integrity"])
         self.assertEqual(
             evidence["post_publish_evidence_template"]["schema"],
             "cleanmac.release-post-publish-evidence-template.v1",
