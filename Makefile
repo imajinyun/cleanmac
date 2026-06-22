@@ -4,17 +4,28 @@ DOCKER_IMAGE ?= debian:bookworm-slim
 SANDBOX_MOUNT ?= $(abspath ..)
 WORKDIR ?= /work/cleanmac
 PYTHON ?= python3
+RUFF_REQUIREMENT ?= ruff>=0.8
 DOCKER_RUN_FLAGS ?=
 PYTEST_SAFE_TARGETS := tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py
 PYTEST_AI_ROBUSTNESS_TARGETS := tests/test_ai_versioning.py tests/test_mcp_protocol.py tests/test_ai_concurrency.py tests/test_ai_idempotency.py tests/test_ai_eval.py::AITracePersistenceTests
 
 format:
-	$(PYTHON) -m ruff format .
-	$(PYTHON) -m ruff check --fix .
+	tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	$(PYTHON) -m venv "$$tmpdir/venv"; \
+	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
+	"$$tmpdir/venv/bin/python" -m pip install '$(RUFF_REQUIREMENT)'; \
+	RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff format .; \
+	RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff check --fix .
 
 lint:
-	$(PYTHON) -m ruff format --check .
-	$(PYTHON) -m ruff check .
+	tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	$(PYTHON) -m venv "$$tmpdir/venv"; \
+	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
+	"$$tmpdir/venv/bin/python" -m pip install '$(RUFF_REQUIREMENT)'; \
+	RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff format --check .; \
+	RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff check .
 
 type-check:
 	$(PYTHON) -m mypy

@@ -6038,12 +6038,19 @@ class CleanMacCLITests(unittest.TestCase):
         )
         self.assertIn("PYTHON ?= python3", makefile)
         self.assertIn("DOCKER_IMAGE ?= debian:bookworm-slim", makefile)
+        self.assertIn("RUFF_REQUIREMENT ?= ruff>=0.8", makefile)
         self.assertIn("DOCKER_RUN_FLAGS ?=", makefile)
         self.assertIn('-v "$(SANDBOX_MOUNT):/work:ro"', makefile)
         self.assertIn("$(DOCKER_RUN_FLAGS)", makefile)
         self.assertIn('DOCKER_RUN_FLAGS="--pull=always" $(MAKE) docker-test', makefile)
-        self.assertIn("$(PYTHON) -m ruff format --check .", makefile)
-        self.assertIn("$(PYTHON) -m ruff check .", makefile)
+        self.assertNotIn("$(PYTHON) -m ruff format --check .", makefile)
+        self.assertNotIn("$(PYTHON) -m ruff check .", makefile)
+        self.assertIn('$(PYTHON) -m venv "$$tmpdir/venv"', makefile)
+        self.assertIn("\"$$tmpdir/venv/bin/python\" -m pip install '$(RUFF_REQUIREMENT)'", makefile)
+        self.assertIn(
+            'RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff format --check .', makefile
+        )
+        self.assertIn('RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff check .', makefile)
         self.assertIn("$(PYTHON) -m mypy", makefile)
         self.assertIn("$(PYTHON) -m coverage run -m unittest -v", makefile)
         self.assertIn("PIP_NO_CACHE_DIR=1", makefile)
@@ -6364,13 +6371,13 @@ class CleanMacCLITests(unittest.TestCase):
         output = result.stdout
 
         expected_fragments = [
-            "python3 -m ruff format --check .",
-            "python3 -m ruff check .",
+            'python3 -m venv "$tmpdir/venv"',
+            "\"$tmpdir/venv/bin/python\" -m pip install 'ruff>=0.8'",
+            'RUFF_CACHE_DIR="$tmpdir/ruff-cache" "$tmpdir/venv/bin/python" -m ruff format --check .',
+            'RUFF_CACHE_DIR="$tmpdir/ruff-cache" "$tmpdir/venv/bin/python" -m ruff check .',
             "python3 -m mypy",
             "python3 -m coverage run -m unittest -v",
             "PYTHON=python3 ./scripts/test.sh",
-            'python3 -m venv "$tmpdir/venv"',
-            '"$tmpdir/venv/bin/python" -m pip install -e',
             '"$tmpdir/venv/bin/python" -m pytest tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py -q',
             "python3 -m build --wheel --sdist --outdir",
             "python3 -m twine check",
