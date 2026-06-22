@@ -256,7 +256,7 @@ class AIHostPolicyTests(unittest.TestCase):
             },
             arguments={
                 "plan_file": "/tmp/plan.json",
-                "confirmation_phrase": "确认执行 cleanmac 清理",
+                "confirmation_phrase": "Confirm cleanmac cleanup execution",
                 "confirmation_token": "abc123",
                 "require_plan_context": True,
             },

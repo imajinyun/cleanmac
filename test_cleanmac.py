@@ -857,7 +857,7 @@ class CleanMacCLITests(unittest.TestCase):
                 "cleanmac_execute_plan",
                 {
                     "plan_file": "/tmp/plan.json",
-                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                    "confirmation_phrase": "Confirm cleanmac cleanup execution",
                     "confirmation_token": "cleanmac-confirm-test",
                 },
             ),
@@ -886,7 +886,7 @@ class CleanMacCLITests(unittest.TestCase):
                 {
                     "plan_file": "/tmp/startup-plan.json",
                     "review_selection_file": "/tmp/startup-selection.json",
-                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                    "confirmation_phrase": "Confirm cleanmac cleanup execution",
                 },
             ),
             [
@@ -910,7 +910,7 @@ class CleanMacCLITests(unittest.TestCase):
                 {
                     "plan_file": "/tmp/privacy-plan.json",
                     "review_selection_file": "/tmp/privacy-selection.json",
-                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                    "confirmation_phrase": "Confirm cleanmac cleanup execution",
                 },
             ),
             [
@@ -936,7 +936,7 @@ class CleanMacCLITests(unittest.TestCase):
                 {
                     "plan_file": "/tmp/software-plan.json",
                     "review_selection_file": "/tmp/software-selection.json",
-                    "confirmation_phrase": "确认执行 cleanmac 清理",
+                    "confirmation_phrase": "Confirm cleanmac cleanup execution",
                 },
             ),
             [
@@ -983,7 +983,7 @@ class CleanMacCLITests(unittest.TestCase):
             summary = dry_report["ai_confirmation_summary"]
 
             self.assertTrue(summary["requires_confirmation"])
-            self.assertEqual(summary["recommended_confirmation_phrase"], "确认执行 cleanmac 清理")
+            self.assertEqual(summary["recommended_confirmation_phrase"], "Confirm cleanmac cleanup execution")
             self.assertTrue(summary["confirmation_token"].startswith("cleanmac-confirm-"))
             self.assertEqual(summary["confirmation_token_context"]["delete_mode"], "trash")
             self.assertEqual(summary["confirmation_token_context"]["max_items"], 10)
