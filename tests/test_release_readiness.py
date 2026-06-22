@@ -92,6 +92,38 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(artifact_gate["blocking_code"], "RELEASE_ARTIFACT_MANIFEST_MISSING")
         self.assertIn(["make", "release-artifacts-smoke"], artifact_gate["next_actions"])
 
+    def test_release_readiness_reuses_governance_integrity_remediation(self) -> None:
+        report = render_release_readiness(
+            ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
+            ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
+            ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            governance_integrity={
+                "schema": "cleanmac.governance-integrity.v1",
+                "ready": False,
+                "failed_check_ids": ["boundary-geo-policy-single-source"],
+                "stop_reason": "governance-integrity failed: boundary-geo-policy-single-source",
+                "remediation_commands": [
+                    ["cleanmac", "--json", "governance-integrity"],
+                    ["make", "governance-integrity-smoke"],
+                ],
+            },
+            mcp_surface_audit={"schema": "cleanmac.mcp-surface-audit.v1", "ready": True, "failed_check_ids": []},
+            zero_resident_audit={"schema": "cleanmac.zero-resident-audit.v1", "ready": True, "failed_check_ids": []},
+            contract_validation={"schema": "cleanmac.ai-contract-validation-summary.v1", "ready": True, "valid": True},
+            eval_smoke={"schema": "cleanmac.ai-eval-run.v1", "passed": True, "passed_count": 1, "failed_count": 0},
+            release_manifest={"schema": "cleanmac.release-artifact-manifest.v1", "valid": True},
+            required_make_targets=["quality-check", "governance-integrity-smoke", "release-artifacts-smoke"],
+        )
+
+        governance_gate = {gate["id"]: gate for gate in report["gates"]}["governance-integrity-ready"]
+        self.assertFalse(report["ready"])
+        self.assertEqual(governance_gate["blocking_code"], "GOVERNANCE_INTEGRITY_NOT_READY")
+        self.assertEqual(governance_gate["diagnostic"], "governance-integrity failed: boundary-geo-policy-single-source")
+        self.assertEqual(
+            governance_gate["next_actions"],
+            [["cleanmac", "--json", "governance-integrity"], ["make", "governance-integrity-smoke"]],
+        )
+
     def test_release_readiness_invariants_match_gate_results(self) -> None:
         report = render_release_readiness(
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},

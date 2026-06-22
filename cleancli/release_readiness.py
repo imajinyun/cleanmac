@@ -21,6 +21,19 @@ def _evidence_ref(payload: Mapping[str, Any], *, producer: str) -> dict[str, Any
     return ref
 
 
+def _first_text(payload: Mapping[str, Any], *keys: str, default: str) -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value:
+            return str(value)
+    return default
+
+
+def _commands_or_default(payload: Mapping[str, Any], default: Sequence[Sequence[str]]) -> list[list[str]]:
+    commands = payload.get("remediation_commands") or payload.get("release_gate_commands") or default
+    return [list(command) for command in commands]
+
+
 def _gate(
     *,
     gate_id: str,
@@ -98,28 +111,40 @@ def render_release_readiness(
             passed=_passed_bool(governance_integrity, "ready"),
             evidence_schema=governance_integrity.get("schema"),
             evidence_ref={"producer": "cleanmac --json governance-integrity"},
-            diagnostic="Governance integrity drift checks are not ready for release review.",
+            diagnostic=_first_text(
+                governance_integrity,
+                "stop_reason",
+                default="Governance integrity drift checks are not ready for release review.",
+            ),
             blocking_code="GOVERNANCE_INTEGRITY_NOT_READY",
-            next_actions=[
-                ["cleanmac", "--json", "governance-integrity"],
-                ["make", "governance-integrity-smoke"],
-                ["make", "governance-smoke"],
-            ],
+            next_actions=_commands_or_default(
+                governance_integrity,
+                [
+                    ["cleanmac", "--json", "governance-integrity"],
+                    ["make", "governance-integrity-smoke"],
+                    ["make", "governance-smoke"],
+                ],
+            ),
         ),
         _gate(
             gate_id="mcp-surface-audit-ready",
             passed=_passed_bool(mcp_surface_audit, "ready"),
             evidence_schema=mcp_surface_audit.get("schema"),
             evidence_ref={"producer": "cleanmac --json mcp-surface-audit"},
-            diagnostic=str(
-                mcp_surface_audit.get("stop_reason") or "MCP surface audit is not ready for release review."
+            diagnostic=_first_text(
+                mcp_surface_audit,
+                "stop_reason",
+                default="MCP surface audit is not ready for release review.",
             ),
             blocking_code="MCP_SURFACE_AUDIT_NOT_READY",
-            next_actions=[
-                ["cleanmac", "--json", "mcp-surface-audit"],
-                ["make", "mcp-surface-audit-smoke"],
-                ["make", "mcp-smoke"],
-            ],
+            next_actions=_commands_or_default(
+                mcp_surface_audit,
+                [
+                    ["cleanmac", "--json", "mcp-surface-audit"],
+                    ["make", "mcp-surface-audit-smoke"],
+                    ["make", "mcp-smoke"],
+                ],
+            ),
         ),
         _gate(
             gate_id="zero-resident-audit-ready",

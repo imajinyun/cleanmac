@@ -480,6 +480,37 @@ class AISchemaRegistryTests(unittest.TestCase):
         )
         self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", blocked_mcp_surface_audit)["valid"])
 
+        governance_integrity = {
+            "schema": "cleanmac.governance-integrity.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "failed_check_ids": [],
+            "stop_reason": "",
+            "next_action": "Run make governance-integrity-smoke before release readiness.",
+            "remediation_commands": [["make", "governance-integrity-smoke"]],
+            "readiness_score": {"passed": 1, "total": 1, "level": "ready"},
+            "checks": [
+                {
+                    "id": "boundary-runtime-lifecycle-single-source",
+                    "passed": True,
+                    "remediation_commands": [["make", "governance-integrity-smoke"]],
+                }
+            ],
+            "governed_contracts": ["cleanmac.geo-discoverability-policy.v1"],
+            "release_gate_commands": [["make", "governance-integrity-smoke"]],
+            "review_questions": ["Do all public positioning fields reuse the centralized GEO policy?"],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.governance-integrity.v1", governance_integrity)["valid"])
+
+        invalid_governance_integrity = dict(governance_integrity)
+        del invalid_governance_integrity["remediation_commands"]
+        invalid_governance_report = validate_contract_payload(
+            "cleanmac.governance-integrity.v1", invalid_governance_integrity
+        )
+        self.assertFalse(invalid_governance_report["valid"])
+        self.assertEqual(invalid_governance_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
         self.assertEqual(samples["sample_count"], len(samples["samples"]))
