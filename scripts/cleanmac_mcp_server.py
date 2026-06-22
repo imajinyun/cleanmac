@@ -206,7 +206,7 @@ def read_mcp_resource(uri: str) -> dict:
     from cleancli.core import (  # type: ignore[import-untyped]
         render_ai_decision_matrix,
         render_ai_eval_pack,
-        render_ai_eval_run,
+        render_ai_eval_smoke_evidence,
         render_ai_governance_advice_report,
         render_ai_host_evidence_report,
         render_ai_host_integration_pack_report,
@@ -227,7 +227,10 @@ def read_mcp_resource(uri: str) -> dict:
         render_release_rehearsal_report,
         render_release_rollback_plan_report,
     )
-    from cleancli.governance import render_runtime_lifecycle_policy  # type: ignore[import-untyped]
+    from cleancli.governance import (  # type: ignore[import-untyped]
+        render_runtime_lifecycle_policy,
+        render_zero_resident_audit,
+    )
     from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, render_mcp_prompt_index  # type: ignore[import-untyped]
     from cleancli.mcp_resources import (  # type: ignore[import-untyped]
         AI_WORKFLOW_CONTRACT_URI,
@@ -235,6 +238,7 @@ def read_mcp_resource(uri: str) -> dict:
         MCP_RESOURCE_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
         RUNTIME_LIFECYCLE_POLICY_URI,
+        ZERO_RESIDENT_AUDIT_URI,
         render_mcp_meta_index,
         render_mcp_resource_index,
         render_mcp_surface_audit,
@@ -263,6 +267,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_ai_runbook()
     elif uri == RUNTIME_LIFECYCLE_POLICY_URI:
         payload = render_runtime_lifecycle_policy()
+    elif uri == ZERO_RESIDENT_AUDIT_URI:
+        payload = render_zero_resident_audit()
     elif uri == AI_WORKFLOW_CONTRACT_URI:
         from cleancli.core import CATEGORIES  # type: ignore[import-untyped]
 
@@ -311,7 +317,7 @@ def read_mcp_resource(uri: str) -> dict:
     elif uri == "cleanmac://ai/eval-pack":
         payload = render_ai_eval_pack()
     elif uri == "cleanmac://ai/eval-run-smoke":
-        payload = render_ai_eval_run(scenario="smoke", cli=Path(__file__).resolve().parent.parent / "cleanmac.py")
+        payload = render_ai_eval_smoke_evidence()
     else:
         raise ValueError(f"Unknown resource URI: {uri}")
     payload = sanitize_mcp_payload(payload)

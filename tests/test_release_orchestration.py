@@ -103,7 +103,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             readiness = json.loads((assets / "RELEASE-READINESS.json").read_text(encoding="utf-8"))
             readiness["ready"] = False
             readiness["manual_review_required"] = True
-            readiness["readiness_score"] = {"passed": 7, "total": 8, "level": "blocked"}
+            readiness["readiness_score"] = {"passed": 8, "total": 9, "level": "blocked"}
             readiness["failed_gate_ids"] = ["mcp-surface-audit-ready"]
             for gate in readiness["gates"]:
                 if gate["id"] == "mcp-surface-audit-ready":
@@ -123,16 +123,18 @@ class ReleaseOrchestrationTests(unittest.TestCase):
 
     def test_rollback_plan_is_manual_only_without_destructive_commands(self) -> None:
         plan = render_release_rollback_plan(dist_dir="dist", assets_dir="release-assets")
+        forbidden = "rm " + "-rf"
 
         self.assertEqual(plan["schema"], "cleanmac.release-rollback-plan.v1")
         self.assertTrue(plan["manual_only"])
         self.assertEqual(
             {surface["id"] for surface in plan["rollback_surfaces"]}, {"pypi", "github-release", "homebrew-tap"}
         )
-        self.assertNotIn("rm " "-rf", json.dumps(plan))
+        self.assertNotIn(forbidden, json.dumps(plan))
 
     def test_post_publish_verification_is_manual_only_without_destructive_commands(self) -> None:
         plan = render_release_post_publish_verification(dist_dir="dist", assets_dir="release-assets")
+        forbidden = "rm " + "-rf"
 
         self.assertEqual(plan["schema"], "cleanmac.release-post-publish-verification.v1")
         self.assertTrue(plan["manual_only"])
@@ -141,10 +143,11 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             {"pypi", "github-release", "homebrew-tap"},
         )
         self.assertIn(["cleanmac", "--json", "release-rollback-plan"], plan["incident_response_entrypoints"])
-        self.assertNotIn("rm " "-rf", json.dumps(plan))
+        self.assertNotIn(forbidden, json.dumps(plan))
 
     def test_post_publish_result_defaults_to_pending_manual_only_without_destructive_commands(self) -> None:
         result = render_release_post_publish_result(dist_dir="dist", assets_dir="release-assets")
+        forbidden = "rm " + "-rf"
 
         self.assertEqual(result["schema"], "cleanmac.release-post-publish-result.v1")
         self.assertTrue(result["manual_only"])
@@ -152,10 +155,11 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertFalse(result["ready"])
         self.assertEqual(set(result["pending_surface_ids"]), {"pypi", "github-release", "homebrew-tap"})
         self.assertIn(["cleanmac", "--json", "release-rollback-plan"], result["incident_response_entrypoints"])
-        self.assertNotIn("rm " "-rf", json.dumps(result))
+        self.assertNotIn(forbidden, json.dumps(result))
 
     def test_post_publish_evidence_template_is_manual_only_and_complete(self) -> None:
         template = render_release_post_publish_evidence_template(dist_dir="dist", assets_dir="release-assets")
+        forbidden = "rm " + "-rf"
 
         self.assertEqual(template["schema"], "cleanmac.release-post-publish-evidence-template.v1")
         self.assertFalse(template["destructive"])
@@ -171,7 +175,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"],
             template["recommended_commands"],
         )
-        self.assertNotIn("rm " "-rf", json.dumps(template))
+        self.assertNotIn(forbidden, json.dumps(template))
 
     def test_post_publish_result_accepts_verified_evidence_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -40,7 +40,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "clean --execute",
             "--allow-live-root",
             "sudo rm",
-            "rm " "-rf /",
+            "rm -rf /",
             "background daemon",
             "menu bar resident app",
             "unsolicited scheduled scan",

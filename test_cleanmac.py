@@ -429,6 +429,68 @@ class CleanMacCLITests(unittest.TestCase):
             script = cleancli.render_completion_shell(shell)
             self.assertIn("cleanmac", script)
 
+    def test_report_renderers_cover_review_selection_and_execution_summary(self) -> None:
+        from cleancli.report_renderers import render_html_report, render_markdown_report
+
+        report = {
+            "schema": "cleanmac.clean.v1",
+            "destructive": True,
+            "dry_run": False,
+            "total_bytes": 1536,
+            "candidate_count": 2,
+            "deleted_count": 1,
+            "skipped_count": 1,
+            "risk_policy": "strict",
+            "plan_file": "/tmp/cleanmac-plan.json",
+            "review_selection": {
+                "selection_file": "/tmp/cleanmac-selection.json",
+                "selected_item_ids": ["cache-1"],
+                "selected_paths": ["/tmp/cache-one"],
+            },
+            "ai_confirmation_summary": {
+                "confirmation_token": "abc123",
+                "confirmation_token_context": {"plan_file": "/tmp/cleanmac-plan.json"},
+                "operation_log": "~/.cleanmac/operations.jsonl",
+            },
+            "skipped_summary": {"by_reason": {"protected": 1}},
+            "pre_clean_report": {
+                "category_preview": [
+                    {"key": "trash", "human": "1.5 KB", "risk": "low", "candidate_count": 2},
+                ],
+            },
+            "items": [
+                {
+                    "id": "cache-1",
+                    "path": "/tmp/cache-one",
+                    "category": "trash",
+                    "status": "deleted",
+                    "bytes": 1024,
+                    "reason": "selected by review",
+                    "reveal_command": ["open", "-R", "/tmp/cache-one"],
+                },
+                {
+                    "id": "cache-2",
+                    "path": "/tmp/cache two",
+                    "kind": "trash",
+                    "risk": "low",
+                    "size_bytes": 512,
+                    "default_selected": False,
+                    "finder_url": "file:///tmp/cache%20two",
+                },
+            ],
+            "skipped": [{"path": "/tmp/protected", "reason": "protected"}],
+        }
+
+        markdown = render_markdown_report({"report": report})
+        html_report = render_html_report({"report": report, "argv": ["cleanmac", "--json", "clean", "run"]})
+
+        self.assertIn("# cleanmac.clean.v1", markdown)
+        self.assertIn("[Open in Finder](file:///tmp/cache-one)", markdown)
+        self.assertIn("Copyable execution command", html_report)
+        self.assertIn("--confirmation-token abc123", html_report)
+        self.assertIn("file:///tmp/cache%20two", html_report)
+        self.assertIn("protected", html_report)
+
     def test_list_shows_categories(self) -> None:
         result = self.run_cli("list")
         self.assertIn("trash", result.stdout)
@@ -6004,7 +6066,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.mcp-surface-audit.v1", makefile)
         self.assertIn("mcp-surface-audit-smoke:", makefile)
         self.assertIn('payload["ready"] is True, payload', makefile)
-        self.assertIn('payload["resource_count"] == 34', makefile)
+        self.assertIn('payload["resource_count"] == 35', makefile)
         self.assertIn("cleanmac://ai/workflow-contract", makefile)
         self.assertIn("contract_samples_roundtrip", makefile)
         self.assertIn('run("ai-eval-run", "--scenario", "contract_samples_roundtrip")', makefile)
@@ -6033,7 +6095,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke zero-resident-audit-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -6180,7 +6242,7 @@ class CleanMacCLITests(unittest.TestCase):
 
         self.assertTrue(explicit_readiness["ready"], explicit_readiness)
         self.assertEqual(explicit_readiness["failed_gate_ids"], [])
-        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 8, "total": 8, "level": "release-ready"})
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 9, "total": 9, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"

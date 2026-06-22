@@ -845,7 +845,7 @@ def _write_surface_audit_blocked_readiness(
     )
     readiness["ready"] = False
     readiness["manual_review_required"] = True
-    readiness["readiness_score"] = {"passed": 7, "total": 8, "level": "blocked"}
+    readiness["readiness_score"] = {"passed": 8, "total": 9, "level": "blocked"}
     readiness["failed_gate_ids"] = ["mcp-surface-audit-ready"]
     for gate in readiness.get("gates", []):
         if gate.get("id") == "mcp-surface-audit-ready":
@@ -2029,7 +2029,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and workflow_contract.get("dry_run") is True
                     and workflow_contract.get("destructive") is False
                     and surface_audit.get("missing") == {"resources": [], "prompts": [], "tools": []}
-                    and len(surface_audit.get("checks", [])) == 14
+                    and len(surface_audit.get("checks", [])) == 15
                     and {
                         "mcp-meta-index-ready",
                         "mcp-resource-index-ready",
@@ -2039,6 +2039,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         "required-prompts-advertised",
                         "required-tools-advertised",
                         "runtime-lifecycle-policy-advertised",
+                        "zero-resident-audit-advertised",
                         "all-resources-mcp-safe",
                         "all-prompts-mcp-safe",
                         "all-tools-mcp-safe",

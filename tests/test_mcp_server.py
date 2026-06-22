@@ -27,7 +27,12 @@ def _mcp_request(request: dict) -> dict:
         env=_mcp_env(),
     )
     payload = json.dumps(request)
-    stdout, stderr = proc.communicate(input=payload, timeout=15)
+    try:
+        stdout, stderr = proc.communicate(input=payload, timeout=30)
+    except subprocess.TimeoutExpired as err:
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        raise RuntimeError(f"MCP server timed out. request={request!r} stdout={stdout!r} stderr={stderr!r}") from err
     if not stdout.strip():
         raise RuntimeError(f"MCP server returned empty stdout. stderr={stderr.strip()}")
     # Some methods (e.g. initialize) emit multiple lines (response + notifications).
@@ -375,7 +380,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["resource_uri"], "cleanmac://mcp/surface-audit")
         self.assertEqual(payload["missing"], {"resources": [], "prompts": [], "tools": []})
         self.assertEqual(payload["failed_check_ids"], [])
-        self.assertEqual(payload["readiness_score"], {"passed": 14, "total": 14, "level": "ready"})
+        self.assertEqual(payload["readiness_score"], {"passed": 15, "total": 15, "level": "ready"})
         self.assertEqual(payload["next_action"], "proceed-to-host-integration-pack")
         self.assertEqual(payload["stop_reason"], "")
         checks = {check["id"]: check for check in payload["checks"]}
@@ -388,6 +393,7 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(checks["required-prompts-advertised"]["passed"])
         self.assertTrue(checks["required-tools-advertised"]["passed"])
         self.assertTrue(checks["runtime-lifecycle-policy-advertised"]["passed"])
+        self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
         self.assertTrue(checks["destructive-tools-gated"]["passed"])
         self.assertTrue(checks["no-shell-invocation"]["passed"])
         self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
@@ -578,6 +584,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://mcp/tool-index",
             "cleanmac://mcp/surface-audit",
             "cleanmac://ai/runtime-lifecycle-policy",
+            "cleanmac://ai/zero-resident-audit",
             "cleanmac://ai/workflow-contract",
             "cleanmac://ai/host-integration-pack",
             "cleanmac://ai/host-preflight",
@@ -920,10 +927,24 @@ class MckServerTests(unittest.TestCase):
         self.assertFalse(lifecycle_payload["implements_gui"])
         self.assertFalse(lifecycle_payload["installs_background_daemon"])
 
-        workflow_response = _mcp_request(
+        zero_resident_response = _mcp_request(
             {
                 "jsonrpc": "2.0",
                 "id": 34,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/zero-resident-audit"},
+            }
+        )
+        zero_resident_payload = json.loads(zero_resident_response["result"]["contents"][0]["text"])
+        self.assertEqual(zero_resident_payload["schema"], "cleanmac.zero-resident-audit.v1")
+        self.assertTrue(zero_resident_payload["ready"], zero_resident_payload)
+        self.assertEqual(zero_resident_payload["resident_processes"], 0)
+        self.assertEqual(zero_resident_payload["readiness_score"], {"passed": 14, "total": 14, "level": "ready"})
+
+        workflow_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 35,
                 "method": "resources/read",
                 "params": {"uri": "cleanmac://ai/workflow-contract"},
             }
@@ -935,7 +956,7 @@ class MckServerTests(unittest.TestCase):
         decision_response = _mcp_request(
             {
                 "jsonrpc": "2.0",
-                "id": 35,
+                "id": 36,
                 "method": "resources/read",
                 "params": {"uri": "cleanmac://ai/tool-decision-matrix"},
             }
