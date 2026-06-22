@@ -55,7 +55,7 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
-from cleancli.governance import render_boundary_governance, render_runtime_lifecycle_policy
+from cleancli.governance import render_boundary_governance, render_runtime_lifecycle_policy, render_zero_resident_audit
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
@@ -1276,6 +1276,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "mcp-surface-audit",
         help="Emit read-only MCP surface readiness and safety audit.",
     )
+    subparsers.add_parser(
+        "zero-resident-audit",
+        help="Emit read-only zero-resident product boundary audit for release gates.",
+    )
     release_readiness_parser = subparsers.add_parser(
         "release-readiness",
         help="Emit AI Host release readiness gates, evidence status, and review checklist.",
@@ -2242,6 +2246,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
             mcp_surface_audit=render_mcp_surface_audit(),
+            zero_resident_audit=render_zero_resident_audit(),
             contract_validation=contract_validation,
             eval_smoke=render_ai_eval_smoke_evidence(),
             release_manifest=render_release_manifest_evidence(),
@@ -2445,6 +2450,7 @@ def render_release_readiness_report(
         ai_host_preflight=render_ai_host_preflight_report(),
         ai_host_evidence=render_ai_host_evidence_report(),
         mcp_surface_audit=render_mcp_surface_audit(),
+        zero_resident_audit=render_zero_resident_audit(),
         contract_validation=contract_validation,
         eval_smoke=render_ai_eval_smoke_evidence(),
         release_manifest=render_release_manifest_evidence(dist_dir=dist_dir, assets_dir=assets_dir),
@@ -7269,6 +7275,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "mcp-surface-audit":
         print(json.dumps(render_mcp_surface_audit(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "zero-resident-audit":
+        print(json.dumps(render_zero_resident_audit(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "release-readiness":
         print(
