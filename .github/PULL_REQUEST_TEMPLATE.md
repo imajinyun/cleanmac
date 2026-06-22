@@ -17,6 +17,12 @@
 - [ ] This change still runs only after explicit user/script/AI Host invocation and exits after the requested workflow.
 - [ ] If the feature needs long-lived state, that state is represented as plans, review-selection files, reports, or operation logs instead of resident app memory.
 
+## GEO / AI discoverability
+
+- [ ] User-facing summaries continue to describe cleanmac as an AI-first, zero-resident macOS cleanup CLI and MCP-ready execution kernel.
+- [ ] Documentation does not reposition cleanmac as a GUI cleaner, TUI app, background optimizer, menu bar monitor, automatic scanner, or user-retention interface.
+- [ ] New public docs or release text preserve AI-search terms such as dry-run-first cleanup plans, machine-readable reports, MCP tools, safe Trash execution, and auditable operation logs.
+
 ## Validation
 
 - [ ] `make quality-check`
