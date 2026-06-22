@@ -644,15 +644,23 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(governance_integrity["schema"], "cleanmac.governance-integrity.v1")
         self.assertTrue(governance_integrity["ready"], governance_integrity)
         self.assertEqual(governance_integrity["failed_check_ids"], [])
+        self.assertEqual(governance_integrity["stop_reason"], "")
+        self.assertEqual(governance_integrity["next_action"], "Run make governance-integrity-smoke before release readiness.")
         self.assertEqual(governance_integrity["readiness_score"]["level"], "ready")
         self.assertIn("cleanmac.geo-discoverability-policy.v1", governance_integrity["governed_contracts"])
         self.assertIn("cleanmac.ai-tool-contract.v1", governance_integrity["governed_contracts"])
         integrity_checks = {row["id"]: row for row in governance_integrity["checks"]}
         self.assertTrue(integrity_checks["boundary-runtime-lifecycle-single-source"]["passed"])
+        self.assertIn(
+            ["make", "governance-integrity-smoke"],
+            integrity_checks["boundary-runtime-lifecycle-single-source"]["remediation_commands"],
+        )
         self.assertTrue(integrity_checks["boundary-product-surface-single-source"]["passed"])
         self.assertTrue(integrity_checks["boundary-geo-policy-single-source"]["passed"])
         self.assertTrue(integrity_checks["positioning-reuses-geo-summary"]["passed"])
         self.assertTrue(integrity_checks["ai-contract-geo-entrypoints-covered"]["passed"])
+        self.assertIn(["cleanmac", "--json", "governance-integrity"], governance_integrity["release_gate_commands"])
+        self.assertIn(["make", "governance-integrity-smoke"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-smoke"], governance_integrity["release_gate_commands"])
         self.assertEqual(
             report["safety_guardrails"]["bundle_drift_audit"]["command"],
@@ -6321,6 +6329,8 @@ class CleanMacCLITests(unittest.TestCase):
         governance_integrity = run_main_json("governance-integrity")
         self.assertTrue(governance_integrity["ready"], governance_integrity)
         self.assertEqual(governance_integrity["failed_check_ids"], [])
+        self.assertEqual(governance_integrity["stop_reason"], "")
+        self.assertIn(["make", "governance-integrity-smoke"], governance_integrity["remediation_commands"])
         self.assertIn("cleanmac.geo-discoverability-policy.v1", governance_integrity["governed_contracts"])
 
         with tempfile.TemporaryDirectory() as tmp:

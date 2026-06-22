@@ -5,6 +5,24 @@ from __future__ import annotations
 from typing import Any
 
 
+GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS = [
+    ["cleanmac", "--json", "governance-integrity"],
+    ["make", "governance-integrity-smoke"],
+    ["make", "governance-smoke"],
+]
+
+
+def _unique_commands(commands: list[list[str]]) -> list[list[str]]:
+    seen: set[tuple[str, ...]] = set()
+    unique: list[list[str]] = []
+    for command in commands:
+        key = tuple(command)
+        if key not in seen:
+            seen.add(key)
+            unique.append(list(command))
+    return unique
+
+
 def render_boundary_governance() -> dict[str, Any]:
     runtime_lifecycle = render_runtime_lifecycle_policy()
     return {
@@ -228,6 +246,7 @@ def _governance_integrity_check(
     evidence: Any,
     expected: Any,
     remediation: str,
+    remediation_commands: list[list[str]] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": check_id,
@@ -236,6 +255,7 @@ def _governance_integrity_check(
         "evidence": evidence,
         "expected": expected,
         "remediation": remediation,
+        "remediation_commands": _unique_commands(remediation_commands or GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS),
     }
 
 
@@ -317,12 +337,19 @@ def render_governance_integrity_report(
         ),
     ]
     failed_check_ids = [check["id"] for check in checks if not check["passed"]]
+    release_gate_commands = _unique_commands(GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS)
+    failed_remediation_commands = _unique_commands(
+        [command for check in checks if not check["passed"] for command in check["remediation_commands"]]
+    )
     return {
         "schema": "cleanmac.governance-integrity.v1",
         "destructive": False,
         "dry_run": True,
         "ready": not failed_check_ids,
         "failed_check_ids": failed_check_ids,
+        "stop_reason": "" if not failed_check_ids else "governance-integrity failed: " + ", ".join(failed_check_ids),
+        "next_action": "Run make governance-integrity-smoke before release readiness.",
+        "remediation_commands": failed_remediation_commands or release_gate_commands,
         "readiness_score": {
             "passed": len(checks) - len(failed_check_ids),
             "total": len(checks),
@@ -338,7 +365,7 @@ def render_governance_integrity_report(
             product_positioning.get("schema"),
             zero_resident_audit.get("schema"),
         ],
-        "release_gate_commands": [["cleanmac", "--json", "capabilities"], ["make", "governance-smoke"]],
+        "release_gate_commands": release_gate_commands,
         "review_questions": [
             "Do all public positioning fields reuse the centralized GEO policy?",
             "Do AI contract hints agree with the GEO policy entrypoints and forbidden positioning labels?",
