@@ -32,6 +32,8 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.ai-tool-decision-matrix.v1", names)
         self.assertIn("cleanmac.ai-eval-run.v1", names)
         self.assertIn("cleanmac.release-readiness.v1", names)
+        self.assertIn("cleanmac.geo-discoverability-policy.v1", names)
+        self.assertIn("cleanmac.governance-integrity.v1", names)
         for entry in report["entries"]:
             self.assertIn("name", entry)
             self.assertIn("version", entry)
@@ -84,6 +86,8 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertFalse(entries["cleanmac.clean-plan.v1"]["latest"])
         self.assertEqual(entries["cleanmac.plan.v1"]["producer"], "clean plan")
         self.assertIn("validate-plan", entries["cleanmac.plan.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.geo-discoverability-policy.v1"]["owner_area"], "execution")
+        self.assertEqual(entries["cleanmac.governance-integrity.v1"]["module"], "cleancli.governance")
 
     def test_registry_exposes_core_json_schema_fragments(self) -> None:
         from cleancli import ai_versioning

@@ -220,6 +220,132 @@ def render_geo_discoverability_policy() -> dict[str, Any]:
     }
 
 
+def _governance_integrity_check(
+    *,
+    check_id: str,
+    passed: bool,
+    evidence: Any,
+    expected: Any,
+    remediation: str,
+) -> dict[str, Any]:
+    return {
+        "id": check_id,
+        "passed": passed,
+        "severity": "none" if passed else "blocking",
+        "evidence": evidence,
+        "expected": expected,
+        "remediation": remediation,
+    }
+
+
+def render_governance_integrity_report(
+    *,
+    runtime_lifecycle: dict[str, Any],
+    product_surface_policy: dict[str, Any],
+    geo_discoverability_policy: dict[str, Any],
+    boundary_governance: dict[str, Any],
+    ai_tool_contract: dict[str, Any],
+    product_positioning: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a release-gateable consistency report for governance contracts."""
+
+    discoverability_hints = ai_tool_contract.get("discoverability_hints", {})
+    zero_resident_audit = boundary_governance.get("zero_resident_audit", {})
+    checks = [
+        _governance_integrity_check(
+            check_id="boundary-runtime-lifecycle-single-source",
+            passed=boundary_governance.get("runtime_lifecycle") == runtime_lifecycle,
+            evidence=boundary_governance.get("runtime_lifecycle", {}).get("schema"),
+            expected=runtime_lifecycle.get("schema"),
+            remediation="Render boundary governance from the same runtime lifecycle policy used by capabilities.",
+        ),
+        _governance_integrity_check(
+            check_id="boundary-product-surface-single-source",
+            passed=boundary_governance.get("product_surface_policy") == product_surface_policy,
+            evidence=boundary_governance.get("product_surface_policy", {}).get("schema"),
+            expected=product_surface_policy.get("schema"),
+            remediation="Render product surface policy once and reuse it across boundary and capabilities contracts.",
+        ),
+        _governance_integrity_check(
+            check_id="boundary-geo-policy-single-source",
+            passed=boundary_governance.get("geo_discoverability_policy") == geo_discoverability_policy,
+            evidence=boundary_governance.get("geo_discoverability_policy", {}).get("schema"),
+            expected=geo_discoverability_policy.get("schema"),
+            remediation="Keep GEO discoverability metadata centralized in render_geo_discoverability_policy().",
+        ),
+        _governance_integrity_check(
+            check_id="positioning-reuses-geo-summary",
+            passed=product_positioning.get("canonical_summary") == geo_discoverability_policy.get("canonical_summary"),
+            evidence=product_positioning.get("canonical_summary"),
+            expected=geo_discoverability_policy.get("canonical_summary"),
+            remediation="Use the GEO canonical summary as the capabilities product_positioning canonical summary.",
+        ),
+        _governance_integrity_check(
+            check_id="positioning-reuses-geo-search-queries",
+            passed=product_positioning.get("search_queries") == geo_discoverability_policy.get("primary_queries"),
+            evidence=product_positioning.get("search_queries"),
+            expected=geo_discoverability_policy.get("primary_queries"),
+            remediation="Expose GEO primary queries directly as product_positioning.search_queries.",
+        ),
+        _governance_integrity_check(
+            check_id="ai-contract-geo-entrypoints-covered",
+            passed=all(
+                entrypoint in discoverability_hints.get("best_entrypoints", [])
+                for entrypoint in geo_discoverability_policy.get("ai_entrypoints", [])
+            ),
+            evidence=discoverability_hints.get("best_entrypoints", []),
+            expected=geo_discoverability_policy.get("ai_entrypoints", []),
+            remediation="Keep AI contract discoverability_hints.best_entrypoints aligned with the GEO policy.",
+        ),
+        _governance_integrity_check(
+            check_id="ai-contract-forbidden-positioning-covered",
+            passed=all(
+                label in discoverability_hints.get("do_not_position_as", [])
+                for label in geo_discoverability_policy.get("must_not_describe_as", [])
+            ),
+            evidence=discoverability_hints.get("do_not_position_as", []),
+            expected=geo_discoverability_policy.get("must_not_describe_as", []),
+            remediation="Keep AI contract forbidden positioning labels aligned with the GEO policy.",
+        ),
+        _governance_integrity_check(
+            check_id="zero-resident-audit-ready",
+            passed=zero_resident_audit.get("ready") is True,
+            evidence=zero_resident_audit.get("readiness_score"),
+            expected={"level": "ready"},
+            remediation="Fix zero-resident audit failures before release or public positioning changes.",
+        ),
+    ]
+    failed_check_ids = [check["id"] for check in checks if not check["passed"]]
+    return {
+        "schema": "cleanmac.governance-integrity.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not failed_check_ids,
+        "failed_check_ids": failed_check_ids,
+        "readiness_score": {
+            "passed": len(checks) - len(failed_check_ids),
+            "total": len(checks),
+            "level": "ready" if not failed_check_ids else "blocked",
+        },
+        "checks": checks,
+        "governed_contracts": [
+            runtime_lifecycle.get("schema"),
+            product_surface_policy.get("schema"),
+            geo_discoverability_policy.get("schema"),
+            boundary_governance.get("schema"),
+            ai_tool_contract.get("schema"),
+            product_positioning.get("schema"),
+            zero_resident_audit.get("schema"),
+        ],
+        "release_gate_commands": [["cleanmac", "--json", "capabilities"], ["make", "governance-smoke"]],
+        "review_questions": [
+            "Do all public positioning fields reuse the centralized GEO policy?",
+            "Do AI contract hints agree with the GEO policy entrypoints and forbidden positioning labels?",
+            "Does zero-resident audit remain ready before release?",
+        ],
+    }
+
+
 def _zero_resident_check(
     *,
     check_id: str,
@@ -399,6 +525,7 @@ __all__ = [
     "render_capabilities",
     "render_doctor",
     "render_geo_discoverability_policy",
+    "render_governance_integrity_report",
     "render_product_surface_policy",
     "render_runtime_lifecycle_policy",
     "render_zero_resident_audit",
