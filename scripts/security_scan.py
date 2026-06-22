@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static governance scan for destructive and privileged command ownership."""
+"""Static governance scan for destructive, privileged, and resident product surfaces."""
 
 from __future__ import annotations
 
@@ -61,6 +61,31 @@ PRIVILEGED_TEST_ALLOWLIST = {"test_cleanmac.py", "tests/test_sudo_guard.py", "te
 SHELL_ALLOWLIST = {Path("scripts/test.sh")}
 SHELL_SUFFIXES = {".sh", ".bash", ".zsh"}
 WORKFLOW_PARTS = (".github", "workflows")
+FORBIDDEN_PRODUCT_SURFACE_IMPORTS = {
+    "curses": "TUI framework",
+    "urwid": "TUI framework",
+    "textual": "TUI framework",
+    "prompt_toolkit": "TUI framework",
+    "tkinter": "GUI framework",
+    "PyQt5": "GUI framework",
+    "PyQt6": "GUI framework",
+    "PySide2": "GUI framework",
+    "PySide6": "GUI framework",
+    "rumps": "menu bar app framework",
+    "toga": "GUI framework",
+    "wx": "GUI framework",
+}
+FORBIDDEN_PRODUCT_SURFACE_DEPENDENCIES = {
+    "electron": "GUI runtime",
+    "textual": "TUI framework",
+    "prompt_toolkit": "TUI framework",
+    "urwid": "TUI framework",
+    "pyqt": "GUI framework",
+    "pyside": "GUI framework",
+    "rumps": "menu bar app framework",
+}
+AUTOSTART_CONFIG_PARTS = {"LaunchAgents", "LaunchDaemons", "LoginItems"}
+LAUNCH_PLIST_KEYS = {"KeepAlive", "RunAtLoad", "ProgramArguments", "LimitLoadToSessionType"}
 
 
 def iter_repo_files(root: Path) -> list[Path]:
@@ -88,6 +113,36 @@ def scan_text_file(root: Path, path: Path) -> list[str]:
         if "shutil.rmtree(" in line and relative != Path("cleancli/delete_ops.py"):
             if "test" not in str(relative) and not line_allowed(relative, line, ALLOWED_RMTREE_FRAGMENTS):
                 violations.append(f"{relative}:{line_number}: shutil.rmtree must stay in cleancli/delete_ops.py")
+    return violations
+
+
+def dependency_surface_candidate(relative: Path) -> bool:
+    name = relative.name.lower()
+    return (
+        name in {"pyproject.toml", "setup.cfg", "setup.py", "requirements.txt", "requirements-dev.txt"}
+        or name.endswith(".in")
+        or is_workflow_file(relative)
+        or relative.suffix in SHELL_SUFFIXES
+    )
+
+
+def scan_product_surface_text(root: Path, path: Path) -> list[str]:
+    relative = path.relative_to(root)
+    violations: list[str] = []
+    if any(part in AUTOSTART_CONFIG_PARTS for part in relative.parts):
+        violations.append(f"{relative}: autostart product surface is forbidden for cleanmac")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return violations
+    if relative.suffix == ".plist" and any(key in text for key in LAUNCH_PLIST_KEYS):
+        violations.append(f"{relative}: LaunchAgent/LaunchDaemon plist is forbidden for cleanmac")
+    if not dependency_surface_candidate(relative):
+        return violations
+    folded = text.lower()
+    for token, reason in sorted(FORBIDDEN_PRODUCT_SURFACE_DEPENDENCIES.items()):
+        if token in folded:
+            violations.append(f"{relative}: forbidden {reason} dependency '{token}'")
     return violations
 
 
@@ -204,6 +259,17 @@ def scan_python_ast(root: Path, path: Path) -> list[str]:
         return []
     violations: list[str] = []
     for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported = [alias.name.split(".", 1)[0] for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported = [node.module.split(".", 1)[0]]
+        else:
+            continue
+        for module in imported:
+            reason = FORBIDDEN_PRODUCT_SURFACE_IMPORTS.get(module)
+            if reason:
+                violations.append(f"{relative}:{node.lineno}: forbidden {reason} import '{module}'")
+    for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not node.args:
             continue
         name = call_name(node.func)
@@ -236,6 +302,7 @@ def scan_repo(root: Path) -> list[str]:
     for path in iter_repo_files(root):
         relative = path.relative_to(root)
         violations.extend(scan_text_file(root, path))
+        violations.extend(scan_product_surface_text(root, path))
         if path.suffix in SHELL_SUFFIXES:
             violations.extend(scan_shell_file(root, path))
         if is_workflow_file(relative):

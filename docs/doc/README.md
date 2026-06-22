@@ -2,6 +2,8 @@
 
 > **AI-first macOS cleanup CLI · Ephemeral execution · Dry-run first · MCP integration · Zero dependencies**
 
+cleanmac is an **AI-first cleanup execution kernel**. It does not compete on GUI/TUI retention, does not install resident background surfaces, and is designed to run once for an explicit user/script/AI Host request, emit machine-readable evidence, then exit.
+
 [![🏠 Home](../../README.md)](/README.md) · [![📕 中文文档](README.CN.md)](README.CN.md)
 
 ---
@@ -98,6 +100,10 @@ python3 cleanmac.py --json clean run \
 python3 cleanmac.py --json review \
   --input-file /tmp/plan.json \
   --selection-file /tmp/selection.json
+
+# 5c️⃣ Optional: explain the plan/report for AI or human review
+python3 cleanmac.py --json explain \
+  --input-file /tmp/plan.json
 
 # 6️⃣ Execute (after review!)
 python3 cleanmac.py clean run \

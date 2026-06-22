@@ -55,7 +55,12 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
-from cleancli.governance import render_boundary_governance, render_runtime_lifecycle_policy, render_zero_resident_audit
+from cleancli.governance import (
+    render_boundary_governance,
+    render_product_surface_policy,
+    render_runtime_lifecycle_policy,
+    render_zero_resident_audit,
+)
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
@@ -946,6 +951,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     validate_plan = subparsers.add_parser("validate-plan", help="Validate a cleanup plan/audit JSON file.")
     validate_plan.add_argument("--plan-file", required=True)
+
+    explain_cmd = subparsers.add_parser(
+        "explain", help="Explain a cleanmac JSON plan/report for AI or human review without deleting files."
+    )
+    explain_cmd.add_argument("--input-file", required=True)
 
     policy_simulate = subparsers.add_parser(
         "policy-simulate", help="Simulate AI cleanup policy without deleting files."
@@ -2029,12 +2039,27 @@ def category_metadata(category: Category) -> dict[str, Any]:
 def render_capabilities() -> dict[str, Any]:
     ai_tool_contract = render_ai_tool_contract()
     runtime_lifecycle = render_runtime_lifecycle_policy()
+    product_surface_policy = render_product_surface_policy()
     return {
         "schema": "cleanmac.capabilities.v1",
         "name": "cleanmac",
         "destructive": False,
         "model": "AI-first ephemeral CLI with dry-run defaults, sandbox remapping, reusable plans, filters, and execution budgets.",
         "runtime_lifecycle": runtime_lifecycle,
+        "product_positioning": {
+            "schema": "cleanmac.product-positioning.v1",
+            "positioning": "AI-first cleanup execution kernel, not a GUI/TUI retention app.",
+            "primary_users": ["AI Hosts", "CLI users", "scripts", "automation with explicit invocation"],
+            "primary_interfaces": ["CLI argv", "JSON schemas", "MCP tools/resources/prompts", "operation logs"],
+            "success_metric": "safe one-shot cleanup completion with zero background footprint after exit",
+            "non_goals": [
+                "increase in-app time",
+                "resident app engagement",
+                "menu bar monitoring",
+                "background cleanup nudges",
+                "GUI/TUI feature parity with app-first cleaners",
+            ],
+        },
         "category_count": len(CATEGORIES),
         "active_path_count": sum(len(category.paths) for category in CATEGORIES),
         "commands": [
@@ -2047,6 +2072,7 @@ def render_capabilities() -> dict[str, Any]:
             "inspect",
             "plan",
             "validate-plan",
+            "explain",
             "workflow",
             "open",
             "links",
@@ -2082,6 +2108,7 @@ def render_capabilities() -> dict[str, Any]:
         "safety_guardrails": {
             "dry_run_default": True,
             "zero_resident_footprint": runtime_lifecycle,
+            "product_surface_policy": product_surface_policy,
             "delete_requires_execute": True,
             "risk_policy": ["strict", "default", "permissive"],
             "high_or_critical_requires_yes_by_default": True,
@@ -5569,6 +5596,74 @@ def render_clean_plan(
     }
 
 
+def _payload_candidates(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    if isinstance(payload.get("pre_clean_report"), Mapping):
+        candidates = payload["pre_clean_report"].get("candidates", [])  # type: ignore[index]
+    else:
+        candidates = payload.get("items", [])
+    return [dict(row) for row in candidates if isinstance(row, Mapping)] if isinstance(candidates, list) else []
+
+
+def _payload_selected_categories(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    selected = payload.get("selected_categories", [])
+    return [dict(row) for row in selected if isinstance(row, Mapping)] if isinstance(selected, list) else []
+
+
+def render_explain_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    candidates = _payload_candidates(payload)
+    selected_categories = _payload_selected_categories(payload)
+    risk_by_category = {str(row.get("key")): str(row.get("risk", "unknown")) for row in selected_categories}
+    bytes_by_category: dict[str, int] = {}
+    count_by_category: dict[str, int] = {}
+    for row in candidates:
+        category = str(row.get("category", "unknown"))
+        bytes_by_category[category] = bytes_by_category.get(category, 0) + int(row.get("bytes") or 0)
+        count_by_category[category] = count_by_category.get(category, 0) + 1
+    top_categories = [
+        {
+            "category": category,
+            "bytes": total_bytes,
+            "human": human_size(total_bytes),
+            "item_count": count_by_category.get(category, 0),
+            "risk": risk_by_category.get(category, "unknown"),
+            "reason": "regenerable cleanup candidate" if risk_by_category.get(category) != "high" else "high-risk category needs explicit review",
+        }
+        for category, total_bytes in sorted(bytes_by_category.items(), key=lambda item: item[1], reverse=True)
+    ]
+    risk_summary: dict[str, int] = {}
+    for row in top_categories:
+        risk = str(row["risk"])
+        risk_summary[risk] = risk_summary.get(risk, 0) + int(row["item_count"])
+    estimated_bytes = int(payload.get("estimated_reclaimable_bytes") or payload.get("total_bytes") or sum(bytes_by_category.values()))
+    source_schema = str(payload.get("schema", "unknown"))
+    destructive = bool(payload.get("destructive", False))
+    return {
+        "schema": "cleanmac.explain.v1",
+        "destructive": False,
+        "dry_run": True,
+        "source_schema": source_schema,
+        "source_destructive": destructive,
+        "source_dry_run": bool(payload.get("dry_run", True)),
+        "summary": {
+            "estimated_reclaimable_bytes": estimated_bytes,
+            "estimated_reclaimable_human": human_size(estimated_bytes),
+            "candidate_count": len(candidates),
+            "category_count": len(top_categories),
+            "requires_review_before_execute": True,
+        },
+        "top_categories": top_categories[:10],
+        "risk_summary": risk_summary,
+        "ai_guidance": {
+            "safe_to_auto_call": True,
+            "safe_to_execute": False,
+            "preferred_next_actions": ["review", "validate-plan", "policy-simulate", "dry-run"],
+            "execute_requires": ["review-selection-file", "trash delete mode", "plan context", "confirmation token", "operation log"],
+            "do_not": ["convert explanation into deletion", "bypass review", "use raw shell deletion"],
+        },
+        "user_summary": f"{source_schema} describes {len(candidates)} candidate item(s) totaling {human_size(estimated_bytes)}. Review and dry-run are required before any execution.",
+    }
+
+
 def symlink_specs(kind: str) -> list[dict[str, str]]:
     specs = []
     if kind in {"all", "logs"}:
@@ -6259,6 +6354,60 @@ def render_workflow_ux_guide(
     }
 
 
+def render_single_shot_workflow_presets() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "quick-safe-clean",
+            "title": "Quick safe clean",
+            "purpose": "Preview low-risk default cleanup once, then exit.",
+            "categories": ["trash", "downloads", "mails", "xcode"],
+            "argv": [
+                "cleanmac",
+                "--json",
+                "workflow",
+                "--categories",
+                "trash,downloads,mails,xcode",
+                "--dry-run-scope",
+                "selected",
+            ],
+            "safe_to_auto_call": True,
+            "destructive": False,
+            "requires_confirmation_for_execute": True,
+            "exits_after_workflow": True,
+        },
+        {
+            "id": "developer-clean",
+            "title": "Developer cache clean",
+            "purpose": "Preview regenerable developer caches such as Xcode, package-manager caches, and Docker cache paths once, then exit.",
+            "categories": ["xcode", "nodePackageCaches", "pythonPackageCaches", "goBuildCaches", "docker"],
+            "argv": [
+                "cleanmac",
+                "--json",
+                "workflow",
+                "--categories",
+                "xcode,nodePackageCaches,pythonPackageCaches,goBuildCaches,docker",
+                "--dry-run-scope",
+                "selected",
+            ],
+            "safe_to_auto_call": True,
+            "destructive": False,
+            "requires_confirmation_for_execute": True,
+            "exits_after_workflow": True,
+        },
+        {
+            "id": "large-files-review",
+            "title": "Large files review",
+            "purpose": "Analyze disk usage without converting large-file discovery into deletion.",
+            "categories": [],
+            "argv": ["cleanmac", "--json", "analyze", "tree", "--path", "~", "--depth", "2", "--top", "20"],
+            "safe_to_auto_call": True,
+            "destructive": False,
+            "requires_confirmation_for_execute": False,
+            "exits_after_workflow": True,
+        },
+    ]
+
+
 def workflow_iteration_status(*, script_report: dict[str, Any], dry_run_report: dict[str, Any]) -> dict[str, Any]:
     inventory = script_report.get("script_inventory")
     gaps = []
@@ -6406,6 +6555,7 @@ def render_workflow(
             "Preserve target directories and delete only their contents.",
         ],
         "selected_categories": [category_metadata(category) for category in categories],
+        "single_shot_workflows": render_single_shot_workflow_presets(),
         "dry_run_scope": dry_run_scope,
         "dry_run_categories": [category_metadata(category) for category in dry_run_categories],
         "steps": workflow_steps(selected_keys, dry_run_keys),
@@ -6670,6 +6820,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "performs_unsolicited_scans": False,
         },
         "selected_categories": [category_metadata(category) for category in categories],
+        "single_shot_workflows": render_single_shot_workflow_presets(),
         "inputs": {
             "root": display_path(root),
             "home": display_path(home),
@@ -6722,6 +6873,7 @@ def render_completion_shell(shell: str) -> str:
         "analyze",
         "plan",
         "validate-plan",
+        "explain",
         "policy-simulate",
         "analyze-tree",
         "diagnose",
@@ -6771,6 +6923,7 @@ def render_completion_shell(shell: str) -> str:
         "analyze": category_flags,
         "plan": f"{category_flags} --risk-policy --max-delete-mb --exclude --include --min-size-mb --name-regex --max-items --older-than-days --ai-origin",
         "validate-plan": "--plan-file",
+        "explain": "--input-file",
         "policy-simulate": "--plan-file --execute --delete-mode --operation-log --require-plan-context --require-confirmation-token --confirmation-token",
         "analyze-tree": "--path --depth --top --min-size-mb",
         "diagnose": f"{category_flags} --log-threshold-mb --large-threshold-mb",
@@ -7657,6 +7810,17 @@ def _main_impl(argv: Sequence[str]) -> int:
             print(json.dumps(review_report, indent=2, ensure_ascii=False) if args.json else review_report)
         if args.require_valid_selection and not review_report.get("selection_validation", {}).get("valid", True):
             return 1
+        return 0
+    if args.command == "explain":
+        source_payload = load_json_file(args.input_file)
+        emit_report(
+            render_explain_payload(source_payload),
+            args=args,
+            command="explain",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
         return 0
     if args.command == "permissions":
         categories = select_categories(args)

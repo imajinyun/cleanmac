@@ -2,6 +2,8 @@
 
 > **AI-first macOS cleanup CLI · Ephemeral execution · Dry-run first · MCP integration**
 
+cleanmac is an **AI-first cleanup execution kernel**, not a GUI/TUI cleaner that tries to retain user attention. It runs once when called by a user, script, or AI Host, emits machine-readable evidence, and exits with no resident process, menu bar item, login item, background scanner, or idle CPU/memory footprint.
+
 - [📗 English Docs](/docs/doc/README.md)
 - [📕 中文文档](/docs/doc/README.CN.md)
 
@@ -26,6 +28,9 @@ python3 cleanmac.py --json ai-tools --format anthropic | jq '.tools | keys'
 
 # 🧭 Safe workflow (recommended AI entry)
 python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope selected
+
+# 🧠 Explain a plan/report for AI review without deleting anything
+python3 cleanmac.py --json explain --input-file /tmp/cleanmac-plan.json
 
 # 🗂️ Governed MCP entrypoint (meta → resource/prompt/tool)
 python3 cleanmac.py --json ai-host-integration-pack | jq '.recommended_call_sequence'
@@ -60,6 +65,9 @@ cleanmac intentionally does **not** compete on TUI/GUI retention. In the AI era,
 - no background CPU or memory consumption when not invoked
 - no unsolicited scans, reminders, telemetry, or attention-retention loops
 - durable state lives in machine-readable plans, review-selection files, reports, and operation logs — not in a long-running app session
+- product governance rejects GUI/TUI/background dependencies and autostart surfaces by default
+
+The intended loop is: **ask AI or run one explicit command → inspect/plan/explain/review → optionally confirm governed Trash execution → exit**.
 
 ---
 

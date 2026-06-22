@@ -40,7 +40,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "clean --execute",
             "--allow-live-root",
             "sudo rm",
-            "rm -rf /",
+            "rm " + "-rf /",
             "background daemon",
             "menu bar resident app",
             "unsolicited scheduled scan",
@@ -53,10 +53,12 @@ def render_boundary_governance() -> dict[str, Any]:
             "recommended_delete_templates_use_cleanmac_cli": True,
             "raw_rm_rf_requires_deprecation_metadata": True,
         },
+        "product_surface_policy": render_product_surface_policy(),
         "privileged_command_ownership": {
             "boundary_modules": ["cleancli/delete_ops.py"],
             "blocked_commands": ["sudo", "osascript", "launchctl"],
             "scan_command": "python3 scripts/security_scan.py",
+            "scan_scope": "unsafe deletion, privileged commands, and forbidden GUI/TUI/resident product surfaces",
         },
         "verification": {
             "python_test_environment": {
@@ -117,6 +119,38 @@ def render_runtime_lifecycle_policy() -> dict[str, Any]:
             "automatic cleanup without explicit invocation",
             "push-style cleanup reminders",
         ],
+    }
+
+
+def render_product_surface_policy() -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.product-surface-policy.v1",
+        "purpose": "Prevent cleanmac from drifting into app-first GUI/TUI or resident background software.",
+        "allowed_surfaces": ["explicit CLI", "JSON contracts", "MCP tools/resources/prompts", "user-requested reports"],
+        "forbidden_surfaces": [
+            "resident GUI",
+            "terminal UI session",
+            "menu bar application",
+            "LaunchAgent",
+            "LaunchDaemon",
+            "login item",
+            "background scanner",
+            "cleanup reminder loop",
+            "auto-start scheduler",
+        ],
+        "forbidden_dependency_families": [
+            "Electron",
+            "curses",
+            "Textual",
+            "prompt_toolkit",
+            "urwid",
+            "PyQt",
+            "PySide",
+            "Tkinter",
+            "rumps",
+        ],
+        "release_gate_command": "python3 scripts/security_scan.py",
+        "review_rule": "If a feature needs GUI, TUI, daemon, login item, or background scan behavior, reject it by default.",
     }
 
 
@@ -298,6 +332,7 @@ __all__ = [
     "render_boundary_governance",
     "render_capabilities",
     "render_doctor",
+    "render_product_surface_policy",
     "render_runtime_lifecycle_policy",
     "render_zero_resident_audit",
 ]

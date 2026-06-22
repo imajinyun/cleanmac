@@ -160,6 +160,29 @@ class SecurityScanTests(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
+    def test_security_scan_flags_gui_tui_and_resident_product_surfaces(self) -> None:
+        scanner = load_security_module()
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module = root / "cleancli" / "gui.py"
+            module.parent.mkdir()
+            module.write_text("import curses\nfrom tkinter import Tk\nimport rumps\n", encoding="utf-8")
+            pyproject = root / "pyproject.toml"
+            pyproject.write_text('[project]\ndependencies = ["textual", "PyQt6"]\n', encoding="utf-8")
+            plist = root / "LaunchAgents" / "com.cleanmac.agent.plist"
+            plist.parent.mkdir()
+            plist.write_text("<plist><dict><key>RunAtLoad</key><true/></dict></plist>\n", encoding="utf-8")
+
+            violations = scanner.scan_repo(root)
+
+        self.assertTrue(any("forbidden TUI framework import 'curses'" in violation for violation in violations), violations)
+        self.assertTrue(any("forbidden GUI framework import 'tkinter'" in violation for violation in violations), violations)
+        self.assertTrue(any("forbidden menu bar app framework import 'rumps'" in violation for violation in violations), violations)
+        self.assertTrue(any("forbidden TUI framework dependency 'textual'" in violation for violation in violations), violations)
+        self.assertTrue(any("forbidden GUI framework dependency 'pyqt'" in violation for violation in violations), violations)
+        self.assertTrue(any("autostart product surface is forbidden" in violation for violation in violations), violations)
+        self.assertTrue(any("LaunchAgent/LaunchDaemon plist is forbidden" in violation for violation in violations), violations)
+
 
 if __name__ == "__main__":
     unittest.main()
