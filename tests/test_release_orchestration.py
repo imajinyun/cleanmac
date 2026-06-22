@@ -103,7 +103,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             readiness = json.loads((assets / "RELEASE-READINESS.json").read_text(encoding="utf-8"))
             readiness["ready"] = False
             readiness["manual_review_required"] = True
-            readiness["readiness_score"] = {"passed": 8, "total": 9, "level": "blocked"}
+            readiness["readiness_score"] = {"passed": 9, "total": 10, "level": "blocked"}
             readiness["failed_gate_ids"] = ["mcp-surface-audit-ready"]
             for gate in readiness["gates"]:
                 if gate["id"] == "mcp-surface-audit-ready":

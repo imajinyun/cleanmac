@@ -2317,6 +2317,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            governance_integrity=render_governance_integrity(),
             mcp_surface_audit=render_mcp_surface_audit(),
             zero_resident_audit=render_zero_resident_audit(),
             contract_validation=contract_validation,
@@ -2324,6 +2325,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             release_manifest=render_release_manifest_evidence(),
             required_make_targets=[
                 "quality-check",
+                "governance-integrity-smoke",
                 "zero-resident-audit-smoke",
                 "governed-execution-smoke",
                 "ai-contract-smoke",
@@ -2519,6 +2521,7 @@ def render_release_readiness_report(
     contract_validation["ready"] = bool(contract_validation.get("valid"))
     required_make_targets = [
         "quality-check",
+        "governance-integrity-smoke",
         "zero-resident-audit-smoke",
         "governed-execution-smoke",
         "ai-contract-smoke",
@@ -2531,6 +2534,7 @@ def render_release_readiness_report(
         ai_host_integration_pack=render_ai_host_integration_pack_report(),
         ai_host_preflight=render_ai_host_preflight_report(),
         ai_host_evidence=render_ai_host_evidence_report(),
+        governance_integrity=render_governance_integrity(),
         mcp_surface_audit=render_mcp_surface_audit(),
         zero_resident_audit=render_zero_resident_audit(),
         contract_validation=contract_validation,

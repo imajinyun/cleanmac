@@ -630,6 +630,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("--allow-live-root", boundaries["forbidden_automation"])
         self.assertIn("make docs-smoke", boundaries["verification"]["required_commands"])
         self.assertIn("make governance-smoke", boundaries["verification"]["required_commands"])
+        self.assertIn("make governance-integrity-smoke", boundaries["verification"]["required_commands"])
         self.assertIn("make open-source-smoke", boundaries["verification"]["required_commands"])
         self.assertIn("make bundle-audit-smoke", boundaries["verification"]["required_commands"])
         self.assertIn("make macos-smoke", boundaries["verification"]["required_commands"])
@@ -6192,7 +6193,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke zero-resident-audit-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke governance-integrity-smoke zero-resident-audit-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -6238,6 +6239,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.command-template-validation.v1", makefile)
         self.assertIn("make docs-smoke", makefile)
         self.assertIn("make governance-smoke", makefile)
+        self.assertIn("make governance-integrity-smoke", makefile)
         self.assertIn("make pytest-governance-smoke", makefile)
         self.assertIn("make ai-governance-smoke", makefile)
         self.assertIn("ai-contract-smoke", makefile)
@@ -6311,6 +6313,8 @@ class CleanMacCLITests(unittest.TestCase):
         release_readiness = run_main_json("release-readiness")
         self.assertFalse(release_readiness["destructive"])
         self.assertTrue(release_readiness["dry_run"])
+        self.assertIn("governance-integrity-ready", {gate["id"] for gate in release_readiness["gates"]})
+        self.assertIn(["make", "governance-integrity-smoke"], release_readiness["release_gate_commands"])
         self.assertIn(["make", "governed-execution-smoke"], release_readiness["release_gate_commands"])
         self.assertIn("release-artifact-manifest-valid", release_readiness["failed_gate_ids"])
 
@@ -6345,7 +6349,7 @@ class CleanMacCLITests(unittest.TestCase):
 
         self.assertTrue(explicit_readiness["ready"], explicit_readiness)
         self.assertEqual(explicit_readiness["failed_gate_ids"], [])
-        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 9, "total": 9, "level": "release-ready"})
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 10, "total": 10, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"

@@ -2418,7 +2418,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "dry_run": True,
             "ready": True,
             "manual_review_required": False,
-            "readiness_score": {"passed": 9, "total": 9, "level": "release-ready"},
+            "readiness_score": {"passed": 10, "total": 10, "level": "release-ready"},
             "failed_gate_ids": [],
             "gates": [
                 {

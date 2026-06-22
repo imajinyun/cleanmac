@@ -79,6 +79,7 @@ def render_boundary_governance() -> dict[str, Any]:
                 "make dependency-audit-smoke",
                 "make docs-smoke",
                 "make governance-smoke",
+                "make governance-integrity-smoke",
                 "make ai-governance-smoke",
                 "make open-source-smoke",
                 "make distribution-smoke",
