@@ -5,13 +5,32 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cleanmac"
 version = "0.1.0"
-description = "A macOS cleanup CLI with dry-run and sandbox path remapping."
+description = "AI-first zero-resident macOS cleanup CLI with MCP-ready dry-run plans and audit reports."
 requires-python = ">=3.10"
 dependencies = []
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["macos", "cleanup", "cli", "dry-run", "safety"]
+keywords = [
+    "macos",
+    "macos-cleaner",
+    "cleanup",
+    "disk-cleanup",
+    "cli",
+    "python",
+    "ai-first",
+    "mcp",
+    "model-context-protocol",
+    "llm-tools",
+    "agent-tools",
+    "dry-run",
+    "zero-resident",
+    "privacy",
+    "developer-tools",
+    "automation",
+    "safe-delete",
+    "trash",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
