@@ -602,7 +602,17 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertFalse(runtime_lifecycle["installs_background_daemon"])
         self.assertFalse(runtime_lifecycle["installs_login_item"])
         self.assertFalse(runtime_lifecycle["performs_unsolicited_scans"])
+        positioning = report["product_positioning"]
+        self.assertEqual(positioning["schema"], "cleanmac.product-positioning.v1")
+        self.assertIn("AI-first cleanup execution kernel", positioning["positioning"])
+        self.assertIn("GUI/TUI feature parity with app-first cleaners", positioning["non_goals"])
         self.assertEqual(boundaries["runtime_lifecycle"], runtime_lifecycle)
+        self.assertEqual(
+            boundaries["product_surface_policy"]["schema"],
+            "cleanmac.product-surface-policy.v1",
+        )
+        self.assertIn("LaunchAgent", boundaries["product_surface_policy"]["forbidden_surfaces"])
+        self.assertIn("Textual", boundaries["product_surface_policy"]["forbidden_dependency_families"])
         self.assertIn("background daemon", boundaries["forbidden_automation"])
         self.assertIn("menu bar resident app", boundaries["forbidden_automation"])
         self.assertIn("unsolicited scheduled scan", boundaries["forbidden_automation"])
@@ -644,8 +654,13 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(ai_contract["default_invocation"]["json_required"])
         self.assertEqual(ai_contract["default_invocation"]["preferred_command_style"], "grouped")
         self.assertIn("single-shot process", ai_contract["default_invocation"]["runtime_lifecycle"])
+        self.assertIn("AI-first cleanup execution kernel", ai_contract["default_invocation"]["product_positioning"])
+        self.assertTrue(ai_contract["one_shot_interaction_model"]["ask_ai_first"])
+        self.assertTrue(ai_contract["one_shot_interaction_model"]["must_exit_after_current_workflow"])
+        self.assertTrue(ai_contract["one_shot_interaction_model"]["must_not_keep_user_in_interface"])
         self.assertIn("clean inspect", ai_contract["auto_call_allowed"])
         self.assertIn("clean plan", ai_contract["auto_call_allowed"])
+        self.assertIn("explain", ai_contract["auto_call_allowed"])
         self.assertIn("clean run --execute", ai_contract["confirmation_required"])
         self.assertIn("clean open --execute", ai_contract["confirmation_required"])
         self.assertIn("rm " + "-rf", ai_contract["forbidden"])
@@ -5794,6 +5809,47 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue((root / "Users/tester/.Trash/old.tmp").exists())
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 
+    def test_explain_summarizes_plan_without_execution(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            trash_file = root / "Users/tester/.Trash/old.tmp"
+            trash_file.parent.mkdir(parents=True, exist_ok=True)
+            trash_file.write_bytes(b"x" * 2048)
+            plan_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "plan",
+                "--categories",
+                "trash",
+            )
+            plan_file = root / "plan.json"
+            plan_file.write_text(plan_result.stdout, encoding="utf-8")
+
+            explain_result = self.run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "explain",
+                "--input-file",
+                str(plan_file),
+            )
+            report = json.loads(explain_result.stdout)
+
+            self.assertEqual(report["schema"], "cleanmac.explain.v1")
+            self.assertFalse(report["destructive"])
+            self.assertTrue(report["dry_run"])
+            self.assertEqual(report["source_schema"], "cleanmac.plan.v1")
+            self.assertEqual(report["summary"]["candidate_count"], 1)
+            self.assertEqual(report["summary"]["estimated_reclaimable_bytes"], 2048)
+            self.assertFalse(report["ai_guidance"]["safe_to_execute"])
+            self.assertIn("trash delete mode", report["ai_guidance"]["execute_requires"])
+            self.assertEqual(report["top_categories"][0]["category"], "trash")
+
     def test_diagnose_recommends_safe_categories_and_flags_logs(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
@@ -5901,6 +5957,13 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(ux_guide["one_command"]["performs_background_scan"])
             self.assertFalse(ux_guide["one_command"]["executes_cleanup"])
             self.assertEqual(ux_guide["dry_run_summary"]["next_action"], "review_candidates")
+            single_shot = {row["id"]: row for row in report["single_shot_workflows"]}
+            self.assertTrue(single_shot["quick-safe-clean"]["safe_to_auto_call"])
+            self.assertFalse(single_shot["quick-safe-clean"]["destructive"])
+            self.assertIn("trash,downloads,mails,xcode", single_shot["quick-safe-clean"]["argv"])
+            self.assertTrue(single_shot["developer-clean"]["exits_after_workflow"])
+            self.assertIn("nodePackageCaches", single_shot["developer-clean"]["categories"])
+            self.assertFalse(single_shot["large-files-review"]["destructive"])
             tool_hints = {row["intent"]: row for row in ux_guide["tool_choice_hints"]}
             self.assertEqual(tool_hints["understand_available_actions"]["first_tool"], "cleanmac_capabilities")
             self.assertEqual(tool_hints["common_safe_cleanup_workflow"]["first_tool"], "cleanmac_workflow")
@@ -5960,6 +6023,11 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(report["dry_run"])
             self.assertFalse(report["destructive"])
             self.assertEqual(report["inputs"]["categories"], ["trash", "downloads", "xcode"])
+            single_shot = {row["id"]: row for row in report["single_shot_workflows"]}
+            self.assertIn("quick-safe-clean", single_shot)
+            self.assertIn("developer-clean", single_shot)
+            self.assertTrue(single_shot["developer-clean"]["safe_to_auto_call"])
+            self.assertTrue(single_shot["developer-clean"]["exits_after_workflow"])
             self.assertIn("cleanmac_generate_plan", report["recommended_tool_call_order"])
             self.assertIn("cleanmac_execute_plan", report["recommended_tool_call_order"])
             self.assertEqual(steps["generate_ai_origin_plan"]["output_schema"], "cleanmac.plan.v1")
