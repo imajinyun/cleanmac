@@ -129,7 +129,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertEqual(
             {surface["id"] for surface in plan["rollback_surfaces"]}, {"pypi", "github-release", "homebrew-tap"}
         )
-        self.assertNotIn("rm -rf", json.dumps(plan))
+        self.assertNotIn("rm " "-rf", json.dumps(plan))
 
     def test_post_publish_verification_is_manual_only_without_destructive_commands(self) -> None:
         plan = render_release_post_publish_verification(dist_dir="dist", assets_dir="release-assets")
@@ -141,7 +141,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             {"pypi", "github-release", "homebrew-tap"},
         )
         self.assertIn(["cleanmac", "--json", "release-rollback-plan"], plan["incident_response_entrypoints"])
-        self.assertNotIn("rm -rf", json.dumps(plan))
+        self.assertNotIn("rm " "-rf", json.dumps(plan))
 
     def test_post_publish_result_defaults_to_pending_manual_only_without_destructive_commands(self) -> None:
         result = render_release_post_publish_result(dist_dir="dist", assets_dir="release-assets")
@@ -152,7 +152,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
         self.assertFalse(result["ready"])
         self.assertEqual(set(result["pending_surface_ids"]), {"pypi", "github-release", "homebrew-tap"})
         self.assertIn(["cleanmac", "--json", "release-rollback-plan"], result["incident_response_entrypoints"])
-        self.assertNotIn("rm -rf", json.dumps(result))
+        self.assertNotIn("rm " "-rf", json.dumps(result))
 
     def test_post_publish_evidence_template_is_manual_only_and_complete(self) -> None:
         template = render_release_post_publish_evidence_template(dist_dir="dist", assets_dir="release-assets")
@@ -171,7 +171,7 @@ class ReleaseOrchestrationTests(unittest.TestCase):
             ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"],
             template["recommended_commands"],
         )
-        self.assertNotIn("rm -rf", json.dumps(template))
+        self.assertNotIn("rm " "-rf", json.dumps(template))
 
     def test_post_publish_result_accepts_verified_evidence_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

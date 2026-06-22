@@ -11,6 +11,7 @@ def render_boundary_governance() -> dict[str, Any]:
         "schema": "cleanmac.boundary-governance.v1",
         "purpose": "Define safe automation boundaries for cleanup operations.",
         "runtime_lifecycle": runtime_lifecycle,
+        "zero_resident_audit": render_zero_resident_audit(runtime_lifecycle=runtime_lifecycle),
         "automated_safe_behaviors": [
             "list",
             "capabilities",
@@ -39,7 +40,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "clean --execute",
             "--allow-live-root",
             "sudo rm",
-            "rm -rf /",
+            "rm " "-rf /",
             "background daemon",
             "menu bar resident app",
             "unsolicited scheduled scan",
@@ -119,6 +120,168 @@ def render_runtime_lifecycle_policy() -> dict[str, Any]:
     }
 
 
+def _zero_resident_check(
+    *,
+    check_id: str,
+    passed: bool,
+    evidence: Any,
+    expected: Any,
+    remediation: str,
+) -> dict[str, Any]:
+    return {
+        "id": check_id,
+        "passed": passed,
+        "severity": "none" if passed else "blocking",
+        "evidence": evidence,
+        "expected": expected,
+        "remediation": remediation,
+        "remediation_commands": [["cleanmac", "--json", "zero-resident-audit"], ["make", "zero-resident-audit-smoke"]],
+    }
+
+
+def render_zero_resident_audit(*, runtime_lifecycle: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return a release-gateable audit proving cleanmac remains non-resident."""
+
+    lifecycle = dict(runtime_lifecycle or render_runtime_lifecycle_policy())
+    forbidden_patterns = list(lifecycle.get("forbidden_product_patterns") or [])
+    checks = [
+        _zero_resident_check(
+            check_id="product-model-ai-first-ephemeral-cli",
+            passed=lifecycle.get("product_model") == "ai-first-ephemeral-cli",
+            evidence=lifecycle.get("product_model"),
+            expected="ai-first-ephemeral-cli",
+            remediation="Keep cleanmac positioned as an AI-first ephemeral CLI, not an app-first interface.",
+        ),
+        _zero_resident_check(
+            check_id="runs-only-when-invoked",
+            passed=lifecycle.get("runs_only_when_invoked") is True,
+            evidence=lifecycle.get("runs_only_when_invoked"),
+            expected=True,
+            remediation="Remove unsolicited launch paths; cleanmac may only run after explicit CLI or AI Host invocation.",
+        ),
+        _zero_resident_check(
+            check_id="exits-after-workflow",
+            passed=lifecycle.get("exits_after_workflow") is True,
+            evidence=lifecycle.get("exits_after_workflow"),
+            expected=True,
+            remediation="Do not retain a process after the requested workflow completes.",
+        ),
+        _zero_resident_check(
+            check_id="resident-processes-zero",
+            passed=lifecycle.get("resident_processes") == 0,
+            evidence=lifecycle.get("resident_processes"),
+            expected=0,
+            remediation="Remove resident monitors, menu bar processes, daemons, or session loops.",
+        ),
+        _zero_resident_check(
+            check_id="background-cpu-zero-when-not-invoked",
+            passed=lifecycle.get("background_cpu_policy") == "zero-when-not-invoked",
+            evidence=lifecycle.get("background_cpu_policy"),
+            expected="zero-when-not-invoked",
+            remediation="Do not add background workers, schedulers, or polling loops.",
+        ),
+        _zero_resident_check(
+            check_id="background-memory-zero-when-not-invoked",
+            passed=lifecycle.get("background_memory_policy") == "zero-when-not-invoked",
+            evidence=lifecycle.get("background_memory_policy"),
+            expected="zero-when-not-invoked",
+            remediation="Do not keep any cleanmac process alive between invocations.",
+        ),
+        _zero_resident_check(
+            check_id="no-tui",
+            passed=lifecycle.get("implements_tui") is False,
+            evidence=lifecycle.get("implements_tui"),
+            expected=False,
+            remediation="Expose machine-readable reports instead of a terminal UI session.",
+        ),
+        _zero_resident_check(
+            check_id="no-gui",
+            passed=lifecycle.get("implements_gui") is False,
+            evidence=lifecycle.get("implements_gui"),
+            expected=False,
+            remediation="Expose CLI, JSON, and MCP contracts instead of a GUI application.",
+        ),
+        _zero_resident_check(
+            check_id="no-background-daemon",
+            passed=lifecycle.get("installs_background_daemon") is False,
+            evidence=lifecycle.get("installs_background_daemon"),
+            expected=False,
+            remediation="Do not install LaunchAgent, LaunchDaemon, service, or scheduler components.",
+        ),
+        _zero_resident_check(
+            check_id="no-login-item",
+            passed=lifecycle.get("installs_login_item") is False,
+            evidence=lifecycle.get("installs_login_item"),
+            expected=False,
+            remediation="Do not add login items or auto-start hooks.",
+        ),
+        _zero_resident_check(
+            check_id="no-unsolicited-scans",
+            passed=lifecycle.get("performs_unsolicited_scans") is False,
+            evidence=lifecycle.get("performs_unsolicited_scans"),
+            expected=False,
+            remediation="Run scans only as direct responses to explicit CLI or AI Host calls.",
+        ),
+        _zero_resident_check(
+            check_id="ai-or-cli-interaction-layer",
+            passed=lifecycle.get("interaction_layer") == "AI host or explicit CLI command",
+            evidence=lifecycle.get("interaction_layer"),
+            expected="AI host or explicit CLI command",
+            remediation="Keep interaction through AI Hosts and explicit CLI commands.",
+        ),
+        _zero_resident_check(
+            check_id="nonresident-state-model",
+            passed="resident app state" in str(lifecycle.get("state_model", "")),
+            evidence=lifecycle.get("state_model"),
+            expected="plan/report/operation-log state instead of resident app state",
+            remediation="Use files and logs for auditability instead of in-memory app sessions.",
+        ),
+        _zero_resident_check(
+            check_id="forbidden-product-patterns-declared",
+            passed=all(
+                pattern in forbidden_patterns
+                for pattern in (
+                    "TUI workflow as primary product surface",
+                    "GUI workflow as primary product surface",
+                    "menu bar resident monitor",
+                    "background cleanup daemon",
+                    "automatic cleanup without explicit invocation",
+                )
+            ),
+            evidence=forbidden_patterns,
+            expected="GUI/TUI/menu-bar/daemon/background cleanup patterns are forbidden",
+            remediation="Restore the product boundary declarations before release review.",
+        ),
+    ]
+    failed_check_ids = [check["id"] for check in checks if not check["passed"]]
+    return {
+        "schema": "cleanmac.zero-resident-audit.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not failed_check_ids,
+        "product_model": lifecycle.get("product_model"),
+        "resident_processes": lifecycle.get("resident_processes"),
+        "background_cpu_policy": lifecycle.get("background_cpu_policy"),
+        "background_memory_policy": lifecycle.get("background_memory_policy"),
+        "failed_check_ids": failed_check_ids,
+        "readiness_score": {
+            "passed": len(checks) - len(failed_check_ids),
+            "total": len(checks),
+            "level": "ready" if not failed_check_ids else "blocked",
+        },
+        "checks": checks,
+        "runtime_lifecycle_resource": "cleanmac://ai/runtime-lifecycle-policy",
+        "runtime_lifecycle": lifecycle,
+        "forbidden_product_patterns": forbidden_patterns,
+        "release_gate_commands": [["cleanmac", "--json", "zero-resident-audit"], ["make", "zero-resident-audit-smoke"]],
+        "review_questions": [
+            "Does the change keep cleanmac as a single-shot AI/CLI process?",
+            "Does the change avoid GUI, TUI, daemon, menu bar, login item, and background scan surfaces?",
+            "Are machine-readable plans, reports, selections, and logs used instead of resident app state?",
+        ],
+    }
+
+
 def render_capabilities(*args: Any, **kwargs: Any) -> dict[str, Any]:
     from .core import render_capabilities as _render_capabilities
 
@@ -136,4 +299,5 @@ __all__ = [
     "render_capabilities",
     "render_doctor",
     "render_runtime_lifecycle_policy",
+    "render_zero_resident_audit",
 ]

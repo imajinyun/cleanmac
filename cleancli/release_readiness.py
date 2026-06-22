@@ -51,6 +51,7 @@ def render_release_readiness(
     ai_host_preflight: Mapping[str, Any],
     ai_host_evidence: Mapping[str, Any],
     mcp_surface_audit: Mapping[str, Any],
+    zero_resident_audit: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
     eval_smoke: Mapping[str, Any],
     release_manifest: Mapping[str, Any],
@@ -104,6 +105,18 @@ def render_release_readiness(
                 ["cleanmac", "--json", "mcp-surface-audit"],
                 ["make", "mcp-surface-audit-smoke"],
                 ["make", "mcp-smoke"],
+            ],
+        ),
+        _gate(
+            gate_id="zero-resident-audit-ready",
+            passed=_passed_bool(zero_resident_audit, "ready"),
+            evidence_schema=zero_resident_audit.get("schema"),
+            evidence_ref={"producer": "cleanmac --json zero-resident-audit"},
+            diagnostic="Zero-resident product boundary audit is not ready for release review.",
+            blocking_code="ZERO_RESIDENT_AUDIT_NOT_READY",
+            next_actions=[
+                ["cleanmac", "--json", "zero-resident-audit"],
+                ["make", "zero-resident-audit-smoke"],
             ],
         ),
         _gate(
@@ -163,6 +176,7 @@ def render_release_readiness(
         "review_questions": [
             "Did ai-host-preflight pass before tool orchestration?",
             "Did ai-host-evidence include runtime denial samples?",
+            "Did zero-resident-audit confirm no GUI, TUI, daemon, login item, or background scan surface?",
             "Did governed-execution-smoke pass after startup/privacy executor changes?",
             "Did release artifacts include manifest, SHA256SUMS, SBOM, and Homebrew formula evidence?",
         ],
