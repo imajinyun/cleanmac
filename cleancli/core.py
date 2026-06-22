@@ -2296,6 +2296,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
     decision_matrix = render_ai_decision_matrix()
     governance_advice = render_ai_governance_advice_report()
     runtime_lifecycle = render_runtime_lifecycle_policy()
+    zero_resident_audit = render_zero_resident_audit(runtime_lifecycle=runtime_lifecycle)
     host_policy = render_ai_host_policy(
         decision_matrix=decision_matrix,
         governance_advice=governance_advice,
@@ -2309,6 +2310,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
         governance_advice=governance_advice,
         host_policy=host_policy,
         runtime_lifecycle=runtime_lifecycle,
+        zero_resident_audit=zero_resident_audit,
         schema_registry=render_ai_schema_registry(),
         eval_pack=render_ai_eval_pack(),
         contract_validation=render_ai_contract_validation_summary(),
@@ -2320,6 +2322,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
 def render_ai_host_preflight_report() -> dict[str, Any]:
     return render_ai_host_preflight(
         integration_pack=render_ai_host_integration_pack_report(),
+        zero_resident_audit=render_zero_resident_audit(),
         runtime_policy_schema_registered="cleanmac.runtime-lifecycle-policy.v1" in AI_HOST_CRITICAL_SCHEMAS,
     )
 
@@ -2346,6 +2349,7 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
         contract_validation=render_ai_contract_validation_summary(),
         release_readiness=render_runtime_release_readiness_summary(),
         runtime_lifecycle=render_runtime_lifecycle_policy(),
+        zero_resident_audit=render_zero_resident_audit(),
         runtime_policy_evidence=[
             {"id": "raw-command-argument-denied", "decision": raw_denial},
             {"id": "destructive-missing-confirmation-denied", "decision": destructive_denial},

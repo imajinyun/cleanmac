@@ -11,6 +11,7 @@ from cleancli.mcp_resources import (
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
+    ZERO_RESIDENT_AUDIT_URI,
     render_mcp_surface_audit,
     validate_mcp_meta_index,
     validate_mcp_resource_catalog,
@@ -43,6 +44,7 @@ def render_ai_host_evidence(
     contract_validation: Mapping[str, Any],
     release_readiness: Mapping[str, Any],
     runtime_lifecycle: Mapping[str, Any],
+    zero_resident_audit: Mapping[str, Any],
     runtime_policy_evidence: Sequence[Mapping[str, Any]],
     critical_schemas: Sequence[str],
 ) -> dict[str, Any]:
@@ -130,6 +132,23 @@ def render_ai_host_evidence(
             "evidence": "cleanmac.runtime-lifecycle-policy.v1",
         },
         {
+            "id": "zero-resident-audit-advertised",
+            "passed": ZERO_RESIDENT_AUDIT_URI in resources,
+            "evidence": ZERO_RESIDENT_AUDIT_URI,
+        },
+        {
+            "id": "zero-resident-audit-ready",
+            "passed": bool(
+                isinstance(zero_resident_audit, Mapping)
+                and zero_resident_audit.get("schema") == "cleanmac.zero-resident-audit.v1"
+                and zero_resident_audit.get("ready") is True
+                and zero_resident_audit.get("product_model") == "ai-first-ephemeral-cli"
+                and zero_resident_audit.get("resident_processes") == 0
+                and zero_resident_audit.get("failed_check_ids") == []
+            ),
+            "evidence": "cleanmac.zero-resident-audit.v1",
+        },
+        {
             "id": "mcp-resource-catalog-valid",
             "passed": bool(resource_validation.get("valid")),
             "evidence": "cleanmac.mcp-resource-index.v1",
@@ -179,6 +198,7 @@ def render_ai_host_evidence(
         "mcp_prompt_catalog": prompt_validation,
         "mcp_tool_catalog": tool_validation,
         "runtime_lifecycle": dict(runtime_lifecycle),
+        "zero_resident_audit": dict(zero_resident_audit),
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),
@@ -194,10 +214,12 @@ def render_ai_host_evidence(
             ["cleanmac", "--json", "ai-host-preflight"],
             ["cleanmac", "--json", "ai-host-evidence"],
             ["cleanmac", "--json", "mcp-surface-audit"],
+            ["cleanmac", "--json", "zero-resident-audit"],
             ["cleanmac", "--json", "release-readiness"],
             ["make", "ai-contract-smoke"],
             ["make", "mcp-smoke"],
             ["make", "mcp-surface-audit-smoke"],
+            ["make", "zero-resident-audit-smoke"],
             ["make", "ai-governance-smoke"],
             ["make", "ai-host-smoke"],
             ["make", "release-readiness-smoke"],
@@ -205,6 +227,7 @@ def render_ai_host_evidence(
         "review_questions": [
             "Did the host load cleanmac://ai/host-integration-pack before tool calls?",
             "Did the host run cleanmac.ai-host-preflight.v1 and stop if ready=false?",
+            "Did the host verify cleanmac.zero-resident-audit.v1 before orchestration?",
             "Were raw command arguments denied before CLI execution?",
             "Were destructive calls denied when confirmation gates were missing?",
             "Did CI run ai-contract-smoke, mcp-smoke, ai-governance-smoke, and ai-host-smoke?",
