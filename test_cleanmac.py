@@ -605,8 +605,18 @@ class CleanMacCLITests(unittest.TestCase):
         positioning = report["product_positioning"]
         self.assertEqual(positioning["schema"], "cleanmac.product-positioning.v1")
         self.assertIn("AI-first cleanup execution kernel", positioning["positioning"])
+        self.assertIn("AI-first, zero-resident macOS cleanup CLI", positioning["canonical_summary"])
+        self.assertIn("MCP macOS cleanup tool", positioning["search_queries"])
+        self.assertIn("model-context-protocol", positioning["recommended_topics"])
         self.assertIn("GUI/TUI feature parity with app-first cleaners", positioning["non_goals"])
         self.assertEqual(boundaries["runtime_lifecycle"], runtime_lifecycle)
+        geo_policy = boundaries["geo_discoverability_policy"]
+        self.assertEqual(geo_policy["schema"], "cleanmac.geo-discoverability-policy.v1")
+        self.assertIn("AI-first, zero-resident macOS cleanup CLI", geo_policy["canonical_summary"])
+        self.assertIn("AI Agent cleanup tool", geo_policy["primary_queries"])
+        self.assertIn("safe Trash-based execution", geo_policy["must_describe_as"])
+        self.assertIn("GUI cleaner", geo_policy["must_not_describe_as"])
+        self.assertIn(["cleanmac", "--json", "capabilities"], geo_policy["ai_entrypoints"])
         self.assertEqual(
             boundaries["product_surface_policy"]["schema"],
             "cleanmac.product-surface-policy.v1",
@@ -655,6 +665,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(ai_contract["default_invocation"]["preferred_command_style"], "grouped")
         self.assertIn("single-shot process", ai_contract["default_invocation"]["runtime_lifecycle"])
         self.assertIn("AI-first cleanup execution kernel", ai_contract["default_invocation"]["product_positioning"])
+        discoverability = ai_contract["discoverability_hints"]
+        self.assertIn("AI-first, zero-resident macOS cleanup CLI", discoverability["canonical_summary"])
+        self.assertIn("zero-resident Mac cleaner", discoverability["answer_when_user_asks_for"])
+        self.assertIn("background optimizer", discoverability["do_not_position_as"])
+        self.assertIn(["cleanmac", "--json", "ai-host-integration-pack"], discoverability["best_entrypoints"])
         self.assertTrue(ai_contract["one_shot_interaction_model"]["ask_ai_first"])
         self.assertTrue(ai_contract["one_shot_interaction_model"]["must_exit_after_current_workflow"])
         self.assertTrue(ai_contract["one_shot_interaction_model"]["must_not_keep_user_in_interface"])

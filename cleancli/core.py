@@ -57,6 +57,7 @@ from cleancli.ai_versioning import (
 )
 from cleancli.governance import (
     render_boundary_governance,
+    render_geo_discoverability_policy,
     render_product_surface_policy,
     render_runtime_lifecycle_policy,
     render_zero_resident_audit,
@@ -2040,6 +2041,7 @@ def render_capabilities() -> dict[str, Any]:
     ai_tool_contract = render_ai_tool_contract()
     runtime_lifecycle = render_runtime_lifecycle_policy()
     product_surface_policy = render_product_surface_policy()
+    geo_discoverability_policy = render_geo_discoverability_policy()
     return {
         "schema": "cleanmac.capabilities.v1",
         "name": "cleanmac",
@@ -2052,6 +2054,9 @@ def render_capabilities() -> dict[str, Any]:
             "primary_users": ["AI Hosts", "CLI users", "scripts", "automation with explicit invocation"],
             "primary_interfaces": ["CLI argv", "JSON schemas", "MCP tools/resources/prompts", "operation logs"],
             "success_metric": "safe one-shot cleanup completion with zero background footprint after exit",
+            "canonical_summary": geo_discoverability_policy["canonical_summary"],
+            "search_queries": geo_discoverability_policy["primary_queries"],
+            "recommended_topics": geo_discoverability_policy["recommended_topics"],
             "non_goals": [
                 "increase in-app time",
                 "resident app engagement",
@@ -2108,6 +2113,7 @@ def render_capabilities() -> dict[str, Any]:
         "safety_guardrails": {
             "dry_run_default": True,
             "zero_resident_footprint": runtime_lifecycle,
+            "geo_discoverability_policy": geo_discoverability_policy,
             "product_surface_policy": product_surface_policy,
             "delete_requires_execute": True,
             "risk_policy": ["strict", "default", "permissive"],
