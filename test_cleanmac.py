@@ -6734,29 +6734,29 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertNotIn(local_developer_path, readme)
         self.assertNotIn(local_developer_path, readme_cn)
         self.assertIn("cleancli/delete_ops.py", agents)
-        self.assertIn("AI-first、一次性运行", agents)
-        self.assertIn("不安装后台 daemon", agents)
-        self.assertIn("## 产品定位红线", agents)
+        self.assertIn("AI-first, single-shot Python CLI", agents)
+        self.assertIn("background daemon", agents)
+        self.assertIn("## 🚧 Product Boundary Red Lines", agents)
         self.assertIn("launchctl", agents)
         self.assertIn("tests/data/dangerous_paths.txt", agents)
         for required_agent_section in (
-            "## 项目地图",
-            "## 常用命令",
-            "## 关键安全规则",
-            "## 高风险模块所有权与必跑测试",
-            "## 历史事故和踩坑案例",
+            "## 🗺️ Project Map",
+            "## ⚙️ Common Commands",
+            "## 🛡️ Critical Safety Rules",
+            "## 🧪 High-Risk Module Ownership and Required Tests",
+            "## 🧭 Historical Incidents and Pitfalls",
             "cleancli/protection_data.py",
             "cleancli/protection.py",
             "cleancli/scripts.py",
             "cleancli/governance.py",
-            "Symlink 指向系统路径",
+            "Symlink to a system path",
             "Group Container wildcard",
             "Trash fail-closed",
             "sudo prompt",
-            "Plan replay root/home 不一致",
-            "Operation log 不可写",
+            "Plan replay root/home mismatch",
+            "Operation log not writable",
             "Shell template unsafe auto execution",
-            "临时 venv",
+            "temporary venv",
         ):
             self.assertIn(required_agent_section, agents)
         self.assertIn('license-files = ["LICENSE"]', pyproject)
