@@ -12,6 +12,7 @@ from cleancli.mcp_resources import (
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
+    ZERO_RESIDENT_AUDIT_URI,
     mcp_resource_uris,
 )
 from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, mcp_tool_names
@@ -26,6 +27,7 @@ def render_ai_host_integration_pack(
     governance_advice: Mapping[str, Any],
     host_policy: Mapping[str, Any],
     runtime_lifecycle: Mapping[str, Any],
+    zero_resident_audit: Mapping[str, Any],
     schema_registry: Mapping[str, Any],
     eval_pack: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
@@ -50,6 +52,7 @@ def render_ai_host_integration_pack(
         "read cleanmac://ai/host-integration-pack",
         f"read {AI_WORKFLOW_CONTRACT_URI}",
         f"read {RUNTIME_LIFECYCLE_POLICY_URI}",
+        f"read {ZERO_RESIDENT_AUDIT_URI}",
         *list(governance_advice.get("recommended_call_sequence", [])),
     ]:
         if step not in recommended_call_sequence:
@@ -64,6 +67,7 @@ def render_ai_host_integration_pack(
         and contract_validation.get("valid")
         and eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
         and not eval_pack.get("allows_destructive_execution", True)
+        and zero_resident_audit.get("ready") is True
     )
     return {
         "schema": "cleanmac.ai-host-integration-pack.v1",
@@ -89,6 +93,7 @@ def render_ai_host_integration_pack(
         },
         "critical_schemas": list(critical_schemas),
         "runtime_lifecycle": dict(runtime_lifecycle),
+        "zero_resident_audit": dict(zero_resident_audit),
         "recommended_preflight_commands": recommended_preflight_commands,
         "recommended_call_sequence": recommended_call_sequence,
         "readiness": readiness,
@@ -107,6 +112,7 @@ def render_ai_host_integration_pack(
 def render_ai_host_preflight(
     *,
     integration_pack: Mapping[str, Any],
+    zero_resident_audit: Mapping[str, Any],
     runtime_policy_schema_registered: bool,
 ) -> dict[str, Any]:
     """Return a runtime preflight gate report for AI Host orchestration."""
@@ -168,6 +174,22 @@ def render_ai_host_preflight(
             ),
             "evidence": "cleanmac.runtime-lifecycle-policy.v1",
         },
+        {
+            "id": "zero-resident-audit-advertised",
+            "passed": bool(isinstance(resources, list) and ZERO_RESIDENT_AUDIT_URI in resources),
+            "evidence": ZERO_RESIDENT_AUDIT_URI,
+        },
+        {
+            "id": "zero-resident-audit-ready",
+            "passed": bool(
+                isinstance(zero_resident_audit, Mapping)
+                and zero_resident_audit.get("schema") == "cleanmac.zero-resident-audit.v1"
+                and zero_resident_audit.get("ready") is True
+                and zero_resident_audit.get("product_model") == "ai-first-ephemeral-cli"
+                and zero_resident_audit.get("resident_processes") == 0
+            ),
+            "evidence": "cleanmac.zero-resident-audit.v1",
+        },
     ]
     return {
         "schema": "cleanmac.ai-host-preflight.v1",
@@ -184,6 +206,7 @@ def render_ai_host_preflight(
             "mcp_surface_audit": MCP_SURFACE_AUDIT_URI,
             "workflow_contract": AI_WORKFLOW_CONTRACT_URI,
             "runtime_lifecycle_policy": RUNTIME_LIFECYCLE_POLICY_URI,
+            "zero_resident_audit": ZERO_RESIDENT_AUDIT_URI,
         },
         "checks": checks,
         "required_before_destructive_tool": [
@@ -202,5 +225,6 @@ def render_ai_host_preflight(
             ["make", "ai-host-smoke"],
             ["make", "ai-governance-smoke"],
             ["make", "ai-contract-smoke"],
+            ["make", "zero-resident-audit-smoke"],
         ],
     }

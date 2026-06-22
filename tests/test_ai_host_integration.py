@@ -32,6 +32,9 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["runtime_lifecycle"]["schema"], "cleanmac.runtime-lifecycle-policy.v1")
         self.assertEqual(pack["runtime_lifecycle"]["product_model"], "ai-first-ephemeral-cli")
         self.assertEqual(pack["runtime_lifecycle"]["resident_processes"], 0)
+        self.assertEqual(pack["zero_resident_audit"]["schema"], "cleanmac.zero-resident-audit.v1")
+        self.assertTrue(pack["zero_resident_audit"]["ready"], pack["zero_resident_audit"])
+        self.assertEqual(pack["zero_resident_audit"]["resident_processes"], 0)
         self.assertEqual(pack["governance_advice"]["schema"], "cleanmac.ai-governance-advice.v1")
         self.assertEqual(pack["eval_pack"]["schema"], "cleanmac.ai-eval-pack.v1")
         self.assertEqual(pack["contract_validation"]["schema"], "cleanmac.ai-contract-validation-summary.v1")
@@ -53,6 +56,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         )
         self.assertIn("cleanmac://ai/host-integration-pack", pack["mcp"]["resources"])
         self.assertIn("cleanmac://ai/runtime-lifecycle-policy", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://ai/zero-resident-audit", pack["mcp"]["resources"])
         self.assertIn("cleanmac://ai/host-evidence", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/readiness", pack["mcp"]["resources"])
         self.assertIn("cleanmac://release/diagnostics", pack["mcp"]["resources"])
@@ -86,6 +90,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(len(pack["recommended_call_sequence"]), len(set(pack["recommended_call_sequence"])))
         self.assertIn("read cleanmac://ai/workflow-contract", pack["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/runtime-lifecycle-policy", pack["recommended_call_sequence"])
+        self.assertIn("read cleanmac://ai/zero-resident-audit", pack["recommended_call_sequence"])
         self.assertIn("read cleanmac://ai/host-integration-pack", pack["recommended_call_sequence"])
 
     def test_pack_validates_against_registered_contract_schema(self) -> None:
@@ -113,6 +118,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertEqual(pack["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
         self.assertIn("cleanmac://ai/workflow-contract", pack["mcp"]["resources"])
+        self.assertIn("cleanmac://ai/zero-resident-audit", pack["mcp"]["resources"])
 
     def test_readiness_and_governance_recommend_integration_pack_entrypoint(self) -> None:
         pack = render_ai_host_integration_pack_report()
@@ -185,8 +191,12 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(checks["release-readiness-resource-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-ready"]["passed"])
+        self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
+        self.assertTrue(checks["zero-resident-audit-ready"]["passed"])
         self.assertEqual(evidence["mcp_surface_audit"]["schema"], "cleanmac.mcp-surface-audit.v1")
         self.assertTrue(evidence["mcp_surface_audit"]["ready"], evidence["mcp_surface_audit"])
+        self.assertEqual(evidence["zero_resident_audit"]["schema"], "cleanmac.zero-resident-audit.v1")
+        self.assertTrue(evidence["zero_resident_audit"]["ready"], evidence["zero_resident_audit"])
         self.assertIn(["make", "release-readiness-smoke"], evidence["release_gate_commands"])
 
     def test_preflight_reports_runtime_governance_gate(self) -> None:
@@ -209,8 +219,12 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(checks["contract-validation-valid"]["passed"])
         self.assertTrue(checks["mcp-runtime-policy-present"]["passed"])
         self.assertTrue(checks["runtime-lifecycle-policy-valid"]["passed"])
+        self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
+        self.assertTrue(checks["zero-resident-audit-ready"]["passed"])
         self.assertEqual(checks["mcp-runtime-policy-present"]["evidence"], "cleanmac://ai/runtime-lifecycle-policy")
+        self.assertEqual(checks["zero-resident-audit-advertised"]["evidence"], "cleanmac://ai/zero-resident-audit")
         self.assertEqual(preflight["entrypoint"]["runtime_lifecycle_policy"], "cleanmac://ai/runtime-lifecycle-policy")
+        self.assertEqual(preflight["entrypoint"]["zero_resident_audit"], "cleanmac://ai/zero-resident-audit")
         self.assertIn("matching_confirmation_token", preflight["required_before_destructive_tool"])
 
     def test_preflight_validates_against_registered_contract_schema(self) -> None:
