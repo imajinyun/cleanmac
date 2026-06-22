@@ -50,6 +50,7 @@ def render_release_readiness(
     ai_host_integration_pack: Mapping[str, Any],
     ai_host_preflight: Mapping[str, Any],
     ai_host_evidence: Mapping[str, Any],
+    governance_integrity: Mapping[str, Any],
     mcp_surface_audit: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
     contract_validation: Mapping[str, Any],
@@ -91,6 +92,19 @@ def render_release_readiness(
             diagnostic="AI Host evidence pack is incomplete.",
             blocking_code="AI_HOST_EVIDENCE_NOT_READY",
             next_actions=[["make", "ai-host-smoke"], ["make", "mcp-smoke"]],
+        ),
+        _gate(
+            gate_id="governance-integrity-ready",
+            passed=_passed_bool(governance_integrity, "ready"),
+            evidence_schema=governance_integrity.get("schema"),
+            evidence_ref={"producer": "cleanmac --json governance-integrity"},
+            diagnostic="Governance integrity drift checks are not ready for release review.",
+            blocking_code="GOVERNANCE_INTEGRITY_NOT_READY",
+            next_actions=[
+                ["cleanmac", "--json", "governance-integrity"],
+                ["make", "governance-integrity-smoke"],
+                ["make", "governance-smoke"],
+            ],
         ),
         _gate(
             gate_id="mcp-surface-audit-ready",
@@ -176,6 +190,7 @@ def render_release_readiness(
         "review_questions": [
             "Did ai-host-preflight pass before tool orchestration?",
             "Did ai-host-evidence include runtime denial samples?",
+            "Did governance-integrity confirm centralized GEO, product surface, and AI contract metadata stayed aligned?",
             "Did zero-resident-audit confirm no GUI, TUI, daemon, login item, or background scan surface?",
             "Did governed-execution-smoke pass after startup/privacy executor changes?",
             "Did release artifacts include manifest, SHA256SUMS, SBOM, and Homebrew formula evidence?",
