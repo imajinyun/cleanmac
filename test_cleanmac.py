@@ -6757,6 +6757,7 @@ class CleanMacCLITests(unittest.TestCase):
             "Operation log not writable",
             "Shell template unsafe auto execution",
             "temporary venv",
+            "All documentation optimizations must be written in English by default",
         ):
             self.assertIn(required_agent_section, agents)
         self.assertIn('license-files = ["LICENSE"]', pyproject)

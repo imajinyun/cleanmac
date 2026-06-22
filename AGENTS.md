@@ -232,5 +232,6 @@ python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_ma
 
 - Every change must run at least the targeted unittest corresponding to the touched file.
 - Changes touching safety, deletion, protection, CI, release, or script templates must also run `make local-test` or the matching smoke target.
+- All documentation optimizations must be written in English by default, including agent guides, workflow guidance, README updates, and release-facing instructions.
 - Before release or after broad changes, run temporary-venv lint/type/pytest plus `make docker-test`.
 - Do not skip validation because local dependencies are missing; install them in a temporary venv first, then report the actual results.
