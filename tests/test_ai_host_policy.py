@@ -89,6 +89,14 @@ class AIHostPolicyTests(unittest.TestCase):
             "cleanmac://ai/runtime-lifecycle-policy",
             self.report["required_resources_before_execution"],
         )
+        self.assertIn(
+            "cleanmac://ai/cold-start-budget",
+            self.report["required_resources_before_execution"],
+        )
+        self.assertIn(
+            "cleanmac://release/dependency-governance",
+            self.report["required_resources_before_execution"],
+        )
 
     def test_host_policy_renderer_handles_partial_decision_matrix(self) -> None:
         from cleancli.ai_host_policy import render_ai_host_policy
@@ -241,6 +249,7 @@ class AIHostPolicyTests(unittest.TestCase):
         codes = {reason["code"] for reason in decision["blocking_reasons"]}
         self.assertIn("HUMAN_CONFIRMATION_PHRASE_REQUIRED", codes)
         self.assertIn("CONFIRMATION_TOKEN_REQUIRED", codes)
+        self.assertIn("OPERATION_LOG_REQUIRED", codes)
         self.assertIn("PLAN_CONTEXT_REQUIRED", codes)
         self.assertEqual(decision["next_allowed_tools"], ["cleanmac_validate_plan", "cleanmac_policy_simulate"])
 
@@ -258,6 +267,7 @@ class AIHostPolicyTests(unittest.TestCase):
                 "plan_file": "/tmp/plan.json",
                 "confirmation_phrase": "Confirm cleanmac cleanup execution",
                 "confirmation_token": "abc123",
+                "operation_log": "/tmp/cleanmac-operations.jsonl",
                 "require_plan_context": True,
             },
             source="unit-test",

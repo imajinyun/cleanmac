@@ -628,6 +628,22 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("unsolicited scheduled scan", boundaries["forbidden_automation"])
         self.assertIn("clean --execute", boundaries["forbidden_automation"])
         self.assertIn("--allow-live-root", boundaries["forbidden_automation"])
+        governance_todo = boundaries["development_governance_todo"]
+        self.assertEqual(governance_todo["schema"], "cleanmac.development-governance-todo.v1")
+        self.assertTrue(governance_todo["ordered"])
+        self.assertEqual(governance_todo["item_count"], 25)
+        self.assertEqual([item["order"] for item in governance_todo["items"]], list(range(1, 26)))
+        self.assertTrue(all(item["status"] == "governed" for item in governance_todo["items"]))
+        self.assertEqual(governance_todo["items"][0]["id"], "strengthen-ai-first-entrypoints")
+        self.assertEqual(governance_todo["items"][24]["id"], "gate-release-with-ai-mcp-checklist")
+        self.assertIn(
+            ["make", "ai-first-release-checklist-smoke"],
+            governance_todo["release_gate_commands"],
+        )
+        self.assertEqual(
+            report["safety_guardrails"]["development_governance_todo"],
+            governance_todo,
+        )
         self.assertIn("make docs-smoke", boundaries["verification"]["required_commands"])
         self.assertIn("make governance-smoke", boundaries["verification"]["required_commands"])
         self.assertIn("make governance-integrity-smoke", boundaries["verification"]["required_commands"])
@@ -659,6 +675,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(integrity_checks["boundary-geo-policy-single-source"]["passed"])
         self.assertTrue(integrity_checks["positioning-reuses-geo-summary"]["passed"])
         self.assertTrue(integrity_checks["ai-contract-geo-entrypoints-covered"]["passed"])
+        self.assertTrue(integrity_checks["development-governance-todo-ordered"]["passed"])
+        self.assertIn("cleanmac.development-governance-todo.v1", governance_integrity["governed_contracts"])
         self.assertIn(["cleanmac", "--json", "governance-integrity"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-integrity-smoke"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-smoke"], governance_integrity["release_gate_commands"])
@@ -831,7 +849,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac_execute_plan", by_name)
         self.assertFalse(by_name["cleanmac_inspect"]["requires_confirmation"])
         self.assertTrue(by_name["cleanmac_execute_plan"]["requires_confirmation"])
-        self.assertNotIn("operation_log", by_name["cleanmac_execute_plan"]["parameters"]["required"])
+        self.assertIn("operation_log", by_name["cleanmac_execute_plan"]["parameters"]["required"])
         self.assertNotIn("require_plan_context", by_name["cleanmac_execute_plan"]["parameters"]["required"])
         self.assertEqual(
             by_name["cleanmac_execute_plan"]["parameters"]["properties"]["require_plan_context"]["default"], True
@@ -912,6 +930,7 @@ class CleanMacCLITests(unittest.TestCase):
                     "plan_file": "/tmp/plan.json",
                     "confirmation_phrase": "Confirm cleanmac cleanup execution",
                     "confirmation_token": "cleanmac-confirm-test",
+                    "operation_log": cleancli.OPERATIONS_LOG_FILE,
                 },
             ),
             [
@@ -940,6 +959,7 @@ class CleanMacCLITests(unittest.TestCase):
                     "plan_file": "/tmp/startup-plan.json",
                     "review_selection_file": "/tmp/startup-selection.json",
                     "confirmation_phrase": "Confirm cleanmac cleanup execution",
+                    "operation_log": cleancli.OPERATIONS_LOG_FILE,
                 },
             ),
             [
@@ -964,6 +984,7 @@ class CleanMacCLITests(unittest.TestCase):
                     "plan_file": "/tmp/privacy-plan.json",
                     "review_selection_file": "/tmp/privacy-selection.json",
                     "confirmation_phrase": "Confirm cleanmac cleanup execution",
+                    "operation_log": cleancli.OPERATIONS_LOG_FILE,
                 },
             ),
             [
@@ -990,6 +1011,7 @@ class CleanMacCLITests(unittest.TestCase):
                     "plan_file": "/tmp/software-plan.json",
                     "review_selection_file": "/tmp/software-selection.json",
                     "confirmation_phrase": "Confirm cleanmac cleanup execution",
+                    "operation_log": cleancli.OPERATIONS_LOG_FILE,
                 },
             ),
             [
@@ -6174,7 +6196,10 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.mcp-surface-audit.v1", makefile)
         self.assertIn("mcp-surface-audit-smoke:", makefile)
         self.assertIn('payload["ready"] is True, payload', makefile)
-        self.assertIn('payload["resource_count"] == 37', makefile)
+        self.assertIn('payload["resource_count"] == 41', makefile)
+        self.assertIn("cleanmac://mcp/destructive-tool-governance", makefile)
+        self.assertIn("cleanmac://ai/operation-log-explainability", makefile)
+        self.assertIn("cleanmac://ai/cold-start-budget", makefile)
         self.assertIn("cleanmac://ai/entrypoints", makefile)
         self.assertIn("cleanmac://ai/safety-chain", makefile)
         self.assertIn("cleanmac://ai/workflow-contract", makefile)
@@ -6368,7 +6393,7 @@ class CleanMacCLITests(unittest.TestCase):
 
         self.assertTrue(explicit_readiness["ready"], explicit_readiness)
         self.assertEqual(explicit_readiness["failed_gate_ids"], [])
-        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 11, "total": 11, "level": "release-ready"})
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 12, "total": 12, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"

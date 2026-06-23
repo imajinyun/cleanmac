@@ -25,10 +25,195 @@ def _unique_commands(commands: list[list[str]]) -> list[list[str]]:
     return unique
 
 
+def render_development_governance_todo() -> dict[str, Any]:
+    """Return the ordered AI-first governance TODO backlog."""
+
+    items = [
+        (
+            "strengthen-ai-first-entrypoints",
+            "Strengthen AI-first entrypoints",
+            "Keep capabilities, workflow, explain, and ai-host-integration-pack as the primary discovery and orchestration surfaces for AI Hosts.",
+            ["cleanmac", "--json", "capabilities"],
+        ),
+        (
+            "stabilize-json-mcp-argv-contracts",
+            "Stabilize JSON Schema, MCP, and argv contracts",
+            "Expose new capabilities through machine-readable schemas, MCP tool definitions, and safe argv templates before human-facing presentation.",
+            ["cleanmac", "--json", "ai-schema-registry"],
+        ),
+        (
+            "enforce-zero-resident-governance",
+            "Enforce zero-resident governance checks",
+            "Reject GUI, TUI, LaunchAgent, LaunchDaemon, login item, background scan, menu-bar, and daemon drift through release gates.",
+            ["make", "zero-resident-audit-smoke"],
+        ),
+        (
+            "complete-ai-decision-matrix",
+            "Complete the AI decision matrix",
+            "Teach AI Hosts when to inspect, plan, dry-run, execute, explain, and validate-plan instead of jumping directly to execution.",
+            ["cleanmac", "--json", "ai-decision-matrix"],
+        ),
+        (
+            "expand-explainability",
+            "Expand explainability",
+            "Make explain output clarify candidate source, risk, protection decisions, delete eligibility, and skip reasons.",
+            ["cleanmac", "--json", "explain", "--input-file", "<plan-or-report>"],
+        ),
+        (
+            "govern-plan-files",
+            "Govern plan files",
+            "Treat plans as first-class artifacts with fingerprints, root/home binding, review handoff, context validation, drift checks, and replay guards.",
+            ["cleanmac", "--json", "validate-plan", "--plan-file", "<plan>"],
+        ),
+        (
+            "complete-review-selection-workflow",
+            "Complete review-selection workflow",
+            "Allow AI or users to constrain a plan while preserving fingerprint validation, Trash routing, confirmation tokens, and require-plan-context gates.",
+            ["cleanmac", "--json", "review", "--input-file", "<plan-or-report>"],
+        ),
+        (
+            "extend-readonly-analysis",
+            "Extend read-only analysis",
+            "Improve analyze, status, software, finder, permissions, and tool-plan context without cleanup side effects.",
+            ["cleanmac", "--json", "analyze"],
+        ),
+        (
+            "make-safety-policy-explainable",
+            "Make safety policy explainable",
+            "Expose protected bundles, sensitive paths, Group Container policy, Trash fail-closed behavior, and no-auth test policy in capabilities.",
+            ["cleanmac", "--json", "capabilities"],
+        ),
+        (
+            "tighten-delete-exit",
+            "Tighten the single delete exit",
+            "Keep cleancli/delete_ops.py as the only low-level deletion owner; business modules may only pass policy and candidate paths.",
+            ["python3", "-m", "unittest", "test_cleanmac.CleanMacCLITests.test_real_delete_primitives_are_owned_by_delete_ops", "-v"],
+        ),
+        (
+            "harden-operation-log-reliability",
+            "Harden operation-log reliability",
+            "Ensure execute-mode operation-log failures are visible in reports and never masquerade as safely audited success.",
+            ["python3", "-m", "unittest", "tests.test_operation_log", "-v"],
+        ),
+        (
+            "unify-confirmation-token-gates",
+            "Unify confirmation-token gates",
+            "Bind destructive CLI and MCP execution to context-matched confirmation tokens for plan, selection, root/home, and execution arguments.",
+            ["cleanmac", "--json", "ai-safety-chain"],
+        ),
+        (
+            "expand-ai-safety-regressions",
+            "Expand AI safety regressions",
+            "Cover direct execute attempts, missing plans, selection fingerprint mismatch, stale plans, dangerous paths, and protected app data.",
+            ["make", "ai-governance-smoke"],
+        ),
+        (
+            "maintain-dangerous-path-corpus",
+            "Maintain dangerous path corpus",
+            "Continuously update tests/data/dangerous_paths.txt for system roots, Mail, Messages, Keychains, CloudDocs, Containers, and Group Containers.",
+            ["python3", "-m", "unittest", "test_cleanmac.CleanMacCLITests.test_path_safety_rejects_dangerous_path_data", "-v"],
+        ),
+        (
+            "improve-dry-run-report-quality",
+            "Improve dry-run report quality",
+            "Make dry-run the primary UX with reclaimable bytes, category, risk, skip reason, confirmation needs, and review guidance.",
+            ["cleanmac", "--json", "plan", "--categories", "trash", "--max-items", "10"],
+        ),
+        (
+            "reject-retention-oriented-features",
+            "Reject retention-oriented features",
+            "Forbid reminders, resident monitoring, automatic scans, background optimization, scheduled cleanup, and menu-bar status surfaces.",
+            ["cleanmac", "--json", "product-surface-drift-audit"],
+        ),
+        (
+            "keep-workflow-nondestructive",
+            "Keep workflow nondestructive",
+            "Limit workflow to safe inspect, diagnose, plan, dry-run, and explain phases; never add destructive cleanup to the default workflow path.",
+            ["cleanmac", "--json", "workflow"],
+        ),
+        (
+            "publish-ai-host-integration-guide",
+            "Publish AI Host integration guide",
+            "Document the host sequence: capabilities, plan, explain, review-selection, and user-confirmed execute.",
+            ["cleanmac", "--json", "ai-host-integration-pack"],
+        ),
+        (
+            "standardize-positioning-language",
+            "Standardize positioning language",
+            "Keep README, release notes, package metadata, and external summaries aligned on AI-first, zero-resident macOS cleanup CLI positioning.",
+            ["make", "docs-smoke"],
+        ),
+        (
+            "strengthen-governance-self-check",
+            "Strengthen governance self-check",
+            "Scan for resident surfaces, unsafe deletion primitives, confirmation bypasses, and incorrect GUI/TUI/background positioning.",
+            ["make", "governance-integrity-smoke"],
+        ),
+        (
+            "optimize-single-shot-performance",
+            "Optimize single-shot performance",
+            "Optimize for fast cold start, bounded scans, stable output, and immediate exit with zero idle CPU and memory.",
+            ["cleanmac", "--json", "zero-resident"],
+        ),
+        (
+            "encode-do-not-disturb-principle",
+            "Encode do-not-disturb principle",
+            "Do not add notifications, resident reminders, background health scores, or daily scans; run only on explicit invocation.",
+            ["cleanmac", "--json", "zero-resident-audit"],
+        ),
+        (
+            "support-explicit-cli-composition",
+            "Support explicit CLI composition",
+            "Keep outputs stable for shells, explicit cron jobs, CI, AI Hosts, and user scripts without installing schedulers.",
+            ["cleanmac", "--json", "ai-entrypoints"],
+        ),
+        (
+            "improve-stable-failure-modes",
+            "Improve stable failure modes",
+            "Return stable error codes for protected paths, Trash failures, permission gaps, plan context mismatch, and selection validation failure.",
+            ["cleanmac", "--json", "capabilities"],
+        ),
+        (
+            "gate-release-with-ai-mcp-checklist",
+            "Gate release with AI/MCP checklist",
+            "Require provider export parity, MCP smoke, AI host smoke, governance smoke, dangerous-path regression, dry-run defaults, and zero-resident checks before release.",
+            ["make", "ai-first-release-checklist-smoke"],
+        ),
+    ]
+    return {
+        "schema": "cleanmac.development-governance-todo.v1",
+        "destructive": False,
+        "dry_run": True,
+        "purpose": "Ordered governance backlog for cleanmac's AI-first, single-shot, zero-resident product direction.",
+        "ordered": True,
+        "item_count": len(items),
+        "status": "active",
+        "items": [
+            {
+                "order": index,
+                "id": item_id,
+                "title": title,
+                "governance_action": governance_action,
+                "status": "governed",
+                "verification_command": verification_command,
+            }
+            for index, (item_id, title, governance_action, verification_command) in enumerate(items, start=1)
+        ],
+        "release_gate_commands": [
+            ["cleanmac", "--json", "capabilities"],
+            ["cleanmac", "--json", "governance-integrity"],
+            ["make", "governance-smoke"],
+            ["make", "governance-integrity-smoke"],
+            ["make", "ai-first-release-checklist-smoke"],
+        ],
+    }
+
+
 def render_boundary_governance() -> dict[str, Any]:
     runtime_lifecycle = render_runtime_lifecycle_policy()
     zero_resident_contract = render_zero_resident_contract(runtime_lifecycle=runtime_lifecycle)
     product_surface_drift_audit = render_product_surface_drift_audit()
+    development_governance_todo = render_development_governance_todo()
     return {
         "schema": "cleanmac.boundary-governance.v1",
         "purpose": "Define safe automation boundaries for cleanup operations.",
@@ -81,6 +266,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "recommended_delete_templates_use_cleanmac_cli": True,
             "raw_rm_rf_requires_deprecation_metadata": True,
         },
+        "development_governance_todo": development_governance_todo,
         "geo_discoverability_policy": render_geo_discoverability_policy(),
         "product_surface_policy": render_product_surface_policy(),
         "privileged_command_ownership": {
@@ -497,6 +683,30 @@ def render_governance_integrity_report(
                 *GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS,
             ],
         ),
+        _governance_integrity_check(
+            check_id="development-governance-todo-ordered",
+            passed=(
+                boundary_governance.get("development_governance_todo", {}).get("schema")
+                == "cleanmac.development-governance-todo.v1"
+                and boundary_governance.get("development_governance_todo", {}).get("item_count") == 25
+                and [
+                    item.get("order")
+                    for item in boundary_governance.get("development_governance_todo", {}).get("items", [])
+                ]
+                == list(range(1, 26))
+            ),
+            evidence={
+                "schema": boundary_governance.get("development_governance_todo", {}).get("schema"),
+                "item_count": boundary_governance.get("development_governance_todo", {}).get("item_count"),
+                "ordered": boundary_governance.get("development_governance_todo", {}).get("ordered"),
+            },
+            expected={
+                "schema": "cleanmac.development-governance-todo.v1",
+                "item_count": 25,
+                "orders": list(range(1, 26)),
+            },
+            remediation="Keep the 25 AI-first governance TODO items present and in their approved order.",
+        ),
     ]
     failed_check_ids = [check["id"] for check in checks if not check["passed"]]
     release_gate_commands = _unique_commands(GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS)
@@ -528,6 +738,7 @@ def render_governance_integrity_report(
             zero_resident_contract.get("schema"),
             zero_resident_audit.get("schema"),
             product_surface_drift_audit.get("schema"),
+            boundary_governance.get("development_governance_todo", {}).get("schema"),
         ],
         "release_gate_commands": release_gate_commands,
         "review_questions": [
@@ -583,6 +794,7 @@ def render_ai_first_release_checklist(
     ai_host_preflight: dict[str, Any],
     ai_host_evidence: dict[str, Any],
     governance_integrity: dict[str, Any],
+    development_governance_todo: dict[str, Any],
     zero_resident_audit: dict[str, Any],
     product_surface_drift_audit: dict[str, Any],
     mcp_surface_audit: dict[str, Any],
@@ -643,6 +855,33 @@ def render_ai_first_release_checklist(
             remediation="Resolve governance integrity drift before AI-first release review.",
             remediation_commands=[
                 ["cleanmac", "--json", "governance-integrity"],
+                ["make", "governance-integrity-smoke"],
+            ],
+        ),
+        _ai_first_release_check(
+            check_id="development-governance-todo-ready",
+            passed=development_governance_todo.get("schema") == "cleanmac.development-governance-todo.v1"
+            and development_governance_todo.get("item_count") == 25
+            and [
+                item.get("order")
+                for item in development_governance_todo.get("items", [])
+            ]
+            == list(range(1, 26)),
+            evidence={
+                "schema": development_governance_todo.get("schema"),
+                "item_count": development_governance_todo.get("item_count"),
+                "ordered": development_governance_todo.get("ordered"),
+            },
+            expected={
+                "schema": "cleanmac.development-governance-todo.v1",
+                "item_count": 25,
+                "orders": list(range(1, 26)),
+            },
+            remediation="Keep the AI-first governance TODO contract ordered and release-gated.",
+            remediation_commands=[
+                ["cleanmac", "--json", "capabilities"],
+                ["cleanmac", "--json", "governance-integrity"],
+                ["make", "governance-smoke"],
                 ["make", "governance-integrity-smoke"],
             ],
         ),
@@ -720,6 +959,7 @@ def render_ai_first_release_checklist(
         "release_gate_commands": release_gate_commands,
         "review_questions": [
             "Do AI Host entrypoints remain the primary release-review path?",
+            "Are all 25 AI-first governance TODO items present, ordered, and governed?",
             "Are all AI-first and release-critical JSON contracts registered and sample-covered?",
             "Did zero-resident and product-surface drift audits pass before publish?",
         ],
@@ -908,6 +1148,7 @@ __all__ = [
     "render_boundary_governance",
     "render_ai_first_release_checklist",
     "render_capabilities",
+    "render_development_governance_todo",
     "render_doctor",
     "render_geo_discoverability_policy",
     "render_governance_integrity_report",

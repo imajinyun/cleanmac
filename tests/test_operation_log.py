@@ -36,10 +36,82 @@ def test_operation_log_records_delete_status_path_bytes_mode_and_trash_path() ->
         assert record["bytes"] > 0
         assert record["delete_mode"] == "trash"
         assert record["trash_path"]
+        assert record["tool"] == "cleanmac.clean.run"
+        assert record["parameters"]["category"] == "downloads"
+        assert str(record["parameters"]["path"]).endswith("download.bin")
+        assert record["parameters"]["delete_mode"] == "trash"
+        assert record["result"]["action"] == "delete"
+        assert record["result"]["status"] == "deleted"
+        assert record["result"]["deleted"] is True
+        assert str(record["impact_scope"]["path"]).endswith("download.bin")
+        assert record["impact_scope"]["bytes"] == record["bytes"]
         assert record["ai"]["originated_plan"] is False
         assert record["ai"]["plan_file"] is None
         assert record["ai"]["plan_sha256"] is None
         assert record["ai"]["confirmation_token_validated"] is False
+
+
+def test_operation_log_explainability_contract_is_ready() -> None:
+    result = run_cli("--json", "operation-log-explainability")
+    payload = json.loads(result.stdout)
+
+    assert payload["schema"] == "cleanmac.operation-log-explainability.v1"
+    assert payload["destructive"] is False
+    assert payload["dry_run"] is True
+    assert payload["ready"] is True, payload
+    assert payload["format"] == "jsonl"
+    assert payload["append_only"] is True
+    assert payload["validation"]["valid"] is True
+    assert {"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(
+        set(payload["required_entry_fields"])
+    )
+    sample = payload["sample_entry"]
+    assert sample["schema"] == "cleanmac.operation-log-entry.v1"
+    assert sample["tool"] == "cleanmac.clean.run"
+    assert isinstance(sample["parameters"], dict)
+    assert isinstance(sample["result"], dict)
+    assert isinstance(sample["impact_scope"], dict)
+
+
+def test_cold_start_budget_contract_is_ready() -> None:
+    result = run_cli("--json", "cold-start-budget")
+    payload = json.loads(result.stdout)
+
+    assert payload["schema"] == "cleanmac.cold-start-budget.v1"
+    assert payload["destructive"] is False
+    assert payload["dry_run"] is True
+    assert payload["ready"] is True, payload
+    assert payload["validation"]["valid"] is True
+    assert payload["budgets"]["cli_cold_start_max_ms"] == 1200
+    assert payload["budgets"]["ai_host_preflight_max_ms"] == 2000
+    assert payload["budgets"]["resident_processes_after_exit"] == 0
+    assert ["cleanmac", "--json", "capabilities"] in payload["ai_host_preflight_probes"]
+
+
+def test_dependency_governance_contract_is_ready() -> None:
+    result = run_cli("--json", "dependency-governance")
+    payload = json.loads(result.stdout)
+
+    assert payload["schema"] == "cleanmac.dependency-governance.v1"
+    assert payload["destructive"] is False
+    assert payload["dry_run"] is True
+    assert payload["ready"] is True, payload
+    assert payload["resource_uri"] == "cleanmac://release/dependency-governance"
+    assert payload["pyproject"]["runtime_dependencies"] == []
+    assert payload["pyproject"]["runtime_dependency_count"] == 0
+    assert {"build", "dev", "lint", "test"}.issubset(
+        set(payload["pyproject"]["optional_dependency_group_names"])
+    )
+    assert payload["runtime_dependency_policy"] == "stdlib-only-runtime-by-default"
+    assert payload["network_required_at_runtime"] is False
+    assert payload["installs_background_services"] is False
+    assert payload["allows_gui_tui_resident_dependencies"] is False
+    assert ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"] in payload["audit"][
+        "commands"
+    ]
+    assert ["python3", "scripts/generate_sbom.py", "--output", "SBOM.json"] in payload["audit"]["commands"]
+    assert ["make", "dependency-audit-smoke"] in payload["release_gate_commands"]
+    assert payload["validation"]["valid"] is True
 
 
 def test_operation_log_preflight_blocks_execute_when_parent_is_symlink() -> None:

@@ -10,7 +10,13 @@ from cleancli.ai_governance import render_ai_governance_advice, validate_ai_gove
 from cleancli.ai_host_policy import render_ai_host_policy, validate_ai_host_policy
 from cleancli.ai_runbook import render_ai_runbook
 from cleancli.ai_versioning import render_ai_contract_validation_summary, render_ai_schema_registry
-from cleancli.mcp_resources import RUNTIME_LIFECYCLE_POLICY_URI
+from cleancli.mcp_resources import (
+    COLD_START_BUDGET_URI,
+    DEPENDENCY_GOVERNANCE_URI,
+    OPERATION_LOG_EXPLAINABILITY_URI,
+    RUNTIME_LIFECYCLE_POLICY_URI,
+)
+from cleancli.mcp_tools import render_mcp_destructive_tool_governance
 
 
 def render_ai_readiness(
@@ -62,6 +68,20 @@ def render_ai_readiness(
     )
     host_policy_validation = validate_ai_host_policy(host_policy)
     host_policy_ready = bool(host_policy["valid"] and host_policy_validation["valid"])
+    destructive_tool_governance = render_mcp_destructive_tool_governance()
+    destructive_tool_governance_ready = bool(destructive_tool_governance.get("ready"))
+    from cleancli.core import (
+        render_cold_start_budget_contract,
+        render_dependency_governance_contract,
+        render_operation_log_explainability_contract,
+    )
+
+    operation_log_explainability = render_operation_log_explainability_contract()
+    operation_log_explainability_ready = bool(operation_log_explainability.get("ready"))
+    cold_start_budget = render_cold_start_budget_contract()
+    cold_start_budget_ready = bool(cold_start_budget.get("ready"))
+    dependency_governance = render_dependency_governance_contract()
+    dependency_governance_ready = bool(dependency_governance.get("ready"))
     schema_registry = render_ai_schema_registry()
     contract_validation = render_ai_contract_validation_summary()
     registry_entries = {str(entry["name"]): entry for entry in schema_registry["entries"]}
@@ -75,6 +95,10 @@ def render_ai_readiness(
         "cleanmac.ai-policy-simulation.v1",
         "cleanmac.ai-entrypoint-contract.v1",
         "cleanmac.ai-safety-chain.v1",
+        "cleanmac.mcp-destructive-tool-governance.v1",
+        "cleanmac.operation-log-explainability.v1",
+        "cleanmac.cold-start-budget.v1",
+        "cleanmac.dependency-governance.v1",
         "cleanmac.execute-gate.v1",
         "cleanmac.plan-policy.v1",
         "cleanmac.ai-schema-registry.v1",
@@ -106,6 +130,10 @@ def render_ai_readiness(
             and eval_pack_ready
             and governance_ready
             and host_policy_ready
+            and destructive_tool_governance_ready
+            and operation_log_explainability_ready
+            and cold_start_budget_ready
+            and dependency_governance_ready
             and schema_registry_ready
             and contract_validation["valid"]
         ),
@@ -219,6 +247,34 @@ def render_ai_readiness(
                 "cleanmac.execute-gate.v1",
             ],
         },
+        "destructive_tool_governance": {
+            "schema": destructive_tool_governance["schema"],
+            "ready": destructive_tool_governance_ready,
+            "destructive_tool_count": destructive_tool_governance["destructive_tool_count"],
+            "destructive_tool_names": destructive_tool_governance["destructive_tool_names"],
+            "validation": destructive_tool_governance["validation"],
+        },
+        "operation_log_explainability": {
+            "schema": operation_log_explainability["schema"],
+            "ready": operation_log_explainability_ready,
+            "resource_uri": OPERATION_LOG_EXPLAINABILITY_URI,
+            "required_entry_fields": operation_log_explainability["required_entry_fields"],
+            "validation": operation_log_explainability["validation"],
+        },
+        "cold_start_budget": {
+            "schema": cold_start_budget["schema"],
+            "ready": cold_start_budget_ready,
+            "resource_uri": COLD_START_BUDGET_URI,
+            "budgets": cold_start_budget["budgets"],
+            "validation": cold_start_budget["validation"],
+        },
+        "dependency_governance": {
+            "schema": dependency_governance["schema"],
+            "ready": dependency_governance_ready,
+            "resource_uri": DEPENDENCY_GOVERNANCE_URI,
+            "runtime_dependency_policy": dependency_governance["runtime_dependency_policy"],
+            "validation": dependency_governance["validation"],
+        },
         "contract_validation": {
             "schema": contract_validation["schema"],
             "ready": bool(contract_validation["valid"]),
@@ -250,6 +306,10 @@ def render_ai_readiness(
             ["cleanmac", "--json", "ai-decision-matrix"],
             ["cleanmac", "--json", "ai-governance-advice"],
             ["cleanmac", "--json", "ai-host-policy"],
+            ["cleanmac", "--json", "mcp-destructive-tool-governance"],
+            ["cleanmac", "--json", "operation-log-explainability"],
+            ["cleanmac", "--json", "cold-start-budget"],
+            ["cleanmac", "--json", "dependency-governance"],
             ["cleanmac", "--json", "ai-schema-registry"],
             ["cleanmac", "--json", "ai-eval-pack"],
             ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],

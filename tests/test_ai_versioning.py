@@ -36,6 +36,8 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.governance-integrity.v1", names)
         self.assertIn("cleanmac.zero-resident.v1", names)
         self.assertIn("cleanmac.product-surface-drift-audit.v1", names)
+        self.assertIn("cleanmac.dependency-governance.v1", names)
+        self.assertIn("cleanmac.dependency-governance-validation.v1", names)
         for entry in report["entries"]:
             self.assertIn("name", entry)
             self.assertIn("version", entry)
@@ -102,6 +104,18 @@ class AISchemaRegistryTests(unittest.TestCase):
             entries["cleanmac.product-surface-drift-audit.v1"]["producer_command"],
             ["cleanmac", "--json", "product-surface-drift-audit"],
         )
+        self.assertEqual(
+            entries["cleanmac.dependency-governance.v1"]["producer_command"],
+            ["cleanmac", "--json", "dependency-governance"],
+        )
+        self.assertEqual(entries["cleanmac.dependency-governance.v1"]["owner_area"], "release")
+        self.assertTrue(entries["cleanmac.dependency-governance.v1"]["release_critical"])
+        self.assertEqual(entries["cleanmac.development-governance-todo.v1"]["module"], "cleancli.governance")
+        self.assertEqual(
+            entries["cleanmac.development-governance-todo.v1"]["producer_command"],
+            ["cleanmac", "--json", "capabilities"],
+        )
+        self.assertTrue(entries["cleanmac.development-governance-todo.v1"]["release_critical"])
 
     def test_registry_exposes_core_json_schema_fragments(self) -> None:
         from cleancli import ai_versioning
@@ -166,6 +180,42 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("tool-policy", entries["cleanmac.mcp-tool-index.v1"]["consumers"])
         self.assertEqual(entries["cleanmac.mcp-tool-index.v1"]["owner_area"], "mcp")
         self.assertTrue(entries["cleanmac.mcp-tool-index.v1"]["release_critical"])
+        self.assertIn("cleanmac.mcp-destructive-tool-governance.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.mcp-destructive-tool-governance.v1"])
+        self.assertEqual(
+            entries["cleanmac.mcp-destructive-tool-governance.v1"]["producer_command"],
+            ["read", "cleanmac://mcp/destructive-tool-governance"],
+        )
+        self.assertIn("tool-policy", entries["cleanmac.mcp-destructive-tool-governance.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.mcp-destructive-tool-governance.v1"]["owner_area"], "mcp")
+        self.assertTrue(entries["cleanmac.mcp-destructive-tool-governance.v1"]["release_critical"])
+        self.assertIn("cleanmac.operation-log-explainability.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.operation-log-explainability.v1"])
+        self.assertEqual(
+            entries["cleanmac.operation-log-explainability.v1"]["producer_command"],
+            ["cleanmac", "--json", "operation-log-explainability"],
+        )
+        self.assertIn("ai-host", entries["cleanmac.operation-log-explainability.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.operation-log-explainability.v1"]["owner_area"], "execution")
+        self.assertTrue(entries["cleanmac.operation-log-explainability.v1"]["release_critical"])
+        self.assertIn("cleanmac.cold-start-budget.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.cold-start-budget.v1"])
+        self.assertEqual(
+            entries["cleanmac.cold-start-budget.v1"]["producer_command"],
+            ["cleanmac", "--json", "cold-start-budget"],
+        )
+        self.assertIn("ai-host", entries["cleanmac.cold-start-budget.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.cold-start-budget.v1"]["owner_area"], "ai-host")
+        self.assertTrue(entries["cleanmac.cold-start-budget.v1"]["release_critical"])
+        self.assertIn("cleanmac.dependency-governance.v1", entries)
+        self.assertIn("json_schema", entries["cleanmac.dependency-governance.v1"])
+        self.assertEqual(
+            entries["cleanmac.dependency-governance.v1"]["producer_command"],
+            ["cleanmac", "--json", "dependency-governance"],
+        )
+        self.assertIn("ai-host", entries["cleanmac.dependency-governance.v1"]["consumers"])
+        self.assertEqual(entries["cleanmac.dependency-governance.v1"]["owner_area"], "release")
+        self.assertTrue(entries["cleanmac.dependency-governance.v1"]["release_critical"])
         self.assertIn("cleanmac.mcp-surface-audit.v1", entries)
         self.assertIn("json_schema", entries["cleanmac.mcp-surface-audit.v1"])
         self.assertEqual(
@@ -259,7 +309,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "dry_run": True,
             "ready": True,
             "manual_review_required": False,
-            "readiness_score": {"passed": 11, "total": 11, "level": "release-ready"},
+            "readiness_score": {"passed": 12, "total": 12, "level": "release-ready"},
             "failed_gate_ids": [],
             "gates": [
                 {
@@ -268,6 +318,13 @@ class AISchemaRegistryTests(unittest.TestCase):
                     "evidence_schema": "cleanmac.ai-host-preflight.v1",
                     "severity": "none",
                     "next_actions": [["make", "ai-host-smoke"]],
+                },
+                {
+                    "id": "dependency-governance-ready",
+                    "passed": True,
+                    "evidence_schema": "cleanmac.dependency-governance.v1",
+                    "severity": "none",
+                    "next_actions": [["make", "dependency-audit-smoke"]],
                 }
             ],
             "release_gate_commands": [["make", "ai-host-smoke"]],
@@ -417,7 +474,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "destructive": False,
             "dry_run": True,
             "ready": True,
-            "index_count": 3,
+            "index_count": 4,
             "indexes": [
                 {
                     "kind": "resource",
@@ -426,8 +483,18 @@ class AISchemaRegistryTests(unittest.TestCase):
                 },
                 {"kind": "prompt", "uri": "cleanmac://mcp/prompt-index", "schema": "cleanmac.mcp-prompt-index.v1"},
                 {"kind": "tool", "uri": "cleanmac://mcp/tool-index", "schema": "cleanmac.mcp-tool-index.v1"},
+                {
+                    "kind": "destructive-tool-governance",
+                    "uri": "cleanmac://mcp/destructive-tool-governance",
+                    "schema": "cleanmac.mcp-destructive-tool-governance.v1",
+                },
             ],
-            "index_uris": ["cleanmac://mcp/resource-index", "cleanmac://mcp/prompt-index", "cleanmac://mcp/tool-index"],
+            "index_uris": [
+                "cleanmac://mcp/resource-index",
+                "cleanmac://mcp/prompt-index",
+                "cleanmac://mcp/tool-index",
+                "cleanmac://mcp/destructive-tool-governance",
+            ],
         }
         self.assertTrue(validate_contract_payload("cleanmac.mcp-meta-index.v1", mcp_meta_index)["valid"])
 
@@ -575,6 +642,30 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertFalse(invalid_governance_report["valid"])
         self.assertEqual(invalid_governance_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
 
+        development_governance_todo = {
+            "schema": "cleanmac.development-governance-todo.v1",
+            "destructive": False,
+            "dry_run": True,
+            "purpose": "Ordered governance backlog.",
+            "ordered": True,
+            "item_count": 25,
+            "status": "active",
+            "items": [
+                {
+                    "order": 1,
+                    "id": "strengthen-ai-first-entrypoints",
+                    "title": "Strengthen AI-first entrypoints",
+                    "governance_action": "Keep AI entrypoints primary.",
+                    "status": "governed",
+                    "verification_command": ["cleanmac", "--json", "capabilities"],
+                }
+            ],
+            "release_gate_commands": [["make", "governance-smoke"]],
+        }
+        self.assertTrue(
+            validate_contract_payload("cleanmac.development-governance-todo.v1", development_governance_todo)["valid"]
+        )
+
         samples = render_ai_contract_samples()
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
         self.assertEqual(samples["sample_count"], len(samples["samples"]))
@@ -582,6 +673,23 @@ class AISchemaRegistryTests(unittest.TestCase):
         sample_payloads = {sample["target_schema"]: sample["payload"] for sample in samples["samples"]}
         self.assertEqual(sample_payloads["cleanmac.zero-resident.v1"]["lifecycle"], "single-shot")
         self.assertEqual(sample_payloads["cleanmac.product-surface-drift-audit.v1"]["violation_count"], 0)
+        self.assertEqual(
+            sample_payloads["cleanmac.dependency-governance.v1"]["pyproject"]["runtime_dependency_count"],
+            0,
+        )
+        self.assertEqual(
+            sample_payloads["cleanmac.release-readiness.v1"]["readiness_score"],
+            {"passed": 12, "total": 12, "level": "release-ready"},
+        )
+        self.assertIn(
+            "dependency-governance-ready",
+            {gate["id"] for gate in sample_payloads["cleanmac.release-readiness.v1"]["gates"]},
+        )
+        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["item_count"], 25)
+        self.assertEqual(
+            sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"],
+            "strengthen-ai-first-entrypoints",
+        )
         for sample in samples["samples"]:
             self.assertTrue(sample["valid"], sample)
             validation = validate_contract_payload(sample["target_schema"], sample["payload"])

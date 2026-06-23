@@ -261,7 +261,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
                     "default": True,
                 },
             },
-            ("plan_file", "confirmation_phrase", "confirmation_token"),
+            ("plan_file", "confirmation_phrase", "confirmation_token", "operation_log"),
         ),
         "argv_template": [
             "cleanmac",
@@ -365,7 +365,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
                 "confirmation_phrase": string_schema(f"Must exactly equal: {CONFIRMATION_PHRASE}"),
                 "operation_log": string_schema("JSONL operation log path."),
             },
-            ("plan_file", "review_selection_file", "confirmation_phrase"),
+            ("plan_file", "review_selection_file", "confirmation_phrase", "operation_log"),
         ),
         "argv_template": ["cleanmac", "--json", "software", "execute"],
     },
@@ -411,7 +411,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
                 "confirmation_phrase": string_schema(f"Must exactly equal: {CONFIRMATION_PHRASE}"),
                 "operation_log": string_schema("JSONL operation log path."),
             },
-            ("plan_file", "review_selection_file", "confirmation_phrase"),
+            ("plan_file", "review_selection_file", "confirmation_phrase", "operation_log"),
         ),
         "argv_template": ["cleanmac", "--json", "startup", "disable"],
     },
@@ -452,7 +452,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
                 "confirmation_phrase": string_schema(f"Must exactly equal: {CONFIRMATION_PHRASE}"),
                 "operation_log": string_schema("JSONL operation log path."),
             },
-            ("plan_file", "review_selection_file", "confirmation_phrase"),
+            ("plan_file", "review_selection_file", "confirmation_phrase", "operation_log"),
         ),
         "argv_template": ["cleanmac", "--json", "privacy", "execute"],
     },
@@ -659,6 +659,8 @@ def tool_definition_violations(tool: Mapping[str, Any], *, seen_names: set[str])
             violations.append(f"{name}: destructive tools must not be auto-callable")
         if tool.get("requires_confirmation") is not True:
             violations.append(f"{name}: destructive tools must require confirmation")
+        if isinstance(required, list) and "operation_log" not in required:
+            violations.append(f"{name}: destructive tools must require operation_log")
     elif tool.get("requires_confirmation") is True and tool.get("auto_call_allowed") is True:
         violations.append(f"{name}: confirmation-required tools must not be auto-callable")
     annotations = mcp_annotations_for_tool(tool)
@@ -1098,7 +1100,9 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         plan_file = str(args.get("plan_file") or "")
         if not plan_file:
             raise ValueError("plan_file is required")
-        operation_log = str(args.get("operation_log") or DEFAULT_OPERATION_LOG)
+        operation_log = str(args.get("operation_log") or "")
+        if not operation_log:
+            raise ValueError("operation_log is required")
         argv = ["cleanmac", "--json", "clean", "run", "--plan-file", plan_file]
         append_option(argv, args, "review_selection_file", "--review-selection-file")
         if args.get("require_plan_context", True):
@@ -1144,7 +1148,9 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
             raise ValueError("plan_file is required")
         if not review_selection_file:
             raise ValueError("review_selection_file is required")
-        operation_log = str(args.get("operation_log") or DEFAULT_OPERATION_LOG)
+        operation_log = str(args.get("operation_log") or "")
+        if not operation_log:
+            raise ValueError("operation_log is required")
         return [
             "cleanmac",
             "--json",
@@ -1174,7 +1180,9 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
             raise ValueError("plan_file is required")
         if not review_selection_file:
             raise ValueError("review_selection_file is required")
-        operation_log = str(args.get("operation_log") or DEFAULT_OPERATION_LOG)
+        operation_log = str(args.get("operation_log") or "")
+        if not operation_log:
+            raise ValueError("operation_log is required")
         return [
             "cleanmac",
             "--json",
@@ -1206,7 +1214,9 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
             raise ValueError("plan_file is required")
         if not review_selection_file:
             raise ValueError("review_selection_file is required")
-        operation_log = str(args.get("operation_log") or DEFAULT_OPERATION_LOG)
+        operation_log = str(args.get("operation_log") or "")
+        if not operation_log:
+            raise ValueError("operation_log is required")
         return [
             "cleanmac",
             "--json",

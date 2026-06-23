@@ -71,7 +71,9 @@ def render_release_readiness(
     eval_smoke: Mapping[str, Any],
     release_manifest: Mapping[str, Any],
     required_make_targets: Sequence[str],
+    dependency_governance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    dependency_governance = dependency_governance or {"schema": "cleanmac.dependency-governance.v1", "ready": True}
     release_manifest_valid = bool(release_manifest.get("valid") is True)
     release_manifest_error_code = str(
         release_manifest.get("error_code")
@@ -140,6 +142,26 @@ def render_release_readiness(
                     ["cleanmac", "--json", "governance-integrity"],
                     ["make", "governance-integrity-smoke"],
                     ["make", "governance-smoke"],
+                ],
+            ),
+        ),
+        _gate(
+            gate_id="dependency-governance-ready",
+            passed=_passed_bool(dependency_governance, "ready"),
+            evidence_schema=dependency_governance.get("schema"),
+            evidence_ref={"producer": "cleanmac --json dependency-governance"},
+            diagnostic=_first_text(
+                dependency_governance,
+                "stop_reason",
+                default="Dependency governance is not ready for release review.",
+            ),
+            blocking_code="DEPENDENCY_GOVERNANCE_NOT_READY",
+            next_actions=_commands_or_default(
+                dependency_governance,
+                [
+                    ["cleanmac", "--json", "dependency-governance"],
+                    ["make", "dependency-audit-smoke"],
+                    ["make", "security-smoke"],
                 ],
             ),
         ),
@@ -234,6 +256,7 @@ def render_release_readiness(
             "Did ai-host-evidence include runtime denial samples?",
             "Did ai-first-release-checklist confirm AI-first entrypoints, schemas, MCP, governance, and zero-resident evidence?",
             "Did governance-integrity confirm centralized GEO, product surface, and AI contract metadata stayed aligned?",
+            "Did dependency-governance confirm runtime dependencies remain empty, pip-audit runs, SBOM generation works, and forbidden GUI/TUI/resident dependency scans pass?",
             "Did zero-resident-audit confirm no GUI, TUI, daemon, login item, or background scan surface?",
             "Did governed-execution-smoke pass after startup/privacy executor changes?",
             "Did release artifacts include manifest, SHA256SUMS, SBOM, and Homebrew formula evidence?",
