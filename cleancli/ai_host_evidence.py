@@ -7,6 +7,7 @@ from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, validate_mcp_prompt_catalog
 from cleancli.mcp_resources import (
+    AI_SAFETY_CHAIN_URI,
     MCP_META_INDEX_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
@@ -114,6 +115,20 @@ def render_ai_host_evidence(
             "id": "runtime-lifecycle-policy-advertised",
             "passed": RUNTIME_LIFECYCLE_POLICY_URI in resources,
             "evidence": RUNTIME_LIFECYCLE_POLICY_URI,
+        },
+        {
+            "id": "ai-safety-chain-advertised",
+            "passed": AI_SAFETY_CHAIN_URI in resources,
+            "evidence": AI_SAFETY_CHAIN_URI,
+        },
+        {
+            "id": "ai-safety-chain-ready",
+            "passed": bool(
+                isinstance(integration_pack.get("safety_chain"), Mapping)
+                and integration_pack["safety_chain"].get("schema") == "cleanmac.ai-safety-chain.v1"
+                and integration_pack["safety_chain"].get("ready") is True
+            ),
+            "evidence": "cleanmac.ai-safety-chain.v1",
         },
         {
             "id": "runtime-lifecycle-policy-valid",

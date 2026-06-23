@@ -30,6 +30,7 @@ from urllib.parse import quote
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_contract import render_ai_entrypoint_contract as render_ai_entrypoint_contract
+from cleancli.ai_contract import render_ai_safety_chain_contract as render_ai_safety_chain_contract
 from cleancli.ai_contract import render_ai_intent_hints as render_ai_intent_hints
 from cleancli.ai_contract import render_ai_recommended_workflow as render_ai_recommended_workflow
 from cleancli.ai_contract import render_ai_tool_contract as render_ai_tool_contract
@@ -1285,6 +1286,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit machine-readable contract for canonical AI Host CLI entrypoints and fallbacks.",
     )
     subparsers.add_parser(
+        "ai-safety-chain",
+        help="Emit machine-readable plan/review/dry-run/execute safety-chain governance contract.",
+    )
+    subparsers.add_parser(
         "ai-host-integration-pack",
         help="Emit one-stop AI Host integration metadata, policy, schemas, eval, and samples.",
     )
@@ -1560,6 +1565,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-governance-advice",
         "ai-host-policy",
         "ai-entrypoints",
+        "ai-safety-chain",
         "ai-host-integration-pack",
         "ai-host-preflight",
         "ai-host-evidence",
@@ -2158,6 +2164,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-governance-advice",
             "ai-host-policy",
             "ai-entrypoints",
+            "ai-safety-chain",
             "ai-host-integration-pack",
             "ai-host-preflight",
             "ai-host-evidence",
@@ -2303,6 +2310,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_governance_advice": render_ai_governance_advice_report(),
         "ai_host_policy": render_ai_host_policy_report(),
         "ai_entrypoint_contract": render_ai_entrypoint_contract(),
+        "ai_safety_chain": render_ai_safety_chain_contract(),
         "ai_host_integration_pack": render_ai_host_integration_pack_report(),
         "ai_host_preflight": render_ai_host_preflight_report(),
         "ai_host_evidence": render_ai_host_evidence_report(),
@@ -2397,6 +2405,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
     runtime_lifecycle = render_runtime_lifecycle_policy()
     zero_resident_audit = render_zero_resident_audit(runtime_lifecycle=runtime_lifecycle)
     entrypoint_contract = render_ai_entrypoint_contract()
+    safety_chain = render_ai_safety_chain_contract()
     host_policy = render_ai_host_policy(
         decision_matrix=decision_matrix,
         governance_advice=governance_advice,
@@ -2410,6 +2419,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
         governance_advice=governance_advice,
         host_policy=host_policy,
         entrypoint_contract=entrypoint_contract,
+        safety_chain=safety_chain,
         runtime_lifecycle=runtime_lifecycle,
         zero_resident_audit=zero_resident_audit,
         schema_registry=render_ai_schema_registry(),
@@ -7062,6 +7072,7 @@ def render_completion_shell(shell: str) -> str:
         "ai-governance-advice": "",
         "ai-host-policy": "",
         "ai-entrypoints": "",
+        "ai-safety-chain": "",
         "ai-host-integration-pack": "",
         "ai-host-preflight": "",
         "ai-host-evidence": "",
@@ -7560,6 +7571,9 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "ai-entrypoints":
         print(json.dumps(render_ai_entrypoint_contract(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "ai-safety-chain":
+        print(json.dumps(render_ai_safety_chain_contract(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "ai-host-integration-pack":
         print(json.dumps(render_ai_host_integration_pack_report(), indent=2, ensure_ascii=False))

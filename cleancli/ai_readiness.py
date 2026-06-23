@@ -74,6 +74,9 @@ def render_ai_readiness(
         "cleanmac.validate-plan.v1",
         "cleanmac.ai-policy-simulation.v1",
         "cleanmac.ai-entrypoint-contract.v1",
+        "cleanmac.ai-safety-chain.v1",
+        "cleanmac.execute-gate.v1",
+        "cleanmac.plan-policy.v1",
         "cleanmac.ai-schema-registry.v1",
         "cleanmac.ai-readiness.v1",
     }
@@ -198,6 +201,22 @@ def render_ai_readiness(
                 "cleanmac.plan.v1",
                 "cleanmac.review.v1",
                 "cleanmac.validate-plan.v1",
+            ],
+        },
+        "safety_chain": {
+            "schema": "cleanmac.ai-safety-chain.v1",
+            "ready": "json_schema" in registry_entries.get("cleanmac.ai-safety-chain.v1", {}),
+            "required_contract_schemas": [
+                "cleanmac.plan.v1",
+                "cleanmac.plan-policy.v1",
+                "cleanmac.validate-plan.v1",
+                "cleanmac.review.v1",
+                "cleanmac.review-selection.v1",
+                "cleanmac.review-selection-constraint.v1",
+                "cleanmac.review-selection-validation.v1",
+                "cleanmac.ai-policy-simulation.v1",
+                "cleanmac.clean.v1",
+                "cleanmac.execute-gate.v1",
             ],
         },
         "contract_validation": {

@@ -17,6 +17,7 @@ RUNTIME_LIFECYCLE_POLICY_URI = "cleanmac://ai/runtime-lifecycle-policy"
 ZERO_RESIDENT_AUDIT_URI = "cleanmac://ai/zero-resident-audit"
 AI_WORKFLOW_CONTRACT_URI = "cleanmac://ai/workflow-contract"
 AI_ENTRYPOINT_CONTRACT_URI = "cleanmac://ai/entrypoints"
+AI_SAFETY_CHAIN_URI = "cleanmac://ai/safety-chain"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
 
@@ -118,6 +119,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Canonical AI Host entrypoints with output schemas, version compatibility, and fail-closed fallbacks.",
         "category": "ai",
         "schema": "cleanmac.ai-entrypoint-contract.v1",
+    },
+    {
+        "uri": AI_SAFETY_CHAIN_URI,
+        "name": "cleanmac AI safety chain",
+        "description": "Machine-verifiable plan/review/dry-run/execute safety-chain contract for AI Hosts.",
+        "category": "ai",
+        "schema": "cleanmac.ai-safety-chain.v1",
     },
     {
         "uri": "cleanmac://ai/self-test",

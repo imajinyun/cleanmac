@@ -8,6 +8,7 @@ from typing import Any
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, mcp_prompt_names
 from cleancli.mcp_resources import (
     AI_ENTRYPOINT_CONTRACT_URI,
+    AI_SAFETY_CHAIN_URI,
     AI_WORKFLOW_CONTRACT_URI,
     MCP_META_INDEX_URI,
     MCP_RESOURCE_INDEX_URI,
@@ -28,6 +29,7 @@ def render_ai_host_integration_pack(
     governance_advice: Mapping[str, Any],
     host_policy: Mapping[str, Any],
     entrypoint_contract: Mapping[str, Any],
+    safety_chain: Mapping[str, Any],
     runtime_lifecycle: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
     schema_registry: Mapping[str, Any],
@@ -41,6 +43,7 @@ def render_ai_host_integration_pack(
     recommended_preflight_commands = [
         ["cleanmac", "--json", "ai-host-integration-pack"],
         ["cleanmac", "--json", "ai-entrypoints"],
+        ["cleanmac", "--json", "ai-safety-chain"],
         ["cleanmac", "--json", "ai-host-evidence"],
         ["cleanmac", "--json", "release-readiness"],
         *list(readiness.get("recommended_preflight_commands", [])),
@@ -54,6 +57,7 @@ def render_ai_host_integration_pack(
         f"read {MCP_SURFACE_AUDIT_URI}",
         "read cleanmac://ai/host-integration-pack",
         f"read {AI_ENTRYPOINT_CONTRACT_URI}",
+        f"read {AI_SAFETY_CHAIN_URI}",
         f"read {AI_WORKFLOW_CONTRACT_URI}",
         f"read {RUNTIME_LIFECYCLE_POLICY_URI}",
         f"read {ZERO_RESIDENT_AUDIT_URI}",
@@ -68,6 +72,7 @@ def render_ai_host_integration_pack(
         readiness.get("ready")
         and host_policy.get("valid")
         and entrypoint_contract.get("ready")
+        and safety_chain.get("ready")
         and governance_advice.get("ready_for_llm_calling")
         and contract_validation.get("valid")
         and eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
@@ -105,6 +110,7 @@ def render_ai_host_integration_pack(
         "release_readiness": dict(release_readiness),
         "runbook": runbook,
         "entrypoint_contract": dict(entrypoint_contract),
+        "safety_chain": dict(safety_chain),
         "decision_matrix": decision_matrix,
         "governance_advice": governance_advice,
         "host_policy": host_policy,
@@ -125,6 +131,7 @@ def render_ai_host_preflight(
 
     host_policy = integration_pack.get("host_policy", {})
     entrypoint_contract = integration_pack.get("entrypoint_contract", {})
+    safety_chain = integration_pack.get("safety_chain", {})
     runtime_lifecycle = integration_pack.get("runtime_lifecycle", {})
     contract_validation = integration_pack.get("contract_validation", {})
     mcp = integration_pack.get("mcp", {})
@@ -153,6 +160,16 @@ def render_ai_host_preflight(
             "evidence": "cleanmac.ai-entrypoint-contract.v1",
         },
         {
+            "id": "ai-safety-chain-ready",
+            "passed": bool(
+                isinstance(safety_chain, Mapping)
+                and safety_chain.get("schema") == "cleanmac.ai-safety-chain.v1"
+                and safety_chain.get("ready") is True
+                and safety_chain.get("chain_step_count") == 6
+            ),
+            "evidence": "cleanmac.ai-safety-chain.v1",
+        },
+        {
             "id": "contract-validation-valid",
             "passed": bool(isinstance(contract_validation, Mapping) and contract_validation.get("valid")),
             "evidence": "cleanmac.ai-contract-validation-summary.v1",
@@ -168,6 +185,7 @@ def render_ai_host_preflight(
                 and MCP_TOOL_INDEX_URI in resources
                 and MCP_SURFACE_AUDIT_URI in resources
                 and AI_ENTRYPOINT_CONTRACT_URI in resources
+                and AI_SAFETY_CHAIN_URI in resources
                 and isinstance(prompts, list)
                 and "review-ai-host-policy" in prompts
                 and isinstance(tools, list)
@@ -219,6 +237,8 @@ def render_ai_host_preflight(
             "cli": ["cleanmac", "--json", "ai-host-integration-pack"],
             "entrypoint_contract": ["cleanmac", "--json", "ai-entrypoints"],
             "entrypoint_contract_resource": AI_ENTRYPOINT_CONTRACT_URI,
+            "safety_chain": ["cleanmac", "--json", "ai-safety-chain"],
+            "safety_chain_resource": AI_SAFETY_CHAIN_URI,
             "mcp_resource": "cleanmac://ai/host-integration-pack",
             "mcp_meta_index": MCP_META_INDEX_URI,
             "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
