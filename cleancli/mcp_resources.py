@@ -16,6 +16,7 @@ MCP_SURFACE_AUDIT_URI = "cleanmac://mcp/surface-audit"
 RUNTIME_LIFECYCLE_POLICY_URI = "cleanmac://ai/runtime-lifecycle-policy"
 ZERO_RESIDENT_AUDIT_URI = "cleanmac://ai/zero-resident-audit"
 AI_WORKFLOW_CONTRACT_URI = "cleanmac://ai/workflow-contract"
+AI_ENTRYPOINT_CONTRACT_URI = "cleanmac://ai/entrypoints"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
 
@@ -110,6 +111,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Read-only cleanmac.ai-workflow.v1 contract with governed tool order, schemas, and execution gates.",
         "category": "ai",
         "schema": "cleanmac.ai-workflow.v1",
+    },
+    {
+        "uri": AI_ENTRYPOINT_CONTRACT_URI,
+        "name": "cleanmac AI entrypoint contract",
+        "description": "Canonical AI Host entrypoints with output schemas, version compatibility, and fail-closed fallbacks.",
+        "category": "ai",
+        "schema": "cleanmac.ai-entrypoint-contract.v1",
     },
     {
         "uri": "cleanmac://ai/self-test",
@@ -434,6 +442,7 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         MCP_SURFACE_AUDIT_URI,
         RUNTIME_LIFECYCLE_POLICY_URI,
         ZERO_RESIDENT_AUDIT_URI,
+        AI_ENTRYPOINT_CONTRACT_URI,
         AI_WORKFLOW_CONTRACT_URI,
         "cleanmac://ai/host-integration-pack",
         "cleanmac://ai/host-preflight",

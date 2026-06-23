@@ -6,6 +6,169 @@ from typing import Any
 
 from cleancli import ai_schema
 from cleancli.ai_errors import render_ai_error_taxonomy
+from cleancli.ai_versioning import CORE_CONTRACT_SCHEMAS, render_ai_schema_registry
+
+
+AI_HOST_ENTRYPOINT_SCHEMAS: tuple[str, ...] = (
+    "cleanmac.capabilities.v1",
+    "cleanmac.workflow.v1",
+    "cleanmac.explain.v1",
+    "cleanmac.plan.v1",
+    "cleanmac.review.v1",
+    "cleanmac.validate-plan.v1",
+)
+
+
+def _entrypoint(
+    *,
+    entrypoint_id: str,
+    command: list[str],
+    output_schema: str,
+    purpose: str,
+    fallback: str,
+    required_inputs: list[str] | None = None,
+    produces: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": entrypoint_id,
+        "command": command,
+        "uses_shell": False,
+        "destructive": False,
+        "dry_run": True,
+        "auto_call_allowed": True,
+        "output_schema": output_schema,
+        "required_inputs": required_inputs or [],
+        "produces": produces or [output_schema],
+        "purpose": purpose,
+        "version_compatibility": {
+            "schema_family": output_schema.rsplit(".v", 1)[0],
+            "latest_schema": output_schema,
+            "compatible_major_versions": [1],
+            "unknown_schema_strategy": "fail-closed-with-structured-error",
+        },
+        "fallback_strategy": {
+            "on_cli_error": fallback,
+            "on_unknown_schema": "Stop orchestration, emit cleanmac.ai-error.v1, and ask the user to upgrade or re-run discovery.",
+            "on_missing_input": "Ask for the missing file/category input; do not infer paths or execute cleanup.",
+        },
+    }
+
+
+def render_ai_entrypoint_contract() -> dict[str, Any]:
+    """Return the stable AI Host contract for the canonical one-shot entrypoints."""
+
+    registry = render_ai_schema_registry()
+    registry_entries = {str(entry["name"]): entry for entry in registry["entries"]}
+    entrypoints = [
+        _entrypoint(
+            entrypoint_id="discover_capabilities",
+            command=["cleanmac", "--json", "capabilities"],
+            output_schema="cleanmac.capabilities.v1",
+            purpose="Discover categories, safety guardrails, product positioning, and AI Host integration metadata.",
+            fallback="Run cleanmac --json ai-host-integration-pack, then cleanmac --json ai-schema-registry.",
+        ),
+        _entrypoint(
+            entrypoint_id="workflow_guidance",
+            command=["cleanmac", "--json", "workflow", "--categories", "{categories}"],
+            output_schema="cleanmac.workflow.v1",
+            purpose="Return the non-destructive one-shot workflow, UX guidance, automation playbook, and dry-run evidence.",
+            fallback="Run cleanmac --json ai-workflow --categories {categories} for a compact governed tool order contract.",
+            required_inputs=["categories"],
+        ),
+        _entrypoint(
+            entrypoint_id="explain_report",
+            command=["cleanmac", "--json", "explain", "--input-file", "{plan_or_report_file}"],
+            output_schema="cleanmac.explain.v1",
+            purpose="Explain a plan/report for a user without turning explanation into deletion.",
+            fallback="Run cleanmac --json review --input-file {plan_or_report_file} for normalized candidate review.",
+            required_inputs=["plan_or_report_file"],
+        ),
+        _entrypoint(
+            entrypoint_id="generate_ai_origin_plan",
+            command=["cleanmac", "--json", "plan", "--categories", "{categories}", "--ai-origin"],
+            output_schema="cleanmac.plan.v1",
+            purpose="Generate a reusable AI-origin cleanup plan with candidate fingerprints and confirmation context.",
+            fallback="Run cleanmac --json clean inspect --categories {categories}, then retry plan generation with narrower filters.",
+            required_inputs=["categories"],
+        ),
+        _entrypoint(
+            entrypoint_id="normalize_review_selection",
+            command=[
+                "cleanmac",
+                "--json",
+                "review",
+                "--input-file",
+                "{plan_or_report_file}",
+                "--selection-file",
+                "{review_selection_file}",
+            ],
+            output_schema="cleanmac.review.v1",
+            purpose="Normalize reviewable items and write a constrained review-selection file for later dry-run/execute handoff.",
+            fallback="Regenerate review from the same source file; never expand selection beyond reviewed item IDs.",
+            required_inputs=["plan_or_report_file", "review_selection_file"],
+            produces=["cleanmac.review.v1", "cleanmac.review-selection.v1"],
+        ),
+        _entrypoint(
+            entrypoint_id="validate_plan",
+            command=["cleanmac", "--json", "validate-plan", "--plan-file", "{plan_file}"],
+            output_schema="cleanmac.validate-plan.v1",
+            purpose="Validate plan schema compatibility, categories, root/home context, freshness preview, and budget state.",
+            fallback="Regenerate cleanmac.plan.v1 under the current root/home and repeat review before any dry-run or execute.",
+            required_inputs=["plan_file"],
+        ),
+    ]
+    checks = []
+    for entrypoint_row in entrypoints:
+        output_schema = str(entrypoint_row["output_schema"])
+        checks.append(
+            {
+                "id": f"{entrypoint_row['id']}-schema-ready",
+                "passed": bool(output_schema in registry_entries and output_schema in CORE_CONTRACT_SCHEMAS),
+                "entrypoint": entrypoint_row["id"],
+                "output_schema": output_schema,
+                "schema_registered": output_schema in registry_entries,
+                "contract_schema_available": output_schema in CORE_CONTRACT_SCHEMAS,
+                "remediation_commands": [
+                    ["cleanmac", "--json", "ai-schema-registry"],
+                    ["cleanmac", "--json", "ai-contract-samples"],
+                    ["make", "ai-contract-smoke"],
+                ],
+            }
+        )
+    missing_schema_fragments = [schema for schema in AI_HOST_ENTRYPOINT_SCHEMAS if schema not in CORE_CONTRACT_SCHEMAS]
+    missing_registry_entries = [schema for schema in AI_HOST_ENTRYPOINT_SCHEMAS if schema not in registry_entries]
+    return {
+        "schema": "cleanmac.ai-entrypoint-contract.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not missing_schema_fragments and not missing_registry_entries and all(check["passed"] for check in checks),
+        "purpose": "Machine-verifiable contract for canonical AI Host entrypoints and their fail-closed fallback strategy.",
+        "entrypoint_count": len(entrypoints),
+        "entrypoint_ids": [str(row["id"]) for row in entrypoints],
+        "entrypoints": entrypoints,
+        "required_output_schemas": list(AI_HOST_ENTRYPOINT_SCHEMAS),
+        "missing_registry_entries": missing_registry_entries,
+        "missing_schema_fragments": missing_schema_fragments,
+        "checks": checks,
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready" if all(check["passed"] for check in checks) else "blocked",
+        },
+        "recommended_call_sequence": [
+            ["cleanmac", "--json", "capabilities"],
+            ["cleanmac", "--json", "workflow", "--categories", "{categories}"],
+            ["cleanmac", "--json", "plan", "--categories", "{categories}", "--ai-origin"],
+            ["cleanmac", "--json", "review", "--input-file", "{plan_file}", "--selection-file", "{review_selection_file}"],
+            ["cleanmac", "--json", "validate-plan", "--plan-file", "{plan_file}"],
+            ["cleanmac", "--json", "explain", "--input-file", "{plan_or_report_file}"],
+        ],
+        "release_gate_commands": [
+            ["cleanmac", "--json", "ai-entrypoints"],
+            ["make", "ai-host-smoke"],
+            ["make", "ai-contract-smoke"],
+        ],
+    }
 
 
 def render_ai_tool_contract() -> dict[str, Any]:
@@ -41,6 +204,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
                 ["cleanmac", "--json", "capabilities"],
                 ["cleanmac", "--json", "workflow"],
                 ["cleanmac", "--json", "explain", "--input-file", "<plan-or-report>"],
+                ["cleanmac", "--json", "ai-entrypoints"],
                 ["cleanmac", "--json", "ai-host-integration-pack"],
             ],
         },

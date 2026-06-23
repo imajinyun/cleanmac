@@ -592,6 +592,7 @@ def render_ai_first_release_checklist(
 
     contract_coverage = contract_validation.get("contract_schema_coverage", {})
     zero_resident_contract = zero_resident_audit.get("zero_resident_contract", {})
+    entrypoint_contract = ai_host_integration_pack.get("entrypoint_contract", {})
     checks = [
         _ai_first_release_check(
             check_id="ai-host-entrypoints-ready",
@@ -601,6 +602,7 @@ def render_ai_first_release_checklist(
             ),
             evidence={
                 "integration_pack_ready": ai_host_integration_pack.get("ready"),
+                "entrypoint_contract_ready": entrypoint_contract.get("ready") if isinstance(entrypoint_contract, dict) else None,
                 "preflight_ready": ai_host_preflight.get("ready"),
                 "evidence_ready": ai_host_evidence.get("ready"),
             },
