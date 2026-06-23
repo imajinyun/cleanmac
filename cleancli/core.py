@@ -7339,6 +7339,102 @@ def workflow_input_schema(input_payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+AI_WORKFLOW_STEP_IDS = [
+    "discover_contract",
+    "generate_ai_origin_plan",
+    "normalize_review_selection",
+    "validate_plan_and_selection",
+    "simulate_execute_policy",
+    "dry_run_selected_plan",
+    "execute_after_human_confirmation",
+]
+
+
+def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the AI workflow contract invariants that guard execution."""
+
+    violations: list[dict[str, str]] = []
+
+    def require(condition: bool, code: str, path: str) -> None:
+        if not condition:
+            violations.append({"code": code, "path": path})
+
+    steps = payload.get("steps") if isinstance(payload.get("steps"), list) else []
+    step_ids = [str(step.get("id")) for step in steps if isinstance(step, Mapping)]
+    steps_by_id = {str(step.get("id")): step for step in steps if isinstance(step, Mapping)}
+    execute_step = steps_by_id.get("execute_after_human_confirmation", {})
+    execute_argv = execute_step.get("argv", []) if isinstance(execute_step, Mapping) else []
+    governance = payload.get("governance", {}) if isinstance(payload.get("governance"), Mapping) else {}
+    artifact_contracts = payload.get("artifact_contracts", {}) if isinstance(payload.get("artifact_contracts"), Mapping) else {}
+
+    require(payload.get("schema") == "cleanmac.ai-workflow.v1", "AI_WORKFLOW_SCHEMA_REQUIRED", "$.schema")
+    require(payload.get("destructive") is False, "AI_WORKFLOW_MUST_BE_READ_ONLY", "$.destructive")
+    require(payload.get("dry_run") is True, "AI_WORKFLOW_MUST_BE_DRY_RUN", "$.dry_run")
+    require(step_ids == AI_WORKFLOW_STEP_IDS, "AI_WORKFLOW_STEP_ORDER_INVALID", "$.steps")
+    require(payload.get("step_count") == len(AI_WORKFLOW_STEP_IDS), "AI_WORKFLOW_STEP_COUNT_INVALID", "$.step_count")
+    require(
+        all(int(step.get("number", 0)) == index for index, step in enumerate(steps, start=1) if isinstance(step, Mapping)),
+        "AI_WORKFLOW_STEP_NUMBERS_INVALID",
+        "$.steps[*].number",
+    )
+    require(
+        all(not step.get("destructive") and step.get("auto_call_allowed") is True for step in steps[:-1] if isinstance(step, Mapping)),
+        "AI_WORKFLOW_PRE_EXEC_STEPS_MUST_BE_AUTOCALL_READONLY",
+        "$.steps[0:6]",
+    )
+    require(execute_step.get("destructive") is True, "AI_WORKFLOW_EXECUTE_STEP_MUST_BE_DESTRUCTIVE", "$.steps[-1]")
+    require(execute_step.get("auto_call_allowed") is False, "AI_WORKFLOW_EXECUTE_AUTO_CALL_DENIED", "$.steps[-1]")
+    require(
+        execute_step.get("requires_human_confirmation") is True,
+        "AI_WORKFLOW_EXECUTE_REQUIRES_HUMAN_CONFIRMATION",
+        "$.steps[-1].requires_human_confirmation",
+    )
+    for token in (
+        "--execute",
+        "--yes",
+        "--delete-mode",
+        "trash",
+        "--operation-log",
+        "--require-plan-context",
+        "--require-confirmation-token",
+        "--confirmation-token",
+    ):
+        require(token in execute_argv, "AI_WORKFLOW_EXECUTE_ARG_REQUIRED", f"$.steps[-1].argv[{token}]")
+    require(governance.get("delete_mode_for_execute") == "trash", "AI_WORKFLOW_TRASH_EXECUTE_REQUIRED", "$.governance")
+    require(governance.get("requires_review_selection") is True, "AI_WORKFLOW_REVIEW_SELECTION_REQUIRED", "$.governance")
+    require(governance.get("requires_plan_context") is True, "AI_WORKFLOW_PLAN_CONTEXT_REQUIRED", "$.governance")
+    require(governance.get("requires_operation_log") is True, "AI_WORKFLOW_OPERATION_LOG_REQUIRED", "$.governance")
+    require(governance.get("requires_confirmation_token") is True, "AI_WORKFLOW_CONFIRMATION_TOKEN_REQUIRED", "$.governance")
+    require(
+        governance.get("destructive_auto_call_allowed") is False,
+        "AI_WORKFLOW_DESTRUCTIVE_AUTO_CALL_MUST_BE_DENIED",
+        "$.governance",
+    )
+    for artifact, schema in {
+        "plan_file": "cleanmac.plan.v1",
+        "review_selection_file": "cleanmac.review-selection.v1",
+        "policy_simulation": "cleanmac.ai-policy-simulation.v1",
+        "dry_run_report": "cleanmac.clean.v1",
+        "confirmation_token": "cleanmac.ai-confirmation-summary.v1",
+        "operation_log": "cleanmac.operation-log-entry.v1",
+    }.items():
+        require(
+            isinstance(artifact_contracts.get(artifact), Mapping)
+            and artifact_contracts.get(artifact, {}).get("schema") == schema,
+            "AI_WORKFLOW_ARTIFACT_CONTRACT_REQUIRED",
+            f"$.artifact_contracts.{artifact}",
+        )
+
+    return {
+        "schema": "cleanmac.ai-workflow-validation.v1",
+        "valid": not violations,
+        "violation_count": len(violations),
+        "violations": violations,
+        "checked_step_ids": step_ids,
+        "required_step_ids": list(AI_WORKFLOW_STEP_IDS),
+    }
+
+
 def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, home: Path) -> dict[str, Any]:
     category_keys = [category.key for category in categories]
     categories_arg = ",".join(category_keys)
@@ -7509,10 +7605,44 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             requires_human_confirmation=True,
         ),
     ]
-    return {
+    artifact_contracts = {
+        "plan_file": {
+            "schema": "cleanmac.plan.v1",
+            "producer_step": "generate_ai_origin_plan",
+            "consumer_steps": ["normalize_review_selection", "validate_plan_and_selection", "simulate_execute_policy"],
+        },
+        "review_selection_file": {
+            "schema": "cleanmac.review-selection.v1",
+            "producer_step": "normalize_review_selection",
+            "consumer_steps": ["simulate_execute_policy", "dry_run_selected_plan", "execute_after_human_confirmation"],
+        },
+        "policy_simulation": {
+            "schema": "cleanmac.ai-policy-simulation.v1",
+            "producer_step": "simulate_execute_policy",
+            "must_have_blocking_reasons": False,
+        },
+        "dry_run_report": {
+            "schema": "cleanmac.clean.v1",
+            "producer_step": "dry_run_selected_plan",
+            "required_output": "ai_confirmation_summary.confirmation_token",
+        },
+        "confirmation_token": {
+            "schema": "cleanmac.ai-confirmation-summary.v1",
+            "producer_step": "dry_run_selected_plan",
+            "consumer_step": "execute_after_human_confirmation",
+            "scope": "plan+selection+root+home+argv",
+        },
+        "operation_log": {
+            "schema": "cleanmac.operation-log-entry.v1",
+            "producer_step": "execute_after_human_confirmation",
+            "failure_policy": "execute-report-must-expose-write-failure",
+        },
+    }
+    payload = {
         "schema": "cleanmac.ai-workflow.v1",
         "destructive": False,
         "dry_run": True,
+        "ready": True,
         "goal": goal,
         "workflow_name": "one-shot-governed-safe-cleanup",
         "purpose": "🧭 Give AI Hosts a complete governed cleanup route in one read-only response: discovery → plan → review selection → validation → policy simulation → dry-run token → human-confirmed Trash execution.",
@@ -7540,8 +7670,28 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
                 "confirmation_token": confirmation_token,
             },
         },
+        "step_count": len(steps),
+        "phase_order": list(AI_WORKFLOW_STEP_IDS),
         "recommended_tool_call_order": [step["tool"] for step in steps],
         "steps": steps,
+        "artifact_contracts": artifact_contracts,
+        "execution_gate": {
+            "auto_call_allowed": False,
+            "requires_human_confirmation": True,
+            "confirmation_phrase": ai_schema.CONFIRMATION_PHRASE,
+            "requires_matching_dry_run_confirmation_token": True,
+            "requires_plan_context": True,
+            "requires_review_selection": True,
+            "requires_trash_delete_mode": True,
+            "requires_operation_log": True,
+        },
+        "host_obligations": [
+            "read cleanmac://ai/workflow-contract before orchestrating cleanup",
+            "never auto-call cleanmac_execute_plan",
+            "stop on policy-simulate blocking_reasons",
+            "obtain explicit human confirmation after dry-run evidence",
+            "do not substitute permanent delete mode for AI-originated execution",
+        ],
         "governance": {
             "default_mode": "dry-run-first",
             "delete_mode_for_execute": "trash",
@@ -7553,6 +7703,16 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "forbidden_patterns": ["raw shell", "background scan", "GUI/TUI session", "permanent AI-originated delete"],
         },
     }
+    validation = validate_ai_workflow_contract(payload)
+    payload["validation"] = validation
+    payload["ready"] = validation["valid"]
+    payload["failed_check_ids"] = [violation["code"] for violation in validation["violations"]]
+    payload["readiness_score"] = {
+        "passed": len(AI_WORKFLOW_STEP_IDS) if validation["valid"] else 0,
+        "total": len(AI_WORKFLOW_STEP_IDS),
+        "level": "ready" if validation["valid"] else "blocked",
+    }
+    return payload
 
 
 def human_size(size: int | None) -> str:

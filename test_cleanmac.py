@@ -6080,9 +6080,21 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertEqual(report["schema"], "cleanmac.ai-workflow.v1")
             self.assertEqual(report["goal"], "safe-cleanup")
+            self.assertTrue(report["ready"], report)
             self.assertTrue(report["dry_run"])
             self.assertFalse(report["destructive"])
+            self.assertEqual(report["step_count"], 7)
+            self.assertEqual(report["phase_order"], [step["id"] for step in report["steps"]])
+            self.assertTrue(report["validation"]["valid"], report["validation"])
+            self.assertEqual(report["validation"]["schema"], "cleanmac.ai-workflow-validation.v1")
+            self.assertEqual(report["failed_check_ids"], [])
+            self.assertEqual(report["readiness_score"], {"passed": 7, "total": 7, "level": "ready"})
             self.assertEqual(report["inputs"]["categories"], ["trash", "downloads", "xcode"])
+            artifact_contracts = report["artifact_contracts"]
+            self.assertEqual(artifact_contracts["plan_file"]["schema"], "cleanmac.plan.v1")
+            self.assertEqual(artifact_contracts["review_selection_file"]["schema"], "cleanmac.review-selection.v1")
+            self.assertEqual(artifact_contracts["confirmation_token"]["schema"], "cleanmac.ai-confirmation-summary.v1")
+            self.assertEqual(artifact_contracts["operation_log"]["schema"], "cleanmac.operation-log-entry.v1")
             single_shot = {row["id"]: row for row in report["single_shot_workflows"]}
             self.assertIn("quick-safe-clean", single_shot)
             self.assertIn("developer-clean", single_shot)
@@ -6105,6 +6117,9 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("--delete-mode", execute["argv"])
             self.assertIn("trash", execute["argv"])
             self.assertIn("--operation-log", execute["argv"])
+            self.assertTrue(report["execution_gate"]["requires_matching_dry_run_confirmation_token"])
+            self.assertTrue(report["execution_gate"]["requires_trash_delete_mode"])
+            self.assertIn("never auto-call cleanmac_execute_plan", report["host_obligations"])
             self.assertTrue(report["governance"]["requires_confirmation_token"])
 
     def test_workflow_selected_dry_run_scope_includes_high_risk_without_execute(self) -> None:
