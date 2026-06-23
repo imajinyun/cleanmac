@@ -6156,6 +6156,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("dependency-audit-smoke:", makefile)
         self.assertIn("docs-smoke:", makefile)
         self.assertIn("governance-smoke:", makefile)
+        self.assertIn("governance-integrity-smoke:", makefile)
+        self.assertIn("ai-first-release-checklist-smoke:", makefile)
         self.assertIn("ai-governance-smoke:", makefile)
         self.assertIn("ai-contract-smoke:", makefile)
         self.assertIn("governed-execution-smoke:", makefile)
@@ -6201,7 +6203,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("no-cache-docker-test:", makefile)
         self.assertIn("no-cache-release-check:", makefile)
         self.assertIn(
-            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke governance-integrity-smoke zero-resident-audit-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
+            "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke governance-integrity-smoke zero-resident-audit-smoke ai-first-release-checklist-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke docker-test",
             makefile,
         )
         self.assertIn("PYTHON ?= python3", makefile)
@@ -6299,6 +6301,9 @@ class CleanMacCLITests(unittest.TestCase):
             (("ai-host-integration-pack",), "cleanmac.ai-host-integration-pack.v1"),
             (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
             (("governance-integrity",), "cleanmac.governance-integrity.v1"),
+            (("zero-resident",), "cleanmac.zero-resident.v1"),
+            (("product-surface-drift-audit",), "cleanmac.product-surface-drift-audit.v1"),
+            (("ai-first-release-checklist",), "cleanmac.ai-first-release-checklist.v1"),
             (("ai-schema-registry",), "cleanmac.ai-schema-registry.v1"),
             (("release-readiness",), "cleanmac.release-readiness.v1"),
             (("release-diagnostics",), "cleanmac.release-diagnostics.v1"),
@@ -6321,7 +6326,9 @@ class CleanMacCLITests(unittest.TestCase):
         release_readiness = run_main_json("release-readiness")
         self.assertFalse(release_readiness["destructive"])
         self.assertTrue(release_readiness["dry_run"])
+        self.assertIn("ai-first-release-checklist-ready", {gate["id"] for gate in release_readiness["gates"]})
         self.assertIn("governance-integrity-ready", {gate["id"] for gate in release_readiness["gates"]})
+        self.assertIn(["make", "ai-first-release-checklist-smoke"], release_readiness["release_gate_commands"])
         self.assertIn(["make", "governance-integrity-smoke"], release_readiness["release_gate_commands"])
         self.assertIn(["make", "governed-execution-smoke"], release_readiness["release_gate_commands"])
         self.assertIn("release-artifact-manifest-valid", release_readiness["failed_gate_ids"])
@@ -6359,7 +6366,7 @@ class CleanMacCLITests(unittest.TestCase):
 
         self.assertTrue(explicit_readiness["ready"], explicit_readiness)
         self.assertEqual(explicit_readiness["failed_gate_ids"], [])
-        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 10, "total": 10, "level": "release-ready"})
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 11, "total": 11, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"

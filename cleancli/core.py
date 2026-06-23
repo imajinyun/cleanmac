@@ -56,11 +56,14 @@ from cleancli.ai_versioning import (
     validate_contract_payload,
 )
 from cleancli.governance import (
+    render_ai_first_release_checklist,
     render_boundary_governance,
     render_geo_discoverability_policy,
     render_governance_integrity_report,
     render_product_surface_policy,
+    render_product_surface_drift_audit,
     render_runtime_lifecycle_policy,
+    render_zero_resident_contract,
     render_zero_resident_audit,
 )
 from cleancli.mcp_resources import render_mcp_surface_audit
@@ -1289,12 +1292,24 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit auditable AI Host runtime governance evidence pack.",
     )
     subparsers.add_parser(
+        "ai-first-release-checklist",
+        help="Emit release checklist proving publishing remains AI-first, zero-resident, and schema-governed.",
+    )
+    subparsers.add_parser(
         "mcp-surface-audit",
         help="Emit read-only MCP surface readiness and safety audit.",
     )
     subparsers.add_parser(
         "zero-resident-audit",
         help="Emit read-only zero-resident product boundary audit for release gates.",
+    )
+    subparsers.add_parser(
+        "zero-resident",
+        help="Emit compact machine-verifiable zero-resident lifecycle contract.",
+    )
+    subparsers.add_parser(
+        "product-surface-drift-audit",
+        help="Emit static GUI/TUI/resident product-surface drift audit.",
     )
     release_readiness_parser = subparsers.add_parser(
         "release-readiness",
@@ -2317,6 +2332,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity=render_governance_integrity(),
             mcp_surface_audit=render_mcp_surface_audit(),
             zero_resident_audit=render_zero_resident_audit(),
@@ -2325,6 +2341,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             release_manifest=render_release_manifest_evidence(),
             required_make_targets=[
                 "quality-check",
+                "ai-first-release-checklist-smoke",
                 "governance-integrity-smoke",
                 "zero-resident-audit-smoke",
                 "governed-execution-smoke",
@@ -2432,6 +2449,22 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
     )
 
 
+def render_ai_first_release_checklist_report() -> dict[str, Any]:
+    contract_validation = render_ai_contract_validation_summary()
+    contract_validation["ready"] = bool(contract_validation.get("valid"))
+    zero_resident_audit = render_zero_resident_audit()
+    return render_ai_first_release_checklist(
+        ai_host_integration_pack=render_ai_host_integration_pack_report(),
+        ai_host_preflight=render_ai_host_preflight_report(),
+        ai_host_evidence=render_ai_host_evidence_report(),
+        governance_integrity=render_governance_integrity(),
+        zero_resident_audit=zero_resident_audit,
+        product_surface_drift_audit=zero_resident_audit.get("product_surface_drift_audit", {}),
+        mcp_surface_audit=render_mcp_surface_audit(),
+        contract_validation=contract_validation,
+    )
+
+
 def render_release_manifest_evidence(*, dist_dir: Path | None = None, assets_dir: Path | None = None) -> dict[str, Any]:
     project_root = Path(__file__).resolve().parent.parent
     resolved_dist_dir = dist_dir or project_root / "dist"
@@ -2519,8 +2552,10 @@ def render_release_readiness_report(
 ) -> dict[str, Any]:
     contract_validation = render_ai_contract_validation_summary()
     contract_validation["ready"] = bool(contract_validation.get("valid"))
+    ai_first_release_checklist = render_ai_first_release_checklist_report()
     required_make_targets = [
         "quality-check",
+        "ai-first-release-checklist-smoke",
         "governance-integrity-smoke",
         "zero-resident-audit-smoke",
         "governed-execution-smoke",
@@ -2534,6 +2569,7 @@ def render_release_readiness_report(
         ai_host_integration_pack=render_ai_host_integration_pack_report(),
         ai_host_preflight=render_ai_host_preflight_report(),
         ai_host_evidence=render_ai_host_evidence_report(),
+        ai_first_release_checklist=ai_first_release_checklist,
         governance_integrity=render_governance_integrity(),
         mcp_surface_audit=render_mcp_surface_audit(),
         zero_resident_audit=render_zero_resident_audit(),
@@ -2558,6 +2594,7 @@ def render_release_evidence_report(
     contract_validation = render_ai_contract_validation_summary()
     contract_validation["ready"] = bool(contract_validation.get("valid"))
     governance_integrity = render_governance_integrity()
+    ai_first_release_checklist = render_ai_first_release_checklist_report()
     release_readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     release_diagnostics = render_release_diagnostics_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     return build_release_evidence_bundle(
@@ -2566,6 +2603,7 @@ def render_release_evidence_report(
         release_readiness=release_readiness,
         release_diagnostics=release_diagnostics,
         governance_integrity=governance_integrity,
+        ai_first_release_checklist=ai_first_release_checklist,
         contract_validation=contract_validation,
         ai_host_evidence=render_ai_host_evidence_report(),
         eval_smoke=render_ai_eval_smoke_evidence(),
@@ -2595,6 +2633,7 @@ def render_release_diagnostics_report(
     readiness = render_release_readiness_report(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     manifest = render_release_manifest_evidence(dist_dir=resolved_dist_dir, assets_dir=resolved_assets_dir)
     governance_integrity = render_governance_integrity()
+    ai_first_release_checklist = render_ai_first_release_checklist_report()
     failed_gates = [gate for gate in readiness.get("gates", []) if not gate.get("passed")]
     recommended_commands = [["make", "release-artifacts-smoke"], ["make", "release-readiness-smoke"]]
     recommended_commands.extend(
@@ -2634,6 +2673,16 @@ def render_release_diagnostics_report(
             "stop_reason": str(governance_integrity.get("stop_reason") or ""),
             "readiness_score": dict(governance_integrity.get("readiness_score", {})),
             "remediation_commands": [list(command) for command in governance_integrity.get("remediation_commands", [])],
+        },
+        "ai_first_release_checklist": {
+            "schema": ai_first_release_checklist.get("schema"),
+            "ready": bool(ai_first_release_checklist.get("ready")),
+            "failed_check_ids": list(ai_first_release_checklist.get("failed_check_ids", [])),
+            "stop_reason": str(ai_first_release_checklist.get("stop_reason") or ""),
+            "readiness_score": dict(ai_first_release_checklist.get("readiness_score", {})),
+            "remediation_commands": [
+                list(command) for command in ai_first_release_checklist.get("remediation_commands", [])
+            ],
         },
         "readiness_summary": render_release_readiness_summary(readiness),
         "failed_gates": failed_gates,
@@ -7507,11 +7556,20 @@ def _main_impl(argv: Sequence[str]) -> int:
     if args.command == "ai-host-evidence":
         print(json.dumps(render_ai_host_evidence_report(), indent=2, ensure_ascii=False))
         return 0
+    if args.command == "ai-first-release-checklist":
+        print(json.dumps(render_ai_first_release_checklist_report(), indent=2, ensure_ascii=False))
+        return 0
     if args.command == "mcp-surface-audit":
         print(json.dumps(render_mcp_surface_audit(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "zero-resident-audit":
         print(json.dumps(render_zero_resident_audit(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "zero-resident":
+        print(json.dumps(render_zero_resident_contract(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "product-surface-drift-audit":
+        print(json.dumps(render_product_surface_drift_audit(), indent=2, ensure_ascii=False))
         return 0
     if args.command == "release-readiness":
         print(

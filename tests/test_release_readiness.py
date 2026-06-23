@@ -29,6 +29,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity={"schema": "cleanmac.governance-integrity.v1", "ready": True},
             mcp_surface_audit={"schema": "cleanmac.mcp-surface-audit.v1", "ready": True, "failed_check_ids": []},
             zero_resident_audit={"schema": "cleanmac.zero-resident-audit.v1", "ready": True, "failed_check_ids": []},
@@ -50,7 +51,7 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(report["destructive"])
         self.assertTrue(report["dry_run"])
         self.assertTrue(report["ready"])
-        self.assertEqual(report["readiness_score"], {"passed": 10, "total": 10, "level": "release-ready"})
+        self.assertEqual(report["readiness_score"], {"passed": 11, "total": 11, "level": "release-ready"})
         self.assertEqual(report["failed_gate_ids"], [])
         self.assertIn(["make", "governance-integrity-smoke"], report["release_gate_commands"])
         self.assertIn(["make", "zero-resident-audit-smoke"], report["release_gate_commands"])
@@ -64,6 +65,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": False},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": False},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity={"schema": "cleanmac.governance-integrity.v1", "ready": False},
             mcp_surface_audit={"schema": "cleanmac.mcp-surface-audit.v1", "ready": True, "failed_check_ids": []},
             zero_resident_audit={"schema": "cleanmac.zero-resident-audit.v1", "ready": True, "failed_check_ids": []},
@@ -83,7 +85,7 @@ class ReleaseReadinessTests(unittest.TestCase):
         )
 
         self.assertFalse(report["ready"])
-        self.assertEqual(report["readiness_score"], {"passed": 4, "total": 10, "level": "blocked"})
+        self.assertEqual(report["readiness_score"], {"passed": 5, "total": 11, "level": "blocked"})
         self.assertIn("ai-host-preflight-ready", report["failed_gate_ids"])
         self.assertIn("governance-integrity-ready", report["failed_gate_ids"])
         self.assertIn("release-artifact-manifest-valid", report["failed_gate_ids"])
@@ -97,6 +99,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity={
                 "schema": "cleanmac.governance-integrity.v1",
                 "ready": False,
@@ -129,6 +132,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity={"schema": "cleanmac.governance-integrity.v1", "ready": True},
             mcp_surface_audit={"schema": "cleanmac.mcp-surface-audit.v1", "ready": True, "failed_check_ids": []},
             zero_resident_audit={"schema": "cleanmac.zero-resident-audit.v1", "ready": True, "failed_check_ids": []},
@@ -153,6 +157,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity={"schema": "cleanmac.governance-integrity.v1", "ready": True},
             mcp_surface_audit={
                 "schema": "cleanmac.mcp-surface-audit.v1",
@@ -171,7 +176,7 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(report["ready"])
         self.assertTrue(report["manual_review_required"])
         self.assertIn("mcp-surface-audit-ready", report["failed_gate_ids"])
-        self.assertEqual(report["readiness_score"], {"passed": 9, "total": 10, "level": "blocked"})
+        self.assertEqual(report["readiness_score"], {"passed": 10, "total": 11, "level": "blocked"})
         self.assertEqual(gates["mcp-surface-audit-ready"]["blocking_code"], "MCP_SURFACE_AUDIT_NOT_READY")
         self.assertIn("required-tools-advertised", gates["mcp-surface-audit-ready"]["diagnostic"])
         self.assertIn(["make", "mcp-surface-audit-smoke"], gates["mcp-surface-audit-ready"]["next_actions"])
@@ -240,6 +245,10 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertTrue(diagnostics["governance_integrity"]["ready"], diagnostics["governance_integrity"])
         self.assertEqual(diagnostics["governance_integrity"]["failed_check_ids"], [])
         self.assertIn(["make", "governance-integrity-smoke"], diagnostics["governance_integrity"]["remediation_commands"])
+        self.assertEqual(
+            diagnostics["ai_first_release_checklist"]["schema"], "cleanmac.ai-first-release-checklist.v1"
+        )
+        self.assertTrue(diagnostics["ai_first_release_checklist"]["ready"], diagnostics["ai_first_release_checklist"])
         self.assertEqual(summary["schema"], "cleanmac.release-operator-summary.v1")
         self.assertEqual(summary["status"], "blocked")
         self.assertEqual(summary["must_fix_first"][0]["gate_id"], "release-artifact-manifest-valid")
@@ -368,6 +377,8 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(evidence["post_publish_result"]["ready"])
         self.assertEqual(evidence["governance_integrity"]["schema"], "cleanmac.governance-integrity.v1")
         self.assertTrue(evidence["governance_integrity"]["ready"], evidence["governance_integrity"])
+        self.assertEqual(evidence["ai_first_release_checklist"]["schema"], "cleanmac.ai-first-release-checklist.v1")
+        self.assertTrue(evidence["ai_first_release_checklist"]["ready"], evidence["ai_first_release_checklist"])
         self.assertEqual(
             evidence["post_publish_evidence_template"]["schema"],
             "cleanmac.release-post-publish-evidence-template.v1",

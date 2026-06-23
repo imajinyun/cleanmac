@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 
@@ -25,11 +27,19 @@ def _unique_commands(commands: list[list[str]]) -> list[list[str]]:
 
 def render_boundary_governance() -> dict[str, Any]:
     runtime_lifecycle = render_runtime_lifecycle_policy()
+    zero_resident_contract = render_zero_resident_contract(runtime_lifecycle=runtime_lifecycle)
+    product_surface_drift_audit = render_product_surface_drift_audit()
     return {
         "schema": "cleanmac.boundary-governance.v1",
         "purpose": "Define safe automation boundaries for cleanup operations.",
         "runtime_lifecycle": runtime_lifecycle,
-        "zero_resident_audit": render_zero_resident_audit(runtime_lifecycle=runtime_lifecycle),
+        "zero_resident_contract": zero_resident_contract,
+        "zero_resident_audit": render_zero_resident_audit(
+            runtime_lifecycle=runtime_lifecycle,
+            zero_resident_contract=zero_resident_contract,
+            product_surface_drift_audit=product_surface_drift_audit,
+        ),
+        "product_surface_drift_audit": product_surface_drift_audit,
         "automated_safe_behaviors": [
             "list",
             "capabilities",
@@ -139,6 +149,126 @@ def render_runtime_lifecycle_policy() -> dict[str, Any]:
             "automatic cleanup without explicit invocation",
             "push-style cleanup reminders",
         ],
+    }
+
+
+def render_zero_resident_contract(*, runtime_lifecycle: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the compact machine-verifiable zero-resident product contract."""
+
+    lifecycle = dict(runtime_lifecycle or render_runtime_lifecycle_policy())
+    expected = {
+        "resident_processes_expected": 0,
+        "background_cpu_expected": 0,
+        "background_memory_expected": 0,
+        "login_items_created": False,
+        "launch_agents_created": False,
+        "launch_daemons_created": False,
+        "auto_scan_enabled": False,
+        "implements_tui": False,
+        "implements_gui": False,
+        "lifecycle": "single-shot",
+    }
+    evidence = {
+        "resident_processes": lifecycle.get("resident_processes"),
+        "background_cpu_policy": lifecycle.get("background_cpu_policy"),
+        "background_memory_policy": lifecycle.get("background_memory_policy"),
+        "login_items_created": lifecycle.get("installs_login_item"),
+        "launch_agents_created": lifecycle.get("installs_background_daemon"),
+        "launch_daemons_created": lifecycle.get("installs_background_daemon"),
+        "auto_scan_enabled": lifecycle.get("performs_unsolicited_scans"),
+        "implements_tui": lifecycle.get("implements_tui"),
+        "implements_gui": lifecycle.get("implements_gui"),
+        "lifecycle": "single-shot" if lifecycle.get("exits_after_workflow") is True else "resident-or-unknown",
+    }
+    evidence_key_by_expected_field = {
+        "resident_processes_expected": "resident_processes",
+        "background_cpu_expected": "background_cpu_expected",
+        "background_memory_expected": "background_memory_expected",
+        "login_items_created": "login_items_created",
+        "launch_agents_created": "launch_agents_created",
+        "launch_daemons_created": "launch_daemons_created",
+        "auto_scan_enabled": "auto_scan_enabled",
+        "implements_tui": "implements_tui",
+        "implements_gui": "implements_gui",
+        "lifecycle": "lifecycle",
+    }
+    evidence["background_cpu_expected"] = 0 if lifecycle.get("background_cpu_policy") == "zero-when-not-invoked" else None
+    evidence["background_memory_expected"] = 0 if lifecycle.get("background_memory_policy") == "zero-when-not-invoked" else None
+    failed_fields = [
+        field for field, value in expected.items() if evidence.get(evidence_key_by_expected_field[field]) != value
+    ]
+    return {
+        "schema": "cleanmac.zero-resident.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not failed_fields,
+        "product_model": lifecycle.get("product_model"),
+        **expected,
+        "evidence": evidence,
+        "failed_fields": failed_fields,
+        "stop_reason": "" if not failed_fields else "zero-resident contract failed: " + ", ".join(failed_fields),
+        "next_action": "Run make zero-resident-audit-smoke before release readiness.",
+        "release_gate_commands": [["cleanmac", "--json", "zero-resident"], ["make", "zero-resident-audit-smoke"]],
+    }
+
+
+@lru_cache(maxsize=4)
+def _product_surface_drift_violations(project_root: str) -> tuple[str, ...]:
+    root = Path(project_root).resolve(strict=False)
+    from scripts import security_scan
+
+    violations: list[str] = []
+    for path in security_scan.iter_repo_files(root):
+        relative = path.relative_to(root)
+        violations.extend(security_scan.scan_product_surface_text(root, path))
+        if path.suffix == ".py":
+            violations.extend(
+                violation
+                for violation in security_scan.scan_python_ast(root, path)
+                if "forbidden" in violation
+                or "autostart" in violation
+                or "LaunchAgent" in violation
+                or "LaunchDaemon" in violation
+            )
+        if security_scan.is_workflow_file(relative):
+            violations.extend(
+                violation
+                for violation in security_scan.scan_workflow_file(root, path)
+                if "LaunchAgent" in violation or "LaunchDaemon" in violation or "login" in violation.lower()
+            )
+    return tuple(violations)
+
+
+def render_product_surface_drift_audit(*, project_root: Path | None = None) -> dict[str, Any]:
+    """Return a static drift audit for forbidden GUI/TUI/resident product surfaces."""
+
+    root = (project_root or Path(__file__).resolve().parent.parent).resolve(strict=False)
+    scan_available = (root / "scripts" / "security_scan.py").is_file()
+    scan_warning = ""
+    if scan_available:
+        try:
+            violations = list(_product_surface_drift_violations(str(root)))
+        except Exception as exc:  # pragma: no cover - defensive guard for unexpected scanner errors.
+            violations = [f"product-surface-drift-audit failed: {exc}"]
+    else:
+        violations = []
+        scan_warning = "Repository security scanner is not packaged; release gates run this audit from source checkout."
+    forbidden_dependency_families = list(render_product_surface_policy().get("forbidden_dependency_families", []))
+    return {
+        "schema": "cleanmac.product-surface-drift-audit.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not violations,
+        "scan_scope": "forbidden GUI/TUI dependencies, imports, LaunchAgent/LaunchDaemon/LoginItems, and resident product surfaces",
+        "project_root": str(root),
+        "scan_available": scan_available,
+        "scan_warning": scan_warning,
+        "forbidden_dependency_families": forbidden_dependency_families,
+        "violation_count": len(violations),
+        "violations": violations,
+        "failed_check_ids": [] if not violations else ["forbidden-product-surface-drift"],
+        "stop_reason": "" if not violations else "Forbidden GUI/TUI/resident product-surface drift detected.",
+        "release_gate_commands": [["cleanmac", "--json", "product-surface-drift-audit"], ["python3", "scripts/security_scan.py"]],
     }
 
 
@@ -271,7 +401,9 @@ def render_governance_integrity_report(
     """Return a release-gateable consistency report for governance contracts."""
 
     discoverability_hints = ai_tool_contract.get("discoverability_hints", {})
+    zero_resident_contract = boundary_governance.get("zero_resident_contract", {})
     zero_resident_audit = boundary_governance.get("zero_resident_audit", {})
+    product_surface_drift_audit = boundary_governance.get("product_surface_drift_audit", {})
     checks = [
         _governance_integrity_check(
             check_id="boundary-runtime-lifecycle-single-source",
@@ -335,6 +467,36 @@ def render_governance_integrity_report(
             expected={"level": "ready"},
             remediation="Fix zero-resident audit failures before release or public positioning changes.",
         ),
+        _governance_integrity_check(
+            check_id="zero-resident-contract-ready",
+            passed=zero_resident_contract.get("ready") is True,
+            evidence={
+                "schema": zero_resident_contract.get("schema"),
+                "failed_fields": zero_resident_contract.get("failed_fields", []),
+            },
+            expected={"schema": "cleanmac.zero-resident.v1", "ready": True},
+            remediation="Keep the compact zero-resident contract ready before release readiness.",
+            remediation_commands=[
+                ["cleanmac", "--json", "zero-resident"],
+                ["make", "zero-resident-audit-smoke"],
+                *GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS,
+            ],
+        ),
+        _governance_integrity_check(
+            check_id="product-surface-drift-audit-ready",
+            passed=product_surface_drift_audit.get("ready") is True,
+            evidence={
+                "schema": product_surface_drift_audit.get("schema"),
+                "violation_count": product_surface_drift_audit.get("violation_count"),
+            },
+            expected={"schema": "cleanmac.product-surface-drift-audit.v1", "violation_count": 0},
+            remediation="Remove forbidden GUI/TUI dependencies, autostart files, or resident product-surface drift.",
+            remediation_commands=[
+                ["cleanmac", "--json", "product-surface-drift-audit"],
+                ["python3", "scripts/security_scan.py"],
+                *GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS,
+            ],
+        ),
     ]
     failed_check_ids = [check["id"] for check in checks if not check["passed"]]
     release_gate_commands = _unique_commands(GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS)
@@ -363,7 +525,9 @@ def render_governance_integrity_report(
             boundary_governance.get("schema"),
             ai_tool_contract.get("schema"),
             product_positioning.get("schema"),
+            zero_resident_contract.get("schema"),
             zero_resident_audit.get("schema"),
+            product_surface_drift_audit.get("schema"),
         ],
         "release_gate_commands": release_gate_commands,
         "review_questions": [
@@ -393,12 +557,200 @@ def _zero_resident_check(
     }
 
 
-def render_zero_resident_audit(*, runtime_lifecycle: dict[str, Any] | None = None) -> dict[str, Any]:
+def _ai_first_release_check(
+    *,
+    check_id: str,
+    passed: bool,
+    evidence: Any,
+    expected: Any,
+    remediation: str,
+    remediation_commands: list[list[str]],
+) -> dict[str, Any]:
+    return {
+        "id": check_id,
+        "passed": passed,
+        "severity": "none" if passed else "blocking",
+        "evidence": evidence,
+        "expected": expected,
+        "remediation": remediation,
+        "remediation_commands": _unique_commands(remediation_commands),
+    }
+
+
+def render_ai_first_release_checklist(
+    *,
+    ai_host_integration_pack: dict[str, Any],
+    ai_host_preflight: dict[str, Any],
+    ai_host_evidence: dict[str, Any],
+    governance_integrity: dict[str, Any],
+    zero_resident_audit: dict[str, Any],
+    product_surface_drift_audit: dict[str, Any],
+    mcp_surface_audit: dict[str, Any],
+    contract_validation: dict[str, Any],
+) -> dict[str, Any]:
+    """Return the release checklist that keeps publishing aligned with AI-first positioning."""
+
+    contract_coverage = contract_validation.get("contract_schema_coverage", {})
+    zero_resident_contract = zero_resident_audit.get("zero_resident_contract", {})
+    checks = [
+        _ai_first_release_check(
+            check_id="ai-host-entrypoints-ready",
+            passed=all(
+                payload.get("ready") is True
+                for payload in (ai_host_integration_pack, ai_host_preflight, ai_host_evidence)
+            ),
+            evidence={
+                "integration_pack_ready": ai_host_integration_pack.get("ready"),
+                "preflight_ready": ai_host_preflight.get("ready"),
+                "evidence_ready": ai_host_evidence.get("ready"),
+            },
+            expected={"ready": True},
+            remediation="Keep AI Host integration pack, preflight, and evidence ready before release.",
+            remediation_commands=[
+                ["cleanmac", "--json", "ai-host-integration-pack"],
+                ["cleanmac", "--json", "ai-host-preflight"],
+                ["cleanmac", "--json", "ai-host-evidence"],
+                ["make", "ai-host-smoke"],
+            ],
+        ),
+        _ai_first_release_check(
+            check_id="json-contracts-registered",
+            passed=contract_validation.get("valid") is True
+            and not contract_coverage.get("missing_stable_ai_schema_fragments")
+            and not contract_coverage.get("missing_release_critical_contract_fragments"),
+            evidence={
+                "valid": contract_validation.get("valid"),
+                "missing_stable_ai_schema_fragments": contract_coverage.get("missing_stable_ai_schema_fragments", []),
+                "missing_release_critical_contract_fragments": contract_coverage.get(
+                    "missing_release_critical_contract_fragments", []
+                ),
+            },
+            expected={"valid": True, "missing_fragments": []},
+            remediation="Register every AI-first and release-critical schema before publishing.",
+            remediation_commands=[
+                ["cleanmac", "--json", "ai-schema-registry"],
+                ["cleanmac", "--json", "ai-contract-samples"],
+                ["make", "ai-contract-smoke"],
+            ],
+        ),
+        _ai_first_release_check(
+            check_id="governance-integrity-ready",
+            passed=governance_integrity.get("ready") is True,
+            evidence={"failed_check_ids": governance_integrity.get("failed_check_ids", [])},
+            expected={"ready": True, "failed_check_ids": []},
+            remediation="Resolve governance integrity drift before AI-first release review.",
+            remediation_commands=[
+                ["cleanmac", "--json", "governance-integrity"],
+                ["make", "governance-integrity-smoke"],
+            ],
+        ),
+        _ai_first_release_check(
+            check_id="zero-resident-contract-ready",
+            passed=zero_resident_contract.get("ready") is True and zero_resident_audit.get("ready") is True,
+            evidence={
+                "zero_resident_contract_ready": zero_resident_contract.get("ready"),
+                "zero_resident_audit_ready": zero_resident_audit.get("ready"),
+            },
+            expected={"zero_resident_contract_ready": True, "zero_resident_audit_ready": True},
+            remediation="Keep cleanmac single-shot, non-resident, and explicit-invocation only.",
+            remediation_commands=[
+                ["cleanmac", "--json", "zero-resident"],
+                ["cleanmac", "--json", "zero-resident-audit"],
+                ["make", "zero-resident-audit-smoke"],
+            ],
+        ),
+        _ai_first_release_check(
+            check_id="product-surface-drift-clean",
+            passed=product_surface_drift_audit.get("ready") is True
+            and int(product_surface_drift_audit.get("violation_count") or 0) == 0,
+            evidence={
+                "ready": product_surface_drift_audit.get("ready"),
+                "violation_count": product_surface_drift_audit.get("violation_count"),
+            },
+            expected={"ready": True, "violation_count": 0},
+            remediation="Remove GUI/TUI, autostart, menu-bar, daemon, or resident product-surface drift.",
+            remediation_commands=[
+                ["cleanmac", "--json", "product-surface-drift-audit"],
+                ["python3", "scripts/security_scan.py"],
+            ],
+        ),
+        _ai_first_release_check(
+            check_id="mcp-surface-audit-ready",
+            passed=mcp_surface_audit.get("ready") is True,
+            evidence={"failed_check_ids": mcp_surface_audit.get("failed_check_ids", [])},
+            expected={"ready": True, "failed_check_ids": []},
+            remediation="Keep MCP resources, prompts, and tools discoverable and safe for AI hosts.",
+            remediation_commands=[
+                ["cleanmac", "--json", "mcp-surface-audit"],
+                ["make", "mcp-surface-audit-smoke"],
+                ["make", "mcp-smoke"],
+            ],
+        ),
+    ]
+    failed_check_ids = [check["id"] for check in checks if not check["passed"]]
+    release_gate_commands = _unique_commands(
+        [
+            ["cleanmac", "--json", "ai-first-release-checklist"],
+            ["make", "ai-first-release-checklist-smoke"],
+            ["make", "release-readiness-smoke"],
+        ]
+    )
+    failed_remediation_commands = _unique_commands(
+        [command for check in checks if not check["passed"] for command in check["remediation_commands"]]
+    )
+    return {
+        "schema": "cleanmac.ai-first-release-checklist.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not failed_check_ids,
+        "failed_check_ids": failed_check_ids,
+        "stop_reason": ""
+        if not failed_check_ids
+        else "ai-first-release-checklist failed: " + ", ".join(failed_check_ids),
+        "next_action": "Run make ai-first-release-checklist-smoke before release readiness.",
+        "readiness_score": {
+            "passed": len(checks) - len(failed_check_ids),
+            "total": len(checks),
+            "level": "ready" if not failed_check_ids else "blocked",
+        },
+        "checks": checks,
+        "remediation_commands": failed_remediation_commands or release_gate_commands,
+        "release_gate_commands": release_gate_commands,
+        "review_questions": [
+            "Do AI Host entrypoints remain the primary release-review path?",
+            "Are all AI-first and release-critical JSON contracts registered and sample-covered?",
+            "Did zero-resident and product-surface drift audits pass before publish?",
+        ],
+    }
+
+
+def render_zero_resident_audit(
+    *,
+    runtime_lifecycle: dict[str, Any] | None = None,
+    zero_resident_contract: dict[str, Any] | None = None,
+    product_surface_drift_audit: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Return a release-gateable audit proving cleanmac remains non-resident."""
 
     lifecycle = dict(runtime_lifecycle or render_runtime_lifecycle_policy())
+    contract = dict(zero_resident_contract or render_zero_resident_contract(runtime_lifecycle=lifecycle))
+    drift_audit = dict(product_surface_drift_audit or render_product_surface_drift_audit())
     forbidden_patterns = list(lifecycle.get("forbidden_product_patterns") or [])
     checks = [
+        _zero_resident_check(
+            check_id="zero-resident-contract-ready",
+            passed=contract.get("ready") is True,
+            evidence={"schema": contract.get("schema"), "failed_fields": contract.get("failed_fields", [])},
+            expected={"schema": "cleanmac.zero-resident.v1", "ready": True},
+            remediation="Restore the compact zero-resident contract before release readiness.",
+        ),
+        _zero_resident_check(
+            check_id="product-surface-drift-audit-ready",
+            passed=drift_audit.get("ready") is True,
+            evidence={"schema": drift_audit.get("schema"), "violation_count": drift_audit.get("violation_count")},
+            expected={"schema": "cleanmac.product-surface-drift-audit.v1", "ready": True, "violation_count": 0},
+            remediation="Remove forbidden GUI/TUI dependencies, autostart surfaces, or resident product-surface drift.",
+        ),
         _zero_resident_check(
             check_id="product-model-ai-first-ephemeral-cli",
             passed=lifecycle.get("product_model") == "ai-first-ephemeral-cli",
@@ -525,6 +877,8 @@ def render_zero_resident_audit(*, runtime_lifecycle: dict[str, Any] | None = Non
         },
         "checks": checks,
         "runtime_lifecycle_resource": "cleanmac://ai/runtime-lifecycle-policy",
+        "zero_resident_contract": contract,
+        "product_surface_drift_audit": drift_audit,
         "runtime_lifecycle": lifecycle,
         "forbidden_product_patterns": forbidden_patterns,
         "release_gate_commands": [["cleanmac", "--json", "zero-resident-audit"], ["make", "zero-resident-audit-smoke"]],
@@ -550,11 +904,14 @@ def render_doctor(*args: Any, **kwargs: Any) -> dict[str, Any]:
 
 __all__ = [
     "render_boundary_governance",
+    "render_ai_first_release_checklist",
     "render_capabilities",
     "render_doctor",
     "render_geo_discoverability_policy",
     "render_governance_integrity_report",
     "render_product_surface_policy",
+    "render_product_surface_drift_audit",
     "render_runtime_lifecycle_policy",
+    "render_zero_resident_contract",
     "render_zero_resident_audit",
 ]

@@ -939,7 +939,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(zero_resident_payload["schema"], "cleanmac.zero-resident-audit.v1")
         self.assertTrue(zero_resident_payload["ready"], zero_resident_payload)
         self.assertEqual(zero_resident_payload["resident_processes"], 0)
-        self.assertEqual(zero_resident_payload["readiness_score"], {"passed": 14, "total": 14, "level": "ready"})
+        self.assertEqual(zero_resident_payload["readiness_score"], {"passed": 16, "total": 16, "level": "ready"})
 
         workflow_response = _mcp_request(
             {

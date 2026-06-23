@@ -63,6 +63,7 @@ def render_release_readiness(
     ai_host_integration_pack: Mapping[str, Any],
     ai_host_preflight: Mapping[str, Any],
     ai_host_evidence: Mapping[str, Any],
+    ai_first_release_checklist: Mapping[str, Any],
     governance_integrity: Mapping[str, Any],
     mcp_surface_audit: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
@@ -105,6 +106,22 @@ def render_release_readiness(
             diagnostic="AI Host evidence pack is incomplete.",
             blocking_code="AI_HOST_EVIDENCE_NOT_READY",
             next_actions=[["make", "ai-host-smoke"], ["make", "mcp-smoke"]],
+        ),
+        _gate(
+            gate_id="ai-first-release-checklist-ready",
+            passed=_passed_bool(ai_first_release_checklist, "ready"),
+            evidence_schema=ai_first_release_checklist.get("schema"),
+            evidence_ref={"producer": "cleanmac --json ai-first-release-checklist"},
+            diagnostic=_first_text(
+                ai_first_release_checklist,
+                "stop_reason",
+                default="AI-first release checklist is not ready for release review.",
+            ),
+            blocking_code="AI_FIRST_RELEASE_CHECKLIST_NOT_READY",
+            next_actions=_commands_or_default(
+                ai_first_release_checklist,
+                [["cleanmac", "--json", "ai-first-release-checklist"], ["make", "ai-first-release-checklist-smoke"]],
+            ),
         ),
         _gate(
             gate_id="governance-integrity-ready",
@@ -215,6 +232,7 @@ def render_release_readiness(
         "review_questions": [
             "Did ai-host-preflight pass before tool orchestration?",
             "Did ai-host-evidence include runtime denial samples?",
+            "Did ai-first-release-checklist confirm AI-first entrypoints, schemas, MCP, governance, and zero-resident evidence?",
             "Did governance-integrity confirm centralized GEO, product surface, and AI contract metadata stayed aligned?",
             "Did zero-resident-audit confirm no GUI, TUI, daemon, login item, or background scan surface?",
             "Did governed-execution-smoke pass after startup/privacy executor changes?",

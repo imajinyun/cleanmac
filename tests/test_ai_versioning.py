@@ -34,6 +34,8 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("cleanmac.release-readiness.v1", names)
         self.assertIn("cleanmac.geo-discoverability-policy.v1", names)
         self.assertIn("cleanmac.governance-integrity.v1", names)
+        self.assertIn("cleanmac.zero-resident.v1", names)
+        self.assertIn("cleanmac.product-surface-drift-audit.v1", names)
         for entry in report["entries"]:
             self.assertIn("name", entry)
             self.assertIn("version", entry)
@@ -91,6 +93,14 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(
             entries["cleanmac.governance-integrity.v1"]["producer_command"],
             ["cleanmac", "--json", "governance-integrity"],
+        )
+        self.assertEqual(
+            entries["cleanmac.zero-resident.v1"]["producer_command"],
+            ["cleanmac", "--json", "zero-resident"],
+        )
+        self.assertEqual(
+            entries["cleanmac.product-surface-drift-audit.v1"]["producer_command"],
+            ["cleanmac", "--json", "product-surface-drift-audit"],
         )
 
     def test_registry_exposes_core_json_schema_fragments(self) -> None:
@@ -165,6 +175,10 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertIn("mcp", entries["cleanmac.mcp-surface-audit.v1"]["consumers"])
         self.assertEqual(entries["cleanmac.mcp-surface-audit.v1"]["owner_area"], "mcp")
         self.assertTrue(entries["cleanmac.mcp-surface-audit.v1"]["release_critical"])
+        self.assertIn("json_schema", entries["cleanmac.zero-resident.v1"])
+        self.assertIn("json_schema", entries["cleanmac.product-surface-drift-audit.v1"])
+        self.assertTrue(entries["cleanmac.zero-resident.v1"]["release_critical"])
+        self.assertTrue(entries["cleanmac.product-surface-drift-audit.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
         self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
@@ -245,7 +259,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "dry_run": True,
             "ready": True,
             "manual_review_required": False,
-            "readiness_score": {"passed": 10, "total": 10, "level": "release-ready"},
+            "readiness_score": {"passed": 11, "total": 11, "level": "release-ready"},
             "failed_gate_ids": [],
             "gates": [
                 {
@@ -275,6 +289,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "environment": {"platform": "darwin"},
             "artifacts": {"error_code": "RELEASE_ARTIFACT_MANIFEST_MISSING"},
             "governance_integrity": {"schema": "cleanmac.governance-integrity.v1", "ready": True},
+            "ai_first_release_checklist": {"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             "recommended_commands": [["make", "release-artifacts-smoke"]],
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-diagnostics.v1", release_diagnostics)["valid"])
@@ -288,6 +303,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "release_readiness": {"schema": "cleanmac.release-readiness.v1", "ready": True},
             "release_diagnostics": {"schema": "cleanmac.release-diagnostics.v1", "ready": True},
             "governance_integrity": {"schema": "cleanmac.governance-integrity.v1", "ready": True},
+            "ai_first_release_checklist": {"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             "assets": {"required": ["SBOM.json"], "missing": []},
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"])
@@ -326,7 +342,11 @@ class AISchemaRegistryTests(unittest.TestCase):
             "dry_run": True,
             "manual_only": True,
             "rollback_surfaces": [{"id": "pypi"}],
-            "pre_rollback_checks": [["cleanmac", "--json", "release-diagnostics"]],
+            "pre_rollback_checks": [
+                ["cleanmac", "--json", "governance-integrity"],
+                ["cleanmac", "--json", "release-diagnostics"],
+                ["make", "governance-integrity-smoke"],
+            ],
         }
         self.assertTrue(validate_contract_payload("cleanmac.release-rollback-plan.v1", rollback_plan)["valid"])
 
@@ -482,6 +502,48 @@ class AISchemaRegistryTests(unittest.TestCase):
         )
         self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", blocked_mcp_surface_audit)["valid"])
 
+        zero_resident_contract = {
+            "schema": "cleanmac.zero-resident.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "resident_processes_expected": 0,
+            "background_cpu_expected": 0,
+            "background_memory_expected": 0,
+            "login_items_created": False,
+            "launch_agents_created": False,
+            "launch_daemons_created": False,
+            "auto_scan_enabled": False,
+            "implements_tui": False,
+            "implements_gui": False,
+            "lifecycle": "single-shot",
+            "evidence": {"resident_processes": 0, "lifecycle": "single-shot"},
+            "failed_fields": [],
+            "release_gate_commands": [["cleanmac", "--json", "zero-resident"]],
+        }
+        self.assertTrue(validate_contract_payload("cleanmac.zero-resident.v1", zero_resident_contract)["valid"])
+        invalid_zero_resident_contract = dict(zero_resident_contract)
+        invalid_zero_resident_contract["lifecycle"] = "resident"
+        self.assertFalse(
+            validate_contract_payload("cleanmac.zero-resident.v1", invalid_zero_resident_contract)["valid"]
+        )
+
+        product_surface_drift_audit = {
+            "schema": "cleanmac.product-surface-drift-audit.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "scan_scope": "forbidden GUI/TUI dependencies and resident product surfaces",
+            "forbidden_dependency_families": ["Textual", "PyQt", "rumps"],
+            "violation_count": 0,
+            "violations": [],
+            "failed_check_ids": [],
+            "release_gate_commands": [["cleanmac", "--json", "product-surface-drift-audit"]],
+        }
+        self.assertTrue(
+            validate_contract_payload("cleanmac.product-surface-drift-audit.v1", product_surface_drift_audit)["valid"]
+        )
+
         governance_integrity = {
             "schema": "cleanmac.governance-integrity.v1",
             "destructive": False,
@@ -517,6 +579,9 @@ class AISchemaRegistryTests(unittest.TestCase):
         self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
         self.assertEqual(samples["sample_count"], len(samples["samples"]))
         self.assertEqual({sample["target_schema"] for sample in samples["samples"]}, set(AI_HOST_CRITICAL_SCHEMAS))
+        sample_payloads = {sample["target_schema"]: sample["payload"] for sample in samples["samples"]}
+        self.assertEqual(sample_payloads["cleanmac.zero-resident.v1"]["lifecycle"], "single-shot")
+        self.assertEqual(sample_payloads["cleanmac.product-surface-drift-audit.v1"]["violation_count"], 0)
         for sample in samples["samples"]:
             self.assertTrue(sample["valid"], sample)
             validation = validate_contract_payload(sample["target_schema"], sample["payload"])
