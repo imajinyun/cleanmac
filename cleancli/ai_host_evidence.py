@@ -9,6 +9,7 @@ from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, validate_mcp_prompt_catal
 from cleancli.mcp_resources import (
     AI_SAFETY_CHAIN_URI,
     MCP_META_INDEX_URI,
+    NO_DISTURBANCE_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
@@ -46,6 +47,7 @@ def render_ai_host_evidence(
     release_readiness: Mapping[str, Any],
     runtime_lifecycle: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
+    no_disturbance: Mapping[str, Any],
     runtime_policy_evidence: Sequence[Mapping[str, Any]],
     critical_schemas: Sequence[str],
 ) -> dict[str, Any]:
@@ -164,6 +166,25 @@ def render_ai_host_evidence(
             "evidence": "cleanmac.zero-resident-audit.v1",
         },
         {
+            "id": "no-disturbance-advertised",
+            "passed": NO_DISTURBANCE_URI in resources,
+            "evidence": NO_DISTURBANCE_URI,
+        },
+        {
+            "id": "no-disturbance-ready",
+            "passed": bool(
+                isinstance(no_disturbance, Mapping)
+                and no_disturbance.get("schema") == "cleanmac.no-disturbance.v1"
+                and no_disturbance.get("ready") is True
+                and no_disturbance.get("silent_by_default") is True
+                and no_disturbance.get("sends_notifications") is False
+                and no_disturbance.get("shows_dialogs") is False
+                and no_disturbance.get("push_reminders") is False
+                and no_disturbance.get("background_prompts") is False
+            ),
+            "evidence": "cleanmac.no-disturbance.v1",
+        },
+        {
             "id": "mcp-resource-catalog-valid",
             "passed": bool(resource_validation.get("valid")),
             "evidence": "cleanmac.mcp-resource-index.v1",
@@ -214,6 +235,7 @@ def render_ai_host_evidence(
         "mcp_tool_catalog": tool_validation,
         "runtime_lifecycle": dict(runtime_lifecycle),
         "zero_resident_audit": dict(zero_resident_audit),
+        "no_disturbance": dict(no_disturbance),
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),
@@ -230,11 +252,13 @@ def render_ai_host_evidence(
             ["cleanmac", "--json", "ai-host-evidence"],
             ["cleanmac", "--json", "mcp-surface-audit"],
             ["cleanmac", "--json", "zero-resident-audit"],
+            ["cleanmac", "--json", "no-disturbance"],
             ["cleanmac", "--json", "release-readiness"],
             ["make", "ai-contract-smoke"],
             ["make", "mcp-smoke"],
             ["make", "mcp-surface-audit-smoke"],
             ["make", "zero-resident-audit-smoke"],
+            ["make", "no-disturbance-smoke"],
             ["make", "ai-governance-smoke"],
             ["make", "ai-host-smoke"],
             ["make", "release-readiness-smoke"],
@@ -243,6 +267,7 @@ def render_ai_host_evidence(
             "Did the host load cleanmac://ai/host-integration-pack before tool calls?",
             "Did the host run cleanmac.ai-host-preflight.v1 and stop if ready=false?",
             "Did the host verify cleanmac.zero-resident-audit.v1 before orchestration?",
+            "Did the host verify cleanmac.no-disturbance.v1 before orchestration?",
             "Were raw command arguments denied before CLI execution?",
             "Were destructive calls denied when confirmation gates were missing?",
             "Did CI run ai-contract-smoke, mcp-smoke, ai-governance-smoke, and ai-host-smoke?",

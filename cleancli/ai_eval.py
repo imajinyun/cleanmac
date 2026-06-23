@@ -1900,6 +1900,12 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "resources/read",
                     "params": {"uri": "cleanmac://ai/cold-start-budget"},
                 },
+                "resources/read no-disturbance": {
+                    "jsonrpc": "2.0",
+                    "id": 16,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://ai/no-disturbance"},
+                },
                 "resources/read dependency-governance": {
                     "jsonrpc": "2.0",
                     "id": 15,
@@ -2006,6 +2012,13 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     .get("text", "{}")
                 )
                 cold_start_budget = json.loads(cold_start_budget_text)
+                no_disturbance_text = (
+                    mcp_payloads.get("resources/read no-disturbance", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                no_disturbance = json.loads(no_disturbance_text)
                 dependency_governance_text = (
                     mcp_payloads.get("resources/read dependency-governance", {})
                     .get("result", {})
@@ -2093,6 +2106,11 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and cold_start_budget.get("ready") is True
                     and cold_start_budget.get("validation", {}).get("valid") is True
                     and cold_start_budget.get("budgets", {}).get("resident_processes_after_exit") == 0
+                    and no_disturbance.get("schema") == "cleanmac.no-disturbance.v1"
+                    and no_disturbance.get("ready") is True
+                    and no_disturbance.get("validation", {}).get("valid") is True
+                    and no_disturbance.get("silent_by_default") is True
+                    and no_disturbance.get("sends_notifications") is False
                     and dependency_governance.get("schema") == "cleanmac.dependency-governance.v1"
                     and dependency_governance.get("ready") is True
                     and dependency_governance.get("validation", {}).get("valid") is True
@@ -2104,7 +2122,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and workflow_contract.get("dry_run") is True
                     and workflow_contract.get("destructive") is False
                     and surface_audit.get("missing") == {"resources": [], "prompts": [], "tools": []}
-                    and len(surface_audit.get("checks", [])) == 19
+                    and len(surface_audit.get("checks", [])) == 20
                     and {
                         "mcp-meta-index-ready",
                         "mcp-resource-index-ready",
@@ -2118,6 +2136,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         "zero-resident-audit-advertised",
                         "operation-log-explainability-advertised",
                         "cold-start-budget-advertised",
+                        "no-disturbance-advertised",
                         "dependency-governance-advertised",
                         "all-resources-mcp-safe",
                         "all-prompts-mcp-safe",
@@ -2141,6 +2160,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "/Users/" not in destructive_governance_text
                     and "/Users/" not in operation_log_explainability_text
                     and "/Users/" not in cold_start_budget_text
+                    and "/Users/" not in no_disturbance_text
                     and "/Users/" not in dependency_governance_text
                     and "/Users/" not in meta_index_text
                     and "/Users/" not in surface_audit_text

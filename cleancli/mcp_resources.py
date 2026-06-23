@@ -27,6 +27,8 @@ OPERATION_LOG_EXPLAINABILITY_URI = "cleanmac://ai/operation-log-explainability"
 OPERATION_LOG_EXPLAINABILITY_SCHEMA = "cleanmac.operation-log-explainability.v1"
 DEPENDENCY_GOVERNANCE_URI = "cleanmac://release/dependency-governance"
 DEPENDENCY_GOVERNANCE_SCHEMA = "cleanmac.dependency-governance.v1"
+NO_DISTURBANCE_URI = "cleanmac://ai/no-disturbance"
+NO_DISTURBANCE_SCHEMA = "cleanmac.no-disturbance.v1"
 COLD_START_BUDGET_URI = "cleanmac://ai/cold-start-budget"
 COLD_START_BUDGET_SCHEMA = "cleanmac.cold-start-budget.v1"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
@@ -158,6 +160,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Read-only cold-start and immediate-exit budget contract for AI Host preflight.",
         "category": "ai",
         "schema": COLD_START_BUDGET_SCHEMA,
+    },
+    {
+        "uri": NO_DISTURBANCE_URI,
+        "name": "cleanmac no-disturbance standard",
+        "description": "Read-only standard proving cleanmac sends no notifications, dialogs, sounds, reminders, or background prompts.",
+        "category": "ai",
+        "schema": NO_DISTURBANCE_SCHEMA,
     },
     {
         "uri": DEPENDENCY_GOVERNANCE_URI,
@@ -507,6 +516,7 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         AI_WORKFLOW_CONTRACT_URI,
         OPERATION_LOG_EXPLAINABILITY_URI,
         COLD_START_BUDGET_URI,
+        NO_DISTURBANCE_URI,
         DEPENDENCY_GOVERNANCE_URI,
         "cleanmac://ai/host-integration-pack",
         "cleanmac://ai/host-preflight",
@@ -551,6 +561,10 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         "cold-start-budget-advertised": [
             ["cleanmac", "--json", "cold-start-budget"],
             ["make", "ai-host-smoke"],
+        ],
+        "no-disturbance-advertised": [
+            ["cleanmac", "--json", "no-disturbance"],
+            ["make", "no-disturbance-smoke"],
         ],
         "dependency-governance-advertised": [
             ["cleanmac", "--json", "dependency-governance"],
@@ -615,6 +629,11 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             "id": "cold-start-budget-advertised",
             "passed": COLD_START_BUDGET_URI in resource_uris,
             "evidence": COLD_START_BUDGET_URI,
+        },
+        {
+            "id": "no-disturbance-advertised",
+            "passed": NO_DISTURBANCE_URI in resource_uris,
+            "evidence": NO_DISTURBANCE_URI,
         },
         {
             "id": "dependency-governance-advertised",
@@ -695,6 +714,7 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             f"read {MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI}",
             f"read {OPERATION_LOG_EXPLAINABILITY_URI}",
             f"read {COLD_START_BUDGET_URI}",
+            f"read {NO_DISTURBANCE_URI}",
             f"read {DEPENDENCY_GOVERNANCE_URI}",
             f"read {MCP_SURFACE_AUDIT_URI}",
             "read cleanmac://ai/host-integration-pack",

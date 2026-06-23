@@ -70,6 +70,11 @@ class AIReadinessTests(unittest.TestCase):
         self.assertEqual(report["cold_start_budget"]["schema"], "cleanmac.cold-start-budget.v1")
         self.assertEqual(report["cold_start_budget"]["resource_uri"], "cleanmac://ai/cold-start-budget")
         self.assertEqual(report["cold_start_budget"]["budgets"]["resident_processes_after_exit"], 0)
+        self.assertTrue(report["no_disturbance"]["ready"], report["no_disturbance"])
+        self.assertEqual(report["no_disturbance"]["schema"], "cleanmac.no-disturbance.v1")
+        self.assertEqual(report["no_disturbance"]["resource_uri"], "cleanmac://ai/no-disturbance")
+        self.assertTrue(report["no_disturbance"]["silent_by_default"])
+        self.assertTrue(report["no_disturbance"]["validation"]["valid"])
         self.assertTrue(report["dependency_governance"]["ready"], report["dependency_governance"])
         self.assertEqual(report["dependency_governance"]["schema"], "cleanmac.dependency-governance.v1")
         self.assertEqual(
@@ -90,6 +95,7 @@ class AIReadinessTests(unittest.TestCase):
         self.assertIn("cleanmac.ai-host-policy.v1", coverage["critical_schemas"])
         self.assertIn("cleanmac.ai-governance-advice.v1", coverage["critical_schemas"])
         self.assertIn("cleanmac.ai-eval-pack.v1", coverage["critical_schemas"])
+        self.assertIn("cleanmac.no-disturbance.v1", coverage["critical_schemas"])
         self.assertIn("cleanmac.dependency-governance.v1", coverage["critical_schemas"])
         self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
         self.assertIn(["cleanmac", "--json", "ai-decision-matrix"], report["recommended_preflight_commands"])
@@ -104,6 +110,7 @@ class AIReadinessTests(unittest.TestCase):
             report["recommended_preflight_commands"],
         )
         self.assertIn(["cleanmac", "--json", "cold-start-budget"], report["recommended_preflight_commands"])
+        self.assertIn(["cleanmac", "--json", "no-disturbance"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "dependency-governance"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "ai-host-evidence"], report["recommended_preflight_commands"])
         self.assertIn(["cleanmac", "--json", "release-readiness"], report["recommended_preflight_commands"])

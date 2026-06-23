@@ -63,9 +63,11 @@ from cleancli.governance import (
     render_development_governance_todo,
     render_geo_discoverability_policy,
     render_governance_integrity_report,
+    render_no_disturbance_contract,
     render_product_surface_policy,
     render_product_surface_drift_audit,
     render_runtime_lifecycle_policy,
+    validate_no_disturbance_contract,
     render_zero_resident_contract,
     render_zero_resident_audit,
 )
@@ -121,6 +123,8 @@ OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS = frozenset(
 )
 DEPENDENCY_GOVERNANCE_SCHEMA = "cleanmac.dependency-governance.v1"
 DEPENDENCY_GOVERNANCE_URI = "cleanmac://release/dependency-governance"
+NO_DISTURBANCE_SCHEMA = "cleanmac.no-disturbance.v1"
+NO_DISTURBANCE_URI = "cleanmac://ai/no-disturbance"
 COLD_START_BUDGET_SCHEMA = "cleanmac.cold-start-budget.v1"
 COLD_START_BUDGET_URI = "cleanmac://ai/cold-start-budget"
 COLD_START_MAX_MS = 1200
@@ -1335,6 +1339,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit read-only cold-start budget contract for AI Host preflight.",
     )
     subparsers.add_parser(
+        "no-disturbance",
+        help="Emit read-only no-disturbance standard contract for AI Host preflight.",
+    )
+    subparsers.add_parser(
         "dependency-governance",
         help="Emit read-only dependency and supply-chain governance contract for release gates.",
     )
@@ -1603,6 +1611,8 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "mcp-destructive-tool-governance",
         "operation-log-explainability",
         "cold-start-budget",
+        "no-disturbance",
+        "dependency-governance",
         "release-readiness",
         "release-diagnostics",
         "release-evidence",
@@ -2200,6 +2210,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-host-integration-pack",
             "ai-host-preflight",
             "ai-host-evidence",
+            "no-disturbance",
             "dependency-governance",
             "governance-integrity",
             "release-readiness",
@@ -2216,6 +2227,7 @@ def render_capabilities() -> dict[str, Any]:
             "geo_discoverability_policy": geo_discoverability_policy,
             "product_surface_policy": product_surface_policy,
             "development_governance_todo": render_development_governance_todo(),
+            "no_disturbance": render_no_disturbance_contract(),
             "dependency_governance": render_dependency_governance_contract(),
             "delete_requires_execute": True,
             "risk_policy": ["strict", "default", "permissive"],
@@ -2349,6 +2361,7 @@ def render_capabilities() -> dict[str, Any]:
         "ai_host_integration_pack": render_ai_host_integration_pack_report(),
         "ai_host_preflight": render_ai_host_preflight_report(),
         "ai_host_evidence": render_ai_host_evidence_report(),
+        "no_disturbance": render_no_disturbance_contract(),
         "release_readiness": render_release_readiness_report(),
         "ai_schema_registry": render_ai_schema_registry(),
         "ai_eval_pack": render_ai_eval_pack(),
@@ -2388,6 +2401,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             dependency_governance=render_dependency_governance_contract(),
             mcp_surface_audit=render_mcp_surface_audit(),
             zero_resident_audit=render_zero_resident_audit(),
+            no_disturbance=render_no_disturbance_contract(),
             contract_validation=contract_validation,
             eval_smoke=render_ai_eval_smoke_evidence(),
             release_manifest=render_release_manifest_evidence(),
@@ -2459,6 +2473,7 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
         destructive_tool_governance=render_mcp_destructive_tool_governance(),
         operation_log_explainability=render_operation_log_explainability_contract(),
         cold_start_budget=render_cold_start_budget_contract(),
+        no_disturbance=render_no_disturbance_contract(runtime_lifecycle=runtime_lifecycle),
         dependency_governance=render_dependency_governance_contract(),
         runtime_lifecycle=runtime_lifecycle,
         zero_resident_audit=zero_resident_audit,
@@ -2474,6 +2489,7 @@ def render_ai_host_preflight_report() -> dict[str, Any]:
     return render_ai_host_preflight(
         integration_pack=render_ai_host_integration_pack_report(),
         zero_resident_audit=render_zero_resident_audit(),
+        no_disturbance=render_no_disturbance_contract(),
         runtime_policy_schema_registered="cleanmac.runtime-lifecycle-policy.v1" in AI_HOST_CRITICAL_SCHEMAS,
     )
 
@@ -2501,6 +2517,7 @@ def render_ai_host_evidence_report() -> dict[str, Any]:
         release_readiness=render_runtime_release_readiness_summary(),
         runtime_lifecycle=render_runtime_lifecycle_policy(),
         zero_resident_audit=render_zero_resident_audit(),
+        no_disturbance=render_no_disturbance_contract(),
         runtime_policy_evidence=[
             {"id": "raw-command-argument-denied", "decision": raw_denial},
             {"id": "destructive-missing-confirmation-denied", "decision": destructive_denial},
@@ -2633,6 +2650,7 @@ def render_release_readiness_report(
         ai_first_release_checklist=ai_first_release_checklist,
         governance_integrity=render_governance_integrity(),
         dependency_governance=render_dependency_governance_contract(),
+        no_disturbance=render_no_disturbance_contract(),
         mcp_surface_audit=render_mcp_surface_audit(),
         zero_resident_audit=render_zero_resident_audit(),
         contract_validation=contract_validation,
@@ -8167,6 +8185,10 @@ def _main_impl(argv: Sequence[str]) -> int:
 
     if args.command == "cold-start-budget":
         print(json.dumps(render_cold_start_budget_contract(), indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "no-disturbance":
+        print(json.dumps(render_no_disturbance_contract(), indent=2, ensure_ascii=False))
         return 0
 
     if args.command == "dependency-governance":
