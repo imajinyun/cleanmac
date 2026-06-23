@@ -127,6 +127,7 @@ def _render_runtime_release_readiness_summary() -> dict[str, Any]:
             ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
             ai_host_preflight={"schema": "cleanmac.ai-host-preflight.v1", "ready": True},
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
+            ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity={"schema": "cleanmac.governance-integrity.v1", "ready": True},
             mcp_surface_audit=render_mcp_surface_audit(),
             zero_resident_audit=render_zero_resident_audit(),
@@ -135,6 +136,7 @@ def _render_runtime_release_readiness_summary() -> dict[str, Any]:
             release_manifest=_render_release_manifest_evidence(),
             required_make_targets=[
                 "quality-check",
+                "ai-first-release-checklist-smoke",
                 "governance-integrity-smoke",
                 "zero-resident-audit-smoke",
                 "governed-execution-smoke",
