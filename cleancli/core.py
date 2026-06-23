@@ -779,6 +779,7 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
         "commands": [
             "software list",
             "software leftovers",
+            "software orphans",
             "software startup-items",
             "software inspect",
             "software uninstall-plan",
@@ -1098,7 +1099,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     software_cmd.add_argument(
         "action",
         nargs="?",
-        choices=("list", "leftovers", "startup-items", "inspect", "uninstall-plan", "execute"),
+        choices=("list", "leftovers", "orphans", "startup-items", "inspect", "uninstall-plan", "execute"),
         default="list",
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
@@ -4199,6 +4200,12 @@ def non_clean_script_groups() -> dict[str, Any]:
         command_template(
             "software-list",
             ["python3", "cleanmac.py", "--json", "software", "list"],
+            destructive=False,
+            safe_to_auto_execute=True,
+        ),
+        command_template(
+            "software-orphans",
+            ["python3", "cleanmac.py", "--json", "software", "orphans"],
             destructive=False,
             safe_to_auto_execute=True,
         ),
@@ -7804,7 +7811,7 @@ def render_completion_shell(shell: str) -> str:
         "open": f"{category_flags} --execute",
         "links": "--kind --execute --remove",
         "clean": f"{category_flags} --execute --yes --risk-policy --delete-mode --max-delete-mb --exclude --include --min-size-mb --name-regex --max-items --older-than-days --fail-on-skipped --bundle-allowlist --bundle-blocklist --delete-mode --operation-log --require-plan-context --require-confirmation-token --confirmation-token --plan-file --allow-live-root",
-        "software": "list leftovers startup-items inspect uninstall-plan execute --app --plan-file --review-selection-file --execute --yes --delete-mode --operation-log",
+        "software": "list leftovers orphans startup-items inspect uninstall-plan execute --app --plan-file --review-selection-file --execute --yes --delete-mode --operation-log",
         "optimize": "list plan run --execute",
         "status": "snapshot",
         "completion": "bash zsh fish",

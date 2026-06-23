@@ -68,6 +68,23 @@ def _path_size(path: Path) -> int:
         return 0
 
 
+def _path_size_limited(path: Path, *, max_entries: int = 2000) -> int:
+    try:
+        if not path.exists() and not path.is_symlink():
+            return 0
+        if path.is_file() or path.is_symlink():
+            return path.lstat().st_size
+        total = 0
+        for index, child in enumerate(path.rglob("*")):
+            if index >= max_entries:
+                break
+            if child.exists() or child.is_symlink():
+                total += child.lstat().st_size
+        return total
+    except OSError:
+        return 0
+
+
 def _bundle_id_for_app(app_path: Path) -> str | None:
     return protection.bundle_id_for_app(app_path)
 
@@ -246,6 +263,7 @@ def _candidate(
     app_owner: str,
     home_root: Path,
     protected_override: bool = False,
+    bytes_value: int | None = None,
 ) -> dict[str, Any]:
     leftover_type = _leftover_type_for_path(path, kind=kind, home_root=home_root)
     contains_user_data = leftover_type in {"credentials", "user_documents", "containers", "support_data"}
@@ -258,7 +276,7 @@ def _candidate(
         **_path_interaction_metadata(path),
         "kind": kind,
         "leftover_type": leftover_type,
-        "bytes": _path_size(path),
+        "bytes": _path_size(path) if bytes_value is None else bytes_value,
         "confidence": confidence,
         "match_reason": match_reason,
         "matched_rule": f"software-uninstall.{kind}.{match_reason}",
@@ -415,6 +433,209 @@ def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) ->
     for candidate in candidates:
         deduped.setdefault(str(candidate["path"]), candidate)
     return list(deduped.values())
+
+
+def _installed_bundle_ids(*, root: Path, home: Path) -> set[str]:
+    return {str(app.get("bundle_id")) for app in list_apps(root=root, home=home) if app.get("bundle_id")}
+
+
+def _orphan_candidate(
+    path: Path,
+    *,
+    kind: str,
+    bundle_id: str | None,
+    app_name_hint: str,
+    match_reason: str,
+    risk: str,
+    default_selected: bool,
+    home_root: Path,
+) -> dict[str, Any]:
+    app_owner = _app_owner(bundle_id=bundle_id, vendor=None)
+    candidate = _candidate(
+        path,
+        kind=kind,
+        confidence="medium",
+        match_reason=match_reason,
+        risk=risk,
+        default_selected=default_selected,
+        app_owner=app_owner,
+        home_root=home_root,
+        bytes_value=_path_size_limited(path),
+    )
+    candidate["id"] = f"orphan:{candidate['id']}"
+    candidate["reason"] = f"Matched {kind} as a likely orphan for an app that is not currently installed."
+    candidate["matched_rule"] = f"software-orphan.{kind}.{match_reason}"
+    candidate["bundle_id"] = bundle_id
+    candidate["app_name_hint"] = app_name_hint
+    candidate["installed_app_present"] = False
+    candidate["recommended_next_action"] = (
+        "review-orphan-before-trash-execution" if candidate["default_selected"] else "manual-review-required"
+    )
+    return candidate
+
+
+def _bundle_id_from_saved_state(path: Path) -> str:
+    suffix = ".savedState"
+    name = path.name
+    return name[: -len(suffix)] if name.endswith(suffix) else path.stem
+
+
+def _bundle_id_from_plist(path: Path) -> str:
+    suffix = ".plist"
+    name = path.name
+    return name[: -len(suffix)] if name.endswith(suffix) else path.stem
+
+
+def _looks_like_bundle_id(value: str | None) -> bool:
+    if not value or "." not in value:
+        return False
+    lowered = value.lower()
+    return lowered.startswith(("com.", "org.", "net.", "io."))
+
+
+def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
+    home_root = _home_root(root, home)
+    installed_bundle_ids = _installed_bundle_ids(root=root, home=home)
+    scan_roots = [
+        _display_path(home_root / "Library/Preferences"),
+        _display_path(home_root / "Library/Caches"),
+        _display_path(home_root / "Library/Logs"),
+        _display_path(home_root / "Library/Application Support"),
+        _display_path(home_root / "Library/Containers"),
+        _display_path(home_root / "Library/Group Containers"),
+        _display_path(home_root / "Library/Saved Application State"),
+        _display_path(home_root / "Library/HTTPStorages"),
+        _display_path(home_root / "Library/WebKit"),
+        _display_path(home_root / "Library/LaunchAgents"),
+        _display_path(_system_path(root, "/Library/LaunchAgents")),
+        _display_path(_system_path(root, "/Library/LaunchDaemons")),
+        _display_path(_system_path(root, "/Library/PrivilegedHelperTools")),
+    ]
+    candidates: list[dict[str, Any]] = []
+
+    bundle_scans = [
+        (home_root / "Library/Preferences", "*.plist", "preferences", "medium", True, _bundle_id_from_plist),
+        (home_root / "Library/Caches", "*", "cache", "low", True, lambda path: path.name),
+        (home_root / "Library/Logs", "*", "logs", "low", True, lambda path: path.name),
+        (home_root / "Library/Containers", "*", "container", "high", False, lambda path: path.name),
+        (
+            home_root / "Library/Saved Application State",
+            "*.savedState",
+            "saved-state",
+            "low",
+            True,
+            _bundle_id_from_saved_state,
+        ),
+        (home_root / "Library/HTTPStorages", "*", "http-storage", "medium", False, lambda path: path.name),
+        (home_root / "Library/WebKit", "*", "webkit-data", "medium", False, lambda path: path.name),
+        (home_root / "Library/LaunchAgents", "*.plist", "launch-agent", "high", False, _bundle_id_from_plist),
+        (_system_path(root, "/Library/LaunchAgents"), "*.plist", "launch-agent", "high", False, _bundle_id_from_plist),
+        (_system_path(root, "/Library/LaunchDaemons"), "*.plist", "launch-daemon", "high", False, _bundle_id_from_plist),
+        (
+            _system_path(root, "/Library/PrivilegedHelperTools"),
+            "*",
+            "privileged-helper",
+            "critical",
+            False,
+            lambda path: path.name,
+        ),
+    ]
+    for base, pattern, kind, risk, default_selected, bundle_id_func in bundle_scans:
+        if not base.exists():
+            continue
+        for path in sorted(base.glob(pattern)):
+            if not (path.exists() or path.is_symlink()):
+                continue
+            bundle_id = bundle_id_func(path)
+            if (
+                not _looks_like_bundle_id(bundle_id)
+                or bundle_id.startswith("com.apple.")
+                or bundle_id in installed_bundle_ids
+            ):
+                continue
+            candidates.append(
+                _orphan_candidate(
+                    path,
+                    kind=kind,
+                    bundle_id=bundle_id,
+                    app_name_hint=bundle_id.rsplit(".", 1)[-1],
+                    match_reason="missing-installed-bundle-id",
+                    risk=risk,
+                    default_selected=default_selected,
+                    home_root=home_root,
+                )
+            )
+
+    support_root = home_root / "Library/Application Support"
+    app_dirs = {Path(str(app["path"])).stem.lower() for app in list_apps(root=root, home=home)}
+    if support_root.exists():
+        for path in sorted(child for child in support_root.iterdir() if child.exists() or child.is_symlink()):
+            app_name_hint = path.name
+            if app_name_hint.lower() in app_dirs:
+                continue
+            if protection.should_protect_path(path):
+                continue
+            candidates.append(
+                _orphan_candidate(
+                    path,
+                    kind="application-support",
+                    bundle_id=None,
+                    app_name_hint=app_name_hint,
+                    match_reason="missing-installed-app-name",
+                    risk="medium",
+                    default_selected=False,
+                    home_root=home_root,
+                )
+            )
+
+    group_root = home_root / "Library/Group Containers"
+    if group_root.exists():
+        for path in sorted(child for child in group_root.iterdir() if child.exists() or child.is_symlink()):
+            bundle_id = protection.bundle_id_for_path(path)
+            if not bundle_id or bundle_id.startswith("com.apple.") or bundle_id in installed_bundle_ids:
+                continue
+            candidates.append(
+                _orphan_candidate(
+                    path,
+                    kind="group-container",
+                    bundle_id=bundle_id,
+                    app_name_hint=bundle_id.rsplit(".", 1)[-1],
+                    match_reason="missing-installed-bundle-id",
+                    risk="critical",
+                    default_selected=False,
+                    home_root=home_root,
+                )
+            )
+
+    deduped: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        deduped.setdefault(str(candidate["path"]), candidate)
+    candidates = list(deduped.values())
+    type_counts: dict[str, int] = {}
+    risk_counts: dict[str, int] = {}
+    for candidate in candidates:
+        leftover_type = str(candidate.get("leftover_type") or "unknown")
+        risk = str(candidate.get("risk") or "unknown")
+        type_counts[leftover_type] = type_counts.get(leftover_type, 0) + 1
+        risk_counts[risk] = risk_counts.get(risk, 0) + 1
+    return {
+        "schema": "cleanmac.software-orphans.v1",
+        "destructive": False,
+        "dry_run": True,
+        "root": _display_path(root),
+        "home": _display_path(home),
+        "status": "read-only-orphan-scan",
+        "scan_roots": scan_roots,
+        "installed_bundle_count": len(installed_bundle_ids),
+        "candidate_count": len(candidates),
+        "default_selected_count": sum(1 for item in candidates if item.get("default_selected")),
+        "estimated_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
+        "leftover_type_counts": dict(sorted(type_counts.items())),
+        "risk_counts": dict(sorted(risk_counts.items())),
+        "safe_to_auto_execute": False,
+        "recommended_next_action": "review-orphans-before-any-trash-execution" if candidates else "no_orphans_found",
+        "candidates": candidates,
+    }
 
 
 def inspect_software_uninstall(app: str, *, root: Path, home: Path) -> dict[str, Any]:
@@ -687,6 +908,8 @@ def render_software(action: str, *, app: str | None, root: Path, home: Path) -> 
         return inspect_software_uninstall(app or "", root=root, home=home)
     if action == "uninstall-plan":
         return plan_software_uninstall(app, root=root, home=home)
+    if action == "orphans":
+        return find_software_orphans(root=root, home=home)
     return {
         "schema": "cleanmac.software.v1",
         "action": action,
