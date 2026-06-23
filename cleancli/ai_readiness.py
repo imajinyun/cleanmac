@@ -66,9 +66,14 @@ def render_ai_readiness(
     contract_validation = render_ai_contract_validation_summary()
     registry_entries = {str(entry["name"]): entry for entry in schema_registry["entries"]}
     required_contract_schemas = {
+        "cleanmac.capabilities.v1",
+        "cleanmac.workflow.v1",
+        "cleanmac.explain.v1",
         "cleanmac.plan.v1",
+        "cleanmac.review.v1",
         "cleanmac.validate-plan.v1",
         "cleanmac.ai-policy-simulation.v1",
+        "cleanmac.ai-entrypoint-contract.v1",
         "cleanmac.ai-schema-registry.v1",
         "cleanmac.ai-readiness.v1",
     }
@@ -182,6 +187,18 @@ def render_ai_readiness(
             "latest_plan_schema": schema_registry["latest_plan_schema"],
             "supported_plan_schemas_registered": supported_plan_schemas_registered,
             "core_contract_schemas_present": core_contract_schemas_present,
+        },
+        "entrypoint_contract": {
+            "schema": "cleanmac.ai-entrypoint-contract.v1",
+            "ready": "json_schema" in registry_entries.get("cleanmac.ai-entrypoint-contract.v1", {}),
+            "canonical_entrypoint_schemas": [
+                "cleanmac.capabilities.v1",
+                "cleanmac.workflow.v1",
+                "cleanmac.explain.v1",
+                "cleanmac.plan.v1",
+                "cleanmac.review.v1",
+                "cleanmac.validate-plan.v1",
+            ],
         },
         "contract_validation": {
             "schema": contract_validation["schema"],

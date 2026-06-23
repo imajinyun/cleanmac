@@ -249,6 +249,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/mcp-tool-catalog", uris)
         self.assertIn("cleanmac://ai/contract-validation", uris)
         self.assertIn("cleanmac://ai/contract-samples", uris)
+        self.assertIn("cleanmac://ai/entrypoints", uris)
         self.assertIn("cleanmac://ai/workflow-contract", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/host-preflight", uris)
@@ -311,6 +312,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/tool-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/surface-audit", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
+        self.assertIn("cleanmac://ai/entrypoints", payload["resource_uris"])
         self.assertIn("cleanmac://ai/workflow-contract", payload["resource_uris"])
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
 
@@ -585,6 +587,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://mcp/surface-audit",
             "cleanmac://ai/runtime-lifecycle-policy",
             "cleanmac://ai/zero-resident-audit",
+            "cleanmac://ai/entrypoints",
             "cleanmac://ai/workflow-contract",
             "cleanmac://ai/host-integration-pack",
             "cleanmac://ai/host-preflight",
@@ -706,6 +709,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["mcp"]["prompt_index_uri"], "cleanmac://mcp/prompt-index")
         self.assertEqual(payload["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertEqual(payload["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
+        self.assertIn("cleanmac://ai/entrypoints", payload["mcp"]["resources"])
         self.assertIn("cleanmac://ai/workflow-contract", payload["mcp"]["resources"])
         self.assertIn("review-ai-host-policy", payload["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", payload["mcp"]["tools"])
@@ -732,6 +736,24 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(len(execute_steps), 1)
         self.assertFalse(execute_steps[0]["auto_call_allowed"])
         self.assertTrue(execute_steps[0]["requires_human_confirmation"])
+
+    def test_resources_read_ai_entrypoint_contract(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 129,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/entrypoints"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/entrypoints")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-entrypoint-contract.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["entrypoint_count"], 6)
+        self.assertIn("cleanmac.capabilities.v1", payload["required_output_schemas"])
+        self.assertIn("cleanmac.validate-plan.v1", payload["required_output_schemas"])
 
     def test_resources_read_host_preflight(self) -> None:
         response = _mcp_request(

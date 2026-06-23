@@ -43,6 +43,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.ai-tool-decision-matrix.v1", 1, "cleancli.ai_decision", "stable"),
     ("cleanmac.ai-governance-advice.v1", 1, "cleancli.ai_governance", "stable"),
     ("cleanmac.ai-governance-advice-validation.v1", 1, "cleancli.ai_governance", "stable"),
+    ("cleanmac.ai-entrypoint-contract.v1", 1, "cleancli.ai_contract", "stable"),
     ("cleanmac.ai-host-policy.v1", 1, "cleancli.ai_host_policy", "stable"),
     ("cleanmac.ai-host-policy-validation.v1", 1, "cleancli.ai_host_policy", "stable"),
     ("cleanmac.ai-host-tool-call-decision.v1", 1, "cleancli.ai_host_policy", "stable"),
@@ -160,6 +161,9 @@ SUPPORTED_PLAN_SCHEMAS: tuple[str, ...] = (
 )
 
 AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
+    "cleanmac.capabilities.v1",
+    "cleanmac.workflow.v1",
+    "cleanmac.explain.v1",
     "cleanmac.plan.v1",
     "cleanmac.validate-plan.v1",
     "cleanmac.permissions-preflight.v1",
@@ -181,6 +185,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.review-selection-validation.v1",
     "cleanmac.ai-policy-simulation.v1",
     "cleanmac.ai-workflow.v1",
+    "cleanmac.ai-entrypoint-contract.v1",
     "cleanmac.runtime-lifecycle-policy.v1",
     "cleanmac.zero-resident.v1",
     "cleanmac.product-surface-drift-audit.v1",
@@ -244,6 +249,69 @@ RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
 )
 
 CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
+    "cleanmac.capabilities.v1": {
+        "type": "object",
+        "required": ["schema", "name", "destructive", "runtime_lifecycle", "ai_tool_contract", "ai_readiness"],
+        "properties": {
+            "schema": {"const": "cleanmac.capabilities.v1"},
+            "name": {"const": "cleanmac"},
+            "destructive": {"const": False},
+            "runtime_lifecycle": {"type": "object"},
+            "ai_tool_contract": {"type": "object"},
+            "ai_readiness": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.workflow.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "workflow_name", "steps", "automation_playbook"],
+        "properties": {
+            "schema": {"const": "cleanmac.workflow.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "workflow_name": {"type": "string"},
+            "steps": {"type": "array", "items": {"type": "object"}},
+            "automation_playbook": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.explain.v1": {
+        "type": "object",
+        "required": ["schema", "destructive", "dry_run", "source_schema", "summary", "ai_guidance"],
+        "properties": {
+            "schema": {"const": "cleanmac.explain.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "source_schema": {"type": "string"},
+            "summary": {"type": "object"},
+            "ai_guidance": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
+    "cleanmac.ai-entrypoint-contract.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "ready",
+            "entrypoint_count",
+            "entrypoints",
+            "required_output_schemas",
+            "checks",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.ai-entrypoint-contract.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "entrypoint_count": {"type": "integer"},
+            "entrypoints": {"type": "array", "items": {"type": "object"}},
+            "required_output_schemas": {"type": "array", "items": {"type": "string"}},
+            "checks": {"type": "array", "items": {"type": "object"}},
+        },
+        "additionalProperties": True,
+    },
     "cleanmac.runtime-lifecycle-policy.v1": {
         "type": "object",
         "required": [
@@ -1735,6 +1803,7 @@ def _schema_producer_command(name: str) -> list[str]:
         "cleanmac.mcp-prompt-index.v1": ["read", "cleanmac://mcp/prompt-index"],
         "cleanmac.mcp-tool-index.v1": ["read", "cleanmac://mcp/tool-index"],
         "cleanmac.mcp-surface-audit.v1": ["cleanmac", "--json", "mcp-surface-audit"],
+        "cleanmac.ai-entrypoint-contract.v1": ["cleanmac", "--json", "ai-entrypoints"],
         "cleanmac.ai-schema-registry.v1": ["cleanmac", "--json", "ai-schema-registry"],
         "cleanmac.ai-contract-samples.v1": ["cleanmac", "--json", "ai-contract-samples"],
         "cleanmac.ai-contract-validation-summary.v1": ["cleanmac", "--json", "ai-readiness"],
@@ -1903,6 +1972,54 @@ def validate_contract_payload(schema_name: str, payload: Any) -> dict[str, Any]:
 
 def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
     samples: dict[str, dict[str, Any]] = {
+        "cleanmac.capabilities.v1": {
+            "schema": "cleanmac.capabilities.v1",
+            "name": "cleanmac",
+            "destructive": False,
+            "runtime_lifecycle": {"schema": "cleanmac.runtime-lifecycle-policy.v1", "resident_processes": 0},
+            "ai_tool_contract": {"schema": "cleanmac.ai-tool-contract.v1"},
+            "ai_readiness": {"schema": "cleanmac.ai-readiness.v1", "ready": True},
+        },
+        "cleanmac.workflow.v1": {
+            "schema": "cleanmac.workflow.v1",
+            "destructive": False,
+            "dry_run": True,
+            "workflow_name": "safe-cleaning-workflow",
+            "steps": [{"number": 1, "name": "inspect-candidates", "destructive": False}],
+            "automation_playbook": {"safe_to_auto_execute": False},
+        },
+        "cleanmac.explain.v1": {
+            "schema": "cleanmac.explain.v1",
+            "destructive": False,
+            "dry_run": True,
+            "source_schema": "cleanmac.plan.v1",
+            "summary": {"candidate_count": 1, "requires_review_before_execute": True},
+            "ai_guidance": {"safe_to_auto_call": True, "safe_to_execute": False},
+        },
+        "cleanmac.ai-entrypoint-contract.v1": {
+            "schema": "cleanmac.ai-entrypoint-contract.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "entrypoint_count": 6,
+            "entrypoints": [
+                {"id": "discover_capabilities", "output_schema": "cleanmac.capabilities.v1"},
+                {"id": "workflow_guidance", "output_schema": "cleanmac.workflow.v1"},
+                {"id": "explain_report", "output_schema": "cleanmac.explain.v1"},
+                {"id": "generate_ai_origin_plan", "output_schema": "cleanmac.plan.v1"},
+                {"id": "normalize_review_selection", "output_schema": "cleanmac.review.v1"},
+                {"id": "validate_plan", "output_schema": "cleanmac.validate-plan.v1"},
+            ],
+            "required_output_schemas": [
+                "cleanmac.capabilities.v1",
+                "cleanmac.workflow.v1",
+                "cleanmac.explain.v1",
+                "cleanmac.plan.v1",
+                "cleanmac.review.v1",
+                "cleanmac.validate-plan.v1",
+            ],
+            "checks": [{"id": "discover_capabilities-schema-ready", "passed": True}],
+        },
         "cleanmac.plan.v1": {
             "schema": "cleanmac.plan.v1",
             "destructive": False,
