@@ -63,14 +63,19 @@ class AIHostScenarioTests(unittest.TestCase):
             steps = {step["id"]: step for step in report["steps"]}
 
             self.assertEqual(report["schema"], "cleanmac.ai-workflow.v1")
+            self.assertTrue(report["ready"], report)
             self.assertFalse(report["destructive"])
             self.assertTrue(report["dry_run"])
+            self.assertEqual(report["step_count"], 7)
+            self.assertTrue(report["validation"]["valid"], report["validation"])
             self.assertIn("cleanmac_policy_simulate", report["recommended_tool_call_order"])
             self.assertEqual(steps["simulate_execute_policy"]["output_schema"], "cleanmac.ai-policy-simulation.v1")
             self.assertEqual(steps["simulate_execute_policy"]["input_schema"]["type"], "object")
             self.assertEqual(steps["simulate_execute_policy"]["input"]["delete_mode"], "trash")
             self.assertFalse(steps["execute_after_human_confirmation"]["auto_call_allowed"])
             self.assertTrue(steps["execute_after_human_confirmation"]["requires_human_confirmation"])
+            self.assertTrue(report["execution_gate"]["requires_matching_dry_run_confirmation_token"])
+            self.assertEqual(report["artifact_contracts"]["review_selection_file"]["schema"], "cleanmac.review-selection.v1")
             self.assertEqual(report["governance"]["delete_mode_for_execute"], "trash")
             self.assertFalse(report["governance"]["destructive_auto_call_allowed"])
 
