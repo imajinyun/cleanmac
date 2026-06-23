@@ -1882,6 +1882,30 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     "method": "resources/read",
                     "params": {"uri": "cleanmac://mcp/tool-index"},
                 },
+                "resources/read destructive-tool-governance": {
+                    "jsonrpc": "2.0",
+                    "id": 12,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://mcp/destructive-tool-governance"},
+                },
+                "resources/read operation-log-explainability": {
+                    "jsonrpc": "2.0",
+                    "id": 13,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://ai/operation-log-explainability"},
+                },
+                "resources/read cold-start-budget": {
+                    "jsonrpc": "2.0",
+                    "id": 14,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://ai/cold-start-budget"},
+                },
+                "resources/read dependency-governance": {
+                    "jsonrpc": "2.0",
+                    "id": 15,
+                    "method": "resources/read",
+                    "params": {"uri": "cleanmac://release/dependency-governance"},
+                },
                 "resources/read surface-audit": {
                     "jsonrpc": "2.0",
                     "id": 9,
@@ -1961,6 +1985,34 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                 )
                 tool_index = json.loads(tool_index_text)
                 indexed_tool_names = set(tool_index.get("tool_names", []))
+                destructive_governance_text = (
+                    mcp_payloads.get("resources/read destructive-tool-governance", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                destructive_governance = json.loads(destructive_governance_text)
+                operation_log_explainability_text = (
+                    mcp_payloads.get("resources/read operation-log-explainability", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                operation_log_explainability = json.loads(operation_log_explainability_text)
+                cold_start_budget_text = (
+                    mcp_payloads.get("resources/read cold-start-budget", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                cold_start_budget = json.loads(cold_start_budget_text)
+                dependency_governance_text = (
+                    mcp_payloads.get("resources/read dependency-governance", {})
+                    .get("result", {})
+                    .get("contents", [{}])[0]
+                    .get("text", "{}")
+                )
+                dependency_governance = json.loads(dependency_governance_text)
                 surface_audit_text = (
                     mcp_payloads.get("resources/read surface-audit", {})
                     .get("result", {})
@@ -1995,6 +2047,10 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "cleanmac://mcp/resource-index" in resource_uris
                     and "cleanmac://mcp/prompt-index" in resource_uris
                     and "cleanmac://mcp/tool-index" in resource_uris
+                    and "cleanmac://mcp/destructive-tool-governance" in resource_uris
+                    and "cleanmac://ai/operation-log-explainability" in resource_uris
+                    and "cleanmac://ai/cold-start-budget" in resource_uris
+                    and "cleanmac://release/dependency-governance" in resource_uris
                     and "cleanmac://mcp/surface-audit" in resource_uris
                     and "cleanmac://capabilities" in resource_uris
                     and "cleanmac://ai/runtime-lifecycle-policy" in resource_uris
@@ -2015,6 +2071,7 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                         "cleanmac://mcp/resource-index",
                         "cleanmac://mcp/prompt-index",
                         "cleanmac://mcp/tool-index",
+                        "cleanmac://mcp/destructive-tool-governance",
                     }
                     and resource_index.get("schema") == "cleanmac.mcp-resource-index.v1"
                     and resource_index.get("ready") is True
@@ -2022,6 +2079,24 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and prompt_index.get("ready") is True
                     and tool_index.get("schema") == "cleanmac.mcp-tool-index.v1"
                     and tool_index.get("ready") is True
+                    and destructive_governance.get("schema") == "cleanmac.mcp-destructive-tool-governance.v1"
+                    and destructive_governance.get("ready") is True
+                    and destructive_governance.get("validation", {}).get("valid") is True
+                    and "cleanmac_execute_plan" in destructive_governance.get("destructive_tool_names", [])
+                    and operation_log_explainability.get("schema") == "cleanmac.operation-log-explainability.v1"
+                    and operation_log_explainability.get("ready") is True
+                    and operation_log_explainability.get("validation", {}).get("valid") is True
+                    and {"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(
+                        set(operation_log_explainability.get("required_entry_fields", []))
+                    )
+                    and cold_start_budget.get("schema") == "cleanmac.cold-start-budget.v1"
+                    and cold_start_budget.get("ready") is True
+                    and cold_start_budget.get("validation", {}).get("valid") is True
+                    and cold_start_budget.get("budgets", {}).get("resident_processes_after_exit") == 0
+                    and dependency_governance.get("schema") == "cleanmac.dependency-governance.v1"
+                    and dependency_governance.get("ready") is True
+                    and dependency_governance.get("validation", {}).get("valid") is True
+                    and dependency_governance.get("pyproject", {}).get("runtime_dependency_count") == 0
                     and surface_audit.get("schema") == "cleanmac.mcp-surface-audit.v1"
                     and surface_audit.get("ready") is True
                     and surface_audit.get("resource_uri") == "cleanmac://mcp/surface-audit"
@@ -2029,17 +2104,21 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and workflow_contract.get("dry_run") is True
                     and workflow_contract.get("destructive") is False
                     and surface_audit.get("missing") == {"resources": [], "prompts": [], "tools": []}
-                    and len(surface_audit.get("checks", [])) == 15
+                    and len(surface_audit.get("checks", [])) == 19
                     and {
                         "mcp-meta-index-ready",
                         "mcp-resource-index-ready",
                         "mcp-prompt-index-ready",
                         "mcp-tool-index-ready",
+                        "mcp-destructive-tool-governance-ready",
                         "required-resources-advertised",
                         "required-prompts-advertised",
                         "required-tools-advertised",
                         "runtime-lifecycle-policy-advertised",
                         "zero-resident-audit-advertised",
+                        "operation-log-explainability-advertised",
+                        "cold-start-budget-advertised",
+                        "dependency-governance-advertised",
                         "all-resources-mcp-safe",
                         "all-prompts-mcp-safe",
                         "all-tools-mcp-safe",
@@ -2059,6 +2138,10 @@ def render_ai_eval_run(*, scenario: str, cli: Path, trace_file: Path | None = No
                     and "cleanmac_privacy_execute" in tool_index.get("auto_call_denied_tool_names", [])
                     and "/Users/" not in prompt_index_text
                     and "/Users/" not in tool_index_text
+                    and "/Users/" not in destructive_governance_text
+                    and "/Users/" not in operation_log_explainability_text
+                    and "/Users/" not in cold_start_budget_text
+                    and "/Users/" not in dependency_governance_text
                     and "/Users/" not in meta_index_text
                     and "/Users/" not in surface_audit_text
                     and resource_uris == indexed_uris

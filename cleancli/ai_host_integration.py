@@ -10,14 +10,17 @@ from cleancli.mcp_resources import (
     AI_ENTRYPOINT_CONTRACT_URI,
     AI_SAFETY_CHAIN_URI,
     AI_WORKFLOW_CONTRACT_URI,
+    COLD_START_BUDGET_URI,
+    DEPENDENCY_GOVERNANCE_URI,
     MCP_META_INDEX_URI,
+    OPERATION_LOG_EXPLAINABILITY_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
     ZERO_RESIDENT_AUDIT_URI,
     mcp_resource_uris,
 )
-from cleancli.mcp_tools import MCP_TOOL_INDEX_URI, mcp_tool_names
+from cleancli.mcp_tools import MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI, MCP_TOOL_INDEX_URI, mcp_tool_names
 
 
 def render_ai_host_integration_pack(
@@ -30,6 +33,10 @@ def render_ai_host_integration_pack(
     host_policy: Mapping[str, Any],
     entrypoint_contract: Mapping[str, Any],
     safety_chain: Mapping[str, Any],
+    destructive_tool_governance: Mapping[str, Any],
+    operation_log_explainability: Mapping[str, Any],
+    cold_start_budget: Mapping[str, Any],
+    dependency_governance: Mapping[str, Any],
     runtime_lifecycle: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
     schema_registry: Mapping[str, Any],
@@ -44,6 +51,10 @@ def render_ai_host_integration_pack(
         ["cleanmac", "--json", "ai-host-integration-pack"],
         ["cleanmac", "--json", "ai-entrypoints"],
         ["cleanmac", "--json", "ai-safety-chain"],
+        ["cleanmac", "--json", "mcp-destructive-tool-governance"],
+        ["cleanmac", "--json", "operation-log-explainability"],
+        ["cleanmac", "--json", "cold-start-budget"],
+        ["cleanmac", "--json", "dependency-governance"],
         ["cleanmac", "--json", "ai-host-evidence"],
         ["cleanmac", "--json", "release-readiness"],
         *list(readiness.get("recommended_preflight_commands", [])),
@@ -54,6 +65,10 @@ def render_ai_host_integration_pack(
         f"read {MCP_RESOURCE_INDEX_URI}",
         f"read {MCP_PROMPT_INDEX_URI}",
         f"read {MCP_TOOL_INDEX_URI}",
+        f"read {MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI}",
+        f"read {OPERATION_LOG_EXPLAINABILITY_URI}",
+        f"read {COLD_START_BUDGET_URI}",
+        f"read {DEPENDENCY_GOVERNANCE_URI}",
         f"read {MCP_SURFACE_AUDIT_URI}",
         "read cleanmac://ai/host-integration-pack",
         f"read {AI_ENTRYPOINT_CONTRACT_URI}",
@@ -73,6 +88,10 @@ def render_ai_host_integration_pack(
         and host_policy.get("valid")
         and entrypoint_contract.get("ready")
         and safety_chain.get("ready")
+        and destructive_tool_governance.get("ready")
+        and operation_log_explainability.get("ready")
+        and cold_start_budget.get("ready")
+        and dependency_governance.get("ready")
         and governance_advice.get("ready_for_llm_calling")
         and contract_validation.get("valid")
         and eval_pack.get("schema") == "cleanmac.ai-eval-pack.v1"
@@ -92,6 +111,10 @@ def render_ai_host_integration_pack(
             "prompt_index_uri": MCP_PROMPT_INDEX_URI,
             "prompts": mcp_prompts,
             "tool_index_uri": MCP_TOOL_INDEX_URI,
+            "destructive_tool_governance_uri": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+            "operation_log_explainability_uri": OPERATION_LOG_EXPLAINABILITY_URI,
+            "cold_start_budget_uri": COLD_START_BUDGET_URI,
+            "dependency_governance_uri": DEPENDENCY_GOVERNANCE_URI,
             "surface_audit_uri": MCP_SURFACE_AUDIT_URI,
             "tools": mcp_tools,
             "transport": "stdio",
@@ -111,6 +134,10 @@ def render_ai_host_integration_pack(
         "runbook": runbook,
         "entrypoint_contract": dict(entrypoint_contract),
         "safety_chain": dict(safety_chain),
+        "destructive_tool_governance": dict(destructive_tool_governance),
+        "operation_log_explainability": dict(operation_log_explainability),
+        "cold_start_budget": dict(cold_start_budget),
+        "dependency_governance": dict(dependency_governance),
         "decision_matrix": decision_matrix,
         "governance_advice": governance_advice,
         "host_policy": host_policy,
@@ -132,6 +159,10 @@ def render_ai_host_preflight(
     host_policy = integration_pack.get("host_policy", {})
     entrypoint_contract = integration_pack.get("entrypoint_contract", {})
     safety_chain = integration_pack.get("safety_chain", {})
+    destructive_tool_governance = integration_pack.get("destructive_tool_governance", {})
+    operation_log_explainability = integration_pack.get("operation_log_explainability", {})
+    cold_start_budget = integration_pack.get("cold_start_budget", {})
+    dependency_governance = integration_pack.get("dependency_governance", {})
     runtime_lifecycle = integration_pack.get("runtime_lifecycle", {})
     contract_validation = integration_pack.get("contract_validation", {})
     mcp = integration_pack.get("mcp", {})
@@ -170,6 +201,46 @@ def render_ai_host_preflight(
             "evidence": "cleanmac.ai-safety-chain.v1",
         },
         {
+            "id": "mcp-destructive-tool-governance-ready",
+            "passed": bool(
+                isinstance(destructive_tool_governance, Mapping)
+                and destructive_tool_governance.get("schema") == "cleanmac.mcp-destructive-tool-governance.v1"
+                and destructive_tool_governance.get("ready") is True
+                and destructive_tool_governance.get("destructive_tool_count", 0) >= 1
+            ),
+            "evidence": "cleanmac.mcp-destructive-tool-governance.v1",
+        },
+        {
+            "id": "operation-log-explainability-ready",
+            "passed": bool(
+                isinstance(operation_log_explainability, Mapping)
+                and operation_log_explainability.get("schema") == "cleanmac.operation-log-explainability.v1"
+                and operation_log_explainability.get("ready") is True
+                and OPERATION_LOG_EXPLAINABILITY_URI in resources
+            ),
+            "evidence": OPERATION_LOG_EXPLAINABILITY_URI,
+        },
+        {
+            "id": "cold-start-budget-ready",
+            "passed": bool(
+                isinstance(cold_start_budget, Mapping)
+                and cold_start_budget.get("schema") == "cleanmac.cold-start-budget.v1"
+                and cold_start_budget.get("ready") is True
+                and COLD_START_BUDGET_URI in resources
+            ),
+            "evidence": COLD_START_BUDGET_URI,
+        },
+        {
+            "id": "dependency-governance-ready",
+            "passed": bool(
+                isinstance(dependency_governance, Mapping)
+                and dependency_governance.get("schema") == "cleanmac.dependency-governance.v1"
+                and dependency_governance.get("ready") is True
+                and DEPENDENCY_GOVERNANCE_URI in resources
+            ),
+            "evidence": DEPENDENCY_GOVERNANCE_URI,
+        },
+        {
             "id": "contract-validation-valid",
             "passed": bool(isinstance(contract_validation, Mapping) and contract_validation.get("valid")),
             "evidence": "cleanmac.ai-contract-validation-summary.v1",
@@ -183,6 +254,10 @@ def render_ai_host_preflight(
                 and MCP_RESOURCE_INDEX_URI in resources
                 and MCP_PROMPT_INDEX_URI in resources
                 and MCP_TOOL_INDEX_URI in resources
+                and MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI in resources
+                and OPERATION_LOG_EXPLAINABILITY_URI in resources
+                and COLD_START_BUDGET_URI in resources
+                and DEPENDENCY_GOVERNANCE_URI in resources
                 and MCP_SURFACE_AUDIT_URI in resources
                 and AI_ENTRYPOINT_CONTRACT_URI in resources
                 and AI_SAFETY_CHAIN_URI in resources
@@ -243,6 +318,10 @@ def render_ai_host_preflight(
             "mcp_meta_index": MCP_META_INDEX_URI,
             "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
             "mcp_tool_index": MCP_TOOL_INDEX_URI,
+            "mcp_destructive_tool_governance": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+            "operation_log_explainability": OPERATION_LOG_EXPLAINABILITY_URI,
+            "cold_start_budget": COLD_START_BUDGET_URI,
+            "dependency_governance": DEPENDENCY_GOVERNANCE_URI,
             "mcp_surface_audit": MCP_SURFACE_AUDIT_URI,
             "workflow_contract": AI_WORKFLOW_CONTRACT_URI,
             "runtime_lifecycle_policy": RUNTIME_LIFECYCLE_POLICY_URI,
@@ -259,6 +338,10 @@ def render_ai_host_preflight(
             "plan_context_match",
             "trash_delete_mode",
             "operation_log",
+            "operation_log_explainability_ready",
+            "cold_start_budget_ready",
+            "dependency_governance_ready",
+            "mcp_destructive_tool_governance_ready",
         ],
         "release_gate_commands": [
             ["make", "mcp-smoke"],

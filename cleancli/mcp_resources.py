@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from cleancli.mcp_prompts import MCP_PROMPT_INDEX_SCHEMA, MCP_PROMPT_INDEX_URI
-from cleancli.mcp_tools import MCP_TOOL_INDEX_SCHEMA, MCP_TOOL_INDEX_URI
+from cleancli.mcp_tools import (
+    MCP_DESTRUCTIVE_TOOL_GOVERNANCE_SCHEMA,
+    MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+    MCP_TOOL_INDEX_SCHEMA,
+    MCP_TOOL_INDEX_URI,
+)
 
 MCP_META_INDEX_SCHEMA = "cleanmac.mcp-meta-index.v1"
 MCP_META_INDEX_URI = "cleanmac://mcp/meta-index"
@@ -18,6 +23,12 @@ ZERO_RESIDENT_AUDIT_URI = "cleanmac://ai/zero-resident-audit"
 AI_WORKFLOW_CONTRACT_URI = "cleanmac://ai/workflow-contract"
 AI_ENTRYPOINT_CONTRACT_URI = "cleanmac://ai/entrypoints"
 AI_SAFETY_CHAIN_URI = "cleanmac://ai/safety-chain"
+OPERATION_LOG_EXPLAINABILITY_URI = "cleanmac://ai/operation-log-explainability"
+OPERATION_LOG_EXPLAINABILITY_SCHEMA = "cleanmac.operation-log-explainability.v1"
+DEPENDENCY_GOVERNANCE_URI = "cleanmac://release/dependency-governance"
+DEPENDENCY_GOVERNANCE_SCHEMA = "cleanmac.dependency-governance.v1"
+COLD_START_BUDGET_URI = "cleanmac://ai/cold-start-budget"
+COLD_START_BUDGET_SCHEMA = "cleanmac.cold-start-budget.v1"
 MCP_RESOURCE_SENSITIVE_DATA_POLICY = "redacted-local-paths-no-credentials"
 
 
@@ -49,6 +60,13 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Governed MCP tool catalog with invocation, risk, and safety metadata.",
         "category": "mcp",
         "schema": MCP_TOOL_INDEX_SCHEMA,
+    },
+    {
+        "uri": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+        "name": "cleanmac MCP destructive tool governance",
+        "description": "Machine-readable destructive MCP tool gates, annotations, and argv-only safety contract.",
+        "category": "mcp",
+        "schema": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_SCHEMA,
     },
     {
         "uri": MCP_SURFACE_AUDIT_URI,
@@ -126,6 +144,27 @@ _RESOURCE_ROWS: tuple[dict[str, Any], ...] = (
         "description": "Machine-verifiable plan/review/dry-run/execute safety-chain contract for AI Hosts.",
         "category": "ai",
         "schema": "cleanmac.ai-safety-chain.v1",
+    },
+    {
+        "uri": OPERATION_LOG_EXPLAINABILITY_URI,
+        "name": "cleanmac operation-log explainability",
+        "description": "Read-only contract for AI-replayable operation-log JSONL entries.",
+        "category": "ai",
+        "schema": OPERATION_LOG_EXPLAINABILITY_SCHEMA,
+    },
+    {
+        "uri": COLD_START_BUDGET_URI,
+        "name": "cleanmac cold-start budget",
+        "description": "Read-only cold-start and immediate-exit budget contract for AI Host preflight.",
+        "category": "ai",
+        "schema": COLD_START_BUDGET_SCHEMA,
+    },
+    {
+        "uri": DEPENDENCY_GOVERNANCE_URI,
+        "name": "cleanmac dependency governance",
+        "description": "Read-only dependency and supply-chain governance contract for release gates.",
+        "category": "release",
+        "schema": DEPENDENCY_GOVERNANCE_SCHEMA,
     },
     {
         "uri": "cleanmac://ai/self-test",
@@ -363,7 +402,12 @@ def validate_mcp_meta_index() -> dict[str, Any]:
     resource_validation = validate_mcp_resource_catalog()
     prompt_validation = validate_mcp_prompt_catalog()
     tool_validation = validate_mcp_tool_catalog()
-    index_uris = [MCP_RESOURCE_INDEX_URI, MCP_PROMPT_INDEX_URI, MCP_TOOL_INDEX_URI]
+    index_uris = [
+        MCP_RESOURCE_INDEX_URI,
+        MCP_PROMPT_INDEX_URI,
+        MCP_TOOL_INDEX_URI,
+        MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+    ]
     resource_uris = set(mcp_resource_uris())
     missing_index_uris = [uri for uri in index_uris if uri not in resource_uris]
     return {
@@ -405,6 +449,13 @@ def render_mcp_meta_index() -> dict[str, Any]:
             "ready": bool(validation["tool_catalog"].get("valid")),
             "count": validation["tool_catalog"].get("tool_count", 0),
         },
+        {
+            "kind": "destructive-tool-governance",
+            "uri": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+            "schema": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_SCHEMA,
+            "ready": bool(validation["tool_catalog"].get("valid")),
+            "count": len(validation["tool_catalog"].get("destructive_tool_names", [])),
+        },
     ]
     return {
         "schema": MCP_META_INDEX_SCHEMA,
@@ -421,6 +472,7 @@ def render_mcp_meta_index() -> dict[str, Any]:
             f"read {MCP_RESOURCE_INDEX_URI}",
             f"read {MCP_PROMPT_INDEX_URI}",
             f"read {MCP_TOOL_INDEX_URI}",
+            f"read {MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI}",
         ],
         "recommended_commands": [["make", "mcp-smoke"], ["make", "mcp-meta-index-smoke"], ["make", "ai-host-smoke"]],
     }
@@ -447,11 +499,15 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         MCP_RESOURCE_INDEX_URI,
         MCP_PROMPT_INDEX_URI,
         MCP_TOOL_INDEX_URI,
+        MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
         MCP_SURFACE_AUDIT_URI,
         RUNTIME_LIFECYCLE_POLICY_URI,
         ZERO_RESIDENT_AUDIT_URI,
         AI_ENTRYPOINT_CONTRACT_URI,
         AI_WORKFLOW_CONTRACT_URI,
+        OPERATION_LOG_EXPLAINABILITY_URI,
+        COLD_START_BUDGET_URI,
+        DEPENDENCY_GOVERNANCE_URI,
         "cleanmac://ai/host-integration-pack",
         "cleanmac://ai/host-preflight",
         "cleanmac://ai/host-evidence",
@@ -467,6 +523,10 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         "mcp-resource-index-ready": [["make", "mcp-resource-index-smoke"], ["make", "mcp-smoke"]],
         "mcp-prompt-index-ready": [["make", "mcp-prompt-index-smoke"], ["make", "mcp-smoke"]],
         "mcp-tool-index-ready": [["make", "mcp-tool-index-smoke"], ["make", "mcp-smoke"]],
+        "mcp-destructive-tool-governance-ready": [
+            ["cleanmac", "--json", "mcp-destructive-tool-governance"],
+            ["make", "mcp-tool-index-smoke"],
+        ],
         "required-resources-advertised": [
             ["cleanmac", "--json", "mcp-surface-audit"],
             ["make", "mcp-resource-index-smoke"],
@@ -483,6 +543,18 @@ def render_mcp_surface_audit() -> dict[str, Any]:
         "zero-resident-audit-advertised": [
             ["cleanmac", "--json", "mcp-surface-audit"],
             ["make", "zero-resident-audit-smoke"],
+        ],
+        "operation-log-explainability-advertised": [
+            ["cleanmac", "--json", "operation-log-explainability"],
+            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
+        ],
+        "cold-start-budget-advertised": [
+            ["cleanmac", "--json", "cold-start-budget"],
+            ["make", "ai-host-smoke"],
+        ],
+        "dependency-governance-advertised": [
+            ["cleanmac", "--json", "dependency-governance"],
+            ["make", "dependency-audit-smoke"],
         ],
         "all-resources-mcp-safe": [["make", "mcp-resource-index-smoke"], ["make", "ai-host-smoke"]],
         "all-prompts-mcp-safe": [["make", "mcp-prompt-index-smoke"], ["make", "ai-host-smoke"]],
@@ -509,6 +581,11 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             "evidence": MCP_TOOL_INDEX_SCHEMA,
         },
         {
+            "id": "mcp-destructive-tool-governance-ready",
+            "passed": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI in resource_uris,
+            "evidence": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+        },
+        {
             "id": "required-resources-advertised",
             "passed": not missing_resources,
             "evidence": MCP_RESOURCE_INDEX_SCHEMA,
@@ -528,6 +605,21 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             "id": "zero-resident-audit-advertised",
             "passed": ZERO_RESIDENT_AUDIT_URI in resource_uris,
             "evidence": ZERO_RESIDENT_AUDIT_URI,
+        },
+        {
+            "id": "operation-log-explainability-advertised",
+            "passed": OPERATION_LOG_EXPLAINABILITY_URI in resource_uris,
+            "evidence": OPERATION_LOG_EXPLAINABILITY_URI,
+        },
+        {
+            "id": "cold-start-budget-advertised",
+            "passed": COLD_START_BUDGET_URI in resource_uris,
+            "evidence": COLD_START_BUDGET_URI,
+        },
+        {
+            "id": "dependency-governance-advertised",
+            "passed": DEPENDENCY_GOVERNANCE_URI in resource_uris,
+            "evidence": DEPENDENCY_GOVERNANCE_URI,
         },
         {
             "id": "all-resources-mcp-safe",
@@ -600,6 +692,10 @@ def render_mcp_surface_audit() -> dict[str, Any]:
             f"read {MCP_RESOURCE_INDEX_URI}",
             f"read {MCP_PROMPT_INDEX_URI}",
             f"read {MCP_TOOL_INDEX_URI}",
+            f"read {MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI}",
+            f"read {OPERATION_LOG_EXPLAINABILITY_URI}",
+            f"read {COLD_START_BUDGET_URI}",
+            f"read {DEPENDENCY_GOVERNANCE_URI}",
             f"read {MCP_SURFACE_AUDIT_URI}",
             "read cleanmac://ai/host-integration-pack",
         ],

@@ -251,6 +251,9 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/contract-samples", uris)
         self.assertIn("cleanmac://ai/entrypoints", uris)
         self.assertIn("cleanmac://ai/safety-chain", uris)
+        self.assertIn("cleanmac://ai/operation-log-explainability", uris)
+        self.assertIn("cleanmac://ai/cold-start-budget", uris)
+        self.assertIn("cleanmac://release/dependency-governance", uris)
         self.assertIn("cleanmac://ai/workflow-contract", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/host-preflight", uris)
@@ -267,6 +270,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://release/post-publish-evidence-template", uris)
         self.assertIn("cleanmac://mcp/meta-index", uris)
         self.assertIn("cleanmac://mcp/tool-index", uris)
+        self.assertIn("cleanmac://mcp/destructive-tool-governance", uris)
         self.assertIn("cleanmac://mcp/surface-audit", uris)
         self.assertTrue(all(resource["mimeType"] == "application/json" for resource in resources))
         self.assertTrue(all(resource["destructive"] is False for resource in resources))
@@ -289,7 +293,12 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["index_count"], len(payload["indexes"]))
         self.assertEqual(
             set(payload["index_uris"]),
-            {"cleanmac://mcp/resource-index", "cleanmac://mcp/prompt-index", "cleanmac://mcp/tool-index"},
+            {
+                "cleanmac://mcp/resource-index",
+                "cleanmac://mcp/prompt-index",
+                "cleanmac://mcp/tool-index",
+                "cleanmac://mcp/destructive-tool-governance",
+            },
         )
         self.assertTrue(all(index["ready"] is True for index in payload["indexes"]))
 
@@ -311,7 +320,11 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/meta-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/prompt-index", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/tool-index", payload["resource_uris"])
+        self.assertIn("cleanmac://mcp/destructive-tool-governance", payload["resource_uris"])
         self.assertIn("cleanmac://mcp/surface-audit", payload["resource_uris"])
+        self.assertIn("cleanmac://ai/operation-log-explainability", payload["resource_uris"])
+        self.assertIn("cleanmac://ai/cold-start-budget", payload["resource_uris"])
+        self.assertIn("cleanmac://release/dependency-governance", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
         self.assertIn("cleanmac://ai/entrypoints", payload["resource_uris"])
         self.assertIn("cleanmac://ai/safety-chain", payload["resource_uris"])
@@ -365,6 +378,91 @@ class MckServerTests(unittest.TestCase):
                 self.assertFalse(tool["auto_call_allowed"], tool)
                 self.assertTrue(tool["requires_confirmation"], tool)
 
+    def test_resources_read_mcp_destructive_tool_governance(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 95,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://mcp/destructive-tool-governance"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://mcp/destructive-tool-governance")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.mcp-destructive-tool-governance.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertIn("cleanmac_execute_plan", payload["destructive_tool_names"])
+        self.assertIn("cleanmac_software_uninstall_execute", payload["destructive_tool_names"])
+        self.assertEqual(payload["validation"]["violation_count"], 0)
+        for tool in payload["destructive_tools"]:
+            self.assertFalse(tool["auto_call_allowed"], tool)
+            self.assertTrue(tool["requires_confirmation"], tool)
+            self.assertTrue(tool["requires_operation_log"], tool)
+            self.assertFalse(tool["uses_shell"], tool)
+            self.assertEqual(tool["invocation_mode"], "argv")
+            self.assertTrue(tool["mcp_annotations"]["destructiveHint"], tool)
+            self.assertFalse(tool["mcp_annotations"]["readOnlyHint"], tool)
+            self.assertIn("--execute", tool["safe_argv_template"])
+            self.assertIn("--operation-log", tool["safe_argv_template"])
+
+    def test_resources_read_operation_log_explainability(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 96,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/operation-log-explainability"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/operation-log-explainability")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.operation-log-explainability.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertTrue(payload["validation"]["valid"], payload["validation"])
+        self.assertEqual(payload["format"], "jsonl")
+        self.assertTrue(payload["append_only"])
+        self.assertTrue({"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(payload["required_entry_fields"]))
+        self.assertEqual(payload["sample_entry"]["tool"], "cleanmac.clean.run")
+
+    def test_resources_read_cold_start_budget(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 97,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/cold-start-budget"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/cold-start-budget")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.cold-start-budget.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertTrue(payload["validation"]["valid"], payload["validation"])
+        self.assertEqual(payload["budgets"]["cli_cold_start_max_ms"], 1200)
+        self.assertEqual(payload["budgets"]["resident_processes_after_exit"], 0)
+
+    def test_resources_read_dependency_governance(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 98,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://release/dependency-governance"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://release/dependency-governance")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.dependency-governance.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertTrue(payload["validation"]["valid"], payload["validation"])
+        self.assertEqual(payload["pyproject"]["runtime_dependency_count"], 0)
+        self.assertEqual(payload["runtime_dependency_policy"], "stdlib-only-runtime-by-default")
+        self.assertIn(["make", "dependency-audit-smoke"], payload["release_gate_commands"])
+
     def test_resources_read_mcp_surface_audit(self) -> None:
         response = _mcp_request(
             {
@@ -384,7 +482,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["resource_uri"], "cleanmac://mcp/surface-audit")
         self.assertEqual(payload["missing"], {"resources": [], "prompts": [], "tools": []})
         self.assertEqual(payload["failed_check_ids"], [])
-        self.assertEqual(payload["readiness_score"], {"passed": 15, "total": 15, "level": "ready"})
+        self.assertEqual(payload["readiness_score"], {"passed": 19, "total": 19, "level": "ready"})
         self.assertEqual(payload["next_action"], "proceed-to-host-integration-pack")
         self.assertEqual(payload["stop_reason"], "")
         checks = {check["id"]: check for check in payload["checks"]}
@@ -393,13 +491,18 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(checks["mcp-resource-index-ready"]["passed"])
         self.assertTrue(checks["mcp-prompt-index-ready"]["passed"])
         self.assertTrue(checks["mcp-tool-index-ready"]["passed"])
+        self.assertTrue(checks["mcp-destructive-tool-governance-ready"]["passed"])
         self.assertTrue(checks["required-resources-advertised"]["passed"])
         self.assertTrue(checks["required-prompts-advertised"]["passed"])
         self.assertTrue(checks["required-tools-advertised"]["passed"])
         self.assertTrue(checks["runtime-lifecycle-policy-advertised"]["passed"])
         self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
+        self.assertTrue(checks["operation-log-explainability-advertised"]["passed"])
+        self.assertTrue(checks["cold-start-budget-advertised"]["passed"])
+        self.assertTrue(checks["dependency-governance-advertised"]["passed"])
         self.assertTrue(checks["destructive-tools-gated"]["passed"])
         self.assertTrue(checks["no-shell-invocation"]["passed"])
+        self.assertIn("read cleanmac://release/dependency-governance", payload["recommended_call_sequence"])
         self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
         self.assertIn(["make", "mcp-surface-audit-smoke"], payload["remediation_commands"])
 
@@ -586,11 +689,15 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://mcp/resource-index",
             "cleanmac://mcp/prompt-index",
             "cleanmac://mcp/tool-index",
+            "cleanmac://mcp/destructive-tool-governance",
             "cleanmac://mcp/surface-audit",
             "cleanmac://ai/runtime-lifecycle-policy",
             "cleanmac://ai/zero-resident-audit",
             "cleanmac://ai/entrypoints",
             "cleanmac://ai/safety-chain",
+            "cleanmac://ai/operation-log-explainability",
+            "cleanmac://ai/cold-start-budget",
+            "cleanmac://release/dependency-governance",
             "cleanmac://ai/workflow-contract",
             "cleanmac://ai/host-integration-pack",
             "cleanmac://ai/host-preflight",

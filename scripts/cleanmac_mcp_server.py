@@ -218,6 +218,10 @@ def read_mcp_resource(uri: str) -> dict:
         render_ai_tool_contract,
         render_ai_workflow,
         render_capabilities,
+        render_cold_start_budget_contract,
+        render_dependency_governance_contract,
+        render_mcp_destructive_tool_governance,
+        render_operation_log_explainability_contract,
         render_release_diagnostics_report,
         render_release_evidence_report,
         render_release_operator_summary,
@@ -238,7 +242,11 @@ def read_mcp_resource(uri: str) -> dict:
         AI_ENTRYPOINT_CONTRACT_URI,
         AI_SAFETY_CHAIN_URI,
         AI_WORKFLOW_CONTRACT_URI,
+        MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
         MCP_META_INDEX_URI,
+        COLD_START_BUDGET_URI,
+        DEPENDENCY_GOVERNANCE_URI,
+        OPERATION_LOG_EXPLAINABILITY_URI,
         MCP_RESOURCE_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
         RUNTIME_LIFECYCLE_POLICY_URI,
@@ -257,6 +265,14 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_mcp_prompt_index()
     elif uri == MCP_TOOL_INDEX_URI:
         payload = render_mcp_tool_index()
+    elif uri == MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI:
+        payload = render_mcp_destructive_tool_governance()
+    elif uri == OPERATION_LOG_EXPLAINABILITY_URI:
+        payload = render_operation_log_explainability_contract()
+    elif uri == COLD_START_BUDGET_URI:
+        payload = render_cold_start_budget_contract()
+    elif uri == DEPENDENCY_GOVERNANCE_URI:
+        payload = render_dependency_governance_contract()
     elif uri == MCP_SURFACE_AUDIT_URI:
         payload = render_mcp_surface_audit()
     elif uri == "cleanmac://capabilities":

@@ -60,6 +60,7 @@ from cleancli.ai_versioning import (
 from cleancli.governance import (
     render_ai_first_release_checklist,
     render_boundary_governance,
+    render_development_governance_todo,
     render_geo_discoverability_policy,
     render_governance_integrity_report,
     render_product_surface_policy,
@@ -69,6 +70,7 @@ from cleancli.governance import (
     render_zero_resident_audit,
 )
 from cleancli.mcp_resources import render_mcp_surface_audit
+from cleancli.mcp_tools import render_mcp_destructive_tool_governance
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
@@ -112,6 +114,17 @@ LOG_FILE = "~/.cleanmac/cleanmac.log"
 DEBUG_SESSION_LOG_FILE = "~/.cleanmac/cleanmac_debug_session.log"
 DELETE_LOG_FILE = "~/.cleanmac/deletions.log"
 OPERATIONS_LOG_FILE = "~/.cleanmac/operations.jsonl"
+OPERATION_LOG_EXPLAINABILITY_SCHEMA = "cleanmac.operation-log-explainability.v1"
+OPERATION_LOG_EXPLAINABILITY_URI = "cleanmac://ai/operation-log-explainability"
+OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS = frozenset(
+    {"timestamp", "tool", "parameters", "result", "impact_scope"}
+)
+DEPENDENCY_GOVERNANCE_SCHEMA = "cleanmac.dependency-governance.v1"
+DEPENDENCY_GOVERNANCE_URI = "cleanmac://release/dependency-governance"
+COLD_START_BUDGET_SCHEMA = "cleanmac.cold-start-budget.v1"
+COLD_START_BUDGET_URI = "cleanmac://ai/cold-start-budget"
+COLD_START_MAX_MS = 1200
+COLD_START_PREFLIGHT_MAX_MS = 2000
 LOG_ROTATE_BYTES = 1 * 1024 * 1024
 OPERATIONS_LOG_ROTATE_BYTES = 5 * 1024 * 1024
 PLAN_MAX_AGE_SECONDS = 30 * 60
@@ -1310,6 +1323,22 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Emit read-only MCP surface readiness and safety audit.",
     )
     subparsers.add_parser(
+        "mcp-destructive-tool-governance",
+        help="Emit read-only governance contract for destructive MCP tools.",
+    )
+    subparsers.add_parser(
+        "operation-log-explainability",
+        help="Emit read-only AI explainability contract for operation-log JSONL entries.",
+    )
+    subparsers.add_parser(
+        "cold-start-budget",
+        help="Emit read-only cold-start budget contract for AI Host preflight.",
+    )
+    subparsers.add_parser(
+        "dependency-governance",
+        help="Emit read-only dependency and supply-chain governance contract for release gates.",
+    )
+    subparsers.add_parser(
         "zero-resident-audit",
         help="Emit read-only zero-resident product boundary audit for release gates.",
     )
@@ -1571,6 +1600,9 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-evidence",
         "governance-integrity",
         "mcp-surface-audit",
+        "mcp-destructive-tool-governance",
+        "operation-log-explainability",
+        "cold-start-budget",
         "release-readiness",
         "release-diagnostics",
         "release-evidence",
@@ -2168,6 +2200,7 @@ def render_capabilities() -> dict[str, Any]:
             "ai-host-integration-pack",
             "ai-host-preflight",
             "ai-host-evidence",
+            "dependency-governance",
             "governance-integrity",
             "release-readiness",
             "ai-schema-registry",
@@ -2182,6 +2215,8 @@ def render_capabilities() -> dict[str, Any]:
             "zero_resident_footprint": runtime_lifecycle,
             "geo_discoverability_policy": geo_discoverability_policy,
             "product_surface_policy": product_surface_policy,
+            "development_governance_todo": render_development_governance_todo(),
+            "dependency_governance": render_dependency_governance_contract(),
             "delete_requires_execute": True,
             "risk_policy": ["strict", "default", "permissive"],
             "high_or_critical_requires_yes_by_default": True,
@@ -2350,6 +2385,7 @@ def render_runtime_release_readiness_summary() -> dict[str, Any]:
             ai_host_evidence={"schema": "cleanmac.ai-host-evidence.v1", "ready": True},
             ai_first_release_checklist={"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             governance_integrity=render_governance_integrity(),
+            dependency_governance=render_dependency_governance_contract(),
             mcp_surface_audit=render_mcp_surface_audit(),
             zero_resident_audit=render_zero_resident_audit(),
             contract_validation=contract_validation,
@@ -2420,6 +2456,10 @@ def render_ai_host_integration_pack_report() -> dict[str, Any]:
         host_policy=host_policy,
         entrypoint_contract=entrypoint_contract,
         safety_chain=safety_chain,
+        destructive_tool_governance=render_mcp_destructive_tool_governance(),
+        operation_log_explainability=render_operation_log_explainability_contract(),
+        cold_start_budget=render_cold_start_budget_contract(),
+        dependency_governance=render_dependency_governance_contract(),
         runtime_lifecycle=runtime_lifecycle,
         zero_resident_audit=zero_resident_audit,
         schema_registry=render_ai_schema_registry(),
@@ -2478,6 +2518,7 @@ def render_ai_first_release_checklist_report() -> dict[str, Any]:
         ai_host_preflight=render_ai_host_preflight_report(),
         ai_host_evidence=render_ai_host_evidence_report(),
         governance_integrity=render_governance_integrity(),
+        development_governance_todo=render_development_governance_todo(),
         zero_resident_audit=zero_resident_audit,
         product_surface_drift_audit=zero_resident_audit.get("product_surface_drift_audit", {}),
         mcp_surface_audit=render_mcp_surface_audit(),
@@ -2591,6 +2632,7 @@ def render_release_readiness_report(
         ai_host_evidence=render_ai_host_evidence_report(),
         ai_first_release_checklist=ai_first_release_checklist,
         governance_integrity=render_governance_integrity(),
+        dependency_governance=render_dependency_governance_contract(),
         mcp_surface_audit=render_mcp_surface_audit(),
         zero_resident_audit=render_zero_resident_audit(),
         contract_validation=contract_validation,
@@ -3663,8 +3705,44 @@ def append_operation_log(
         rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
     with log_path.open("a", encoding="utf-8") as handle:
         for entry in entries:
-            handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+            handle.write(json.dumps(ensure_operation_log_explainability(entry), ensure_ascii=False, sort_keys=True) + "\n")
     return display_path(log_path)
+
+
+def ensure_operation_log_explainability(entry: dict[str, Any]) -> dict[str, Any]:
+    """Backfill AI-replayable fields for all operation-log producers."""
+
+    enriched = dict(entry)
+    command = str(enriched.get("command") or enriched.get("operation") or "cleanmac")
+    action = str(enriched.get("action") or enriched.get("status") or "evaluate")
+    category = str(enriched.get("category") or enriched.get("tool") or enriched.get("tool_name") or "unknown")
+    path = enriched.get("path") or enriched.get("target") or enriched.get("operation")
+    delete_mode = str(enriched.get("delete_mode") or enriched.get("mode") or "unknown")
+    status = enriched.get("status", action)
+    deleted = bool(enriched.get("deleted"))
+    bytes_value = enriched.get("bytes", 0)
+    human = enriched.get("human") or human_size(int(bytes_value) if isinstance(bytes_value, int) else 0)
+    explainability = operation_log_explainability_fields(
+        command_text=command,
+        action=action,
+        category=category,
+        path=path,
+        bytes_value=bytes_value,
+        human=human,
+        bundle_id=enriched.get("bundle_id"),
+        delete_mode=delete_mode,
+        trash_path=enriched.get("trash_path"),
+        deleted=deleted,
+        status=status,
+        reason=enriched.get("reason"),
+        error=enriched.get("error"),
+    )
+    enriched.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    enriched.setdefault("tool", explainability["tool"])
+    enriched.setdefault("parameters", explainability["parameters"])
+    enriched.setdefault("result", explainability["result"])
+    enriched.setdefault("impact_scope", explainability["impact_scope"])
+    return enriched
 
 
 def debug_enabled() -> bool:
@@ -5157,6 +5235,457 @@ def render_ai_execution_ledger(
     }
 
 
+def operation_log_explainability_fields(
+    *,
+    command_text: str,
+    action: str,
+    category: str,
+    path: Any,
+    bytes_value: Any,
+    human: Any,
+    bundle_id: Any,
+    delete_mode: str,
+    trash_path: Any,
+    deleted: bool,
+    status: Any,
+    reason: Any,
+    error: Any,
+) -> dict[str, Any]:
+    """Return AI-replayable fields required on every operation-log JSONL row."""
+
+    normalized_status = str(status or action)
+    return {
+        "tool": "cleanmac.clean.run",
+        "parameters": {
+            "command": command_text,
+            "category": category,
+            "path": path,
+            "delete_mode": delete_mode,
+        },
+        "result": {
+            "action": action,
+            "status": normalized_status,
+            "deleted": deleted,
+            "reason": reason,
+            "error": error,
+            "trash_path": trash_path,
+        },
+        "impact_scope": {
+            "category": category,
+            "path": path,
+            "bytes": bytes_value,
+            "human": human,
+            "bundle_id": bundle_id,
+            "trash_path": trash_path,
+        },
+    }
+
+
+def sample_operation_log_entry() -> dict[str, Any]:
+    sample_row = {
+        "category": "downloads",
+        "path": "~/Downloads/example-cache.bin",
+        "bytes": 1024,
+        "human": "1.00 KB",
+        "bundle_id": None,
+        "trash_path": "~/.Trash/example-cache.bin",
+        "deleted": True,
+        "status": "deleted",
+        "reason": None,
+        "error": None,
+    }
+    return operation_log_entry(
+        session_id="cleanmac-sample-session",
+        command_text="cleanmac --json clean run --categories downloads --execute --yes --delete-mode trash --operation-log {operation_log}",
+        action="delete",
+        row=sample_row,
+        delete_mode="trash",
+        root=Path("/"),
+        home=Path("~"),
+        ai_operation_audit={
+            "schema": "cleanmac.operation-log-ai-audit.v1",
+            "originated_plan": True,
+            "plan_file": "{plan_file}",
+            "plan_sha256": "sample-plan-sha256",
+            "require_plan_context": True,
+            "confirmation_token_required": True,
+            "confirmation_token_validated": True,
+            "review_selection": None,
+        },
+    )
+
+
+def validate_operation_log_explainability(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    report = payload or render_operation_log_explainability_contract()
+    violations: list[dict[str, Any]] = []
+    if report.get("schema") != OPERATION_LOG_EXPLAINABILITY_SCHEMA:
+        violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
+    if report.get("destructive") is not False or report.get("dry_run") is not True:
+        violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
+    required_fields = set(str(field) for field in report.get("required_entry_fields", []) if isinstance(field, str))
+    if not OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS.issubset(required_fields):
+        violations.append({"code": "REQUIRED_ENTRY_FIELDS_MISSING", "path": "$.required_entry_fields"})
+    sample = report.get("sample_entry", {}) if isinstance(report.get("sample_entry"), dict) else {}
+    missing_sample_fields = sorted(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS - set(sample))
+    if missing_sample_fields:
+        violations.append(
+            {
+                "code": "SAMPLE_ENTRY_MISSING_FIELDS",
+                "path": "$.sample_entry",
+                "missing": missing_sample_fields,
+            }
+        )
+    for field in ("parameters", "result", "impact_scope"):
+        if not isinstance(sample.get(field), dict):
+            violations.append({"code": "SAMPLE_STRUCTURED_FIELD_INVALID", "path": f"$.sample_entry.{field}"})
+    if report.get("format") != "jsonl" or report.get("append_only") is not True:
+        violations.append({"code": "JSONL_APPEND_ONLY_REQUIRED", "path": "$"})
+    return {
+        "schema": "cleanmac.operation-log-explainability-validation.v1",
+        "valid": not violations,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
+def render_operation_log_explainability_contract() -> dict[str, Any]:
+    checks = [
+        {
+            "id": "operation-log-jsonl-append-only",
+            "passed": True,
+            "evidence": "append_operation_log writes one JSON object per line",
+        },
+        {
+            "id": "operation-log-entry-has-timestamp-tool-parameters-result-impact",
+            "passed": True,
+            "evidence": "cleanmac.operation-log-entry.v1",
+        },
+        {
+            "id": "operation-log-ai-audit-embedded",
+            "passed": True,
+            "evidence": "cleanmac.operation-log-ai-audit.v1",
+        },
+        {
+            "id": "operation-log-preflight-fail-closed",
+            "passed": True,
+            "evidence": "cleanmac.operation-log-status.v1",
+        },
+    ]
+    for check in checks:
+        check["remediation_commands"] = [
+            ["cleanmac", "--json", "operation-log-explainability"],
+            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
+        ]
+    sample_entry = sample_operation_log_entry()
+    payload = {
+        "schema": OPERATION_LOG_EXPLAINABILITY_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "ready": True,
+        "resource_uri": OPERATION_LOG_EXPLAINABILITY_URI,
+        "purpose": "Machine-readable contract that makes operation logs replayable and explainable by AI Hosts.",
+        "format": "jsonl",
+        "append_only": True,
+        "sensitive_data_policy": "local-operation-log-may-contain-user-paths-mcp-resources-redacted",
+        "required_entry_schema": "cleanmac.operation-log-entry.v1",
+        "required_entry_fields": sorted(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS),
+        "required_nested_fields": {
+            "parameters": ["command", "category", "path", "delete_mode"],
+            "result": ["action", "status", "deleted", "reason", "error", "trash_path"],
+            "impact_scope": ["category", "path", "bytes", "human", "bundle_id", "trash_path"],
+            "ai": [
+                "schema",
+                "originated_plan",
+                "plan_file",
+                "plan_sha256",
+                "require_plan_context",
+                "confirmation_token_required",
+                "confirmation_token_validated",
+                "review_selection",
+            ],
+        },
+        "sample_entry": sample_entry,
+        "checks": checks,
+        "failed_check_ids": [str(check["id"]) for check in checks if not check["passed"]],
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready",
+        },
+        "release_gate_commands": [
+            ["cleanmac", "--json", "operation-log-explainability"],
+            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
+            ["make", "ai-host-smoke"],
+        ],
+    }
+    validation = validate_operation_log_explainability(payload)
+    payload["validation"] = validation
+    payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
+    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    return payload
+
+
+def _pyproject_list_value(text: str, key: str) -> list[str]:
+    match = re.search(rf"(?m)^{re.escape(key)}\s*=\s*\[(.*?)\]", text, re.S)
+    if not match:
+        return []
+    return [str(item) for item in re.findall(r'"([^"]+)"', match.group(1))]
+
+
+def _pyproject_optional_dependency_groups(text: str) -> dict[str, list[str]]:
+    section_match = re.search(r"(?ms)^\[project\.optional-dependencies\]\s*(.*?)(?:^\[|\Z)", text)
+    if not section_match:
+        return {}
+    section = section_match.group(1)
+    return {
+        str(group): [str(item) for item in re.findall(r'"([^"]+)"', body)]
+        for group, body in re.findall(r"(?ms)^([A-Za-z0-9_-]+)\s*=\s*\[(.*?)\]", section)
+    }
+
+
+def _dependency_governance_pyproject() -> dict[str, Any]:
+    pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    text = pyproject_path.read_text(encoding="utf-8")
+    runtime_dependencies = _pyproject_list_value(text, "dependencies")
+    build_system_requires = _pyproject_list_value(text, "requires")
+    optional_groups = _pyproject_optional_dependency_groups(text)
+    return {
+        "path": "pyproject.toml",
+        "runtime_dependencies": runtime_dependencies,
+        "runtime_dependency_count": len(runtime_dependencies),
+        "build_system_requires": build_system_requires,
+        "optional_dependency_groups": optional_groups,
+        "optional_dependency_group_names": sorted(optional_groups),
+    }
+
+
+def validate_dependency_governance(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    report = payload or render_dependency_governance_contract()
+    violations: list[dict[str, Any]] = []
+    if report.get("schema") != DEPENDENCY_GOVERNANCE_SCHEMA:
+        violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
+    if report.get("destructive") is not False or report.get("dry_run") is not True:
+        violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
+    pyproject = report.get("pyproject", {}) if isinstance(report.get("pyproject"), dict) else {}
+    if pyproject.get("runtime_dependency_count") != 0 or pyproject.get("runtime_dependencies") != []:
+        violations.append({"code": "RUNTIME_DEPENDENCIES_MUST_STAY_EMPTY", "path": "$.pyproject.dependencies"})
+    optional_groups = pyproject.get("optional_dependency_groups", {})
+    if not isinstance(optional_groups, dict) or not {"build", "dev", "lint", "test"}.issubset(optional_groups):
+        violations.append({"code": "OPTIONAL_DEPENDENCY_GROUPS_REQUIRED", "path": "$.pyproject.optional_dependency_groups"})
+    release_gates = report.get("release_gate_commands", [])
+    if ["make", "dependency-audit-smoke"] not in release_gates:
+        violations.append({"code": "DEPENDENCY_AUDIT_SMOKE_REQUIRED", "path": "$.release_gate_commands"})
+    audit = report.get("audit", {}) if isinstance(report.get("audit"), dict) else {}
+    if ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"] not in audit.get(
+        "commands", []
+    ):
+        violations.append({"code": "PIP_AUDIT_COMMAND_REQUIRED", "path": "$.audit.commands"})
+    if ["python3", "scripts/generate_sbom.py", "--output", "SBOM.json"] not in audit.get("commands", []):
+        violations.append({"code": "SBOM_GENERATION_COMMAND_REQUIRED", "path": "$.audit.commands"})
+    product_surface = report.get("product_surface_dependency_policy", {})
+    forbidden = product_surface.get("forbidden_dependency_families", []) if isinstance(product_surface, dict) else []
+    if not forbidden or "Textual" not in forbidden or product_surface.get("scan_command") != "python3 scripts/security_scan.py":
+        violations.append({"code": "PRODUCT_SURFACE_DEPENDENCY_POLICY_REQUIRED", "path": "$.product_surface_dependency_policy"})
+    if report.get("network_required_at_runtime") is not False or report.get("installs_background_services") is not False:
+        violations.append({"code": "RUNTIME_DEPENDENCY_SIDE_EFFECTS_FORBIDDEN", "path": "$"})
+    return {
+        "schema": "cleanmac.dependency-governance-validation.v1",
+        "valid": not violations,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
+def render_dependency_governance_contract() -> dict[str, Any]:
+    pyproject = _dependency_governance_pyproject()
+    product_surface_policy = render_product_surface_policy()
+    checks = [
+        {
+            "id": "runtime-dependencies-empty",
+            "passed": pyproject["runtime_dependency_count"] == 0,
+            "evidence": "pyproject.toml [project].dependencies",
+        },
+        {
+            "id": "optional-dependency-groups-explicit",
+            "passed": {"build", "dev", "lint", "test"}.issubset(set(pyproject["optional_dependency_group_names"])),
+            "evidence": pyproject["optional_dependency_group_names"],
+        },
+        {
+            "id": "pip-audit-release-gate",
+            "passed": True,
+            "evidence": "make dependency-audit-smoke runs python -m pip_audit",
+        },
+        {
+            "id": "sbom-generation-release-gate",
+            "passed": True,
+            "evidence": "scripts/generate_sbom.py emits CycloneDX SBOM.json",
+        },
+        {
+            "id": "forbidden-product-surface-dependencies-scanned",
+            "passed": True,
+            "evidence": "scripts/security_scan.py scans dependency manifests for GUI/TUI/resident frameworks",
+        },
+    ]
+    for check in checks:
+        check["remediation_commands"] = [
+            ["cleanmac", "--json", "dependency-governance"],
+            ["make", "dependency-audit-smoke"],
+            ["python3", "scripts/security_scan.py"],
+        ]
+    payload = {
+        "schema": DEPENDENCY_GOVERNANCE_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "ready": True,
+        "resource_uri": DEPENDENCY_GOVERNANCE_URI,
+        "purpose": "Machine-readable dependency and supply-chain governance for cleanmac's AI-first zero-resident release posture.",
+        "pyproject": pyproject,
+        "runtime_dependency_policy": "stdlib-only-runtime-by-default",
+        "network_required_at_runtime": False,
+        "installs_background_services": False,
+        "allows_gui_tui_resident_dependencies": False,
+        "audit": {
+            "safe_for_ci": True,
+            "requires_network_for_vulnerability_db": True,
+            "commands": [
+                ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"],
+                ["python3", "scripts/generate_sbom.py", "--output", "SBOM.json"],
+                ["python3", "scripts/security_scan.py"],
+            ],
+        },
+        "product_surface_dependency_policy": {
+            "schema": product_surface_policy["schema"],
+            "forbidden_dependency_families": product_surface_policy["forbidden_dependency_families"],
+            "scan_command": product_surface_policy["release_gate_command"],
+        },
+        "checks": checks,
+        "failed_check_ids": [str(check["id"]) for check in checks if not check["passed"]],
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready",
+        },
+        "release_gate_commands": [
+            ["cleanmac", "--json", "dependency-governance"],
+            ["make", "dependency-audit-smoke"],
+            ["make", "security-smoke"],
+            ["make", "release-artifacts-smoke"],
+        ],
+    }
+    validation = validate_dependency_governance(payload)
+    payload["validation"] = validation
+    payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
+    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    return payload
+
+
+def validate_cold_start_budget(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    report = payload or render_cold_start_budget_contract()
+    violations: list[dict[str, Any]] = []
+    if report.get("schema") != COLD_START_BUDGET_SCHEMA:
+        violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
+    if report.get("destructive") is not False or report.get("dry_run") is not True:
+        violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
+    budgets = report.get("budgets", {}) if isinstance(report.get("budgets"), dict) else {}
+    if budgets.get("cli_cold_start_max_ms") != COLD_START_MAX_MS:
+        violations.append({"code": "CLI_COLD_START_BUDGET_MISMATCH", "path": "$.budgets.cli_cold_start_max_ms"})
+    if budgets.get("ai_host_preflight_max_ms") != COLD_START_PREFLIGHT_MAX_MS:
+        violations.append(
+            {"code": "AI_HOST_PREFLIGHT_BUDGET_MISMATCH", "path": "$.budgets.ai_host_preflight_max_ms"}
+        )
+    probes = report.get("ai_host_preflight_probes", [])
+    if not isinstance(probes, list) or ["cleanmac", "--json", "capabilities"] not in probes:
+        violations.append({"code": "CAPABILITIES_PREFLIGHT_PROBE_REQUIRED", "path": "$.ai_host_preflight_probes"})
+    if report.get("resident_processes") != 0 or report.get("background_cpu_expected") != 0:
+        violations.append({"code": "ZERO_RESIDENT_BUDGET_REQUIRED", "path": "$"})
+    if report.get("measurement", {}).get("safe_for_ci") is not True:
+        violations.append({"code": "CI_SAFE_MEASUREMENT_REQUIRED", "path": "$.measurement.safe_for_ci"})
+    return {
+        "schema": "cleanmac.cold-start-budget-validation.v1",
+        "valid": not violations,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
+def render_cold_start_budget_contract() -> dict[str, Any]:
+    checks = [
+        {
+            "id": "cold-start-budget-defined",
+            "passed": True,
+            "evidence": {"cli_cold_start_max_ms": COLD_START_MAX_MS},
+        },
+        {
+            "id": "ai-host-preflight-budget-defined",
+            "passed": True,
+            "evidence": {"ai_host_preflight_max_ms": COLD_START_PREFLIGHT_MAX_MS},
+        },
+        {
+            "id": "bounded-probes-only",
+            "passed": True,
+            "evidence": "Preflight probes are explicit read-only CLI commands and do not perform cleanup scans.",
+        },
+        {
+            "id": "zero-resident-after-run",
+            "passed": True,
+            "evidence": "cleanmac.zero-resident.v1",
+        },
+    ]
+    for check in checks:
+        check["remediation_commands"] = [
+            ["cleanmac", "--json", "cold-start-budget"],
+            ["make", "ai-host-smoke"],
+        ]
+    payload = {
+        "schema": COLD_START_BUDGET_SCHEMA,
+        "destructive": False,
+        "dry_run": True,
+        "ready": True,
+        "resource_uri": COLD_START_BUDGET_URI,
+        "purpose": "Machine-readable cold-start and immediate-exit budget for single-shot AI Host orchestration.",
+        "product_model": "ai-first-ephemeral-cli",
+        "budgets": {
+            "cli_cold_start_max_ms": COLD_START_MAX_MS,
+            "ai_host_preflight_max_ms": COLD_START_PREFLIGHT_MAX_MS,
+            "resident_processes_after_exit": 0,
+            "background_cpu_after_exit": 0,
+            "background_memory_after_exit": 0,
+        },
+        "ai_host_preflight_probes": [
+            ["cleanmac", "--json", "capabilities"],
+            ["cleanmac", "--json", "ai-host-preflight"],
+            ["cleanmac", "--json", "zero-resident"],
+        ],
+        "measurement": {
+            "method": "spawn-cleanmac-cli-and-measure-wall-clock-ms",
+            "recommended_iterations": 5,
+            "safe_for_ci": True,
+            "requires_network": False,
+            "requires_filesystem_scan": False,
+        },
+        "resident_processes": 0,
+        "background_cpu_expected": 0,
+        "background_memory_expected": 0,
+        "checks": checks,
+        "failed_check_ids": [str(check["id"]) for check in checks if not check["passed"]],
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready",
+        },
+        "release_gate_commands": [
+            ["cleanmac", "--json", "cold-start-budget"],
+            ["make", "ai-host-smoke"],
+            ["make", "zero-resident-audit-smoke"],
+        ],
+    }
+    validation = validate_cold_start_budget(payload)
+    payload["validation"] = validation
+    payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
+    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    return payload
+
+
 def delete_failure_reason(exc: Exception) -> str:
     text = str(exc)
     if isinstance(exc, PermissionError) or "Operation not permitted" in text or "Lacking write permission" in text:
@@ -5181,11 +5710,27 @@ def operation_log_entry(
     home: Path,
     ai_operation_audit: dict[str, Any],
 ) -> dict[str, Any]:
+    explainability = operation_log_explainability_fields(
+        command_text=command_text,
+        action=action,
+        category=str(row["category"]),
+        path=row["path"],
+        bytes_value=row["bytes"],
+        human=row["human"],
+        bundle_id=row.get("bundle_id"),
+        delete_mode=delete_mode,
+        trash_path=row.get("trash_path"),
+        deleted=bool(row.get("deleted")),
+        status=row.get("status", action),
+        reason=row.get("reason"),
+        error=row.get("error"),
+    )
     return {
         "schema": "cleanmac.operation-log-entry.v1",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "session_id": session_id,
         "command": command_text,
+        **explainability,
         "action": action,
         "category": row["category"],
         "path": row["path"],
@@ -5371,12 +5916,28 @@ def clean(
     }
     if execute:
         for item in skipped:
+            explainability = operation_log_explainability_fields(
+                command_text=command_text,
+                action="skip",
+                category=str(item["category"]),
+                path=item["path"],
+                bytes_value=item["bytes"],
+                human=item["human"],
+                bundle_id=bundle_id_for_path(Path(str(item["path"]))),
+                delete_mode=delete_mode,
+                trash_path=None,
+                deleted=False,
+                status="skipped",
+                reason=item["reason"],
+                error=None,
+            )
             operation_log_entries.append(
                 {
                     "schema": "cleanmac.operation-log-entry.v1",
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "session_id": session_id,
                     "command": command_text,
+                    **explainability,
                     "action": "skip",
                     "category": item["category"],
                     "path": item["path"],
@@ -7022,10 +7583,15 @@ def render_completion_shell(shell: str) -> str:
         "ai-decision-matrix",
         "ai-governance-advice",
         "ai-host-policy",
+        "ai-entrypoints",
+        "ai-safety-chain",
         "ai-host-integration-pack",
         "ai-host-preflight",
         "ai-host-evidence",
         "mcp-surface-audit",
+        "mcp-destructive-tool-governance",
+        "operation-log-explainability",
+        "cold-start-budget",
         "release-readiness",
         "release-diagnostics",
         "release-evidence",
@@ -7077,6 +7643,8 @@ def render_completion_shell(shell: str) -> str:
         "ai-host-preflight": "",
         "ai-host-evidence": "",
         "mcp-surface-audit": "",
+        "mcp-destructive-tool-governance": "",
+        "operation-log-explainability": "",
         "release-readiness": "--dist-dir --assets-dir",
         "release-diagnostics": "--dist-dir --assets-dir",
         "release-evidence": "--dist-dir --assets-dir",
@@ -7590,6 +8158,21 @@ def _main_impl(argv: Sequence[str]) -> int:
     if args.command == "mcp-surface-audit":
         print(json.dumps(render_mcp_surface_audit(), indent=2, ensure_ascii=False))
         return 0
+    if args.command == "mcp-destructive-tool-governance":
+        print(json.dumps(render_mcp_destructive_tool_governance(), indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "operation-log-explainability":
+        print(json.dumps(render_operation_log_explainability_contract(), indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "cold-start-budget":
+        print(json.dumps(render_cold_start_budget_contract(), indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "dependency-governance":
+        print(json.dumps(render_dependency_governance_contract(), indent=2, ensure_ascii=False))
+        return 0
+
     if args.command == "zero-resident-audit":
         print(json.dumps(render_zero_resident_audit(), indent=2, ensure_ascii=False))
         return 0

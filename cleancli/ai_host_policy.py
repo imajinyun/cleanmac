@@ -6,7 +6,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from cleancli.ai_schema import CONFIRMATION_PHRASE, next_allowed_tools_for_block
-from cleancli.mcp_resources import RUNTIME_LIFECYCLE_POLICY_URI
+from cleancli.mcp_resources import COLD_START_BUDGET_URI, DEPENDENCY_GOVERNANCE_URI, RUNTIME_LIFECYCLE_POLICY_URI
+from cleancli.mcp_tools import MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI
 
 RAW_COMMAND_ARGUMENT_KEYS = frozenset(
     {
@@ -55,6 +56,14 @@ def evaluate_ai_host_tool_call(
                     "code": "CONFIRMATION_TOKEN_REQUIRED",
                     "field": "confirmation_token",
                     "message": "Destructive cleanmac execution requires a token from a matching dry-run.",
+                }
+            )
+        if not str(arguments.get("operation_log") or ""):
+            blocking_reasons.append(
+                {
+                    "code": "OPERATION_LOG_REQUIRED",
+                    "field": "operation_log",
+                    "message": "Destructive cleanmac execution requires an explicit JSONL operation log path.",
                 }
             )
         if arguments.get("require_plan_context", True) is not True:
@@ -158,6 +167,9 @@ def render_ai_host_policy(
             "cleanmac://ai/readiness",
             "cleanmac://ai/runbook",
             "cleanmac://ai/safety-chain",
+            MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
+            COLD_START_BUDGET_URI,
+            DEPENDENCY_GOVERNANCE_URI,
             RUNTIME_LIFECYCLE_POLICY_URI,
             "cleanmac://ai/tool-decision-matrix",
             "cleanmac://ai/governance-advice",
