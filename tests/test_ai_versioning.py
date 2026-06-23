@@ -666,15 +666,23 @@ class AISchemaRegistryTests(unittest.TestCase):
             "purpose": "Ordered governance backlog.",
             "ordered": True,
             "item_count": 25,
-            "status": "active",
+            "landed_count": 25,
+            "pending_count": 0,
+            "status": "landed",
+            "execution_policy": "Every item is implemented as release-gated evidence.",
             "items": [
                 {
                     "order": 1,
                     "id": "strengthen-ai-first-entrypoints",
                     "title": "Strengthen AI-first entrypoints",
                     "governance_action": "Keep AI entrypoints primary.",
-                    "status": "governed",
+                    "status": "landed",
                     "verification_command": ["cleanmac", "--json", "capabilities"],
+                    "landing_evidence": {
+                        "state": "landed",
+                        "evidence_refs": ["cleanmac.capabilities.v1"],
+                        "release_gated": True,
+                    },
                 }
             ],
             "release_gate_commands": [["make", "governance-smoke"]],
@@ -703,9 +711,17 @@ class AISchemaRegistryTests(unittest.TestCase):
             {gate["id"] for gate in sample_payloads["cleanmac.release-readiness.v1"]["gates"]},
         )
         self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["item_count"], 25)
+        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["landed_count"], 25)
+        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["pending_count"], 0)
+        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["status"], "landed")
         self.assertEqual(
             sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"],
             "strengthen-ai-first-entrypoints",
+        )
+        self.assertTrue(
+            sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["landing_evidence"][
+                "release_gated"
+            ]
         )
         for sample in samples["samples"]:
             self.assertTrue(sample["valid"], sample)

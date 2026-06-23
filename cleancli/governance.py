@@ -180,6 +180,102 @@ def render_development_governance_todo() -> dict[str, Any]:
             ["make", "ai-first-release-checklist-smoke"],
         ),
     ]
+    evidence_refs_by_id = {
+        "strengthen-ai-first-entrypoints": [
+            "cleanmac.capabilities.v1",
+            "cleanmac.workflow.v1",
+            "cleanmac.explain.v1",
+            "cleanmac.ai-host-integration-pack.v1",
+        ],
+        "stabilize-json-mcp-argv-contracts": [
+            "cleanmac.ai-schema-registry.v1",
+            "cleanmac.mcp-tool-index.v1",
+            "cleanmac.ai-tool-contract.v1",
+        ],
+        "enforce-zero-resident-governance": [
+            "cleanmac.zero-resident.v1",
+            "cleanmac.zero-resident-audit.v1",
+            "cleanmac.product-surface-drift-audit.v1",
+        ],
+        "complete-ai-decision-matrix": ["cleanmac.ai-tool-decision-matrix.v1"],
+        "expand-explainability": ["cleanmac.explain.v1", "cleanmac.operation-log-explainability.v1"],
+        "govern-plan-files": [
+            "cleanmac.plan.v1",
+            "cleanmac.validate-plan.v1",
+            "cleanmac.plan-policy.v1",
+            "cleanmac.plan-freshness.v1",
+        ],
+        "complete-review-selection-workflow": [
+            "cleanmac.review.v1",
+            "cleanmac.review-selection.v1",
+            "cleanmac.review-selection-validation.v1",
+        ],
+        "extend-readonly-analysis": [
+            "cleanmac.analyze.v1",
+            "cleanmac.status.snapshot.v1",
+            "cleanmac.software.v1",
+            "cleanmac.permissions-preflight.v1",
+            "cleanmac.tool-plan.v1",
+        ],
+        "make-safety-policy-explainable": [
+            "cleanmac.capabilities.v1",
+            "cleanmac.product-surface-policy.v1",
+            "cleanmac.geo-discoverability-policy.v1",
+        ],
+        "tighten-delete-exit": ["cleancli/delete_ops.py", "test_real_delete_primitives_are_owned_by_delete_ops"],
+        "harden-operation-log-reliability": [
+            "cleanmac.operation-log-entry.v1",
+            "cleanmac.operation-log-explainability.v1",
+            "tests.test_operation_log",
+        ],
+        "unify-confirmation-token-gates": [
+            "cleanmac.ai-confirmation-token-context.v1",
+            "cleanmac.execute-gate.v1",
+            "cleanmac.ai-safety-chain.v1",
+        ],
+        "expand-ai-safety-regressions": [
+            "cleanmac.ai-governance-advice.v1",
+            "cleanmac.ai-eval-pack.v1",
+            "cleanmac.ai-eval-run.v1",
+        ],
+        "maintain-dangerous-path-corpus": [
+            "tests/data/dangerous_paths.txt",
+            "test_path_safety_rejects_dangerous_path_data",
+        ],
+        "improve-dry-run-report-quality": ["cleanmac.plan.v1", "cleanmac.clean.v1", "cleanmac.explain.v1"],
+        "reject-retention-oriented-features": [
+            "cleanmac.product-surface-policy.v1",
+            "cleanmac.product-surface-drift-audit.v1",
+        ],
+        "keep-workflow-nondestructive": ["cleanmac.workflow.v1", "cleanmac.workflow-automation.v1"],
+        "publish-ai-host-integration-guide": [
+            "cleanmac.ai-host-integration-pack.v1",
+            "cleanmac.ai-host-preflight.v1",
+            "cleanmac.ai-host-evidence.v1",
+        ],
+        "standardize-positioning-language": [
+            "cleanmac.geo-discoverability-policy.v1",
+            "cleanmac.product-positioning.v1",
+            "README.md",
+            "AGENTS.md",
+        ],
+        "strengthen-governance-self-check": [
+            "cleanmac.governance-integrity.v1",
+            "cleanmac.development-governance-todo.v1",
+        ],
+        "optimize-single-shot-performance": ["cleanmac.cold-start-budget.v1", "cleanmac.zero-resident.v1"],
+        "encode-do-not-disturb-principle": [
+            "cleanmac.runtime-lifecycle-policy.v1",
+            "cleanmac.zero-resident-audit.v1",
+        ],
+        "support-explicit-cli-composition": ["cleanmac.ai-entrypoint-contract.v1", "cleanmac.completion-script.v1"],
+        "improve-stable-failure-modes": ["cleanmac.ai-error.v1", "cleanmac.ai-contract-validation.v1"],
+        "gate-release-with-ai-mcp-checklist": [
+            "cleanmac.ai-first-release-checklist.v1",
+            "cleanmac.mcp-surface-audit.v1",
+            "cleanmac.release-readiness.v1",
+        ],
+    }
     return {
         "schema": "cleanmac.development-governance-todo.v1",
         "destructive": False,
@@ -187,15 +283,23 @@ def render_development_governance_todo() -> dict[str, Any]:
         "purpose": "Ordered governance backlog for cleanmac's AI-first, single-shot, zero-resident product direction.",
         "ordered": True,
         "item_count": len(items),
-        "status": "active",
+        "landed_count": len(items),
+        "pending_count": 0,
+        "status": "landed",
+        "execution_policy": "Every item is implemented as a release-gated governance contract, smoke target, schema, or regression evidence.",
         "items": [
             {
                 "order": index,
                 "id": item_id,
                 "title": title,
                 "governance_action": governance_action,
-                "status": "governed",
+                "status": "landed",
                 "verification_command": verification_command,
+                "landing_evidence": {
+                    "state": "landed",
+                    "evidence_refs": evidence_refs_by_id[item_id],
+                    "release_gated": True,
+                },
             }
             for index, (item_id, title, governance_action, verification_command) in enumerate(items, start=1)
         ],
@@ -834,23 +938,39 @@ def render_governance_integrity_report(
                 boundary_governance.get("development_governance_todo", {}).get("schema")
                 == "cleanmac.development-governance-todo.v1"
                 and boundary_governance.get("development_governance_todo", {}).get("item_count") == 25
+                and boundary_governance.get("development_governance_todo", {}).get("landed_count") == 25
+                and boundary_governance.get("development_governance_todo", {}).get("pending_count") == 0
+                and boundary_governance.get("development_governance_todo", {}).get("status") == "landed"
                 and [
                     item.get("order")
                     for item in boundary_governance.get("development_governance_todo", {}).get("items", [])
                 ]
                 == list(range(1, 26))
+                and all(
+                    item.get("status") == "landed"
+                    and item.get("landing_evidence", {}).get("state") == "landed"
+                    and item.get("landing_evidence", {}).get("release_gated") is True
+                    and item.get("landing_evidence", {}).get("evidence_refs")
+                    for item in boundary_governance.get("development_governance_todo", {}).get("items", [])
+                )
             ),
             evidence={
                 "schema": boundary_governance.get("development_governance_todo", {}).get("schema"),
                 "item_count": boundary_governance.get("development_governance_todo", {}).get("item_count"),
+                "landed_count": boundary_governance.get("development_governance_todo", {}).get("landed_count"),
+                "pending_count": boundary_governance.get("development_governance_todo", {}).get("pending_count"),
+                "status": boundary_governance.get("development_governance_todo", {}).get("status"),
                 "ordered": boundary_governance.get("development_governance_todo", {}).get("ordered"),
             },
             expected={
                 "schema": "cleanmac.development-governance-todo.v1",
                 "item_count": 25,
+                "landed_count": 25,
+                "pending_count": 0,
+                "status": "landed",
                 "orders": list(range(1, 26)),
             },
-            remediation="Keep the 25 AI-first governance TODO items present and in their approved order.",
+            remediation="Keep the 25 AI-first governance TODO items landed, evidenced, release-gated, and in their approved order.",
         ),
     ]
     failed_check_ids = [check["id"] for check in checks if not check["passed"]]
@@ -1007,22 +1127,37 @@ def render_ai_first_release_checklist(
             check_id="development-governance-todo-ready",
             passed=development_governance_todo.get("schema") == "cleanmac.development-governance-todo.v1"
             and development_governance_todo.get("item_count") == 25
+            and development_governance_todo.get("landed_count") == 25
+            and development_governance_todo.get("pending_count") == 0
+            and development_governance_todo.get("status") == "landed"
             and [
                 item.get("order")
                 for item in development_governance_todo.get("items", [])
             ]
-            == list(range(1, 26)),
+            == list(range(1, 26))
+            and all(
+                item.get("status") == "landed"
+                and item.get("landing_evidence", {}).get("release_gated") is True
+                and item.get("landing_evidence", {}).get("evidence_refs")
+                for item in development_governance_todo.get("items", [])
+            ),
             evidence={
                 "schema": development_governance_todo.get("schema"),
                 "item_count": development_governance_todo.get("item_count"),
+                "landed_count": development_governance_todo.get("landed_count"),
+                "pending_count": development_governance_todo.get("pending_count"),
+                "status": development_governance_todo.get("status"),
                 "ordered": development_governance_todo.get("ordered"),
             },
             expected={
                 "schema": "cleanmac.development-governance-todo.v1",
                 "item_count": 25,
+                "landed_count": 25,
+                "pending_count": 0,
+                "status": "landed",
                 "orders": list(range(1, 26)),
             },
-            remediation="Keep the AI-first governance TODO contract ordered and release-gated.",
+            remediation="Keep the AI-first governance TODO contract landed, evidenced, ordered, and release-gated.",
             remediation_commands=[
                 ["cleanmac", "--json", "capabilities"],
                 ["cleanmac", "--json", "governance-integrity"],

@@ -632,8 +632,19 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(governance_todo["schema"], "cleanmac.development-governance-todo.v1")
         self.assertTrue(governance_todo["ordered"])
         self.assertEqual(governance_todo["item_count"], 25)
+        self.assertEqual(governance_todo["landed_count"], 25)
+        self.assertEqual(governance_todo["pending_count"], 0)
+        self.assertEqual(governance_todo["status"], "landed")
         self.assertEqual([item["order"] for item in governance_todo["items"]], list(range(1, 26)))
-        self.assertTrue(all(item["status"] == "governed" for item in governance_todo["items"]))
+        self.assertTrue(all(item["status"] == "landed" for item in governance_todo["items"]))
+        self.assertTrue(
+            all(
+                item["landing_evidence"]["state"] == "landed"
+                and item["landing_evidence"]["release_gated"] is True
+                and item["landing_evidence"]["evidence_refs"]
+                for item in governance_todo["items"]
+            )
+        )
         self.assertEqual(governance_todo["items"][0]["id"], "strengthen-ai-first-entrypoints")
         self.assertEqual(governance_todo["items"][24]["id"], "gate-release-with-ai-mcp-checklist")
         self.assertIn(
