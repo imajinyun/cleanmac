@@ -114,6 +114,28 @@ def test_dependency_governance_contract_is_ready() -> None:
     assert payload["validation"]["valid"] is True
 
 
+def test_no_disturbance_contract_is_ready() -> None:
+    result = run_cli("--json", "no-disturbance")
+    payload = json.loads(result.stdout)
+
+    assert payload["schema"] == "cleanmac.no-disturbance.v1"
+    assert payload["destructive"] is False
+    assert payload["dry_run"] is True
+    assert payload["ready"] is True, payload
+    assert payload["resource_uri"] == "cleanmac://ai/no-disturbance"
+    assert payload["silent_by_default"] is True
+    assert payload["sends_notifications"] is False
+    assert payload["shows_dialogs"] is False
+    assert payload["plays_sounds"] is False
+    assert payload["uses_osascript_for_ui"] is False
+    assert payload["push_reminders"] is False
+    assert payload["background_prompts"] is False
+    assert payload["retention_pattern"] == "do-not-retain-user-attention"
+    assert payload["output_policy"]["default_stdout"] == "explicit-invocation-results-only"
+    assert ["make", "no-disturbance-smoke"] in payload["release_gate_commands"]
+    assert payload["validation"]["valid"] is True
+
+
 def test_operation_log_preflight_blocks_execute_when_parent_is_symlink() -> None:
     tmp, root, home = make_sandbox()
     with tmp:

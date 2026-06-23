@@ -6196,10 +6196,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac.mcp-surface-audit.v1", makefile)
         self.assertIn("mcp-surface-audit-smoke:", makefile)
         self.assertIn('payload["ready"] is True, payload', makefile)
-        self.assertIn('payload["resource_count"] == 41', makefile)
+        self.assertIn('payload["resource_count"] == 42', makefile)
         self.assertIn("cleanmac://mcp/destructive-tool-governance", makefile)
         self.assertIn("cleanmac://ai/operation-log-explainability", makefile)
         self.assertIn("cleanmac://ai/cold-start-budget", makefile)
+        self.assertIn("cleanmac://ai/no-disturbance", makefile)
         self.assertIn("cleanmac://ai/entrypoints", makefile)
         self.assertIn("cleanmac://ai/safety-chain", makefile)
         self.assertIn("cleanmac://ai/workflow-contract", makefile)
@@ -6393,7 +6394,7 @@ class CleanMacCLITests(unittest.TestCase):
 
         self.assertTrue(explicit_readiness["ready"], explicit_readiness)
         self.assertEqual(explicit_readiness["failed_gate_ids"], [])
-        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 12, "total": 12, "level": "release-ready"})
+        self.assertEqual(explicit_readiness["readiness_score"], {"passed": 13, "total": 13, "level": "release-ready"})
 
         with tempfile.TemporaryDirectory() as tmp:
             payload_file = Path(tmp) / "payload.json"

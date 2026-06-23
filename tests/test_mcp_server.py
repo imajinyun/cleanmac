@@ -253,6 +253,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/safety-chain", uris)
         self.assertIn("cleanmac://ai/operation-log-explainability", uris)
         self.assertIn("cleanmac://ai/cold-start-budget", uris)
+        self.assertIn("cleanmac://ai/no-disturbance", uris)
         self.assertIn("cleanmac://release/dependency-governance", uris)
         self.assertIn("cleanmac://ai/workflow-contract", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
@@ -324,6 +325,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/surface-audit", payload["resource_uris"])
         self.assertIn("cleanmac://ai/operation-log-explainability", payload["resource_uris"])
         self.assertIn("cleanmac://ai/cold-start-budget", payload["resource_uris"])
+        self.assertIn("cleanmac://ai/no-disturbance", payload["resource_uris"])
         self.assertIn("cleanmac://release/dependency-governance", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
         self.assertIn("cleanmac://ai/entrypoints", payload["resource_uris"])
@@ -463,6 +465,27 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["runtime_dependency_policy"], "stdlib-only-runtime-by-default")
         self.assertIn(["make", "dependency-audit-smoke"], payload["release_gate_commands"])
 
+    def test_resources_read_no_disturbance(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 99,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/no-disturbance"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/no-disturbance")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.no-disturbance.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertTrue(payload["validation"]["valid"], payload["validation"])
+        self.assertTrue(payload["silent_by_default"])
+        self.assertFalse(payload["sends_notifications"])
+        self.assertFalse(payload["shows_dialogs"])
+        self.assertFalse(payload["push_reminders"])
+        self.assertIn(["make", "no-disturbance-smoke"], payload["release_gate_commands"])
+
     def test_resources_read_mcp_surface_audit(self) -> None:
         response = _mcp_request(
             {
@@ -482,7 +505,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["resource_uri"], "cleanmac://mcp/surface-audit")
         self.assertEqual(payload["missing"], {"resources": [], "prompts": [], "tools": []})
         self.assertEqual(payload["failed_check_ids"], [])
-        self.assertEqual(payload["readiness_score"], {"passed": 19, "total": 19, "level": "ready"})
+        self.assertEqual(payload["readiness_score"], {"passed": 20, "total": 20, "level": "ready"})
         self.assertEqual(payload["next_action"], "proceed-to-host-integration-pack")
         self.assertEqual(payload["stop_reason"], "")
         checks = {check["id"]: check for check in payload["checks"]}
@@ -499,10 +522,12 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
         self.assertTrue(checks["operation-log-explainability-advertised"]["passed"])
         self.assertTrue(checks["cold-start-budget-advertised"]["passed"])
+        self.assertTrue(checks["no-disturbance-advertised"]["passed"])
         self.assertTrue(checks["dependency-governance-advertised"]["passed"])
         self.assertTrue(checks["destructive-tools-gated"]["passed"])
         self.assertTrue(checks["no-shell-invocation"]["passed"])
         self.assertIn("read cleanmac://release/dependency-governance", payload["recommended_call_sequence"])
+        self.assertIn("read cleanmac://ai/no-disturbance", payload["recommended_call_sequence"])
         self.assertIn("read cleanmac://mcp/surface-audit", payload["recommended_call_sequence"])
         self.assertIn(["make", "mcp-surface-audit-smoke"], payload["remediation_commands"])
 
@@ -697,6 +722,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://ai/safety-chain",
             "cleanmac://ai/operation-log-explainability",
             "cleanmac://ai/cold-start-budget",
+            "cleanmac://ai/no-disturbance",
             "cleanmac://release/dependency-governance",
             "cleanmac://ai/workflow-contract",
             "cleanmac://ai/host-integration-pack",

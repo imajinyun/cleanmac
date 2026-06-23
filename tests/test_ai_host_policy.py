@@ -48,6 +48,7 @@ class AIHostPolicyTests(unittest.TestCase):
         self.assertTrue(obligations["must_not_expect_resident_process"])
         self.assertTrue(obligations["must_not_schedule_background_scans"])
         self.assertTrue(obligations["must_not_install_login_item_or_daemon"])
+        self.assertTrue(obligations["must_not_send_notifications_or_prompts"])
 
     def test_host_policy_transport_restrictions(self) -> None:
         self.assertFalse(self.report["transport"]["shell_allowed"])
@@ -91,6 +92,10 @@ class AIHostPolicyTests(unittest.TestCase):
         )
         self.assertIn(
             "cleanmac://ai/cold-start-budget",
+            self.report["required_resources_before_execution"],
+        )
+        self.assertIn(
+            "cleanmac://ai/no-disturbance",
             self.report["required_resources_before_execution"],
         )
         self.assertIn(

@@ -220,6 +220,7 @@ def read_mcp_resource(uri: str) -> dict:
         render_capabilities,
         render_cold_start_budget_contract,
         render_dependency_governance_contract,
+        render_no_disturbance_contract,
         render_mcp_destructive_tool_governance,
         render_operation_log_explainability_contract,
         render_release_diagnostics_report,
@@ -246,6 +247,7 @@ def read_mcp_resource(uri: str) -> dict:
         MCP_META_INDEX_URI,
         COLD_START_BUDGET_URI,
         DEPENDENCY_GOVERNANCE_URI,
+        NO_DISTURBANCE_URI,
         OPERATION_LOG_EXPLAINABILITY_URI,
         MCP_RESOURCE_INDEX_URI,
         MCP_SURFACE_AUDIT_URI,
@@ -271,6 +273,8 @@ def read_mcp_resource(uri: str) -> dict:
         payload = render_operation_log_explainability_contract()
     elif uri == COLD_START_BUDGET_URI:
         payload = render_cold_start_budget_contract()
+    elif uri == NO_DISTURBANCE_URI:
+        payload = render_no_disturbance_contract()
     elif uri == DEPENDENCY_GOVERNANCE_URI:
         payload = render_dependency_governance_contract()
     elif uri == MCP_SURFACE_AUDIT_URI:

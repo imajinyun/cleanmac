@@ -112,6 +112,8 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.operation-log-explainability-validation.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.cold-start-budget.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.cold-start-budget-validation.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.no-disturbance.v1", 1, "cleancli.governance", "stable"),
+    ("cleanmac.no-disturbance-validation.v1", 1, "cleancli.governance", "stable"),
     ("cleanmac.dependency-governance.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.dependency-governance-validation.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.operation-log-review-selection.v1", 1, "cleancli.core", "stable"),
@@ -202,6 +204,7 @@ AI_HOST_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.ai-workflow.v1",
     "cleanmac.operation-log-explainability.v1",
     "cleanmac.cold-start-budget.v1",
+    "cleanmac.no-disturbance.v1",
     "cleanmac.dependency-governance.v1",
     "cleanmac.ai-entrypoint-contract.v1",
     "cleanmac.runtime-lifecycle-policy.v1",
@@ -252,6 +255,7 @@ RELEASE_CRITICAL_SCHEMAS: tuple[str, ...] = (
     "cleanmac.mcp-destructive-tool-governance.v1",
     "cleanmac.operation-log-explainability.v1",
     "cleanmac.cold-start-budget.v1",
+    "cleanmac.no-disturbance.v1",
     "cleanmac.dependency-governance.v1",
     "cleanmac.mcp-surface-audit.v1",
     "cleanmac.ai-first-release-checklist.v1",
@@ -1248,6 +1252,44 @@ CORE_CONTRACT_SCHEMAS: dict[str, dict[str, Any]] = {
         },
         "additionalProperties": True,
     },
+    "cleanmac.no-disturbance.v1": {
+        "type": "object",
+        "required": [
+            "schema",
+            "destructive",
+            "dry_run",
+            "ready",
+            "resource_uri",
+            "silent_by_default",
+            "sends_notifications",
+            "shows_dialogs",
+            "plays_sounds",
+            "uses_osascript_for_ui",
+            "push_reminders",
+            "background_prompts",
+            "output_policy",
+            "checks",
+            "validation",
+        ],
+        "properties": {
+            "schema": {"const": "cleanmac.no-disturbance.v1"},
+            "destructive": {"const": False},
+            "dry_run": {"const": True},
+            "ready": {"type": "boolean"},
+            "resource_uri": {"const": "cleanmac://ai/no-disturbance"},
+            "silent_by_default": {"const": True},
+            "sends_notifications": {"const": False},
+            "shows_dialogs": {"const": False},
+            "plays_sounds": {"const": False},
+            "uses_osascript_for_ui": {"const": False},
+            "push_reminders": {"const": False},
+            "background_prompts": {"const": False},
+            "output_policy": {"type": "object"},
+            "checks": {"type": "array", "items": {"type": "object"}},
+            "validation": {"type": "object"},
+        },
+        "additionalProperties": True,
+    },
     "cleanmac.ai-safety-chain.v1": {
         "type": "object",
         "required": [
@@ -2044,6 +2086,8 @@ def _schema_consumers(name: str) -> tuple[str, ...]:
         return ("ai-host", "mcp", "schema-registry", "release-readiness")
     if name == "cleanmac.cold-start-budget.v1":
         return ("ai-host", "mcp", "schema-registry", "release-readiness")
+    if name == "cleanmac.no-disturbance.v1":
+        return ("ai-host", "mcp", "schema-registry", "release-readiness")
     if name == "cleanmac.dependency-governance.v1":
         return ("ai-host", "mcp", "schema-registry", "release-readiness")
     if name.startswith("cleanmac.ai-"):
@@ -2057,6 +2101,8 @@ def _schema_owner_area(name: str) -> str:
     if name.startswith("cleanmac.operation-log"):
         return "execution"
     if name.startswith("cleanmac.cold-start-budget"):
+        return "ai-host"
+    if name.startswith("cleanmac.no-disturbance"):
         return "ai-host"
     if name.startswith("cleanmac.dependency-governance"):
         return "release"
@@ -2115,6 +2161,8 @@ def _schema_producer_command(name: str) -> list[str]:
         "cleanmac.mcp-surface-audit.v1": ["cleanmac", "--json", "mcp-surface-audit"],
         "cleanmac.cold-start-budget.v1": ["cleanmac", "--json", "cold-start-budget"],
         "cleanmac.cold-start-budget-validation.v1": ["cleanmac", "--json", "cold-start-budget"],
+        "cleanmac.no-disturbance.v1": ["cleanmac", "--json", "no-disturbance"],
+        "cleanmac.no-disturbance-validation.v1": ["cleanmac", "--json", "no-disturbance"],
         "cleanmac.dependency-governance.v1": ["cleanmac", "--json", "dependency-governance"],
         "cleanmac.dependency-governance-validation.v1": ["cleanmac", "--json", "dependency-governance"],
         "cleanmac.ai-entrypoint-contract.v1": ["cleanmac", "--json", "ai-entrypoints"],
@@ -3240,7 +3288,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "dry_run": True,
             "ready": True,
             "manual_review_required": False,
-            "readiness_score": {"passed": 12, "total": 12, "level": "release-ready"},
+            "readiness_score": {"passed": 13, "total": 13, "level": "release-ready"},
             "failed_gate_ids": [],
             "gates": [
                 {
@@ -3296,6 +3344,15 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                     "evidence_ref": {"producer": "cleanmac --json dependency-governance"},
                     "diagnostic": "passed",
                     "next_actions": [["make", "dependency-audit-smoke"], ["make", "security-smoke"]],
+                },
+                {
+                    "id": "no-disturbance-ready",
+                    "passed": True,
+                    "evidence_schema": "cleanmac.no-disturbance.v1",
+                    "severity": "none",
+                    "evidence_ref": {"producer": "cleanmac --json no-disturbance"},
+                    "diagnostic": "passed",
+                    "next_actions": [["make", "no-disturbance-smoke"], ["make", "zero-resident-audit-smoke"]],
                 },
                 {
                     "id": "mcp-surface-audit-ready",
@@ -3365,6 +3422,7 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "review_questions": [
                 "Did ai-host-preflight pass before tool orchestration?",
                 "Did dependency-governance confirm runtime dependencies remain empty and dependency audit gates pass?",
+                "Did no-disturbance confirm no notifications, dialogs, sounds, reminders, or background prompts?",
                 "Did release artifacts include manifest, SHA256SUMS, SBOM, and Homebrew formula evidence?",
             ],
         },
@@ -3761,6 +3819,33 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
             "checks": [{"id": "runtime-dependencies-empty", "passed": True}],
             "failed_check_ids": [],
             "validation": {"schema": "cleanmac.dependency-governance-validation.v1", "valid": True, "violation_count": 0, "violations": []},
+        },
+        "cleanmac.no-disturbance.v1": {
+            "schema": "cleanmac.no-disturbance.v1",
+            "destructive": False,
+            "dry_run": True,
+            "ready": True,
+            "resource_uri": "cleanmac://ai/no-disturbance",
+            "product_model": "ai-first-ephemeral-cli",
+            "retention_pattern": "do-not-retain-user-attention",
+            "sends_notifications": False,
+            "shows_dialogs": False,
+            "plays_sounds": False,
+            "uses_osascript_for_ui": False,
+            "push_reminders": False,
+            "background_prompts": False,
+            "retains_user_attention": False,
+            "creates_background_reminders": False,
+            "silent_by_default": True,
+            "output_policy": {
+                "default_stdout": "explicit-invocation-results-only",
+                "default_stderr": "errors-only",
+                "background_output": "forbidden",
+                "requires_explicit_verbose_for_extra_diagnostics": True,
+            },
+            "checks": [{"id": "notifications-disabled", "passed": True}],
+            "failed_check_ids": [],
+            "validation": {"schema": "cleanmac.no-disturbance-validation.v1", "valid": True, "violation_count": 0, "violations": []},
         },
         "cleanmac.mcp-surface-audit.v1": {
             "schema": "cleanmac.mcp-surface-audit.v1",

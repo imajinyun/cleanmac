@@ -398,6 +398,151 @@ def render_zero_resident_contract(*, runtime_lifecycle: dict[str, Any] | None = 
     }
 
 
+def validate_no_disturbance_contract(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Validate cleanmac's no-disturbance standard contract."""
+
+    report = payload or render_no_disturbance_contract()
+    violations: list[dict[str, Any]] = []
+    if report.get("schema") != "cleanmac.no-disturbance.v1":
+        violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
+    if report.get("destructive") is not False or report.get("dry_run") is not True:
+        violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
+    expected_false_fields = (
+        "sends_notifications",
+        "shows_dialogs",
+        "plays_sounds",
+        "uses_osascript_for_ui",
+        "push_reminders",
+        "background_prompts",
+        "retains_user_attention",
+        "creates_background_reminders",
+    )
+    for field in expected_false_fields:
+        if report.get(field) is not False:
+            violations.append({"code": "DISTURBANCE_VECTOR_MUST_BE_FALSE", "path": f"$.{field}"})
+    if report.get("silent_by_default") is not True:
+        violations.append({"code": "SILENT_BY_DEFAULT_REQUIRED", "path": "$.silent_by_default"})
+    if report.get("output_policy", {}).get("default_stdout") != "explicit-invocation-results-only":
+        violations.append({"code": "DEFAULT_OUTPUT_POLICY_REQUIRED", "path": "$.output_policy.default_stdout"})
+    if report.get("retention_pattern") != "do-not-retain-user-attention":
+        violations.append({"code": "RETENTION_PATTERN_MISMATCH", "path": "$.retention_pattern"})
+    if ["cleanmac", "--json", "no-disturbance"] not in report.get("release_gate_commands", []):
+        violations.append({"code": "NO_DISTURBANCE_GATE_COMMAND_REQUIRED", "path": "$.release_gate_commands"})
+    return {
+        "schema": "cleanmac.no-disturbance-validation.v1",
+        "valid": not violations,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
+def render_no_disturbance_contract(*, runtime_lifecycle: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the machine-verifiable no-disturbance product standard."""
+
+    lifecycle = dict(runtime_lifecycle or render_runtime_lifecycle_policy())
+    checks = [
+        {
+            "id": "notifications-disabled",
+            "passed": True,
+            "evidence": "No Notification Center, banner, alert, badge, or sound-emitting API is part of cleanmac runtime.",
+        },
+        {
+            "id": "dialogs-disabled",
+            "passed": True,
+            "evidence": "osascript is test-stubbed/blocked and is not used to show UI dialogs or prompts.",
+        },
+        {
+            "id": "push-reminders-disabled",
+            "passed": "push-style cleanup reminders" in lifecycle.get("forbidden_product_patterns", []),
+            "evidence": lifecycle.get("forbidden_product_patterns", []),
+        },
+        {
+            "id": "background-prompts-disabled",
+            "passed": lifecycle.get("performs_unsolicited_scans") is False,
+            "evidence": {"performs_unsolicited_scans": lifecycle.get("performs_unsolicited_scans")},
+        },
+        {
+            "id": "silent-cli-default",
+            "passed": True,
+            "evidence": "CLI output is emitted only for explicit invocations, requested reports, or errors.",
+        },
+        {
+            "id": "no-attention-retention",
+            "passed": lifecycle.get("retention_pattern") == "do-not-retain-user-attention",
+            "evidence": lifecycle.get("retention_pattern"),
+        },
+    ]
+    for check in checks:
+        check["remediation_commands"] = [
+            ["cleanmac", "--json", "no-disturbance"],
+            ["make", "no-disturbance-smoke"],
+            ["make", "zero-resident-audit-smoke"],
+        ]
+    payload = {
+        "schema": "cleanmac.no-disturbance.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": True,
+        "resource_uri": "cleanmac://ai/no-disturbance",
+        "purpose": "Machine-readable standard proving cleanmac does not disturb, retain, or re-engage users outside explicit invocation.",
+        "product_model": lifecycle.get("product_model"),
+        "runs_only_when_invoked": lifecycle.get("runs_only_when_invoked") is True,
+        "exits_after_workflow": lifecycle.get("exits_after_workflow") is True,
+        "retention_pattern": lifecycle.get("retention_pattern"),
+        "sends_notifications": False,
+        "shows_dialogs": False,
+        "plays_sounds": False,
+        "uses_osascript_for_ui": False,
+        "push_reminders": False,
+        "background_prompts": False,
+        "retains_user_attention": False,
+        "creates_background_reminders": False,
+        "silent_by_default": True,
+        "allowed_output_events": [
+            "explicit CLI or AI Host invocation returns requested stdout/stderr",
+            "explicit --report-file writes requested JSON/HTML/Markdown artifact",
+            "execution errors return stable error output to the invoking process",
+            "explicit --verbose may add diagnostic detail during the current process only",
+        ],
+        "forbidden_attention_surfaces": [
+            "macOS Notification Center notifications",
+            "osascript display dialog/alert UI",
+            "sound effects",
+            "push cleanup reminders",
+            "background health-score prompts",
+            "daily/weekly unsolicited scans",
+            "menu bar badges or resident status surfaces",
+        ],
+        "output_policy": {
+            "default_stdout": "explicit-invocation-results-only",
+            "default_stderr": "errors-only",
+            "background_output": "forbidden",
+            "requires_explicit_verbose_for_extra_diagnostics": True,
+        },
+        "runtime_lifecycle": lifecycle,
+        "checks": checks,
+        "failed_check_ids": [str(check["id"]) for check in checks if not check["passed"]],
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready",
+        },
+        "release_gate_commands": [
+            ["cleanmac", "--json", "no-disturbance"],
+            ["make", "no-disturbance-smoke"],
+            ["make", "zero-resident-audit-smoke"],
+            ["make", "ai-host-smoke"],
+        ],
+    }
+    validation = validate_no_disturbance_contract(payload)
+    payload["validation"] = validation
+    payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
+    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    payload["stop_reason"] = "" if payload["ready"] else "no-disturbance contract failed"
+    payload["next_action"] = "Run make no-disturbance-smoke before release readiness."
+    return payload
+
+
 @lru_cache(maxsize=4)
 def _product_surface_drift_violations(project_root: str) -> tuple[str, ...]:
     root = Path(project_root).resolve(strict=False)

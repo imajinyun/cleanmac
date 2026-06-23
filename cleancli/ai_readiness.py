@@ -13,6 +13,7 @@ from cleancli.ai_versioning import render_ai_contract_validation_summary, render
 from cleancli.mcp_resources import (
     COLD_START_BUDGET_URI,
     DEPENDENCY_GOVERNANCE_URI,
+    NO_DISTURBANCE_URI,
     OPERATION_LOG_EXPLAINABILITY_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
 )
@@ -73,6 +74,7 @@ def render_ai_readiness(
     from cleancli.core import (
         render_cold_start_budget_contract,
         render_dependency_governance_contract,
+        render_no_disturbance_contract,
         render_operation_log_explainability_contract,
     )
 
@@ -80,6 +82,8 @@ def render_ai_readiness(
     operation_log_explainability_ready = bool(operation_log_explainability.get("ready"))
     cold_start_budget = render_cold_start_budget_contract()
     cold_start_budget_ready = bool(cold_start_budget.get("ready"))
+    no_disturbance = render_no_disturbance_contract()
+    no_disturbance_ready = bool(no_disturbance.get("ready"))
     dependency_governance = render_dependency_governance_contract()
     dependency_governance_ready = bool(dependency_governance.get("ready"))
     schema_registry = render_ai_schema_registry()
@@ -98,6 +102,7 @@ def render_ai_readiness(
         "cleanmac.mcp-destructive-tool-governance.v1",
         "cleanmac.operation-log-explainability.v1",
         "cleanmac.cold-start-budget.v1",
+        "cleanmac.no-disturbance.v1",
         "cleanmac.dependency-governance.v1",
         "cleanmac.execute-gate.v1",
         "cleanmac.plan-policy.v1",
@@ -133,6 +138,7 @@ def render_ai_readiness(
             and destructive_tool_governance_ready
             and operation_log_explainability_ready
             and cold_start_budget_ready
+            and no_disturbance_ready
             and dependency_governance_ready
             and schema_registry_ready
             and contract_validation["valid"]
@@ -268,6 +274,13 @@ def render_ai_readiness(
             "budgets": cold_start_budget["budgets"],
             "validation": cold_start_budget["validation"],
         },
+        "no_disturbance": {
+            "schema": no_disturbance["schema"],
+            "ready": no_disturbance_ready,
+            "resource_uri": NO_DISTURBANCE_URI,
+            "silent_by_default": no_disturbance["silent_by_default"],
+            "validation": no_disturbance["validation"],
+        },
         "dependency_governance": {
             "schema": dependency_governance["schema"],
             "ready": dependency_governance_ready,
@@ -309,6 +322,7 @@ def render_ai_readiness(
             ["cleanmac", "--json", "mcp-destructive-tool-governance"],
             ["cleanmac", "--json", "operation-log-explainability"],
             ["cleanmac", "--json", "cold-start-budget"],
+            ["cleanmac", "--json", "no-disturbance"],
             ["cleanmac", "--json", "dependency-governance"],
             ["cleanmac", "--json", "ai-schema-registry"],
             ["cleanmac", "--json", "ai-eval-pack"],

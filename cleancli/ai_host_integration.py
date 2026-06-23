@@ -13,6 +13,7 @@ from cleancli.mcp_resources import (
     COLD_START_BUDGET_URI,
     DEPENDENCY_GOVERNANCE_URI,
     MCP_META_INDEX_URI,
+    NO_DISTURBANCE_URI,
     OPERATION_LOG_EXPLAINABILITY_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
@@ -36,6 +37,7 @@ def render_ai_host_integration_pack(
     destructive_tool_governance: Mapping[str, Any],
     operation_log_explainability: Mapping[str, Any],
     cold_start_budget: Mapping[str, Any],
+    no_disturbance: Mapping[str, Any],
     dependency_governance: Mapping[str, Any],
     runtime_lifecycle: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
@@ -54,6 +56,7 @@ def render_ai_host_integration_pack(
         ["cleanmac", "--json", "mcp-destructive-tool-governance"],
         ["cleanmac", "--json", "operation-log-explainability"],
         ["cleanmac", "--json", "cold-start-budget"],
+        ["cleanmac", "--json", "no-disturbance"],
         ["cleanmac", "--json", "dependency-governance"],
         ["cleanmac", "--json", "ai-host-evidence"],
         ["cleanmac", "--json", "release-readiness"],
@@ -68,6 +71,7 @@ def render_ai_host_integration_pack(
         f"read {MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI}",
         f"read {OPERATION_LOG_EXPLAINABILITY_URI}",
         f"read {COLD_START_BUDGET_URI}",
+        f"read {NO_DISTURBANCE_URI}",
         f"read {DEPENDENCY_GOVERNANCE_URI}",
         f"read {MCP_SURFACE_AUDIT_URI}",
         "read cleanmac://ai/host-integration-pack",
@@ -91,6 +95,7 @@ def render_ai_host_integration_pack(
         and destructive_tool_governance.get("ready")
         and operation_log_explainability.get("ready")
         and cold_start_budget.get("ready")
+        and no_disturbance.get("ready")
         and dependency_governance.get("ready")
         and governance_advice.get("ready_for_llm_calling")
         and contract_validation.get("valid")
@@ -114,6 +119,7 @@ def render_ai_host_integration_pack(
             "destructive_tool_governance_uri": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
             "operation_log_explainability_uri": OPERATION_LOG_EXPLAINABILITY_URI,
             "cold_start_budget_uri": COLD_START_BUDGET_URI,
+            "no_disturbance_uri": NO_DISTURBANCE_URI,
             "dependency_governance_uri": DEPENDENCY_GOVERNANCE_URI,
             "surface_audit_uri": MCP_SURFACE_AUDIT_URI,
             "tools": mcp_tools,
@@ -137,6 +143,7 @@ def render_ai_host_integration_pack(
         "destructive_tool_governance": dict(destructive_tool_governance),
         "operation_log_explainability": dict(operation_log_explainability),
         "cold_start_budget": dict(cold_start_budget),
+        "no_disturbance": dict(no_disturbance),
         "dependency_governance": dict(dependency_governance),
         "decision_matrix": decision_matrix,
         "governance_advice": governance_advice,
@@ -152,6 +159,7 @@ def render_ai_host_preflight(
     *,
     integration_pack: Mapping[str, Any],
     zero_resident_audit: Mapping[str, Any],
+    no_disturbance: Mapping[str, Any],
     runtime_policy_schema_registered: bool,
 ) -> dict[str, Any]:
     """Return a runtime preflight gate report for AI Host orchestration."""
@@ -162,6 +170,7 @@ def render_ai_host_preflight(
     destructive_tool_governance = integration_pack.get("destructive_tool_governance", {})
     operation_log_explainability = integration_pack.get("operation_log_explainability", {})
     cold_start_budget = integration_pack.get("cold_start_budget", {})
+    no_disturbance = integration_pack.get("no_disturbance", no_disturbance)
     dependency_governance = integration_pack.get("dependency_governance", {})
     runtime_lifecycle = integration_pack.get("runtime_lifecycle", {})
     contract_validation = integration_pack.get("contract_validation", {})
@@ -231,6 +240,17 @@ def render_ai_host_preflight(
             "evidence": COLD_START_BUDGET_URI,
         },
         {
+            "id": "no-disturbance-ready",
+            "passed": bool(
+                isinstance(no_disturbance, Mapping)
+                and no_disturbance.get("schema") == "cleanmac.no-disturbance.v1"
+                and no_disturbance.get("ready") is True
+                and no_disturbance.get("silent_by_default") is True
+                and NO_DISTURBANCE_URI in resources
+            ),
+            "evidence": NO_DISTURBANCE_URI,
+        },
+        {
             "id": "dependency-governance-ready",
             "passed": bool(
                 isinstance(dependency_governance, Mapping)
@@ -257,6 +277,7 @@ def render_ai_host_preflight(
                 and MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI in resources
                 and OPERATION_LOG_EXPLAINABILITY_URI in resources
                 and COLD_START_BUDGET_URI in resources
+                and NO_DISTURBANCE_URI in resources
                 and DEPENDENCY_GOVERNANCE_URI in resources
                 and MCP_SURFACE_AUDIT_URI in resources
                 and AI_ENTRYPOINT_CONTRACT_URI in resources
@@ -321,6 +342,7 @@ def render_ai_host_preflight(
             "mcp_destructive_tool_governance": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
             "operation_log_explainability": OPERATION_LOG_EXPLAINABILITY_URI,
             "cold_start_budget": COLD_START_BUDGET_URI,
+            "no_disturbance": NO_DISTURBANCE_URI,
             "dependency_governance": DEPENDENCY_GOVERNANCE_URI,
             "mcp_surface_audit": MCP_SURFACE_AUDIT_URI,
             "workflow_contract": AI_WORKFLOW_CONTRACT_URI,
@@ -340,6 +362,7 @@ def render_ai_host_preflight(
             "operation_log",
             "operation_log_explainability_ready",
             "cold_start_budget_ready",
+            "no_disturbance_ready",
             "dependency_governance_ready",
             "mcp_destructive_tool_governance_ready",
         ],

@@ -6,7 +6,12 @@ from collections.abc import Mapping
 from typing import Any
 
 from cleancli.ai_schema import CONFIRMATION_PHRASE, next_allowed_tools_for_block
-from cleancli.mcp_resources import COLD_START_BUDGET_URI, DEPENDENCY_GOVERNANCE_URI, RUNTIME_LIFECYCLE_POLICY_URI
+from cleancli.mcp_resources import (
+    COLD_START_BUDGET_URI,
+    DEPENDENCY_GOVERNANCE_URI,
+    NO_DISTURBANCE_URI,
+    RUNTIME_LIFECYCLE_POLICY_URI,
+)
 from cleancli.mcp_tools import MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI
 
 RAW_COMMAND_ARGUMENT_KEYS = frozenset(
@@ -123,6 +128,7 @@ def render_ai_host_policy(
             "must_not_expect_resident_process": True,
             "must_not_schedule_background_scans": True,
             "must_not_install_login_item_or_daemon": True,
+            "must_not_send_notifications_or_prompts": True,
             "interaction_layer": "AI host or explicit CLI command",
         },
         "auto_call": {
@@ -169,6 +175,7 @@ def render_ai_host_policy(
             "cleanmac://ai/safety-chain",
             MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI,
             COLD_START_BUDGET_URI,
+            NO_DISTURBANCE_URI,
             DEPENDENCY_GOVERNANCE_URI,
             RUNTIME_LIFECYCLE_POLICY_URI,
             "cleanmac://ai/tool-decision-matrix",
@@ -232,6 +239,7 @@ def validate_ai_host_policy(report: Mapping[str, Any]) -> dict[str, Any]:
             "must_not_expect_resident_process",
             "must_not_schedule_background_scans",
             "must_not_install_login_item_or_daemon",
+            "must_not_send_notifications_or_prompts",
         ):
             if obligations.get(flag) is not True:
                 violations.append(f"host_runtime_obligations.{flag} must be true")
