@@ -250,6 +250,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/contract-validation", uris)
         self.assertIn("cleanmac://ai/contract-samples", uris)
         self.assertIn("cleanmac://ai/entrypoints", uris)
+        self.assertIn("cleanmac://ai/safety-chain", uris)
         self.assertIn("cleanmac://ai/workflow-contract", uris)
         self.assertIn("cleanmac://ai/host-integration-pack", uris)
         self.assertIn("cleanmac://ai/host-preflight", uris)
@@ -313,6 +314,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://mcp/surface-audit", payload["resource_uris"])
         self.assertIn("cleanmac://release/post-publish-evidence-template", payload["resource_uris"])
         self.assertIn("cleanmac://ai/entrypoints", payload["resource_uris"])
+        self.assertIn("cleanmac://ai/safety-chain", payload["resource_uris"])
         self.assertIn("cleanmac://ai/workflow-contract", payload["resource_uris"])
         self.assertTrue(all(resource["safe_for_mcp"] is True for resource in payload["resources"]))
 
@@ -588,6 +590,7 @@ class MckServerTests(unittest.TestCase):
             "cleanmac://ai/runtime-lifecycle-policy",
             "cleanmac://ai/zero-resident-audit",
             "cleanmac://ai/entrypoints",
+            "cleanmac://ai/safety-chain",
             "cleanmac://ai/workflow-contract",
             "cleanmac://ai/host-integration-pack",
             "cleanmac://ai/host-preflight",
@@ -710,6 +713,7 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["mcp"]["tool_index_uri"], "cleanmac://mcp/tool-index")
         self.assertEqual(payload["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
         self.assertIn("cleanmac://ai/entrypoints", payload["mcp"]["resources"])
+        self.assertIn("cleanmac://ai/safety-chain", payload["mcp"]["resources"])
         self.assertIn("cleanmac://ai/workflow-contract", payload["mcp"]["resources"])
         self.assertIn("review-ai-host-policy", payload["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", payload["mcp"]["tools"])
@@ -754,6 +758,26 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(payload["entrypoint_count"], 6)
         self.assertIn("cleanmac.capabilities.v1", payload["required_output_schemas"])
         self.assertIn("cleanmac.validate-plan.v1", payload["required_output_schemas"])
+
+    def test_resources_read_ai_safety_chain_contract(self) -> None:
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 130,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/safety-chain"},
+            }
+        )
+        contents = response["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "cleanmac://ai/safety-chain")
+        payload = json.loads(contents[0]["text"])
+        self.assertEqual(payload["schema"], "cleanmac.ai-safety-chain.v1")
+        self.assertTrue(payload["ready"], payload)
+        self.assertEqual(payload["chain_step_count"], 6)
+        self.assertFalse(payload["execute_gate"]["auto_call_allowed"])
+        self.assertTrue(payload["execute_gate"]["requires_matching_dry_run_confirmation_token"])
+        self.assertIn("cleanmac.execute-gate.v1", payload["required_contract_schemas"])
+        self.assertIn(["dry_run", "execute"], payload["non_bypassable_edges"])
 
     def test_resources_read_host_preflight(self) -> None:
         response = _mcp_request(
@@ -911,6 +935,7 @@ class MckServerTests(unittest.TestCase):
         self.assertIn("cleanmac://ai/runbook", uris)
         self.assertIn("cleanmac://ai/runtime-lifecycle-policy", uris)
         self.assertIn("cleanmac://ai/workflow-contract", uris)
+        self.assertIn("cleanmac://ai/safety-chain", uris)
         self.assertIn("cleanmac://ai/self-test", uris)
         self.assertIn("cleanmac://ai/tool-decision-matrix", uris)
         self.assertIn("cleanmac://ai/governance-advice", uris)
@@ -975,10 +1000,22 @@ class MckServerTests(unittest.TestCase):
         self.assertEqual(workflow_payload["schema"], "cleanmac.ai-workflow.v1")
         self.assertEqual(workflow_payload["governance"]["delete_mode_for_execute"], "trash")
 
-        decision_response = _mcp_request(
+        safety_response = _mcp_request(
             {
                 "jsonrpc": "2.0",
                 "id": 36,
+                "method": "resources/read",
+                "params": {"uri": "cleanmac://ai/safety-chain"},
+            }
+        )
+        safety_payload = json.loads(safety_response["result"]["contents"][0]["text"])
+        self.assertEqual(safety_payload["schema"], "cleanmac.ai-safety-chain.v1")
+        self.assertTrue(safety_payload["ready"], safety_payload)
+
+        decision_response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 37,
                 "method": "resources/read",
                 "params": {"uri": "cleanmac://ai/tool-decision-matrix"},
             }

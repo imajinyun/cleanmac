@@ -6,6 +6,7 @@ from typing import Any
 
 from cleancli import ai_schema
 from cleancli.ai_errors import render_ai_error_taxonomy
+from cleancli.ai_policy import render_plan_policy
 from cleancli.ai_versioning import CORE_CONTRACT_SCHEMAS, render_ai_schema_registry
 
 
@@ -17,6 +18,270 @@ AI_HOST_ENTRYPOINT_SCHEMAS: tuple[str, ...] = (
     "cleanmac.review.v1",
     "cleanmac.validate-plan.v1",
 )
+
+AI_SAFETY_CHAIN_SCHEMAS: tuple[str, ...] = (
+    "cleanmac.plan.v1",
+    "cleanmac.plan-policy.v1",
+    "cleanmac.validate-plan.v1",
+    "cleanmac.review.v1",
+    "cleanmac.review-selection.v1",
+    "cleanmac.review-selection-constraint.v1",
+    "cleanmac.review-selection-validation.v1",
+    "cleanmac.ai-policy-simulation.v1",
+    "cleanmac.clean.v1",
+    "cleanmac.execute-gate.v1",
+)
+
+
+def render_execute_gate_contract() -> dict[str, Any]:
+    """Return the non-bypassable destructive execution gate contract."""
+
+    return {
+        "schema": "cleanmac.execute-gate.v1",
+        "destructive_tool": "cleanmac_execute_plan",
+        "auto_call_allowed": False,
+        "requires_human_confirmation": True,
+        "requires_confirmation_phrase": True,
+        "requires_matching_dry_run_confirmation_token": True,
+        "requires_trash_delete_mode": True,
+        "requires_operation_log": True,
+        "requires_plan_context_match": True,
+        "requires_fresh_non_drifted_plan": True,
+        "requires_review_selection_validation": True,
+        "required_predecessor_tools": [
+            "cleanmac_generate_plan",
+            "cleanmac_validate_plan",
+            "cleanmac_policy_simulate",
+            "cleanmac_dry_run_plan",
+        ],
+        "required_runtime_flags": [
+            "--require-plan-context",
+            "--delete-mode trash",
+            "--operation-log",
+            "--require-confirmation-token",
+            "--confirmation-token",
+            "--yes",
+        ],
+        "required_output_bindings": {
+            "confirmation_token_source": "cleanmac_dry_run_plan.ai_confirmation_summary.confirmation_token",
+            "operation_log_source": "explicit --operation-log path",
+            "selection_source": "cleanmac.review-selection.v1 validated against source fingerprint",
+        },
+        "safe_argv_template": [
+            "cleanmac",
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            "{plan_file}",
+            "--require-plan-context",
+            "--delete-mode",
+            "trash",
+            "--review-selection-file",
+            "{review_selection_file}",
+            "--execute",
+            "--yes",
+            "--operation-log",
+            "{operation_log}",
+            "--require-confirmation-token",
+            "--confirmation-token",
+            "{confirmation_token_from_matching_dry_run}",
+        ],
+        "fail_closed_on": [
+            "missing_human_confirmation",
+            "missing_or_mismatched_confirmation_token",
+            "plan_context_mismatch",
+            "stale_or_drifted_plan",
+            "review_selection_fingerprint_mismatch",
+            "non_trash_delete_mode_for_ai_origin",
+            "missing_operation_log",
+        ],
+    }
+
+
+def render_ai_safety_chain_contract() -> dict[str, Any]:
+    """Return the machine-verifiable plan/review/execute safety chain."""
+
+    registry = render_ai_schema_registry()
+    registry_entries = {str(entry["name"]): entry for entry in registry["entries"]}
+    execute_gate = render_execute_gate_contract()
+    plan_policy = render_plan_policy()
+    chain_steps = [
+        {
+            "id": "plan",
+            "tool": "cleanmac_generate_plan",
+            "command": ["cleanmac", "--json", "plan", "--categories", "{categories}", "--ai-origin"],
+            "output_schema": "cleanmac.plan.v1",
+            "auto_call_allowed": True,
+            "destructive": False,
+            "must_precede": ["validate_plan", "review"],
+        },
+        {
+            "id": "validate_plan",
+            "tool": "cleanmac_validate_plan",
+            "command": ["cleanmac", "--json", "validate-plan", "--plan-file", "{plan_file}"],
+            "output_schema": "cleanmac.validate-plan.v1",
+            "auto_call_allowed": True,
+            "destructive": False,
+            "must_precede": ["policy_simulate", "dry_run", "execute"],
+        },
+        {
+            "id": "review",
+            "tool": "cleanmac_review",
+            "command": [
+                "cleanmac",
+                "--json",
+                "review",
+                "--input-file",
+                "{plan_file}",
+                "--selection-file",
+                "{review_selection_file}",
+            ],
+            "output_schema": "cleanmac.review.v1",
+            "produces": ["cleanmac.review.v1", "cleanmac.review-selection.v1"],
+            "auto_call_allowed": True,
+            "destructive": False,
+            "must_precede": ["dry_run", "execute"],
+        },
+        {
+            "id": "policy_simulate",
+            "tool": "cleanmac_policy_simulate",
+            "command": [
+                "cleanmac",
+                "--json",
+                "policy-simulate",
+                "--plan-file",
+                "{plan_file}",
+                "--execute",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                "{operation_log}",
+                "--require-plan-context",
+                "--require-confirmation-token",
+                "--confirmation-token",
+                "{confirmation_token_from_matching_dry_run}",
+                "--review-selection-file",
+                "{review_selection_file}",
+            ],
+            "output_schema": "cleanmac.ai-policy-simulation.v1",
+            "auto_call_allowed": True,
+            "destructive": False,
+            "must_precede": ["execute"],
+        },
+        {
+            "id": "dry_run",
+            "tool": "cleanmac_dry_run_plan",
+            "command": [
+                "cleanmac",
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                "{plan_file}",
+                "--require-plan-context",
+                "--delete-mode",
+                "trash",
+                "--review-selection-file",
+                "{review_selection_file}",
+            ],
+            "output_schema": "cleanmac.clean.v1",
+            "required_output": "ai_confirmation_summary.confirmation_token",
+            "auto_call_allowed": True,
+            "destructive": False,
+            "must_precede": ["execute"],
+        },
+        {
+            "id": "execute",
+            "tool": "cleanmac_execute_plan",
+            "command": execute_gate["safe_argv_template"],
+            "output_schema": "cleanmac.clean.v1",
+            "auto_call_allowed": False,
+            "destructive": True,
+            "requires_gate_schema": "cleanmac.execute-gate.v1",
+            "must_precede": [],
+        },
+    ]
+    checks = []
+    for schema_name in AI_SAFETY_CHAIN_SCHEMAS:
+        checks.append(
+            {
+                "id": f"{schema_name}-schema-ready",
+                "passed": bool(schema_name in registry_entries and schema_name in CORE_CONTRACT_SCHEMAS),
+                "schema": schema_name,
+                "schema_registered": schema_name in registry_entries,
+                "contract_schema_available": schema_name in CORE_CONTRACT_SCHEMAS,
+                "remediation_commands": [["cleanmac", "--json", "ai-schema-registry"], ["make", "ai-contract-smoke"]],
+            }
+        )
+    checks.extend(
+        [
+            {
+                "id": "execute-auto-call-denied",
+                "passed": execute_gate["auto_call_allowed"] is False,
+                "schema": "cleanmac.execute-gate.v1",
+                "remediation_commands": [["cleanmac", "--json", "ai-safety-chain"], ["make", "ai-host-smoke"]],
+            },
+            {
+                "id": "required-predecessors-complete",
+                "passed": execute_gate["required_predecessor_tools"]
+                == [
+                    "cleanmac_generate_plan",
+                    "cleanmac_validate_plan",
+                    "cleanmac_policy_simulate",
+                    "cleanmac_dry_run_plan",
+                ],
+                "schema": "cleanmac.execute-gate.v1",
+                "remediation_commands": [["cleanmac", "--json", "ai-safety-chain"], ["make", "ai-host-smoke"]],
+            },
+        ]
+    )
+    missing_registry_entries = [schema for schema in AI_SAFETY_CHAIN_SCHEMAS if schema not in registry_entries]
+    missing_schema_fragments = [schema for schema in AI_SAFETY_CHAIN_SCHEMAS if schema not in CORE_CONTRACT_SCHEMAS]
+    ready = not missing_registry_entries and not missing_schema_fragments and all(check["passed"] for check in checks)
+    return {
+        "schema": "cleanmac.ai-safety-chain.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": ready,
+        "purpose": "Machine-verifiable plan/review/dry-run/execute safety chain for AI Hosts.",
+        "chain_id": "plan-review-dry-run-execute",
+        "chain_step_count": len(chain_steps),
+        "chain_steps": chain_steps,
+        "required_contract_schemas": list(AI_SAFETY_CHAIN_SCHEMAS),
+        "missing_registry_entries": missing_registry_entries,
+        "missing_schema_fragments": missing_schema_fragments,
+        "plan_policy": plan_policy,
+        "execute_gate": execute_gate,
+        "non_bypassable_edges": [
+            ["plan", "validate_plan"],
+            ["plan", "review"],
+            ["review", "dry_run"],
+            ["validate_plan", "policy_simulate"],
+            ["policy_simulate", "execute"],
+            ["dry_run", "execute"],
+            ["human_confirmation", "execute"],
+        ],
+        "ai_host_obligations": [
+            "Never auto-call cleanmac_execute_plan.",
+            "Use only argv templates; never shell/raw command strings.",
+            "Bind execute confirmation_token to the latest matching dry-run output.",
+            "Use --delete-mode trash and --operation-log for AI-originated execution.",
+            "Validate review-selection fingerprints before dry-run and execute.",
+        ],
+        "checks": checks,
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready" if ready else "blocked",
+        },
+        "release_gate_commands": [
+            ["cleanmac", "--json", "ai-safety-chain"],
+            ["make", "ai-host-smoke"],
+            ["make", "ai-contract-smoke"],
+            ["make", "governed-execution-smoke"],
+        ],
+    }
 
 
 def _entrypoint(

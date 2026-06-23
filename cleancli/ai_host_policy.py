@@ -157,6 +157,7 @@ def render_ai_host_policy(
             "cleanmac://ai/host-preflight",
             "cleanmac://ai/readiness",
             "cleanmac://ai/runbook",
+            "cleanmac://ai/safety-chain",
             RUNTIME_LIFECYCLE_POLICY_URI,
             "cleanmac://ai/tool-decision-matrix",
             "cleanmac://ai/governance-advice",

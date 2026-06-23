@@ -6,12 +6,14 @@ from cleancli.ai_contract import (
     render_ai_entrypoint_contract,
     render_ai_intent_hints,
     render_ai_recommended_workflow,
+    render_ai_safety_chain_contract,
     render_ai_tool_contract,
 )
 from cleancli.ai_versioning import validate_contract_payload
 from cleancli.core import render_ai_entrypoint_contract as render_core_ai_entrypoint_contract
 from cleancli.core import render_ai_intent_hints as render_core_ai_intent_hints
 from cleancli.core import render_ai_recommended_workflow as render_core_ai_recommended_workflow
+from cleancli.core import render_ai_safety_chain_contract as render_core_ai_safety_chain_contract
 from cleancli.core import render_ai_tool_contract as render_core_ai_tool_contract
 
 
@@ -67,3 +69,45 @@ class AIContractTests(unittest.TestCase):
 
         validation = validate_contract_payload("cleanmac.ai-entrypoint-contract.v1", contract)
         self.assertTrue(validation["valid"], validation)
+
+    def test_ai_safety_chain_contract_covers_non_bypassable_execute_path(self) -> None:
+        contract = render_ai_safety_chain_contract()
+
+        self.assertEqual(contract, render_core_ai_safety_chain_contract())
+        self.assertEqual(contract["schema"], "cleanmac.ai-safety-chain.v1")
+        self.assertTrue(contract["ready"], contract)
+        self.assertEqual(contract["chain_id"], "plan-review-dry-run-execute")
+        self.assertEqual(contract["chain_step_count"], 6)
+        self.assertEqual(contract["missing_registry_entries"], [])
+        self.assertEqual(contract["missing_schema_fragments"], [])
+
+        by_id = {row["id"]: row for row in contract["chain_steps"]}
+        self.assertEqual(by_id["plan"]["output_schema"], "cleanmac.plan.v1")
+        self.assertEqual(by_id["validate_plan"]["output_schema"], "cleanmac.validate-plan.v1")
+        self.assertEqual(by_id["review"]["produces"], ["cleanmac.review.v1", "cleanmac.review-selection.v1"])
+        self.assertEqual(by_id["policy_simulate"]["output_schema"], "cleanmac.ai-policy-simulation.v1")
+        self.assertEqual(by_id["dry_run"]["required_output"], "ai_confirmation_summary.confirmation_token")
+        self.assertFalse(by_id["execute"]["auto_call_allowed"])
+        self.assertTrue(by_id["execute"]["destructive"])
+        self.assertEqual(by_id["execute"]["requires_gate_schema"], "cleanmac.execute-gate.v1")
+
+        gate = contract["execute_gate"]
+        self.assertEqual(gate["schema"], "cleanmac.execute-gate.v1")
+        self.assertFalse(gate["auto_call_allowed"])
+        self.assertTrue(gate["requires_human_confirmation"])
+        self.assertTrue(gate["requires_matching_dry_run_confirmation_token"])
+        self.assertTrue(gate["requires_trash_delete_mode"])
+        self.assertTrue(gate["requires_operation_log"])
+        self.assertTrue(gate["requires_plan_context_match"])
+        self.assertIn("--require-plan-context", gate["required_runtime_flags"])
+        self.assertIn("--delete-mode trash", gate["required_runtime_flags"])
+        self.assertIn("--operation-log", gate["required_runtime_flags"])
+        self.assertIn("--confirmation-token", gate["required_runtime_flags"])
+        self.assertIn(["dry_run", "execute"], contract["non_bypassable_edges"])
+        self.assertIn(["human_confirmation", "execute"], contract["non_bypassable_edges"])
+        self.assertIn("cleanmac.execute-gate.v1", contract["required_contract_schemas"])
+
+        validation = validate_contract_payload("cleanmac.ai-safety-chain.v1", contract)
+        self.assertTrue(validation["valid"], validation)
+        gate_validation = validate_contract_payload("cleanmac.execute-gate.v1", gate)
+        self.assertTrue(gate_validation["valid"], gate_validation)
