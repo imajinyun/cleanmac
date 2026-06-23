@@ -486,6 +486,7 @@ def render_ai_tool_contract() -> dict[str, Any]:
             "workflow",
             "software list",
             "software leftovers",
+            "software orphans",
             "software startup-items",
             "software inspect",
             "software uninstall-plan",

@@ -325,12 +325,21 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_software_leftovers",
-        "description": "Inspect software leftovers without making changes.",
+        "description": "Inspect software leftover scan roots without making changes.",
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
         "parameters": object_schema({}),
         "argv_template": ["cleanmac", "--json", "software", "leftovers"],
+    },
+    {
+        "name": "cleanmac_software_orphans",
+        "description": "Scan for likely orphaned software leftovers for apps that are no longer installed without making changes.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({}),
+        "argv_template": ["cleanmac", "--json", "software", "orphans"],
     },
     {
         "name": "cleanmac_software_startup_items",
@@ -682,6 +691,7 @@ def representative_args(name: str) -> dict[str, Any]:
         "cleanmac_list_categories",
         "cleanmac_software_list",
         "cleanmac_software_leftovers",
+        "cleanmac_software_orphans",
         "cleanmac_software_startup_items",
         "cleanmac_startup_audit",
         "cleanmac_startup_plan",
@@ -846,6 +856,7 @@ def render_contract_compatibility(contract: Mapping[str, Any]) -> dict[str, Any]
         "cleanmac_ai_workflow",
         "cleanmac_software_list",
         "cleanmac_software_leftovers",
+        "cleanmac_software_orphans",
         "cleanmac_software_startup_items",
         "cleanmac_software_uninstall_plan",
         "cleanmac_analyze_categories",
@@ -1129,6 +1140,8 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         return ["cleanmac", "--json", "software", "list"]
     if name == "cleanmac_software_leftovers":
         return ["cleanmac", "--json", "software", "leftovers"]
+    if name == "cleanmac_software_orphans":
+        return ["cleanmac", "--json", "software", "orphans"]
     if name == "cleanmac_software_startup_items":
         return ["cleanmac", "--json", "software", "startup-items"]
     if name == "cleanmac_software_uninstall_plan":

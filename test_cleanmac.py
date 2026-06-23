@@ -383,7 +383,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(tool["input_schema"].get("additionalProperties", False))
             self.assertTrue(tool["name"].startswith("cleanmac_"))
 
-        EXPECTED_TOOL_COUNT = 37
+        EXPECTED_TOOL_COUNT = 38
         self.assertEqual(len(anthropic_tools), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(openai_report["tools"]), EXPECTED_TOOL_COUNT)
         self.assertEqual(len(mcp_report["tools"]), EXPECTED_TOOL_COUNT)
@@ -647,6 +647,16 @@ class CleanMacCLITests(unittest.TestCase):
         )
         self.assertEqual(governance_todo["items"][0]["id"], "strengthen-ai-first-entrypoints")
         self.assertEqual(governance_todo["items"][24]["id"], "gate-release-with-ai-mcp-checklist")
+        gap_todo = boundaries["open_source_gap_governance_todo"]
+        self.assertEqual(gap_todo["schema"], "cleanmac.open-source-gap-governance-todo.v1")
+        self.assertTrue(gap_todo["ordered"])
+        self.assertEqual(gap_todo["item_count"], 10)
+        self.assertEqual([item["order"] for item in gap_todo["items"]], list(range(1, 11)))
+        self.assertEqual([item["priority"] for item in gap_todo["items"][:4]], ["P0", "P0", "P0", "P0"])
+        self.assertIn("GUI parity", gap_todo["non_goals"])
+        self.assertIn("TUI parity", gap_todo["non_goals"])
+        self.assertEqual(gap_todo["items"][0]["id"], "p0-software-leftover-discovery")
+        self.assertEqual(gap_todo["items"][1]["id"], "p0-software-orphan-scan")
         self.assertIn(
             ["make", "ai-first-release-checklist-smoke"],
             governance_todo["release_gate_commands"],
@@ -2328,6 +2338,63 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("app-bundle", {candidate["kind"] for candidate in report["candidates"]})
             self.assertIn("cache", {candidate["kind"] for candidate in report["candidates"]})
             self.assertTrue(validate_contract_payload("cleanmac.software-inspect.v1", report)["valid"])
+
+    def test_software_orphans_reports_read_only_leftovers_for_missing_apps(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            orphan_paths = [
+                root / "Users/tester/Library/Caches/com.example.oldapp",
+                root / "Users/tester/Library/Preferences/com.example.oldapp.plist",
+                root / "Users/tester/Library/Saved Application State/com.example.oldapp.savedState",
+                root / "Users/tester/Library/Containers/com.example.oldapp",
+                root / "Users/tester/Library/Group Containers/group.com.example.oldapp",
+                root / "Library/LaunchDaemons/com.example.oldapp.plist",
+                root / "Library/PrivilegedHelperTools/com.example.oldapp",
+            ]
+            for path in orphan_paths:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if path.suffix == ".plist" or "PrivilegedHelperTools" in path.parts:
+                    path.write_text("orphan", encoding="utf-8")
+                else:
+                    path.mkdir(parents=True, exist_ok=True)
+                    (path / "data").write_text("orphan", encoding="utf-8")
+
+            app_contents = root / "Applications/Example.app/Contents"
+            app_contents.mkdir(parents=True)
+            (app_contents / "Info.plist").write_bytes(
+                b'<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.example.app</string></dict></plist>'
+            )
+            installed_cache = root / "Users/tester/Library/Caches/com.example.app"
+            installed_cache.mkdir(parents=True, exist_ok=True)
+            (installed_cache / "cache.bin").write_text("installed", encoding="utf-8")
+
+            report = json.loads(
+                self.run_cli("--root", str(root), "--home", str(home), "--json", "software", "orphans").stdout
+            )
+            by_path = {str(Path(candidate["path"]).resolve(strict=False)): candidate for candidate in report["candidates"]}
+            old_cache = str((root / "Users/tester/Library/Caches/com.example.oldapp").resolve(strict=False))
+            old_daemon = str((root / "Library/LaunchDaemons/com.example.oldapp.plist").resolve(strict=False))
+            old_helper = str((root / "Library/PrivilegedHelperTools/com.example.oldapp").resolve(strict=False))
+            installed_cache_path = str(installed_cache.resolve(strict=False))
+
+            self.assertEqual(report["schema"], "cleanmac.software-orphans.v1")
+            self.assertFalse(report["destructive"])
+            self.assertTrue(report["dry_run"])
+            self.assertEqual(report["status"], "read-only-orphan-scan")
+            self.assertFalse(report["safe_to_auto_execute"])
+            self.assertIn(old_cache, by_path)
+            self.assertIn(old_daemon, by_path)
+            self.assertIn(old_helper, by_path)
+            self.assertNotIn(installed_cache_path, by_path)
+            self.assertTrue(by_path[old_cache]["default_selected"])
+            self.assertFalse(by_path[old_daemon]["default_selected"])
+            self.assertEqual(by_path[old_helper]["risk"], "critical")
+            for candidate in report["candidates"]:
+                self.assertTrue(candidate["id"].startswith("orphan:"))
+                self.assertTrue(candidate["matched_rule"].startswith("software-orphan."))
+                self.assertFalse(candidate["installed_app_present"])
+                self.assertEqual(candidate["delete_mode"], "trash")
+            self.assertTrue(validate_contract_payload("cleanmac.software-orphans.v1", report)["valid"])
 
     def test_software_uninstall_plan_blocks_official_uninstallers_with_structured_schema(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -5822,6 +5889,10 @@ class CleanMacCLITests(unittest.TestCase):
                 (
                     ["software", "leftovers"],
                     lambda report: report["schema"] == "cleanmac.software.v1" and not report["destructive"],
+                ),
+                (
+                    ["software", "orphans"],
+                    lambda report: report["schema"] == "cleanmac.software-orphans.v1" and report["dry_run"],
                 ),
                 (
                     ["software", "startup-items"],

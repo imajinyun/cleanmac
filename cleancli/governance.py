@@ -313,11 +313,153 @@ def render_development_governance_todo() -> dict[str, Any]:
     }
 
 
+def render_open_source_gap_governance_todo() -> dict[str, Any]:
+    """Return the prioritized non-UI open-source cleaner gap backlog."""
+
+    items = [
+        (
+            "p0-software-leftover-discovery",
+            "P0",
+            "in_progress",
+            "Deepen real software leftover discovery",
+            "Keep software inspect/uninstall-plan grounded in actual bundle-id, app-name, container, launch item, helper, support data, and protected-data evidence before any Trash execution.",
+            ["cleanmac", "--json", "software", "inspect", "--app", "<AppName>"],
+            ["Pearcleaner", "AppCleaner-style uninstallers"],
+        ),
+        (
+            "p0-software-orphan-scan",
+            "P0",
+            "in_progress",
+            "Add read-only orphaned file scan",
+            "Detect likely leftovers for apps no longer installed while keeping the result read-only and routing any future deletion through review-selection and Trash execution.",
+            ["cleanmac", "--json", "software", "orphans"],
+            ["Pearcleaner Orphans"],
+        ),
+        (
+            "p0-xcode-ios-deep-cleanup",
+            "P0",
+            "pending",
+            "Expand Xcode and iOS cleanup depth",
+            "Add governed plans for iOS backups, unavailable simulators, simulator runtime/device cleanup, and device-support retention without destructive default behavior.",
+            ["cleanmac", "--json", "clean", "list"],
+            ["mac-cleanup-py", "mac-cleanup-sh"],
+        ),
+        (
+            "p0-native-tool-dry-run-integration",
+            "P0",
+            "pending",
+            "Integrate native dry-run plans for developer tools",
+            "Use allowlisted argv-only dry-run commands for Homebrew, Docker, package managers, and Xcode tooling before offering any manual cleanup recommendation.",
+            ["cleanmac", "--json", "tool-plan", "--tool", "all"],
+            ["mac-cleanup-py", "mac-cleanup-sh"],
+        ),
+        (
+            "p1-common-cleaner-module-parity",
+            "P1",
+            "pending",
+            "Fill common cleaner module gaps",
+            "Evaluate and add safe rules for Adobe, Bun, Composer, Conan, Chromium, Dropbox, Google Drive, Steam, Telegram, NuGet, Obsidian, pyenv, Ruby gems, Java heap dumps, Minecraft, and similar high-frequency modules.",
+            ["cleanmac", "--json", "clean", "list"],
+            ["mac-cleanup-py", "mac-cleanup-sh"],
+        ),
+        (
+            "p1-rule-pack-governance",
+            "P1",
+            "pending",
+            "Design governed rule-pack ecosystem",
+            "Introduce a schema-validated rule pack model with risk, protection, process guard, fixture, and trust metadata before accepting external cleaner rules.",
+            ["cleanmac", "--json", "ai-schema-registry"],
+            ["BleachBit CleanerML"],
+        ),
+        (
+            "p1-mounted-volume-trash",
+            "P1",
+            "pending",
+            "Discover mounted-volume Trash safely",
+            "Read-only scan mounted-volume Trash locations and require explicit review before any operation that touches external volumes.",
+            ["cleanmac", "--json", "clean", "inspect", "--categories", "trash"],
+            ["mac-cleanup-sh"],
+        ),
+        (
+            "p1-reclaim-estimation-accuracy",
+            "P1",
+            "pending",
+            "Improve reclaimable space estimates",
+            "Report logical bytes, physical bytes, estimated reclaimable bytes, and confidence for APFS clones, sparse files, hard links, bundles, and permission-limited paths.",
+            ["cleanmac", "--json", "analyze", "categories"],
+            ["Czkawka", "dupeGuru"],
+        ),
+        (
+            "p2-file-analysis-tools",
+            "P2",
+            "pending",
+            "Add duplicate and file-quality analysis",
+            "Add read-only large-file, duplicate-by-hash, empty-directory, broken-symlink, bad-extension, and metadata analysis reports before considering any cleanup execution path.",
+            ["cleanmac", "--json", "analyze", "tree"],
+            ["Czkawka", "dupeGuru"],
+        ),
+        (
+            "p2-privacy-scope-parity",
+            "P2",
+            "pending",
+            "Expand browser and app privacy scopes",
+            "Extend privacy planning to more browsers and Electron apps with granular cache, history, download, session, local storage, cookies, and credential preservation policies.",
+            ["cleanmac", "--json", "privacy", "inspect"],
+            ["BleachBit", "mac-cleanup-py"],
+        ),
+    ]
+    return {
+        "schema": "cleanmac.open-source-gap-governance-todo.v1",
+        "destructive": False,
+        "dry_run": True,
+        "purpose": "Prioritized non-UI backlog for closing capability gaps against top open-source macOS and cross-platform cleaner projects.",
+        "non_goals": [
+            "GUI parity",
+            "TUI parity",
+            "resident monitoring",
+            "background cleanup automation",
+        ],
+        "ordered": True,
+        "item_count": len(items),
+        "in_progress_count": sum(1 for _, _, status, *_ in items if status == "in_progress"),
+        "pending_count": sum(1 for _, _, status, *_ in items if status == "pending"),
+        "landed_count": sum(1 for _, _, status, *_ in items if status == "landed"),
+        "items": [
+            {
+                "order": index,
+                "id": item_id,
+                "priority": priority,
+                "status": status,
+                "title": title,
+                "governance_action": governance_action,
+                "verification_command": verification_command,
+                "reference_projects": reference_projects,
+            }
+            for index, (
+                item_id,
+                priority,
+                status,
+                title,
+                governance_action,
+                verification_command,
+                reference_projects,
+            ) in enumerate(items, start=1)
+        ],
+        "release_gate_commands": [
+            ["cleanmac", "--json", "capabilities"],
+            ["cleanmac", "--json", "governance-integrity"],
+            ["make", "governance-smoke"],
+            ["make", "local-test"],
+        ],
+    }
+
+
 def render_boundary_governance() -> dict[str, Any]:
     runtime_lifecycle = render_runtime_lifecycle_policy()
     zero_resident_contract = render_zero_resident_contract(runtime_lifecycle=runtime_lifecycle)
     product_surface_drift_audit = render_product_surface_drift_audit()
     development_governance_todo = render_development_governance_todo()
+    open_source_gap_governance_todo = render_open_source_gap_governance_todo()
     return {
         "schema": "cleanmac.boundary-governance.v1",
         "purpose": "Define safe automation boundaries for cleanup operations.",
@@ -371,6 +513,7 @@ def render_boundary_governance() -> dict[str, Any]:
             "raw_rm_rf_requires_deprecation_metadata": True,
         },
         "development_governance_todo": development_governance_todo,
+        "open_source_gap_governance_todo": open_source_gap_governance_todo,
         "geo_discoverability_policy": render_geo_discoverability_policy(),
         "product_surface_policy": render_product_surface_policy(),
         "privileged_command_ownership": {
@@ -972,6 +1115,47 @@ def render_governance_integrity_report(
             },
             remediation="Keep the 25 AI-first governance TODO items landed, evidenced, release-gated, and in their approved order.",
         ),
+        _governance_integrity_check(
+            check_id="open-source-gap-governance-todo-prioritized",
+            passed=(
+                boundary_governance.get("open_source_gap_governance_todo", {}).get("schema")
+                == "cleanmac.open-source-gap-governance-todo.v1"
+                and boundary_governance.get("open_source_gap_governance_todo", {}).get("item_count") == 10
+                and boundary_governance.get("open_source_gap_governance_todo", {}).get("in_progress_count") >= 2
+                and boundary_governance.get("open_source_gap_governance_todo", {}).get("pending_count") >= 1
+                and boundary_governance.get("open_source_gap_governance_todo", {}).get("ordered") is True
+                and [
+                    item.get("order")
+                    for item in boundary_governance.get("open_source_gap_governance_todo", {}).get("items", [])
+                ]
+                == list(range(1, 11))
+                and [
+                    item.get("priority")
+                    for item in boundary_governance.get("open_source_gap_governance_todo", {}).get("items", [])[:4]
+                ]
+                == ["P0", "P0", "P0", "P0"]
+            ),
+            evidence={
+                "schema": boundary_governance.get("open_source_gap_governance_todo", {}).get("schema"),
+                "item_count": boundary_governance.get("open_source_gap_governance_todo", {}).get("item_count"),
+                "in_progress_count": boundary_governance.get("open_source_gap_governance_todo", {}).get(
+                    "in_progress_count"
+                ),
+                "pending_count": boundary_governance.get("open_source_gap_governance_todo", {}).get("pending_count"),
+                "ordered": boundary_governance.get("open_source_gap_governance_todo", {}).get("ordered"),
+            },
+            expected={
+                "schema": "cleanmac.open-source-gap-governance-todo.v1",
+                "item_count": 10,
+                "first_priorities": ["P0", "P0", "P0", "P0"],
+                "orders": list(range(1, 11)),
+            },
+            remediation="Keep the non-UI open-source cleaner gap backlog prioritized, machine-readable, and separate from the landed AI-first foundation backlog.",
+            remediation_commands=[
+                ["cleanmac", "--json", "capabilities"],
+                *GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS,
+            ],
+        ),
     ]
     failed_check_ids = [check["id"] for check in checks if not check["passed"]]
     release_gate_commands = _unique_commands(GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS)
@@ -1432,6 +1616,7 @@ __all__ = [
     "render_doctor",
     "render_geo_discoverability_policy",
     "render_governance_integrity_report",
+    "render_open_source_gap_governance_todo",
     "render_product_surface_policy",
     "render_product_surface_drift_audit",
     "render_runtime_lifecycle_policy",
