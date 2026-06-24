@@ -108,6 +108,48 @@ def _count_by(items: list[dict[str, Any]], field: str) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _review_evidence(
+    *,
+    kind: str,
+    recommendation: str,
+    risk: str,
+    default_selected: bool,
+    protected: bool,
+    requires_privilege: bool,
+) -> dict[str, Any]:
+    if protected:
+        recommended_next_action = "excluded-protected"
+    elif default_selected:
+        recommended_next_action = "review-default-selection-before-trash-execution"
+    else:
+        recommended_next_action = "manual-review-required"
+    if protected:
+        why_not_default = "protected startup item is preserved by policy"
+    elif requires_privilege and not default_selected:
+        why_not_default = "privileged startup item requires explicit review selection"
+    elif recommendation != "review-disable" and not default_selected:
+        why_not_default = f"startup recommendation is {recommendation}"
+    else:
+        why_not_default = None
+    return {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "matched_rule": f"startup.{kind}.{recommendation}",
+        "match_reason": recommendation,
+        "confidence": "high",
+        "risk": risk,
+        "risk_reason": "Startup item can affect login, background services, or privileged launch behavior.",
+        "risk_explanation": "Disabling startup items changes whether related software starts automatically.",
+        "default_selected": default_selected,
+        "why_not_default": why_not_default,
+        "protected": protected,
+        "delete_mode": "trash",
+        "recovery": "Restore the plist or StartupItems entry from Trash, then reload it manually if needed.",
+        "contains_user_data": False,
+        "shared_container": False,
+        "recommended_next_action": recommended_next_action,
+    }
+
+
 def _item_from_plist(path: Path, *, kind: str, requires_privilege: bool) -> dict[str, Any]:
     plist = _load_plist(path)
     label = str(plist.get("Label") or path.stem)
@@ -135,6 +177,7 @@ def _item_from_plist(path: Path, *, kind: str, requires_privilege: bool) -> dict
     else:
         risk = "low"
         recommendation = "leave-enabled"
+    default_selected = recommendation == "review-disable" and not requires_privilege and not protected
     return {
         "id": f"startup:{kind}:{label}:{_display_path(path)}",
         "path": _display_path(path),
@@ -149,14 +192,25 @@ def _item_from_plist(path: Path, *, kind: str, requires_privilege: bool) -> dict
         "risk": risk,
         "protected": protected,
         "recommendation": recommendation,
-        "default_selected": recommendation == "review-disable" and not requires_privilege and not protected,
+        "default_selected": default_selected,
         "disable_method": "launchctl bootout/disable or move plist after explicit governed execution",
+        "delete_mode": "trash",
+        "review_evidence": _review_evidence(
+            kind=kind,
+            recommendation=recommendation,
+            risk=risk,
+            default_selected=default_selected,
+            protected=protected,
+            requires_privilege=requires_privilege,
+        ),
     }
 
 
 def _item_from_directory(path: Path, *, kind: str, requires_privilege: bool) -> dict[str, Any]:
     protected = protection.should_protect_path(path)
     recommendation = "preserve" if protected else "review-disable"
+    risk = "high" if requires_privilege else "medium"
+    default_selected = recommendation == "review-disable" and not requires_privilege
     return {
         "id": f"startup:{kind}:{path.name}:{_display_path(path)}",
         "path": _display_path(path),
@@ -168,11 +222,20 @@ def _item_from_directory(path: Path, *, kind: str, requires_privilege: bool) -> 
         "disabled": False,
         "requires_privilege": requires_privilege,
         "bytes": _path_size(path),
-        "risk": "high" if requires_privilege else "medium",
+        "risk": risk,
         "protected": protected,
         "recommendation": recommendation,
-        "default_selected": recommendation == "review-disable" and not requires_privilege,
+        "default_selected": default_selected,
         "disable_method": "move StartupItems entry after explicit governed execution",
+        "delete_mode": "trash",
+        "review_evidence": _review_evidence(
+            kind=kind,
+            recommendation=recommendation,
+            risk=risk,
+            default_selected=default_selected,
+            protected=protected,
+            requires_privilege=requires_privilege,
+        ),
     }
 
 

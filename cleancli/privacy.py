@@ -75,6 +75,40 @@ def _count_by(items: list[dict[str, Any]], field: str) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _review_evidence(
+    *,
+    kind: str,
+    scope: str,
+    privacy_risk: str,
+    data_loss_risk: str,
+    default_selected: bool,
+    preserve_reason: str | None,
+) -> dict[str, Any]:
+    contains_user_data = scope in {"credentials", "cookies", "history", "local-storage"}
+    if default_selected:
+        recommended_next_action = "review-default-selection-before-trash-execution"
+    else:
+        recommended_next_action = "manual-review-required"
+    return {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "matched_rule": f"privacy.{scope}.{kind}",
+        "match_reason": preserve_reason or scope,
+        "confidence": "high",
+        "risk": privacy_risk,
+        "risk_reason": preserve_reason or f"{scope} privacy cleanup candidate",
+        "risk_explanation": preserve_reason or f"{scope} data may affect privacy, sessions, or browser state.",
+        "default_selected": default_selected,
+        "why_not_default": None if default_selected else preserve_reason or "privacy candidate requires explicit review",
+        "protected": False,
+        "delete_mode": "trash",
+        "recovery": "Restore the candidate from Trash before reopening the application if needed.",
+        "contains_user_data": contains_user_data,
+        "shared_container": False,
+        "recommended_next_action": recommended_next_action,
+        "data_loss_risk": data_loss_risk,
+    }
+
+
 def _candidate(
     path: Path,
     *,
@@ -102,6 +136,15 @@ def _candidate(
         "default_selected": default_selected,
         "preserve_reason": preserve_reason,
         "delete_mode": "trash",
+        "protected": False,
+        "review_evidence": _review_evidence(
+            kind=kind,
+            scope=scope,
+            privacy_risk=privacy_risk,
+            data_loss_risk=data_loss_risk,
+            default_selected=default_selected,
+            preserve_reason=preserve_reason,
+        ),
     }
 
 
