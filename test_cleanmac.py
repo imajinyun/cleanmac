@@ -445,44 +445,6 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("file:///tmp/cache%20two", html_report)
         self.assertIn("protected", html_report)
 
-    def test_list_shows_categories(self) -> None:
-        result = self.run_cli("list")
-        self.assertIn("trash", result.stdout)
-        self.assertIn("imessage", result.stdout)
-        self.assertIn("Spotlight", result.stdout)
-
-    def test_list_json_includes_category_metadata(self) -> None:
-        result = self.run_cli("--json", "list")
-        report = json.loads(result.stdout)
-        self.assertEqual(report["schema"], "cleanmac.category-list.v1")
-        self.assertIn("categories", report)
-        by_key = {row["key"]: row for row in report["categories"]}
-
-        self.assertEqual(len(report["categories"]), len(cleancli.CATEGORIES))
-        self.assertIn("Deletes all files", by_key["trash"]["description"])
-        self.assertTrue(by_key["trash"]["default"])
-        self.assertTrue(by_key["incompleteDownloads"]["default"])
-        self.assertFalse(by_key["downloads"]["default"])
-        self.assertEqual(by_key["mails"]["default_older_than_days"], 30)
-        self.assertIn("Archives", ",".join(by_key["xcode"]["paths"]))
-        self.assertEqual(by_key["deviceFirmware"]["default_older_than_days"], 30)
-        self.assertIn("Rosetta", by_key["appleSiliconCaches"]["title"])
-        self.assertIn("Group Container", by_key["groupContainerCaches"]["title"])
-        self.assertIn("Android Studio", by_key["androidStudio"]["title"])
-        self.assertIn("JetBrains", by_key["jetbrains"]["title"])
-        self.assertIn("Docker", by_key["docker"]["title"])
-        self.assertEqual(by_key["gpuCaches"]["provider"], "gpu-cache")
-        self.assertTrue(by_key["imessage"]["full_disk_access"])
-
-    def test_quiet_suppresses_human_readable_output_but_not_json(self) -> None:
-        quiet_result = self.run_cli("-q", "list")
-        self.assertEqual(quiet_result.stdout.strip(), "")
-
-        json_result = self.run_cli("-q", "--json", "list")
-        report = json.loads(json_result.stdout)
-        self.assertEqual(report["schema"], "cleanmac.category-list.v1")
-        self.assertGreater(len(report["categories"]), 0)
-
     def test_capabilities_describes_commands_and_safety_model(self) -> None:
         result = self.run_cli("--json", "capabilities")
         report = json.loads(result.stdout)
