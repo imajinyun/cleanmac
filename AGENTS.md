@@ -77,7 +77,7 @@ make release-artifacts-smoke
 make docker-test
 ```
 
-Pytest validation must use `make pytest-test`; that target creates a temporary venv, installs the test extra, and runs pytest inside the venv. Do not rely on global pytest. If the global environment lacks `mypy`, `ruff`, `build`, or `twine`, validate with a temporary venv and never write that virtual environment into the repository:
+Quality validation must use virtual environments for `ruff`, `mypy`, and `pytest`; do not rely on globally installed Python tools. `make lint`, `make type-check`, `make coverage`, `make quality-check`, and `make pytest-test` create temporary venvs or run through the workflow-provided `.venv/bin/python` and install the required extras before executing tools. Pytest validation must use `make pytest-test`; that target creates a temporary venv, installs the test extra, and runs pytest inside the venv. Never write validation virtual environments into the repository. If a release or environment-sensitive issue cannot be reproduced on the host, run the Docker validation path (`make docker-test` or `make no-cache-docker-test`) and report Docker availability if it cannot run locally.
 
 ```bash
 tmpdir=$(mktemp -d)
@@ -88,6 +88,8 @@ python3 -m venv "$tmpdir/venv"
 "$tmpdir/venv/bin/python" -m ruff check .
 "$tmpdir/venv/bin/python" -m mypy cleanmac.py cleancli test_cleanmac.py tests
 "$tmpdir/venv/bin/python" -m pytest -q
+"$tmpdir/venv/bin/python" -m coverage run -m unittest -v
+"$tmpdir/venv/bin/python" -m coverage report
 rm -R "$tmpdir"
 ```
 
@@ -203,11 +205,7 @@ Responsibility: AI tool definitions, provider-format exports, confirmation token
 Run after changes:
 
 ```bash
-python3 -m unittest tests.test_ai_governance tests.test_ai_readiness tests.test_ai_runbook -v
-python3 -m unittest tests.test_ai_self_test tests.test_ai_decision_matrix tests.test_ai_eval -v
-python3 -m unittest tests.test_ai_host_scenarios tests.test_mcp_server -v
-python3 -m unittest test_cleanmac.CleanMacCLITests.test_ai_tools_exports_provider_specific_tool_formats -v
-python3 -m unittest test_cleanmac.CleanMacCLITests.test_ai_schema_builds_safe_argv_without_shell_or_implicit_execute -v
+make pytest-ai-host-smoke
 make mcp-smoke
 make ai-host-smoke
 make ai-governance-smoke

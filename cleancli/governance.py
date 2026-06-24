@@ -537,7 +537,9 @@ def render_boundary_governance() -> dict[str, Any]:
             "python_test_environment": {
                 "requires_virtualenv": True,
                 "workflow_python_env": "PYTHON=.venv/bin/python",
+                "tooling_must_run_in_virtualenv": ["ruff", "mypy", "pytest", "coverage"],
                 "ci_policy": "GitHub Actions must create a venv before running Python test or smoke commands.",
+                "docker_fallback": "Run make docker-test or make no-cache-docker-test when host validation is ambiguous or release behavior needs a clean Linux container.",
             },
             "required_commands": [
                 "make quality-check",
@@ -740,7 +742,7 @@ def render_no_disturbance_contract(*, runtime_lifecycle: dict[str, Any] | None =
             ["make", "no-disturbance-smoke"],
             ["make", "zero-resident-audit-smoke"],
         ]
-    payload = {
+    payload: dict[str, Any] = {
         "schema": "cleanmac.no-disturbance.v1",
         "destructive": False,
         "dry_run": True,
@@ -799,7 +801,9 @@ def render_no_disturbance_contract(*, runtime_lifecycle: dict[str, Any] | None =
     validation = validate_no_disturbance_contract(payload)
     payload["validation"] = validation
     payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
-    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    readiness_score = payload["readiness_score"]
+    if isinstance(readiness_score, dict):
+        readiness_score["level"] = "ready" if payload["ready"] else "blocked"
     payload["stop_reason"] = "" if payload["ready"] else "no-disturbance contract failed"
     payload["next_action"] = "Run make no-disturbance-smoke before release readiness."
     return payload
