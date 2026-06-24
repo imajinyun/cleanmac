@@ -549,6 +549,7 @@ def _review_selection_audit(review_selection: dict[str, Any]) -> dict[str, Any]:
         "source_fingerprint": review_selection.get("source_fingerprint"),
         "selected_count": review_selection.get("selected_count"),
         "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+        "selected_review_evidence": list(review_selection.get("selected_review_evidence", [])),
         "validation_valid": review_selection.get("validation", {}).get("valid")
         if isinstance(review_selection.get("validation"), dict)
         else None,
@@ -647,6 +648,7 @@ def execute_privacy_cleanup(
             "reason": reason,
             "error": error,
             "executed": executed,
+            "review_evidence": item.get("review_evidence") if isinstance(item.get("review_evidence"), dict) else None,
         }
         results.append(result)
         operation_log_entries.append(
@@ -668,6 +670,9 @@ def execute_privacy_cleanup(
                 "ai": {
                     "schema": "cleanmac.operation-log-ai-audit.v1",
                     "review_selection": review_audit,
+                    "candidate_review_evidence": item.get("review_evidence")
+                    if isinstance(item.get("review_evidence"), dict)
+                    else None,
                 },
             }
         )

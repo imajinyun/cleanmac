@@ -1912,10 +1912,20 @@ def review_selection_constraints(plan_file: str | None, selection_file: str | No
         reasons = ", ".join(str(reason) for reason in validation["blocked_reasons"])
         raise SystemExit(f"Review selection is invalid for this plan: {reasons}")
     selected_ids = {str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None}
+    normalized_items = normalize_review_items(source_payload)
     selected_paths = [
         str(item["path"])
-        for item in normalize_review_items(source_payload)
+        for item in normalized_items
         if str(item.get("id")) in selected_ids and item.get("path")
+    ]
+    selected_evidence = [
+        {
+            "id": str(item.get("id")),
+            "path": item.get("path"),
+            "review_evidence": dict(item["review_evidence"]),
+        }
+        for item in normalized_items
+        if str(item.get("id")) in selected_ids and isinstance(item.get("review_evidence"), dict)
     ]
     return {
         "schema": "cleanmac.review-selection-constraint.v1",
@@ -1924,6 +1934,7 @@ def review_selection_constraints(plan_file: str | None, selection_file: str | No
         "source_fingerprint": validation["source_fingerprint"],
         "selected_item_ids": [str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None],
         "selected_paths": selected_paths,
+        "selected_review_evidence": selected_evidence,
         "selected_count": len(selected_paths),
         "validation": validation,
     }
@@ -5796,7 +5807,12 @@ def operation_log_entry(
         "error": row.get("error"),
         "root": display_path(root),
         "home": display_path(home),
-        "ai": dict(ai_operation_audit),
+        "ai": {
+            **dict(ai_operation_audit),
+            "candidate_review_evidence": row.get("review_evidence")
+            if isinstance(row.get("review_evidence"), dict)
+            else None,
+        },
     }
 
 
@@ -5810,6 +5826,7 @@ def review_selection_audit(review_selection: dict[str, Any] | None) -> dict[str,
         "source_fingerprint": review_selection.get("source_fingerprint"),
         "selected_count": review_selection.get("selected_count"),
         "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+        "selected_review_evidence": list(review_selection.get("selected_review_evidence", [])),
         "validation_valid": review_selection.get("validation", {}).get("valid")
         if isinstance(review_selection.get("validation"), dict)
         else None,
@@ -5890,6 +5907,27 @@ def clean(
             display_entry = display_path(entry)
             if review_selected_paths is not None and display_entry not in review_selected_paths:
                 skipped_item = skipped_row(target.category, target.path, entry, "not-in-review-selection")
+                skipped_item["review_evidence"] = {
+                    "schema": "cleanmac.candidate-review-evidence.v1",
+                    "matched_rule": f"clean.{target.category}.candidate",
+                    "match_reason": target.category,
+                    "confidence": "medium",
+                    "risk": category.risk,
+                    "risk_reason": category.description,
+                    "risk_explanation": category.description,
+                    "default_selected": not category.requires_privilege,
+                    "why_not_default": None
+                    if not category.requires_privilege
+                    else "privileged category requires explicit review before execution",
+                    "protected": False,
+                    "delete_mode": delete_mode,
+                    "recovery": "Execution is gated and Trash-first when this candidate is executable.",
+                    "contains_user_data": category.full_disk_access or category.risk in {"high", "critical"},
+                    "shared_container": target.category == "groupContainerCaches",
+                    "recommended_next_action": "review-default-selection-before-trash-execution"
+                    if not category.requires_privilege
+                    else "manual-review-required",
+                }
                 skipped.append(skipped_item)
                 continue
             size = path_size_bytes(entry)
@@ -5897,6 +5935,7 @@ def clean(
                 skipped_item = skipped_row(target.category, target.path, entry, "below-min-size")
                 skipped.append(skipped_item)
                 continue
+            default_selected = not category.requires_privilege
             rows.append(
                 {
                     "category": target.category,
@@ -5909,6 +5948,30 @@ def clean(
                     "delete_mode": delete_mode,
                     "trash_path": None,
                     "deleted": False,
+                    "risk": category.risk,
+                    "default_selected": default_selected,
+                    "protected": False,
+                    "review_evidence": {
+                        "schema": "cleanmac.candidate-review-evidence.v1",
+                        "matched_rule": f"clean.{target.category}.candidate",
+                        "match_reason": target.category,
+                        "confidence": "medium",
+                        "risk": category.risk,
+                        "risk_reason": category.description,
+                        "risk_explanation": category.description,
+                        "default_selected": default_selected,
+                        "why_not_default": None
+                        if default_selected
+                        else "privileged category requires explicit review before execution",
+                        "protected": False,
+                        "delete_mode": delete_mode,
+                        "recovery": "Execution is gated and Trash-first when this candidate is executable.",
+                        "contains_user_data": category.full_disk_access or category.risk in {"high", "critical"},
+                        "shared_container": target.category == "groupContainerCaches",
+                        "recommended_next_action": "review-default-selection-before-trash-execution"
+                        if default_selected
+                        else "manual-review-required",
+                    },
                 }
             )
     candidate_bytes = sum(row_bytes(row) for row in rows)
@@ -6002,7 +6065,12 @@ def clean(
                     "reason": item["reason"],
                     "root": display_path(root),
                     "home": display_path(home),
-                    "ai": dict(ai_operation_audit),
+                    "ai": {
+                        **dict(ai_operation_audit),
+                        "candidate_review_evidence": item.get("review_evidence")
+                        if isinstance(item.get("review_evidence"), dict)
+                        else None,
+                    },
                 }
             )
     if execute and fail_on_skipped and skipped:
@@ -6023,7 +6091,11 @@ def clean(
         confirmation_token_validated = True
     ai_operation_audit["confirmation_token_validated"] = confirmation_token_validated
     for log_entry in operation_log_entries:
-        log_entry["ai"] = dict(ai_operation_audit)
+        existing_ai = log_entry.get("ai") if isinstance(log_entry.get("ai"), dict) else {}
+        log_entry["ai"] = {
+            **dict(ai_operation_audit),
+            "candidate_review_evidence": existing_ai.get("candidate_review_evidence"),
+        }
     operation_log_status = {
         "schema": "cleanmac.operation-log-status.v1",
         "status": "disabled" if not operation_log else "not-needed",

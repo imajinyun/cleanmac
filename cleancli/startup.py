@@ -385,6 +385,7 @@ def disable_startup_items(
             "executed": bool(execute and status in {"disabled", "already-disabled"}),
             "backup_path": backup_path,
             "backup_sha256": backup_sha256,
+            "review_evidence": item.get("review_evidence") if isinstance(item.get("review_evidence"), dict) else None,
         }
         results.append(result)
         operation_log_entries.append(
@@ -413,10 +414,14 @@ def disable_startup_items(
                         "source_fingerprint": review_selection.get("source_fingerprint"),
                         "selected_count": review_selection.get("selected_count"),
                         "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+                        "selected_review_evidence": list(review_selection.get("selected_review_evidence", [])),
                         "validation_valid": review_selection.get("validation", {}).get("valid")
                         if isinstance(review_selection.get("validation"), dict)
                         else None,
                     },
+                    "candidate_review_evidence": item.get("review_evidence")
+                    if isinstance(item.get("review_evidence"), dict)
+                    else None,
                 },
             }
         )

@@ -2590,9 +2590,11 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(dry_run_report["dry_run"])
             self.assertEqual(dry_run_report["planned_count"], 2)
             self.assertGreaterEqual(dry_run_report["skipped_count"], 1)
+            self.assertEqual(len(dry_run_report["review_selection"]["selected_review_evidence"]), 2)
             planned_result = next(item for item in dry_run_report["results"] if item["status"] == "planned")
             self.assertTrue(planned_result["finder_url"].startswith("file://"))
             self.assertEqual(planned_result["reveal_command"][:2], ["open", "-R"])
+            self.assertEqual(planned_result["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
             self.assertTrue((root / "Applications/Example.app").exists())
             self.assertTrue(cache_path.exists())
             self.assertTrue(app_support.exists())
@@ -2629,6 +2631,10 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(app_support.exists())
             self.assertTrue(all(item["delete_mode"] == "trash" for item in execute_report["results"]))
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {2})
+            self.assertEqual({len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {2})
+            self.assertTrue(
+                all(record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1" for record in records)
+            )
             self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
             self.assertTrue(any(record.get("trash_path") for record in records if record["status"] == "deleted"))
             self.assertTrue(validate_contract_payload("cleanmac.software-uninstall-result.v1", execute_report)["valid"])
@@ -3269,6 +3275,12 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertNotIn("Disabled", plistlib.loads(daemon_plist.read_bytes()))
             self.assertEqual(len(records), 2)
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
+            self.assertEqual({len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {1})
+            self.assertTrue(
+                all(record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1" for record in records)
+            )
+            disabled_result = next(item for item in report["results"] if item["status"] == "disabled")
+            self.assertEqual(disabled_result["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
             self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
 
     def test_startup_disable_creates_backup_before_plist_write(self) -> None:
@@ -3458,13 +3470,25 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(dry_run_report["dry_run"])
             self.assertEqual(dry_run_report["planned_count"], 1)
             self.assertGreaterEqual(dry_run_report["skipped_count"], 1)
+            self.assertEqual(len(dry_run_report["review_selection"]["selected_review_evidence"]), 1)
             self.assertTrue(validate_contract_payload("cleanmac.privacy-execute-result.v1", dry_run_report)["valid"])
             self.assertEqual(dry_run_report["delete_mode"], "trash")
             self.assertEqual({item["delete_mode"] for item in dry_run_report["results"]}, {"trash"})
+            planned_privacy = next(item for item in dry_run_report["results"] if item["status"] == "planned")
+            self.assertEqual(planned_privacy["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
             self.assertTrue(Path(selected_path).exists())
             self.assertTrue(all(Path(path).exists() for path in skipped_paths[:2]))
             dry_run_records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in dry_run_records}, {1})
+            self.assertEqual(
+                {len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in dry_run_records}, {1}
+            )
+            self.assertTrue(
+                all(
+                    record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+                    for record in dry_run_records
+                )
+            )
             self.assertIn("not-in-review-selection", {record.get("reason") for record in dry_run_records})
             self.assertEqual({record["delete_mode"] for record in dry_run_records}, {"trash"})
 
@@ -3494,6 +3518,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertGreaterEqual(execute_report["skipped_count"], 1)
             deleted_result = next(item for item in execute_report["results"] if item["status"] == "deleted")
             self.assertEqual(deleted_result["delete_mode"], "trash")
+            self.assertEqual(deleted_result["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
             self.assertTrue(deleted_result["trash_path"])
             self.assertTrue(Path(deleted_result["trash_path"]).exists())
             self.assertFalse(Path(selected_path).exists())
@@ -4683,8 +4708,10 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["schema"], "cleanmac.clean.v1")
             self.assertFalse(report["destructive"])
             self.assertEqual(report["review_selection"]["selected_count"], 1)
+            self.assertEqual(len(report["review_selection"]["selected_review_evidence"]), 1)
             self.assertTrue(report["safety_gate"]["review_selection_applied"])
             self.assertEqual([item["category"] for item in report["items"]], ["trash"])
+            self.assertEqual(report["items"][0]["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
             self.assertEqual(report["skipped_summary"]["by_reason"]["not-in-review-selection"], 2)
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 
@@ -4781,7 +4808,11 @@ class CleanMacCLITests(unittest.TestCase):
                 {record["ai"]["review_selection"]["selection_file"] for record in records}, {str(selection_file)}
             )
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
+            self.assertEqual({len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {1})
             self.assertEqual({record["ai"]["review_selection"]["validation_valid"] for record in records}, {True})
+            self.assertTrue(
+                all(record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1" for record in records)
+            )
             self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
 
