@@ -5436,7 +5436,7 @@ def render_operation_log_explainability_contract() -> dict[str, Any]:
             ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
         ]
     sample_entry = sample_operation_log_entry()
-    payload = {
+    payload: dict[str, Any] = {
         "schema": OPERATION_LOG_EXPLAINABILITY_SCHEMA,
         "destructive": False,
         "dry_run": True,
@@ -5480,7 +5480,9 @@ def render_operation_log_explainability_contract() -> dict[str, Any]:
     validation = validate_operation_log_explainability(payload)
     payload["validation"] = validation
     payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
-    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    readiness_score = payload["readiness_score"]
+    if isinstance(readiness_score, dict):
+        readiness_score["level"] = "ready" if payload["ready"] else "blocked"
     return payload
 
 
@@ -5600,7 +5602,7 @@ def render_dependency_governance_contract() -> dict[str, Any]:
             ["make", "dependency-audit-smoke"],
             ["python3", "scripts/security_scan.py"],
         ]
-    payload = {
+    payload: dict[str, Any] = {
         "schema": DEPENDENCY_GOVERNANCE_SCHEMA,
         "destructive": False,
         "dry_run": True,
@@ -5643,7 +5645,9 @@ def render_dependency_governance_contract() -> dict[str, Any]:
     validation = validate_dependency_governance(payload)
     payload["validation"] = validation
     payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
-    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    readiness_score = payload["readiness_score"]
+    if isinstance(readiness_score, dict):
+        readiness_score["level"] = "ready" if payload["ready"] else "blocked"
     return payload
 
 
@@ -5702,7 +5706,7 @@ def render_cold_start_budget_contract() -> dict[str, Any]:
             ["cleanmac", "--json", "cold-start-budget"],
             ["make", "ai-host-smoke"],
         ]
-    payload = {
+    payload: dict[str, Any] = {
         "schema": COLD_START_BUDGET_SCHEMA,
         "destructive": False,
         "dry_run": True,
@@ -5748,7 +5752,9 @@ def render_cold_start_budget_contract() -> dict[str, Any]:
     validation = validate_cold_start_budget(payload)
     payload["validation"] = validation
     payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
-    payload["readiness_score"]["level"] = "ready" if payload["ready"] else "blocked"
+    readiness_score = payload["readiness_score"]
+    if isinstance(readiness_score, dict):
+        readiness_score["level"] = "ready" if payload["ready"] else "blocked"
     return payload
 
 
@@ -6095,7 +6101,8 @@ def clean(
         confirmation_token_validated = True
     ai_operation_audit["confirmation_token_validated"] = confirmation_token_validated
     for log_entry in operation_log_entries:
-        existing_ai = log_entry.get("ai") if isinstance(log_entry.get("ai"), dict) else {}
+        raw_existing_ai = log_entry.get("ai")
+        existing_ai: dict[str, Any] = raw_existing_ai if isinstance(raw_existing_ai, dict) else {}
         log_entry["ai"] = {
             **dict(ai_operation_audit),
             "candidate_review_evidence": existing_ai.get("candidate_review_evidence"),
@@ -7310,6 +7317,8 @@ def workflow_automation_playbook(
             "environment": {
                 "requires_virtualenv": True,
                 "workflow_python_env": "PYTHON=.venv/bin/python",
+                "tooling_must_run_in_virtualenv": ["ruff", "mypy", "pytest", "coverage"],
+                "docker_fallback": "Run make docker-test or make no-cache-docker-test when host validation is ambiguous or release behavior needs a clean Linux container.",
             },
             "required_commands": [
                 "make quality-check",
@@ -7478,7 +7487,8 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
         if not condition:
             violations.append({"code": code, "path": path})
 
-    steps = payload.get("steps") if isinstance(payload.get("steps"), list) else []
+    raw_steps = payload.get("steps")
+    steps: list[Any] = raw_steps if isinstance(raw_steps, list) else []
     step_ids = [str(step.get("id")) for step in steps if isinstance(step, Mapping)]
     steps_by_id = {str(step.get("id")): step for step in steps if isinstance(step, Mapping)}
     execute_step = steps_by_id.get("execute_after_human_confirmation", {})

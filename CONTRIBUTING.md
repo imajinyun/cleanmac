@@ -12,7 +12,9 @@ python3 -m pip install -e '.[dev,build]'
 
 ## Local validation
 
-Before opening a pull request, run the fast checks:
+Before opening a pull request, run the fast checks. Validation must use virtualenv-backed tools: do not run global
+`mypy`, `pytest`, or `ruff` directly. The Makefile targets create temporary venvs or use `.venv/bin/python` with the
+required extras installed.
 
 ```bash
 make quality-check
@@ -32,7 +34,9 @@ For release-oriented changes, run the full gate when Docker is available:
 make release-check
 ```
 
-If Docker is not available locally, include that limitation in the pull request and make sure CI runs the Docker validation job.
+If host validation is ambiguous or release/runtime behavior may differ in a clean Linux environment, run `make docker-test`
+or `make no-cache-docker-test`. If Docker is not available locally, include that limitation in the pull request and make
+sure CI runs the Docker validation job.
 
 ## Safety expectations
 

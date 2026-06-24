@@ -139,7 +139,8 @@ def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         path = str(item.get("path") or item.get("argv") or f"item-{index}")
         stable = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
-        existing_review_evidence = item.get("review_evidence") if isinstance(item.get("review_evidence"), dict) else {}
+        raw_review_evidence = item.get("review_evidence")
+        existing_review_evidence: dict[str, Any] = raw_review_evidence if isinstance(raw_review_evidence, dict) else {}
         risk = str(item.get("risk") or item.get("privacy_risk", "unknown"))
         default_selected = bool(item.get("default_selected", item.get("status") != "failed"))
         protected = bool(item.get("protected"))

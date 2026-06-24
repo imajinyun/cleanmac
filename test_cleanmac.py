@@ -677,6 +677,11 @@ class CleanMacCLITests(unittest.TestCase):
             boundaries["verification"]["python_test_environment"]["workflow_python_env"],
             "PYTHON=.venv/bin/python",
         )
+        self.assertEqual(
+            boundaries["verification"]["python_test_environment"]["tooling_must_run_in_virtualenv"],
+            ["ruff", "mypy", "pytest", "coverage"],
+        )
+        self.assertIn("make docker-test", boundaries["verification"]["python_test_environment"]["docker_fallback"])
         governance_integrity = report["governance_integrity"]
         self.assertEqual(governance_integrity["schema"], "cleanmac.governance-integrity.v1")
         self.assertTrue(governance_integrity["ready"], governance_integrity)
@@ -6225,6 +6230,11 @@ class CleanMacCLITests(unittest.TestCase):
                 automation["test_acceptance"]["environment"]["workflow_python_env"],
                 "PYTHON=.venv/bin/python",
             )
+            self.assertEqual(
+                automation["test_acceptance"]["environment"]["tooling_must_run_in_virtualenv"],
+                ["ruff", "mypy", "pytest", "coverage"],
+            )
+            self.assertIn("make docker-test", automation["test_acceptance"]["environment"]["docker_fallback"])
             self.assertIn(
                 "clean --execute",
                 automation["agent_contract"]["forbidden_command_patterns"],
@@ -6430,6 +6440,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("PYTHON=$(PYTHON) ./scripts/test.sh", makefile)
         self.assertIn("pytest-parity-test:", makefile)
         self.assertIn("pytest-governance-smoke:", makefile)
+        self.assertIn("pytest-governance-smoke: pytest-no-unittest-regression-smoke", makefile)
+        self.assertIn("pytest-no-unittest-regression-smoke:", makefile)
+        self.assertIn("pytest-ai-host-smoke:", makefile)
         self.assertIn("pytest-test:", makefile)
         self.assertIn("pytest-test: pytest-parity-test", makefile)
         self.assertIn('$(PYTHON) -m venv "$$tmpdir/venv"', makefile)
@@ -6437,17 +6450,25 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
         self.assertIn("CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1", makefile)
         self.assertIn(
-            "PYTEST_SAFE_TARGETS := tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py",
+            "PYTEST_SAFE_TARGETS := tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py "
+            "tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_ops.py tests/test_security_scan.py",
             makefile,
         )
         self.assertIn(
-            "PYTEST_AI_ROBUSTNESS_TARGETS := tests/test_ai_versioning.py tests/test_mcp_protocol.py tests/test_ai_concurrency.py tests/test_ai_idempotency.py tests/test_ai_eval.py::AITracePersistenceTests",
+            "PYTEST_AI_ROBUSTNESS_TARGETS := tests/test_ai_versioning.py tests/test_mcp_protocol.py tests/test_ai_concurrency.py tests/test_ai_policy.py tests/test_ai_host_integration.py",
             makefile,
         )
+        self.assertIn(
+            "PYTEST_AI_HOST_TARGETS := tests/test_ai_runbook.py tests/test_ai_host_policy.py tests/test_ai_self_test.py tests/test_ai_decision_matrix.py tests/test_ai_governance.py "
+            "tests/test_ai_host_evidence.py tests/test_ai_readiness.py tests/test_ai_host_scenarios.py tests/test_ai_eval.py tests/test_mcp_server.py",
+            makefile,
+        )
+        self.assertIn("tests/test_ai_trace_persistence.py", makefile)
         self.assertIn(
             '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_SAFE_TARGETS) -q',
             makefile,
         )
+        self.assertIn('"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_HOST_TARGETS) -q', makefile)
         self.assertIn('"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_ROBUSTNESS_TARGETS) -q', makefile)
         self.assertIn("assert targets == expected, targets", makefile)
         self.assertIn("assert robustness_targets ==", makefile)
@@ -6455,6 +6476,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('old_robustness="python -m unittest " + "tests.test_ai_versioning"', makefile)
         self.assertIn("assert old_all not in text", makefile)
         self.assertIn("assert old_robustness not in text", makefile)
+        self.assertIn('forbidden=("import unittest", "unittest.TestCase", "unittest.main", "self.assert")', makefile)
+        self.assertIn('Path("tests/test_mcp_server.py").read_text', makefile)
         self.assertIn("build-check:", makefile)
         self.assertIn("package-smoke:", makefile)
         self.assertIn("script-smoke:", makefile)
@@ -6494,6 +6517,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('run("ai-eval-run", "--scenario", "contract_samples_roundtrip")', makefile)
         self.assertIn("open-source-smoke:", makefile)
         self.assertIn("ai-host-smoke:", makefile)
+        self.assertIn("$(MAKE) pytest-ai-host-smoke", makefile)
         self.assertIn("ai-robustness-smoke:", makefile)
         self.assertIn("distribution-smoke:", makefile)
         self.assertIn("homebrew-formula-smoke:", makefile)
@@ -6526,6 +6550,8 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("DOCKER_RUN_FLAGS ?=", makefile)
         self.assertIn('-v "$(SANDBOX_MOUNT):/work:ro"', makefile)
         self.assertIn("$(DOCKER_RUN_FLAGS)", makefile)
+        self.assertIn('/tmp/cleanmac-venv/bin/python -m pip install -e ".[test]"', makefile)
+        self.assertIn("PYTHONDONTWRITEBYTECODE=1 /tmp/cleanmac-venv/bin/python -m unittest -v", makefile)
         self.assertIn('DOCKER_RUN_FLAGS="--pull=always" $(MAKE) docker-test', makefile)
         self.assertNotIn("$(PYTHON) -m ruff format --check .", makefile)
         self.assertNotIn("$(PYTHON) -m ruff check .", makefile)
@@ -6535,14 +6561,20 @@ class CleanMacCLITests(unittest.TestCase):
             'RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff format --check .', makefile
         )
         self.assertIn('RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff check .', makefile)
-        self.assertIn("$(PYTHON) -m mypy", makefile)
-        self.assertIn("$(PYTHON) -m coverage run -m unittest -v", makefile)
+        self.assertNotIn("$(PYTHON) -m mypy", makefile)
+        self.assertNotIn("$(PYTHON) -m coverage run -m unittest -v", makefile)
+        self.assertIn("\"$$tmpdir/venv/bin/python\" -m pip install -e '.[dev]'", makefile)
+        self.assertIn('"$$tmpdir/venv/bin/python" -m mypy cleanmac.py cleancli test_cleanmac.py tests', makefile)
+        self.assertIn("\"$$tmpdir/venv/bin/python\" -m pip install -e '.[test]'", makefile)
+        self.assertIn('"$$tmpdir/venv/bin/python" -m coverage run -m unittest -v', makefile)
         self.assertIn("PIP_NO_CACHE_DIR=1", makefile)
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
         self.assertIn('--cache-dir "$$mypy_cache"', makefile)
         self.assertIn("/tmp/cleanmac-mypy-cache-$$$$", makefile)
         self.assertIn('coverage run --data-file "$$coverage_dir/.coverage"', makefile)
         self.assertIn('"$$venv_python" -m pytest $(PYTEST_SAFE_TARGETS) -q -p no:cacheprovider', makefile)
+        self.assertIn("tests/test_ai_eval.py tests/test_mcp_server.py", makefile)
+        self.assertNotIn("$(PYTHON) -m unittest tests.test_ai_eval tests.test_mcp_server", makefile)
         self.assertIn("pip install --no-cache-dir", makefile)
         self.assertIn("[ ! -e .pytest_cache ] || /bin/rm -R .pytest_cache", makefile)
         self.assertIn("./scripts/test.sh", makefile)
@@ -6875,10 +6907,14 @@ class CleanMacCLITests(unittest.TestCase):
             "\"$tmpdir/venv/bin/python\" -m pip install 'ruff>=0.8'",
             'RUFF_CACHE_DIR="$tmpdir/ruff-cache" "$tmpdir/venv/bin/python" -m ruff format --check .',
             'RUFF_CACHE_DIR="$tmpdir/ruff-cache" "$tmpdir/venv/bin/python" -m ruff check .',
-            "python3 -m mypy",
-            "python3 -m coverage run -m unittest -v",
+            "\"$tmpdir/venv/bin/python\" -m pip install -e '.[dev]'",
+            '"$tmpdir/venv/bin/python" -m mypy cleanmac.py cleancli test_cleanmac.py tests',
+            "\"$tmpdir/venv/bin/python\" -m pip install -e '.[test]'",
+            '"$tmpdir/venv/bin/python" -m coverage run -m unittest -v',
             "PYTHON=python3 ./scripts/test.sh",
-            '"$tmpdir/venv/bin/python" -m pytest tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py -q',
+            '"$tmpdir/venv/bin/python" -m pytest tests/test_release_readiness.py tests/test_release_orchestration.py '
+            "tests/test_release_artifacts.py tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_ops.py "
+            "tests/test_security_scan.py -q",
             "python3 -m build --wheel --sdist --outdir",
             "python3 -m twine check",
             "-m pip install -e .",
@@ -6985,7 +7021,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn('PYTEST_ADDOPTS="-p no:cacheprovider"', makefile)
         fail_under_line = next(line for line in pyproject.splitlines() if line.startswith("fail_under = "))
         self.assertGreaterEqual(int(fail_under_line.split("=", 1)[1].strip()), 55)
-        self.assertIn("actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # pinned from actions/cache@v4.2.3", ci)
+        self.assertIn("actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # pinned from actions/cache@v6.0.0", ci)
 
     def test_release_workflow_generates_checksums_attestation_and_pypi_publish(self) -> None:
         release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
@@ -7017,7 +7053,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("needs: build", release)
         self.assertIn("needs: verify-release-artifacts", release)
         self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", release)
-        self.assertIn("actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131", release)
+        self.assertIn(
+            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c "
+            "# pinned from actions/download-artifact@v8.0.1",
+            release,
+        )
         self.assertIn("name: cleanmac-dist", release)
         self.assertIn("name: cleanmac-release-assets", release)
         self.assertIn("Verify wheel install and release checksums", release)
@@ -7025,8 +7065,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("Run real macOS smoke against release candidate", release)
         self.assertIn("make real-macos-smoke", release)
         self.assertIn("Verify governed release promotion decision", release)
-        self.assertIn("actions/attest-build-provenance@v2", release)
-        self.assertIn("actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be", release)
+        self.assertIn(
+            "actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 "
+            "# pinned from actions/attest-build-provenance@v4.1.0",
+            release,
+        )
         self.assertIn("pypa/gh-action-pypi-publish@release/v1", release)
         self.assertIn("pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b", release)
         self.assertIn("PYTHON: .venv/bin/python", release)
