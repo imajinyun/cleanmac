@@ -128,13 +128,13 @@ jobs:
           python-version: "3.12"
 
       - name: Download built distributions
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pinned from actions/download-artifact@v8.0.1
         with:
           name: cleanmac-dist
           path: dist
 
       - name: Download release metadata
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pinned from actions/download-artifact@v8.0.1
         with:
           name: cleanmac-release-assets
           path: release-assets
@@ -227,13 +227,13 @@ jobs:
     environment: release
     steps:
       - name: Download built distributions
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pinned from actions/download-artifact@v8.0.1
         with:
           name: cleanmac-dist
           path: dist
 
       - name: Download release metadata
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # pinned from actions/download-artifact@v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pinned from actions/download-artifact@v8.0.1
         with:
           name: cleanmac-release-assets
           path: release-assets
