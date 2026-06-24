@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cleanmac"
+  short_description: "Repo-specific patterns and workflows for cleanmac"
+  default_prompt: "Use the cleanmac repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
