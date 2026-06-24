@@ -4,7 +4,6 @@ import json
 import re
 import subprocess
 import sys
-import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -14,7 +13,7 @@ CLEANCLI_DIR = PROJECT_ROOT / "cleancli"
 SCHEMA_PATTERN = re.compile(r'"schema"\s*:\s*"(cleanmac\.[a-zA-Z0-9._-]+\.v\d+)"')
 
 
-class AISchemaRegistryTests(unittest.TestCase):
+class TestAISchemaRegistry:
     def test_registry_command_emits_schema_inventory(self) -> None:
         result = subprocess.run(
             [sys.executable, str(CLI), "--json", "ai-schema-registry"],
@@ -24,35 +23,35 @@ class AISchemaRegistryTests(unittest.TestCase):
         )
         report = json.loads(result.stdout)
 
-        self.assertEqual(report["schema"], "cleanmac.ai-schema-registry.v1")
-        self.assertGreaterEqual(report["entry_count"], 15)
+        assert report["schema"] == "cleanmac.ai-schema-registry.v1"
+        assert report["entry_count"] >= 15
         names = {entry["name"] for entry in report["entries"]}
-        self.assertIn("cleanmac.ai-readiness.v1", names)
-        self.assertIn("cleanmac.ai-runbook.v1", names)
-        self.assertIn("cleanmac.ai-tool-decision-matrix.v1", names)
-        self.assertIn("cleanmac.ai-eval-run.v1", names)
-        self.assertIn("cleanmac.release-readiness.v1", names)
-        self.assertIn("cleanmac.geo-discoverability-policy.v1", names)
-        self.assertIn("cleanmac.governance-integrity.v1", names)
-        self.assertIn("cleanmac.zero-resident.v1", names)
-        self.assertIn("cleanmac.product-surface-drift-audit.v1", names)
-        self.assertIn("cleanmac.no-disturbance.v1", names)
-        self.assertIn("cleanmac.no-disturbance-validation.v1", names)
-        self.assertIn("cleanmac.dependency-governance.v1", names)
-        self.assertIn("cleanmac.dependency-governance-validation.v1", names)
+        assert "cleanmac.ai-readiness.v1" in names
+        assert "cleanmac.ai-runbook.v1" in names
+        assert "cleanmac.ai-tool-decision-matrix.v1" in names
+        assert "cleanmac.ai-eval-run.v1" in names
+        assert "cleanmac.release-readiness.v1" in names
+        assert "cleanmac.geo-discoverability-policy.v1" in names
+        assert "cleanmac.governance-integrity.v1" in names
+        assert "cleanmac.zero-resident.v1" in names
+        assert "cleanmac.product-surface-drift-audit.v1" in names
+        assert "cleanmac.no-disturbance.v1" in names
+        assert "cleanmac.no-disturbance-validation.v1" in names
+        assert "cleanmac.dependency-governance.v1" in names
+        assert "cleanmac.dependency-governance-validation.v1" in names
         for entry in report["entries"]:
-            self.assertIn("name", entry)
-            self.assertIn("version", entry)
-            self.assertIn("module", entry)
-            self.assertIn("stability", entry)
-            self.assertIn("kind", entry)
-            self.assertIn("producer", entry)
-            self.assertIn("consumers", entry)
-            self.assertIn("latest", entry)
-            self.assertIn("deprecated", entry)
-            self.assertIn("replaced_by", entry)
-            self.assertIn("compatibility", entry)
-            self.assertIn("breaking_change_policy", entry["compatibility"])
+            assert "name" in entry
+            assert "version" in entry
+            assert "module" in entry
+            assert "stability" in entry
+            assert "kind" in entry
+            assert "producer" in entry
+            assert "consumers" in entry
+            assert "latest" in entry
+            assert "deprecated" in entry
+            assert "replaced_by" in entry
+            assert "compatibility" in entry
+            assert "breaking_change_policy" in entry["compatibility"]
 
     def test_registry_covers_every_v1_schema_emitted_by_codebase(self) -> None:
         from cleancli import ai_versioning
@@ -67,7 +66,7 @@ class AISchemaRegistryTests(unittest.TestCase):
 
         registered = {entry["name"] for entry in ai_versioning.render_ai_schema_registry()["entries"]}
         missing = sorted(emitted - registered)
-        self.assertEqual(missing, [], f"Schemas missing from registry: {missing}")
+        assert missing == [], f"Schemas missing from registry: {missing}"
 
     def test_registry_metadata_is_deterministic_and_documents_compatibility_policy(self) -> None:
         from cleancli import ai_versioning
@@ -75,184 +74,193 @@ class AISchemaRegistryTests(unittest.TestCase):
         first = ai_versioning.render_ai_schema_registry()
         second = ai_versioning.render_ai_schema_registry()
 
-        self.assertEqual(first, second)
-        self.assertEqual(first["entry_count"], len(first["entries"]))
-        self.assertGreaterEqual(first["stable_schema_count"], 20)
-        self.assertEqual(first["deprecated_schema_count"], 0)
-        self.assertEqual(first["latest_plan_schema"], "cleanmac.plan.v1")
-        self.assertEqual(first["supported_plan_schemas"][0], "cleanmac.plan.v1")
-        self.assertIn("cleanmac.clean.v1", first["supported_plan_schemas"])
-        self.assertIn("cleanmac.clean-plan.v1", first["supported_plan_schemas"])
-        self.assertIn("Breaking changes require a new vN suffix", first["compatibility_policy"]["stable"])
-        self.assertIn("subject to change", first["compatibility_policy"]["internal"])
-        self.assertEqual({entry["version"] for entry in first["entries"]}, {1})
+        assert first == second
+        assert first["entry_count"] == len(first["entries"])
+        assert first["stable_schema_count"] >= 20
+        assert first["deprecated_schema_count"] == 0
+        assert first["latest_plan_schema"] == "cleanmac.plan.v1"
+        assert first["supported_plan_schemas"][0] == "cleanmac.plan.v1"
+        assert "cleanmac.clean.v1" in first["supported_plan_schemas"]
+        assert "cleanmac.clean-plan.v1" in first["supported_plan_schemas"]
+        assert "Breaking changes require a new vN suffix" in first["compatibility_policy"]["stable"]
+        assert "subject to change" in first["compatibility_policy"]["internal"]
+        assert {entry["version"] for entry in first["entries"]} == {1}
         entries = {entry["name"]: entry for entry in first["entries"]}
-        self.assertTrue(entries["cleanmac.plan.v1"]["latest"])
-        self.assertFalse(entries["cleanmac.clean.v1"]["latest"])
-        self.assertFalse(entries["cleanmac.clean-plan.v1"]["latest"])
-        self.assertEqual(entries["cleanmac.plan.v1"]["producer"], "clean plan")
-        self.assertIn("validate-plan", entries["cleanmac.plan.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.geo-discoverability-policy.v1"]["owner_area"], "execution")
-        self.assertEqual(entries["cleanmac.governance-integrity.v1"]["module"], "cleancli.governance")
-        self.assertEqual(
-            entries["cleanmac.governance-integrity.v1"]["producer_command"],
-            ["cleanmac", "--json", "governance-integrity"],
-        )
-        self.assertEqual(
-            entries["cleanmac.zero-resident.v1"]["producer_command"],
-            ["cleanmac", "--json", "zero-resident"],
-        )
-        self.assertEqual(
-            entries["cleanmac.product-surface-drift-audit.v1"]["producer_command"],
-            ["cleanmac", "--json", "product-surface-drift-audit"],
-        )
-        self.assertEqual(
-            entries["cleanmac.dependency-governance.v1"]["producer_command"],
-            ["cleanmac", "--json", "dependency-governance"],
-        )
-        self.assertEqual(
-            entries["cleanmac.no-disturbance.v1"]["producer_command"],
-            ["cleanmac", "--json", "no-disturbance"],
-        )
-        self.assertEqual(entries["cleanmac.no-disturbance.v1"]["owner_area"], "ai-host")
-        self.assertTrue(entries["cleanmac.no-disturbance.v1"]["release_critical"])
-        self.assertEqual(entries["cleanmac.dependency-governance.v1"]["owner_area"], "release")
-        self.assertTrue(entries["cleanmac.dependency-governance.v1"]["release_critical"])
-        self.assertEqual(entries["cleanmac.development-governance-todo.v1"]["module"], "cleancli.governance")
-        self.assertEqual(
-            entries["cleanmac.development-governance-todo.v1"]["producer_command"],
-            ["cleanmac", "--json", "capabilities"],
-        )
-        self.assertTrue(entries["cleanmac.development-governance-todo.v1"]["release_critical"])
+        assert entries["cleanmac.plan.v1"]["latest"]
+        assert not entries["cleanmac.clean.v1"]["latest"]
+        assert not entries["cleanmac.clean-plan.v1"]["latest"]
+        assert entries["cleanmac.plan.v1"]["producer"] == "clean plan"
+        assert "validate-plan" in entries["cleanmac.plan.v1"]["consumers"]
+        assert entries["cleanmac.geo-discoverability-policy.v1"]["owner_area"] == "execution"
+        assert entries["cleanmac.governance-integrity.v1"]["module"] == "cleancli.governance"
+        assert entries["cleanmac.governance-integrity.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "governance-integrity",
+        ]
+        assert entries["cleanmac.zero-resident.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "zero-resident",
+        ]
+        assert entries["cleanmac.product-surface-drift-audit.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "product-surface-drift-audit",
+        ]
+        assert entries["cleanmac.dependency-governance.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "dependency-governance",
+        ]
+        assert entries["cleanmac.no-disturbance.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "no-disturbance",
+        ]
+        assert entries["cleanmac.no-disturbance.v1"]["owner_area"] == "ai-host"
+        assert entries["cleanmac.no-disturbance.v1"]["release_critical"]
+        assert entries["cleanmac.dependency-governance.v1"]["owner_area"] == "release"
+        assert entries["cleanmac.dependency-governance.v1"]["release_critical"]
+        assert entries["cleanmac.development-governance-todo.v1"]["module"] == "cleancli.governance"
+        assert entries["cleanmac.development-governance-todo.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "capabilities",
+        ]
+        assert entries["cleanmac.development-governance-todo.v1"]["release_critical"]
 
     def test_registry_exposes_core_json_schema_fragments(self) -> None:
         from cleancli import ai_versioning
 
         entries = {entry["name"]: entry for entry in ai_versioning.render_ai_schema_registry()["entries"]}
         for schema_name in ai_versioning.AI_HOST_CRITICAL_SCHEMAS:
-            self.assertIn("json_schema", entries[schema_name], schema_name)
+            assert "json_schema" in entries[schema_name], schema_name
             json_schema = entries[schema_name]["json_schema"]
-            self.assertEqual(json_schema["type"], "object")
-            self.assertIn("schema", json_schema["required"])
-            self.assertEqual(json_schema["properties"]["schema"]["const"], schema_name)
-            self.assertTrue(json_schema["additionalProperties"])
+            assert json_schema["type"] == "object"
+            assert "schema" in json_schema["required"]
+            assert json_schema["properties"]["schema"]["const"] == schema_name
+            assert json_schema["additionalProperties"]
 
         plan_schema = entries["cleanmac.plan.v1"]["json_schema"]
-        self.assertIn("destructive", plan_schema["required"])
-        self.assertIn("dry_run", plan_schema["required"])
-        self.assertEqual(plan_schema["properties"]["destructive"]["const"], False)
-        self.assertEqual(plan_schema["properties"]["dry_run"]["const"], True)
-        self.assertIn("cleanmac.release-artifact-manifest.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.release-artifact-manifest.v1"])
-        self.assertIn("cleanmac.release-readiness.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.release-readiness.v1"])
-        self.assertIn("cleanmac.release-diagnostics.v1", entries)
-        self.assertIn("cleanmac.release-evidence.v1", entries)
-        self.assertIn("cleanmac.release-operator-summary.v1", entries)
-        self.assertIn("cleanmac.release-rehearsal.v1", entries)
-        self.assertIn("cleanmac.release-promotion-decision.v1", entries)
-        self.assertIn("cleanmac.release-rollback-plan.v1", entries)
-        self.assertIn("cleanmac.release-post-publish-verification.v1", entries)
-        self.assertIn("cleanmac.release-post-publish-evidence-input.v1", entries)
-        self.assertIn("cleanmac.release-post-publish-evidence-template.v1", entries)
-        self.assertIn("cleanmac.release-post-publish-result.v1", entries)
-        self.assertIn("cleanmac.mcp-meta-index.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.mcp-meta-index.v1"])
-        self.assertEqual(
-            entries["cleanmac.mcp-meta-index.v1"]["producer_command"], ["read", "cleanmac://mcp/meta-index"]
-        )
-        self.assertIn("mcp", entries["cleanmac.mcp-meta-index.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.mcp-meta-index.v1"]["owner_area"], "mcp")
-        self.assertTrue(entries["cleanmac.mcp-meta-index.v1"]["release_critical"])
-        self.assertIn("cleanmac.mcp-resource-index.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.mcp-resource-index.v1"])
-        self.assertEqual(
-            entries["cleanmac.mcp-resource-index.v1"]["producer_command"], ["read", "cleanmac://mcp/resource-index"]
-        )
-        self.assertIn("mcp", entries["cleanmac.mcp-resource-index.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.mcp-resource-index.v1"]["owner_area"], "mcp")
-        self.assertTrue(entries["cleanmac.mcp-resource-index.v1"]["release_critical"])
-        self.assertIn("cleanmac.mcp-prompt-index.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.mcp-prompt-index.v1"])
-        self.assertEqual(
-            entries["cleanmac.mcp-prompt-index.v1"]["producer_command"], ["read", "cleanmac://mcp/prompt-index"]
-        )
-        self.assertIn("mcp", entries["cleanmac.mcp-prompt-index.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.mcp-prompt-index.v1"]["owner_area"], "mcp")
-        self.assertTrue(entries["cleanmac.mcp-prompt-index.v1"]["release_critical"])
-        self.assertIn("cleanmac.mcp-tool-index.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.mcp-tool-index.v1"])
-        self.assertEqual(
-            entries["cleanmac.mcp-tool-index.v1"]["producer_command"], ["read", "cleanmac://mcp/tool-index"]
-        )
-        self.assertIn("tool-policy", entries["cleanmac.mcp-tool-index.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.mcp-tool-index.v1"]["owner_area"], "mcp")
-        self.assertTrue(entries["cleanmac.mcp-tool-index.v1"]["release_critical"])
-        self.assertIn("cleanmac.mcp-destructive-tool-governance.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.mcp-destructive-tool-governance.v1"])
-        self.assertEqual(
-            entries["cleanmac.mcp-destructive-tool-governance.v1"]["producer_command"],
-            ["read", "cleanmac://mcp/destructive-tool-governance"],
-        )
-        self.assertIn("tool-policy", entries["cleanmac.mcp-destructive-tool-governance.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.mcp-destructive-tool-governance.v1"]["owner_area"], "mcp")
-        self.assertTrue(entries["cleanmac.mcp-destructive-tool-governance.v1"]["release_critical"])
-        self.assertIn("cleanmac.operation-log-explainability.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.operation-log-explainability.v1"])
-        self.assertEqual(
-            entries["cleanmac.operation-log-explainability.v1"]["producer_command"],
-            ["cleanmac", "--json", "operation-log-explainability"],
-        )
-        self.assertIn("ai-host", entries["cleanmac.operation-log-explainability.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.operation-log-explainability.v1"]["owner_area"], "execution")
-        self.assertTrue(entries["cleanmac.operation-log-explainability.v1"]["release_critical"])
-        self.assertIn("cleanmac.cold-start-budget.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.cold-start-budget.v1"])
-        self.assertEqual(
-            entries["cleanmac.cold-start-budget.v1"]["producer_command"],
-            ["cleanmac", "--json", "cold-start-budget"],
-        )
-        self.assertIn("ai-host", entries["cleanmac.cold-start-budget.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.cold-start-budget.v1"]["owner_area"], "ai-host")
-        self.assertTrue(entries["cleanmac.cold-start-budget.v1"]["release_critical"])
-        self.assertIn("cleanmac.dependency-governance.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.dependency-governance.v1"])
-        self.assertEqual(
-            entries["cleanmac.dependency-governance.v1"]["producer_command"],
-            ["cleanmac", "--json", "dependency-governance"],
-        )
-        self.assertIn("ai-host", entries["cleanmac.dependency-governance.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.dependency-governance.v1"]["owner_area"], "release")
-        self.assertTrue(entries["cleanmac.dependency-governance.v1"]["release_critical"])
-        self.assertIn("cleanmac.no-disturbance.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.no-disturbance.v1"])
-        self.assertEqual(
-            entries["cleanmac.no-disturbance.v1"]["producer_command"],
-            ["cleanmac", "--json", "no-disturbance"],
-        )
-        self.assertIn("ai-host", entries["cleanmac.no-disturbance.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.no-disturbance.v1"]["owner_area"], "ai-host")
-        self.assertTrue(entries["cleanmac.no-disturbance.v1"]["release_critical"])
-        self.assertIn("cleanmac.mcp-surface-audit.v1", entries)
-        self.assertIn("json_schema", entries["cleanmac.mcp-surface-audit.v1"])
-        self.assertEqual(
-            entries["cleanmac.mcp-surface-audit.v1"]["producer_command"],
-            ["cleanmac", "--json", "mcp-surface-audit"],
-        )
-        self.assertIn("mcp", entries["cleanmac.mcp-surface-audit.v1"]["consumers"])
-        self.assertEqual(entries["cleanmac.mcp-surface-audit.v1"]["owner_area"], "mcp")
-        self.assertTrue(entries["cleanmac.mcp-surface-audit.v1"]["release_critical"])
-        self.assertIn("json_schema", entries["cleanmac.zero-resident.v1"])
-        self.assertIn("json_schema", entries["cleanmac.product-surface-drift-audit.v1"])
-        self.assertTrue(entries["cleanmac.zero-resident.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.product-surface-drift-audit.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.release-evidence.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.release-promotion-decision.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.release-post-publish-verification.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.release-post-publish-evidence-input.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.release-post-publish-evidence-template.v1"]["release_critical"])
-        self.assertTrue(entries["cleanmac.release-post-publish-result.v1"]["release_critical"])
-        self.assertEqual(entries["cleanmac.release-evidence.v1"]["owner_area"], "release")
+        assert "destructive" in plan_schema["required"]
+        assert "dry_run" in plan_schema["required"]
+        assert plan_schema["properties"]["destructive"]["const"] == False
+        assert plan_schema["properties"]["dry_run"]["const"] == True
+        assert "cleanmac.release-artifact-manifest.v1" in entries
+        assert "json_schema" in entries["cleanmac.release-artifact-manifest.v1"]
+        assert "cleanmac.release-readiness.v1" in entries
+        assert "json_schema" in entries["cleanmac.release-readiness.v1"]
+        assert "cleanmac.release-diagnostics.v1" in entries
+        assert "cleanmac.release-evidence.v1" in entries
+        assert "cleanmac.release-operator-summary.v1" in entries
+        assert "cleanmac.release-rehearsal.v1" in entries
+        assert "cleanmac.release-promotion-decision.v1" in entries
+        assert "cleanmac.release-rollback-plan.v1" in entries
+        assert "cleanmac.release-post-publish-verification.v1" in entries
+        assert "cleanmac.release-post-publish-evidence-input.v1" in entries
+        assert "cleanmac.release-post-publish-evidence-template.v1" in entries
+        assert "cleanmac.release-post-publish-result.v1" in entries
+        assert "cleanmac.mcp-meta-index.v1" in entries
+        assert "json_schema" in entries["cleanmac.mcp-meta-index.v1"]
+        assert entries["cleanmac.mcp-meta-index.v1"]["producer_command"] == ["read", "cleanmac://mcp/meta-index"]
+        assert "mcp" in entries["cleanmac.mcp-meta-index.v1"]["consumers"]
+        assert entries["cleanmac.mcp-meta-index.v1"]["owner_area"] == "mcp"
+        assert entries["cleanmac.mcp-meta-index.v1"]["release_critical"]
+        assert "cleanmac.mcp-resource-index.v1" in entries
+        assert "json_schema" in entries["cleanmac.mcp-resource-index.v1"]
+        assert entries["cleanmac.mcp-resource-index.v1"]["producer_command"] == [
+            "read",
+            "cleanmac://mcp/resource-index",
+        ]
+        assert "mcp" in entries["cleanmac.mcp-resource-index.v1"]["consumers"]
+        assert entries["cleanmac.mcp-resource-index.v1"]["owner_area"] == "mcp"
+        assert entries["cleanmac.mcp-resource-index.v1"]["release_critical"]
+        assert "cleanmac.mcp-prompt-index.v1" in entries
+        assert "json_schema" in entries["cleanmac.mcp-prompt-index.v1"]
+        assert entries["cleanmac.mcp-prompt-index.v1"]["producer_command"] == [
+            "read",
+            "cleanmac://mcp/prompt-index",
+        ]
+        assert "mcp" in entries["cleanmac.mcp-prompt-index.v1"]["consumers"]
+        assert entries["cleanmac.mcp-prompt-index.v1"]["owner_area"] == "mcp"
+        assert entries["cleanmac.mcp-prompt-index.v1"]["release_critical"]
+        assert "cleanmac.mcp-tool-index.v1" in entries
+        assert "json_schema" in entries["cleanmac.mcp-tool-index.v1"]
+        assert entries["cleanmac.mcp-tool-index.v1"]["producer_command"] == ["read", "cleanmac://mcp/tool-index"]
+        assert "tool-policy" in entries["cleanmac.mcp-tool-index.v1"]["consumers"]
+        assert entries["cleanmac.mcp-tool-index.v1"]["owner_area"] == "mcp"
+        assert entries["cleanmac.mcp-tool-index.v1"]["release_critical"]
+        assert "cleanmac.mcp-destructive-tool-governance.v1" in entries
+        assert "json_schema" in entries["cleanmac.mcp-destructive-tool-governance.v1"]
+        assert entries["cleanmac.mcp-destructive-tool-governance.v1"]["producer_command"] == [
+            "read",
+            "cleanmac://mcp/destructive-tool-governance",
+        ]
+        assert "tool-policy" in entries["cleanmac.mcp-destructive-tool-governance.v1"]["consumers"]
+        assert entries["cleanmac.mcp-destructive-tool-governance.v1"]["owner_area"] == "mcp"
+        assert entries["cleanmac.mcp-destructive-tool-governance.v1"]["release_critical"]
+        assert "cleanmac.operation-log-explainability.v1" in entries
+        assert "json_schema" in entries["cleanmac.operation-log-explainability.v1"]
+        assert entries["cleanmac.operation-log-explainability.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "operation-log-explainability",
+        ]
+        assert "ai-host" in entries["cleanmac.operation-log-explainability.v1"]["consumers"]
+        assert entries["cleanmac.operation-log-explainability.v1"]["owner_area"] == "execution"
+        assert entries["cleanmac.operation-log-explainability.v1"]["release_critical"]
+        assert "cleanmac.cold-start-budget.v1" in entries
+        assert "json_schema" in entries["cleanmac.cold-start-budget.v1"]
+        assert entries["cleanmac.cold-start-budget.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "cold-start-budget",
+        ]
+        assert "ai-host" in entries["cleanmac.cold-start-budget.v1"]["consumers"]
+        assert entries["cleanmac.cold-start-budget.v1"]["owner_area"] == "ai-host"
+        assert entries["cleanmac.cold-start-budget.v1"]["release_critical"]
+        assert "cleanmac.dependency-governance.v1" in entries
+        assert "json_schema" in entries["cleanmac.dependency-governance.v1"]
+        assert entries["cleanmac.dependency-governance.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "dependency-governance",
+        ]
+        assert "ai-host" in entries["cleanmac.dependency-governance.v1"]["consumers"]
+        assert entries["cleanmac.dependency-governance.v1"]["owner_area"] == "release"
+        assert entries["cleanmac.dependency-governance.v1"]["release_critical"]
+        assert "cleanmac.no-disturbance.v1" in entries
+        assert "json_schema" in entries["cleanmac.no-disturbance.v1"]
+        assert entries["cleanmac.no-disturbance.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "no-disturbance",
+        ]
+        assert "ai-host" in entries["cleanmac.no-disturbance.v1"]["consumers"]
+        assert entries["cleanmac.no-disturbance.v1"]["owner_area"] == "ai-host"
+        assert entries["cleanmac.no-disturbance.v1"]["release_critical"]
+        assert "cleanmac.mcp-surface-audit.v1" in entries
+        assert "json_schema" in entries["cleanmac.mcp-surface-audit.v1"]
+        assert entries["cleanmac.mcp-surface-audit.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "mcp-surface-audit",
+        ]
+        assert "mcp" in entries["cleanmac.mcp-surface-audit.v1"]["consumers"]
+        assert entries["cleanmac.mcp-surface-audit.v1"]["owner_area"] == "mcp"
+        assert entries["cleanmac.mcp-surface-audit.v1"]["release_critical"]
+        assert "json_schema" in entries["cleanmac.zero-resident.v1"]
+        assert "json_schema" in entries["cleanmac.product-surface-drift-audit.v1"]
+        assert entries["cleanmac.zero-resident.v1"]["release_critical"]
+        assert entries["cleanmac.product-surface-drift-audit.v1"]["release_critical"]
+        assert entries["cleanmac.release-evidence.v1"]["release_critical"]
+        assert entries["cleanmac.release-promotion-decision.v1"]["release_critical"]
+        assert entries["cleanmac.release-post-publish-verification.v1"]["release_critical"]
+        assert entries["cleanmac.release-post-publish-evidence-input.v1"]["release_critical"]
+        assert entries["cleanmac.release-post-publish-evidence-template.v1"]["release_critical"]
+        assert entries["cleanmac.release-post-publish-result.v1"]["release_critical"]
+        assert entries["cleanmac.release-evidence.v1"]["owner_area"] == "release"
 
     def test_contract_validator_covers_ai_host_critical_schema_shapes(self) -> None:
         from cleancli.ai_versioning import (
@@ -262,7 +270,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             validate_contract_payload,
         )
 
-        self.assertLessEqual(set(AI_HOST_CRITICAL_SCHEMAS), set(CORE_CONTRACT_SCHEMAS))
+        assert set(AI_HOST_CRITICAL_SCHEMAS) <= set(CORE_CONTRACT_SCHEMAS)
         host_policy = {
             "schema": "cleanmac.ai-host-policy.v1",
             "valid": True,
@@ -273,19 +281,19 @@ class AISchemaRegistryTests(unittest.TestCase):
             },
             "execution_gate": {"auto_call_allowed": False},
         }
-        self.assertTrue(validate_contract_payload("cleanmac.ai-host-policy.v1", host_policy)["valid"])
+        assert validate_contract_payload("cleanmac.ai-host-policy.v1", host_policy)["valid"]
 
         missing_auto_call = dict(host_policy)
         del missing_auto_call["auto_call"]
         missing_report = validate_contract_payload("cleanmac.ai-host-policy.v1", missing_auto_call)
-        self.assertFalse(missing_report["valid"])
-        self.assertEqual(missing_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+        assert not missing_report["valid"]
+        assert missing_report["errors"][0]["code"] == "MISSING_REQUIRED_FIELD"
 
         wrong_schema = dict(host_policy)
         wrong_schema["schema"] = "cleanmac.ai-host-policy.v2"
         const_report = validate_contract_payload("cleanmac.ai-host-policy.v1", wrong_schema)
-        self.assertFalse(const_report["valid"])
-        self.assertEqual(const_report["errors"][0]["code"], "CONST_MISMATCH")
+        assert not const_report["valid"]
+        assert const_report["errors"][0]["code"] == "CONST_MISMATCH"
 
         governance_advice = {
             "schema": "cleanmac.ai-governance-advice.v1",
@@ -299,7 +307,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "release_gate_commands": [["make", "ai-governance-smoke"]],
             "recommendations": [{"id": "preflight-first"}],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.ai-governance-advice.v1", governance_advice)["valid"])
+        assert validate_contract_payload("cleanmac.ai-governance-advice.v1", governance_advice)["valid"]
 
         eval_pack = {
             "schema": "cleanmac.ai-eval-pack.v1",
@@ -308,7 +316,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "allows_destructive_execution": False,
             "recommended_runner_command": ["cleanmac", "--json", "ai-eval-run", "--scenario", "smoke"],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.ai-eval-pack.v1", eval_pack)["valid"])
+        assert validate_contract_payload("cleanmac.ai-eval-pack.v1", eval_pack)["valid"]
 
         eval_run = {
             "schema": "cleanmac.ai-eval-run.v1",
@@ -318,7 +326,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "failed_count": 0,
             "results": [{"id": "discover_readiness", "passed": True}],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.ai-eval-run.v1", eval_run)["valid"])
+        assert validate_contract_payload("cleanmac.ai-eval-run.v1", eval_run)["valid"]
 
         release_readiness = {
             "schema": "cleanmac.release-readiness.v1",
@@ -347,12 +355,12 @@ class AISchemaRegistryTests(unittest.TestCase):
             "release_gate_commands": [["make", "ai-host-smoke"]],
             "review_questions": ["Did ai-host-preflight pass before tool orchestration?"],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.release-readiness.v1", release_readiness)["valid"])
+        assert validate_contract_payload("cleanmac.release-readiness.v1", release_readiness)["valid"]
         invalid_release_readiness = dict(release_readiness)
         invalid_release_readiness["gates"] = [{"id": "ai-host-preflight-ready", "passed": True}]
         invalid_gate_report = validate_contract_payload("cleanmac.release-readiness.v1", invalid_release_readiness)
-        self.assertFalse(invalid_gate_report["valid"])
-        self.assertEqual(invalid_gate_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+        assert not invalid_gate_report["valid"]
+        assert invalid_gate_report["errors"][0]["code"] == "MISSING_REQUIRED_FIELD"
 
         release_diagnostics = {
             "schema": "cleanmac.release-diagnostics.v1",
@@ -366,7 +374,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "ai_first_release_checklist": {"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             "recommended_commands": [["make", "release-artifacts-smoke"]],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.release-diagnostics.v1", release_diagnostics)["valid"])
+        assert validate_contract_payload("cleanmac.release-diagnostics.v1", release_diagnostics)["valid"]
 
         release_evidence = {
             "schema": "cleanmac.release-evidence.v1",
@@ -380,7 +388,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "ai_first_release_checklist": {"schema": "cleanmac.ai-first-release-checklist.v1", "ready": True},
             "assets": {"required": ["SBOM.json"], "missing": []},
         }
-        self.assertTrue(validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"])
+        assert validate_contract_payload("cleanmac.release-evidence.v1", release_evidence)["valid"]
 
         release_rehearsal = {
             "schema": "cleanmac.release-rehearsal.v1",
@@ -391,7 +399,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "failed_phase_ids": ["artifact-manifest"],
             "recommended_commands": [["make", "release-rehearsal-smoke"]],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.release-rehearsal.v1", release_rehearsal)["valid"])
+        assert validate_contract_payload("cleanmac.release-rehearsal.v1", release_rehearsal)["valid"]
 
         promotion_decision = {
             "schema": "cleanmac.release-promotion-decision.v1",
@@ -406,9 +414,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "missing_evidence": ["ARTIFACT-MANIFEST.json"],
             "recommended_commands": [["make", "release-check"]],
         }
-        self.assertTrue(
-            validate_contract_payload("cleanmac.release-promotion-decision.v1", promotion_decision)["valid"]
-        )
+        assert validate_contract_payload("cleanmac.release-promotion-decision.v1", promotion_decision)["valid"]
 
         rollback_plan = {
             "schema": "cleanmac.release-rollback-plan.v1",
@@ -422,7 +428,7 @@ class AISchemaRegistryTests(unittest.TestCase):
                 ["make", "governance-integrity-smoke"],
             ],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.release-rollback-plan.v1", rollback_plan)["valid"])
+        assert validate_contract_payload("cleanmac.release-rollback-plan.v1", rollback_plan)["valid"]
 
         post_publish = {
             "schema": "cleanmac.release-post-publish-verification.v1",
@@ -434,9 +440,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],
             "recommended_commands": [["make", "release-post-publish-smoke"]],
         }
-        self.assertTrue(
-            validate_contract_payload("cleanmac.release-post-publish-verification.v1", post_publish)["valid"]
-        )
+        assert validate_contract_payload("cleanmac.release-post-publish-verification.v1", post_publish)["valid"]
 
         post_publish_evidence_input = {
             "schema": "cleanmac.release-post-publish-evidence-input.v1",
@@ -446,11 +450,9 @@ class AISchemaRegistryTests(unittest.TestCase):
                 "homebrew-tap": {"status": "verified", "evidence_refs": ["Tap formula commit"]},
             },
         }
-        self.assertTrue(
-            validate_contract_payload("cleanmac.release-post-publish-evidence-input.v1", post_publish_evidence_input)[
-                "valid"
-            ]
-        )
+        assert validate_contract_payload(
+            "cleanmac.release-post-publish-evidence-input.v1", post_publish_evidence_input
+        )["valid"]
 
         post_publish_evidence_template = {
             "schema": "cleanmac.release-post-publish-evidence-template.v1",
@@ -463,11 +465,9 @@ class AISchemaRegistryTests(unittest.TestCase):
                 ["cleanmac", "--json", "release-post-publish-result", "--evidence-file", "post-publish-evidence.json"]
             ],
         }
-        self.assertTrue(
-            validate_contract_payload(
-                "cleanmac.release-post-publish-evidence-template.v1", post_publish_evidence_template
-            )["valid"]
-        )
+        assert validate_contract_payload(
+            "cleanmac.release-post-publish-evidence-template.v1", post_publish_evidence_template
+        )["valid"]
 
         post_publish_result = {
             "schema": "cleanmac.release-post-publish-result.v1",
@@ -482,9 +482,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "incident_response_entrypoints": [["cleanmac", "--json", "release-rollback-plan"]],
             "recommended_commands": [["make", "release-post-publish-result-smoke"]],
         }
-        self.assertTrue(
-            validate_contract_payload("cleanmac.release-post-publish-result.v1", post_publish_result)["valid"]
-        )
+        assert validate_contract_payload("cleanmac.release-post-publish-result.v1", post_publish_result)["valid"]
 
         mcp_meta_index = {
             "schema": "cleanmac.mcp-meta-index.v1",
@@ -513,7 +511,7 @@ class AISchemaRegistryTests(unittest.TestCase):
                 "cleanmac://mcp/destructive-tool-governance",
             ],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.mcp-meta-index.v1", mcp_meta_index)["valid"])
+        assert validate_contract_payload("cleanmac.mcp-meta-index.v1", mcp_meta_index)["valid"]
 
         mcp_resource_index = {
             "schema": "cleanmac.mcp-resource-index.v1",
@@ -524,7 +522,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "resources": [{"uri": "cleanmac://mcp/resource-index", "safe_for_mcp": True}],
             "resource_uris": ["cleanmac://mcp/resource-index"],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.mcp-resource-index.v1", mcp_resource_index)["valid"])
+        assert validate_contract_payload("cleanmac.mcp-resource-index.v1", mcp_resource_index)["valid"]
 
         mcp_prompt_index = {
             "schema": "cleanmac.mcp-prompt-index.v1",
@@ -535,7 +533,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "prompts": [{"name": "review-ai-host-policy", "safe_for_mcp": True}],
             "prompt_names": ["review-ai-host-policy"],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.mcp-prompt-index.v1", mcp_prompt_index)["valid"])
+        assert validate_contract_payload("cleanmac.mcp-prompt-index.v1", mcp_prompt_index)["valid"]
 
         mcp_tool_index = {
             "schema": "cleanmac.mcp-tool-index.v1",
@@ -546,7 +544,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "tools": [{"name": "cleanmac_execute_plan", "safe_for_mcp": True}],
             "tool_names": ["cleanmac_execute_plan"],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.mcp-tool-index.v1", mcp_tool_index)["valid"])
+        assert validate_contract_payload("cleanmac.mcp-tool-index.v1", mcp_tool_index)["valid"]
 
         mcp_surface_audit = {
             "schema": "cleanmac.mcp-surface-audit.v1",
@@ -562,7 +560,7 @@ class AISchemaRegistryTests(unittest.TestCase):
             "stop_reason": "",
             "remediation_commands": [["make", "mcp-surface-audit-smoke"]],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", mcp_surface_audit)["valid"])
+        assert validate_contract_payload("cleanmac.mcp-surface-audit.v1", mcp_surface_audit)["valid"]
 
         blocked_mcp_surface_audit = dict(mcp_surface_audit)
         blocked_mcp_surface_audit.update(
@@ -584,7 +582,7 @@ class AISchemaRegistryTests(unittest.TestCase):
                 "remediation_commands": [["make", "mcp-surface-audit-smoke"]],
             }
         )
-        self.assertTrue(validate_contract_payload("cleanmac.mcp-surface-audit.v1", blocked_mcp_surface_audit)["valid"])
+        assert validate_contract_payload("cleanmac.mcp-surface-audit.v1", blocked_mcp_surface_audit)["valid"]
 
         zero_resident_contract = {
             "schema": "cleanmac.zero-resident.v1",
@@ -605,12 +603,10 @@ class AISchemaRegistryTests(unittest.TestCase):
             "failed_fields": [],
             "release_gate_commands": [["cleanmac", "--json", "zero-resident"]],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.zero-resident.v1", zero_resident_contract)["valid"])
+        assert validate_contract_payload("cleanmac.zero-resident.v1", zero_resident_contract)["valid"]
         invalid_zero_resident_contract = dict(zero_resident_contract)
         invalid_zero_resident_contract["lifecycle"] = "resident"
-        self.assertFalse(
-            validate_contract_payload("cleanmac.zero-resident.v1", invalid_zero_resident_contract)["valid"]
-        )
+        assert not validate_contract_payload("cleanmac.zero-resident.v1", invalid_zero_resident_contract)["valid"]
 
         product_surface_drift_audit = {
             "schema": "cleanmac.product-surface-drift-audit.v1",
@@ -624,9 +620,9 @@ class AISchemaRegistryTests(unittest.TestCase):
             "failed_check_ids": [],
             "release_gate_commands": [["cleanmac", "--json", "product-surface-drift-audit"]],
         }
-        self.assertTrue(
-            validate_contract_payload("cleanmac.product-surface-drift-audit.v1", product_surface_drift_audit)["valid"]
-        )
+        assert validate_contract_payload("cleanmac.product-surface-drift-audit.v1", product_surface_drift_audit)[
+            "valid"
+        ]
 
         governance_integrity = {
             "schema": "cleanmac.governance-integrity.v1",
@@ -649,15 +645,15 @@ class AISchemaRegistryTests(unittest.TestCase):
             "release_gate_commands": [["make", "governance-integrity-smoke"]],
             "review_questions": ["Do all public positioning fields reuse the centralized GEO policy?"],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.governance-integrity.v1", governance_integrity)["valid"])
+        assert validate_contract_payload("cleanmac.governance-integrity.v1", governance_integrity)["valid"]
 
         invalid_governance_integrity = dict(governance_integrity)
         del invalid_governance_integrity["remediation_commands"]
         invalid_governance_report = validate_contract_payload(
             "cleanmac.governance-integrity.v1", invalid_governance_integrity
         )
-        self.assertFalse(invalid_governance_report["valid"])
-        self.assertEqual(invalid_governance_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+        assert not invalid_governance_report["valid"]
+        assert invalid_governance_report["errors"][0]["code"] == "MISSING_REQUIRED_FIELD"
 
         development_governance_todo = {
             "schema": "cleanmac.development-governance-todo.v1",
@@ -687,46 +683,41 @@ class AISchemaRegistryTests(unittest.TestCase):
             ],
             "release_gate_commands": [["make", "governance-smoke"]],
         }
-        self.assertTrue(
-            validate_contract_payload("cleanmac.development-governance-todo.v1", development_governance_todo)["valid"]
-        )
+        assert validate_contract_payload("cleanmac.development-governance-todo.v1", development_governance_todo)[
+            "valid"
+        ]
 
         samples = render_ai_contract_samples()
-        self.assertEqual(samples["schema"], "cleanmac.ai-contract-samples.v1")
-        self.assertEqual(samples["sample_count"], len(samples["samples"]))
-        self.assertEqual({sample["target_schema"] for sample in samples["samples"]}, set(AI_HOST_CRITICAL_SCHEMAS))
+        assert samples["schema"] == "cleanmac.ai-contract-samples.v1"
+        assert samples["sample_count"] == len(samples["samples"])
+        assert {sample["target_schema"] for sample in samples["samples"]} == set(AI_HOST_CRITICAL_SCHEMAS)
         sample_payloads = {sample["target_schema"]: sample["payload"] for sample in samples["samples"]}
-        self.assertEqual(sample_payloads["cleanmac.zero-resident.v1"]["lifecycle"], "single-shot")
-        self.assertEqual(sample_payloads["cleanmac.product-surface-drift-audit.v1"]["violation_count"], 0)
-        self.assertEqual(
-            sample_payloads["cleanmac.dependency-governance.v1"]["pyproject"]["runtime_dependency_count"],
-            0,
+        assert sample_payloads["cleanmac.zero-resident.v1"]["lifecycle"] == "single-shot"
+        assert sample_payloads["cleanmac.product-surface-drift-audit.v1"]["violation_count"] == 0
+        assert sample_payloads["cleanmac.dependency-governance.v1"]["pyproject"]["runtime_dependency_count"] == 0
+        assert sample_payloads["cleanmac.release-readiness.v1"]["readiness_score"] == {
+            "passed": 13,
+            "total": 13,
+            "level": "release-ready",
+        }
+        assert "dependency-governance-ready" in {
+            gate["id"] for gate in sample_payloads["cleanmac.release-readiness.v1"]["gates"]
+        }
+        assert sample_payloads["cleanmac.development-governance-todo.v1"]["item_count"] == 25
+        assert sample_payloads["cleanmac.development-governance-todo.v1"]["landed_count"] == 25
+        assert sample_payloads["cleanmac.development-governance-todo.v1"]["pending_count"] == 0
+        assert sample_payloads["cleanmac.development-governance-todo.v1"]["status"] == "landed"
+        assert (
+            sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"]
+            == "strengthen-ai-first-entrypoints"
         )
-        self.assertEqual(
-            sample_payloads["cleanmac.release-readiness.v1"]["readiness_score"],
-            {"passed": 13, "total": 13, "level": "release-ready"},
-        )
-        self.assertIn(
-            "dependency-governance-ready",
-            {gate["id"] for gate in sample_payloads["cleanmac.release-readiness.v1"]["gates"]},
-        )
-        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["item_count"], 25)
-        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["landed_count"], 25)
-        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["pending_count"], 0)
-        self.assertEqual(sample_payloads["cleanmac.development-governance-todo.v1"]["status"], "landed")
-        self.assertEqual(
-            sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"],
-            "strengthen-ai-first-entrypoints",
-        )
-        self.assertTrue(
-            sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["landing_evidence"][
-                "release_gated"
-            ]
-        )
+        assert sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["landing_evidence"][
+            "release_gated"
+        ]
         for sample in samples["samples"]:
-            self.assertTrue(sample["valid"], sample)
+            assert sample["valid"], sample
             validation = validate_contract_payload(sample["target_schema"], sample["payload"])
-            self.assertTrue(validation["valid"], validation)
+            assert validation["valid"], validation
 
     def test_contract_validator_reports_valid_missing_and_unsupported_payloads(self) -> None:
         from cleancli.ai_versioning import render_ai_contract_validation_summary, validate_contract_payload
@@ -740,25 +731,25 @@ class AISchemaRegistryTests(unittest.TestCase):
             "selected_category_keys": ["trash"],
             "candidate_fingerprints": [{"path": "/tmp/old.tmp", "exists": True}],
         }
-        self.assertTrue(validate_contract_payload("cleanmac.plan.v1", valid_plan)["valid"])
+        assert validate_contract_payload("cleanmac.plan.v1", valid_plan)["valid"]
 
         missing_required = dict(valid_plan)
         del missing_required["candidate_fingerprints"]
         missing_report = validate_contract_payload("cleanmac.plan.v1", missing_required)
-        self.assertFalse(missing_report["valid"])
-        self.assertEqual(missing_report["errors"][0]["code"], "MISSING_REQUIRED_FIELD")
+        assert not missing_report["valid"]
+        assert missing_report["errors"][0]["code"] == "MISSING_REQUIRED_FIELD"
 
         unsupported_report = validate_contract_payload("cleanmac.plan." + "v99", valid_plan)
-        self.assertFalse(unsupported_report["valid"])
-        self.assertEqual(unsupported_report["errors"][0]["code"], "UNSUPPORTED_SCHEMA")
+        assert not unsupported_report["valid"]
+        assert unsupported_report["errors"][0]["code"] == "UNSUPPORTED_SCHEMA"
 
         summary = render_ai_contract_validation_summary()
-        self.assertEqual(summary["schema"], "cleanmac.ai-contract-validation-summary.v1")
-        self.assertTrue(summary["valid"], summary)
-        self.assertEqual(summary["failure_count"], 0)
+        assert summary["schema"] == "cleanmac.ai-contract-validation-summary.v1"
+        assert summary["valid"], summary
+        assert summary["failure_count"] == 0
         coverage = summary["contract_schema_coverage"]
-        self.assertEqual(coverage["missing_stable_ai_schema_fragments"], [])
-        self.assertGreaterEqual(coverage["json_schema_fragment_count"], len(coverage["critical_schemas"]))
+        assert coverage["missing_stable_ai_schema_fragments"] == []
+        assert coverage["json_schema_fragment_count"] >= len(coverage["critical_schemas"])
 
     def test_operational_plan_samples_expose_current_execute_gate_name(self) -> None:
         from cleancli.ai_versioning import render_ai_contract_samples, validate_contract_payload
@@ -766,12 +757,12 @@ class AISchemaRegistryTests(unittest.TestCase):
         payloads = {sample["target_schema"]: sample["payload"] for sample in render_ai_contract_samples()["samples"]}
         startup = payloads["cleanmac.startup-plan.v1"]
         privacy = payloads["cleanmac.privacy-plan.v1"]
-        self.assertTrue(startup["disable_plan"]["requires_explicit_execute"])
-        self.assertTrue(privacy["privacy_plan"]["requires_explicit_execute"])
-        self.assertTrue(startup["disable_plan"]["requires_explicit_future_execute"])
-        self.assertTrue(privacy["privacy_plan"]["requires_explicit_future_execute"])
-        self.assertTrue(validate_contract_payload("cleanmac.startup-plan.v1", startup)["valid"])
-        self.assertTrue(validate_contract_payload("cleanmac.privacy-plan.v1", privacy)["valid"])
+        assert startup["disable_plan"]["requires_explicit_execute"]
+        assert privacy["privacy_plan"]["requires_explicit_execute"]
+        assert startup["disable_plan"]["requires_explicit_future_execute"]
+        assert privacy["privacy_plan"]["requires_explicit_future_execute"]
+        assert validate_contract_payload("cleanmac.startup-plan.v1", startup)["valid"]
+        assert validate_contract_payload("cleanmac.privacy-plan.v1", privacy)["valid"]
 
     def test_contract_validator_reports_nested_array_item_type_mismatch(self) -> None:
         from cleancli.ai_versioning import validate_contract_payload
@@ -786,10 +777,10 @@ class AISchemaRegistryTests(unittest.TestCase):
 
         report = validate_contract_payload("cleanmac.ai-contract-samples.v1", payload)
 
-        self.assertFalse(report["valid"])
-        self.assertEqual(report["error_count"], 1)
-        self.assertEqual(report["errors"][0]["code"], "TYPE_MISMATCH")
-        self.assertEqual(report["errors"][0]["path"], "$.samples[0]")
+        assert not report["valid"]
+        assert report["error_count"] == 1
+        assert report["errors"][0]["code"] == "TYPE_MISMATCH"
+        assert report["errors"][0]["path"] == "$.samples[0]"
 
     def test_contract_validator_rejects_boolean_for_integer(self) -> None:
         from cleancli.ai_versioning import validate_contract_payload
@@ -804,10 +795,10 @@ class AISchemaRegistryTests(unittest.TestCase):
 
         report = validate_contract_payload("cleanmac.ai-contract-samples.v1", payload)
 
-        self.assertFalse(report["valid"])
-        self.assertEqual(report["error_count"], 1)
-        self.assertEqual(report["errors"][0]["code"], "TYPE_MISMATCH")
-        self.assertEqual(report["errors"][0]["path"], "$.sample_count")
+        assert not report["valid"]
+        assert report["error_count"] == 1
+        assert report["errors"][0]["code"] == "TYPE_MISMATCH"
+        assert report["errors"][0]["path"] == "$.sample_count"
 
     def test_contract_validator_reports_const_mismatch_before_type_walk(self) -> None:
         from cleancli.ai_versioning import validate_contract_payload
@@ -822,65 +813,46 @@ class AISchemaRegistryTests(unittest.TestCase):
 
         report = validate_contract_payload("cleanmac.ai-contract-samples.v1", payload)
 
-        self.assertFalse(report["valid"])
-        self.assertEqual(report["error_count"], 1)
-        self.assertEqual(report["errors"][0]["code"], "CONST_MISMATCH")
-        self.assertEqual(report["errors"][0]["path"], "$.schema")
+        assert not report["valid"]
+        assert report["error_count"] == 1
+        assert report["errors"][0]["code"] == "CONST_MISMATCH"
+        assert report["errors"][0]["path"] == "$.schema"
 
     def test_plan_schema_negotiation_accepts_only_supported_schema_versions(self) -> None:
         from cleancli.ai_versioning import negotiate_plan_schema
 
-        self.assertEqual(
-            negotiate_plan_schema({"schema": "cleanmac.plan.v1"}),
-            {
-                "accepted": True,
-                "schema": "cleanmac.plan.v1",
-                "reason": "supported",
-                "latest_supported_schema": "cleanmac.plan.v1",
-                "legacy": False,
-            },
-        )
-        self.assertEqual(
-            negotiate_plan_schema({}),
-            {
-                "accepted": False,
-                "schema": "",
-                "reason": "missing-schema-field",
-                "latest_supported_schema": "cleanmac.plan.v1",
-                "legacy": False,
-            },
-        )
-        self.assertEqual(
-            negotiate_plan_schema({}, allow_legacy_missing=True),
-            {
-                "accepted": True,
-                "schema": "",
-                "reason": "legacy-missing-schema-field",
-                "latest_supported_schema": "cleanmac.plan.v1",
-                "legacy": True,
-            },
-        )
-        self.assertEqual(
-            negotiate_plan_schema({"schema": "cleanmac.clean-plan.v1"}),
-            {
-                "accepted": True,
-                "schema": "cleanmac.clean-plan.v1",
-                "reason": "supported",
-                "latest_supported_schema": "cleanmac.plan.v1",
-                "legacy": True,
-            },
-        )
-        self.assertEqual(
-            negotiate_plan_schema({"schema": "cleanmac.clean-plan.v2"}),
-            {
-                "accepted": False,
-                "schema": "cleanmac.clean-plan.v2",
-                "reason": "unsupported-schema-version",
-                "latest_supported_schema": "cleanmac.plan.v1",
-                "legacy": False,
-            },
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert negotiate_plan_schema({"schema": "cleanmac.plan.v1"}) == {
+            "accepted": True,
+            "schema": "cleanmac.plan.v1",
+            "reason": "supported",
+            "latest_supported_schema": "cleanmac.plan.v1",
+            "legacy": False,
+        }
+        assert negotiate_plan_schema({}) == {
+            "accepted": False,
+            "schema": "",
+            "reason": "missing-schema-field",
+            "latest_supported_schema": "cleanmac.plan.v1",
+            "legacy": False,
+        }
+        assert negotiate_plan_schema({}, allow_legacy_missing=True) == {
+            "accepted": True,
+            "schema": "",
+            "reason": "legacy-missing-schema-field",
+            "latest_supported_schema": "cleanmac.plan.v1",
+            "legacy": True,
+        }
+        assert negotiate_plan_schema({"schema": "cleanmac.clean-plan.v1"}) == {
+            "accepted": True,
+            "schema": "cleanmac.clean-plan.v1",
+            "reason": "supported",
+            "latest_supported_schema": "cleanmac.plan.v1",
+            "legacy": True,
+        }
+        assert negotiate_plan_schema({"schema": "cleanmac.clean-plan.v2"}) == {
+            "accepted": False,
+            "schema": "cleanmac.clean-plan.v2",
+            "reason": "unsupported-schema-version",
+            "latest_supported_schema": "cleanmac.plan.v1",
+            "legacy": False,
+        }
