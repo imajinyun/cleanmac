@@ -129,7 +129,7 @@ python3 -m unittest test_cleanmac.CleanMacCLITests.test_real_delete_primitives_a
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_malformed_and_protected_paths -v
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_symlink_to_protected_path -v
 python3 -m unittest test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink -v
-python3 -m unittest tests.test_delete_ops tests.test_path_safety tests.test_trash_mode -v
+make pytest-test
 make docker-test
 ```
 
