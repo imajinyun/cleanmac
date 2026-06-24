@@ -98,7 +98,9 @@ def _review_evidence(
         "risk_reason": preserve_reason or f"{scope} privacy cleanup candidate",
         "risk_explanation": preserve_reason or f"{scope} data may affect privacy, sessions, or browser state.",
         "default_selected": default_selected,
-        "why_not_default": None if default_selected else preserve_reason or "privacy candidate requires explicit review",
+        "why_not_default": None
+        if default_selected
+        else preserve_reason or "privacy candidate requires explicit review",
         "protected": False,
         "delete_mode": "trash",
         "recovery": "Restore the candidate from Trash before reopening the application if needed.",

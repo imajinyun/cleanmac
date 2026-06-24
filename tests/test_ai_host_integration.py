@@ -41,14 +41,10 @@ def test_pack_aggregates_one_stop_host_discovery_metadata() -> None:
         "review_selection_constraint.selected_review_evidence[]"
         in pack["candidate_evidence_chain"]["required_artifact_paths"]
     )
-    assert (
-        "operation_log.ai.candidate_review_evidence"
-        in pack["candidate_evidence_chain"]["required_artifact_paths"]
-    )
+    assert "operation_log.ai.candidate_review_evidence" in pack["candidate_evidence_chain"]["required_artifact_paths"]
     assert pack["host_evidence_requirements"]["candidate_evidence_chain_ready"] is True
     assert (
-        pack["host_evidence_requirements"]["candidate_evidence_chain_schema"]
-        == "cleanmac.candidate-review-evidence.v1"
+        pack["host_evidence_requirements"]["candidate_evidence_chain_schema"] == "cleanmac.candidate-review-evidence.v1"
     )
     assert pack["operation_log_explainability"]["schema"] == "cleanmac.operation-log-explainability.v1"
     assert pack["operation_log_explainability"]["ready"] is True, pack["operation_log_explainability"]
@@ -225,7 +221,9 @@ def test_evidence_reports_runtime_governance_audit_pack() -> None:
     assert checks["candidate-evidence-chain-preflight-gated"]["passed"] is True
     assert checks["candidate-evidence-chain-release-gated"]["passed"] is True
     assert evidence["candidate_evidence_chain"]["schema"] == "cleanmac.candidate-review-evidence.v1"
-    assert "operation_log.ai.candidate_review_evidence" in evidence["candidate_evidence_chain"]["required_artifact_paths"]
+    assert (
+        "operation_log.ai.candidate_review_evidence" in evidence["candidate_evidence_chain"]["required_artifact_paths"]
+    )
     assert evidence["mcp_surface_audit"]["schema"] == "cleanmac.mcp-surface-audit.v1"
     assert evidence["mcp_surface_audit"]["ready"] is True, evidence["mcp_surface_audit"]
     assert evidence["zero_resident_audit"]["schema"] == "cleanmac.zero-resident-audit.v1"

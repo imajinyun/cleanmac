@@ -57,6 +57,7 @@ def test_release_readiness_reports_ready_when_all_gates_pass() -> None:
     assert all(gate["severity"] == "none" for gate in report["gates"])
     assert all("next_actions" in gate for gate in report["gates"])
 
+
 def test_release_readiness_fails_closed_when_evidence_is_missing() -> None:
     report = render_release_readiness(
         ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
@@ -91,6 +92,7 @@ def test_release_readiness_fails_closed_when_evidence_is_missing() -> None:
     assert artifact_gate["blocking_code"] == "RELEASE_ARTIFACT_MANIFEST_MISSING"
     assert ["make", "release-artifacts-smoke"] in artifact_gate["next_actions"]
 
+
 def test_release_readiness_reuses_governance_integrity_remediation() -> None:
     report = render_release_readiness(
         ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
@@ -124,6 +126,7 @@ def test_release_readiness_reuses_governance_integrity_remediation() -> None:
         ["make", "governance-integrity-smoke"],
     ]
 
+
 def test_release_readiness_invariants_match_gate_results() -> None:
     report = render_release_readiness(
         ai_host_integration_pack={"schema": "cleanmac.ai-host-integration-pack.v1", "ready": True},
@@ -143,9 +146,8 @@ def test_release_readiness_invariants_match_gate_results() -> None:
     assert report["ready"] == (report["failed_gate_ids"] == [])
     assert report["readiness_score"]["total"] == len(report["gates"])
     assert set(report["failed_gate_ids"]) == failed_gate_ids
-    assert all(
-        {"id", "passed", "evidence_schema", "severity", "next_actions"} <= set(gate) for gate in report["gates"]
-    )
+    assert all({"id", "passed", "evidence_schema", "severity", "next_actions"} <= set(gate) for gate in report["gates"])
+
 
 def test_release_readiness_fails_closed_when_mcp_surface_audit_is_blocked() -> None:
     report = render_release_readiness(
@@ -176,6 +178,7 @@ def test_release_readiness_fails_closed_when_mcp_surface_audit_is_blocked() -> N
     assert "required-tools-advertised" in gates["mcp-surface-audit-ready"]["diagnostic"]
     assert ["make", "mcp-surface-audit-smoke"] in gates["mcp-surface-audit-ready"]["next_actions"]
 
+
 def test_release_manifest_evidence_uses_explicit_directories(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
     assets = tmp_path / "release-assets"
@@ -197,6 +200,7 @@ def test_release_manifest_evidence_uses_explicit_directories(tmp_path: Path) -> 
     assert evidence["valid"] is True, evidence
     assert evidence["path"] == str(assets / "ARTIFACT-MANIFEST.json")
 
+
 def test_missing_release_manifest_evidence_exposes_publishable_asset_recovery(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
     assets = tmp_path / "release-assets"
@@ -216,6 +220,7 @@ def test_missing_release_manifest_evidence_exposes_publishable_asset_recovery(tm
     assert "GitHub Releases" in channels
     assert channels["Homebrew"]["tap"] == "cleanmac/tap"
     assert "trusted-publishing" in channels["PyPI"]["requires"]
+
 
 def test_release_diagnostics_and_operator_summary_explain_missing_artifacts(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
@@ -239,6 +244,7 @@ def test_release_diagnostics_and_operator_summary_explain_missing_artifacts(tmp_
     assert summary["schema"] == "cleanmac.release-operator-summary.v1"
     assert summary["status"] == "blocked"
     assert summary["must_fix_first"][0]["gate_id"] == "release-artifact-manifest-valid"
+
 
 def test_release_diagnostics_exposes_governance_integrity_details(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
@@ -278,6 +284,7 @@ def test_release_diagnostics_exposes_governance_integrity_details(tmp_path: Path
     assert failed_gates["governance-integrity-ready"]["blocking_code"] == "GOVERNANCE_INTEGRITY_NOT_READY"
     assert ["make", "governance-integrity-smoke"] in diagnostics["recommended_commands"]
 
+
 def test_release_diagnostics_exposes_mcp_surface_audit_gate_recovery(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
     assets = tmp_path / "release-assets"
@@ -308,6 +315,7 @@ def test_release_diagnostics_exposes_mcp_surface_audit_gate_recovery(tmp_path: P
     assert "required-tools-advertised" in failed_gates["mcp-surface-audit-ready"]["diagnostic"]
     assert ["make", "mcp-surface-audit-smoke"] in failed_gates["mcp-surface-audit-ready"]["next_actions"]
     assert ["make", "mcp-surface-audit-smoke"] in diagnostics["recommended_commands"]
+
 
 def test_release_evidence_bundle_uses_readiness_and_assets(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
@@ -354,10 +362,8 @@ def test_release_evidence_bundle_uses_readiness_and_assets(tmp_path: Path) -> No
     assert evidence["governance_integrity"]["ready"] is True, evidence["governance_integrity"]
     assert evidence["ai_first_release_checklist"]["schema"] == "cleanmac.ai-first-release-checklist.v1"
     assert evidence["ai_first_release_checklist"]["ready"] is True, evidence["ai_first_release_checklist"]
-    assert (
-        evidence["post_publish_evidence_template"]["schema"]
-        == "cleanmac.release-post-publish-evidence-template.v1"
-    )
+    assert evidence["post_publish_evidence_template"]["schema"] == "cleanmac.release-post-publish-evidence-template.v1"
+
 
 def test_release_evidence_bundle_includes_mcp_surface_audit_diagnostics(tmp_path: Path) -> None:
     dist = tmp_path / "dist"

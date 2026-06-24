@@ -425,7 +425,9 @@ class MckServerTests(unittest.TestCase):
         self.assertTrue(payload["validation"]["valid"], payload["validation"])
         self.assertEqual(payload["format"], "jsonl")
         self.assertTrue(payload["append_only"])
-        self.assertTrue({"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(payload["required_entry_fields"]))
+        self.assertTrue(
+            {"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(payload["required_entry_fields"])
+        )
         self.assertEqual(payload["sample_entry"]["tool"], "cleanmac.clean.run")
 
     def test_resources_read_cold_start_budget(self) -> None:

@@ -10,7 +10,6 @@ import pytest
 from scripts.audit_bundle_drift import audit_bundle_drift
 from tests.helpers import cleanmac_test_env, make_sandbox, run_cli
 
-
 pytestmark = pytest.mark.skipif(platform.system() != "Darwin", reason="real macOS smoke requires a macOS runner")
 
 

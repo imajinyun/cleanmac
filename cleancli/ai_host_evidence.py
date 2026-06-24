@@ -9,9 +9,9 @@ from cleancli.mcp_prompts import MCP_PROMPT_INDEX_URI, validate_mcp_prompt_catal
 from cleancli.mcp_resources import (
     AI_SAFETY_CHAIN_URI,
     MCP_META_INDEX_URI,
-    NO_DISTURBANCE_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
+    NO_DISTURBANCE_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
     ZERO_RESIDENT_AUDIT_URI,
     render_mcp_surface_audit,

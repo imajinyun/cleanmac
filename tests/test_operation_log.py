@@ -62,9 +62,7 @@ def test_operation_log_explainability_contract_is_ready() -> None:
     assert payload["format"] == "jsonl"
     assert payload["append_only"] is True
     assert payload["validation"]["valid"] is True
-    assert {"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(
-        set(payload["required_entry_fields"])
-    )
+    assert {"timestamp", "tool", "parameters", "result", "impact_scope"}.issubset(set(payload["required_entry_fields"]))
     sample = payload["sample_entry"]
     assert sample["schema"] == "cleanmac.operation-log-entry.v1"
     assert sample["tool"] == "cleanmac.clean.run"
@@ -99,9 +97,7 @@ def test_dependency_governance_contract_is_ready() -> None:
     assert payload["resource_uri"] == "cleanmac://release/dependency-governance"
     assert payload["pyproject"]["runtime_dependencies"] == []
     assert payload["pyproject"]["runtime_dependency_count"] == 0
-    assert {"build", "dev", "lint", "test"}.issubset(
-        set(payload["pyproject"]["optional_dependency_group_names"])
-    )
+    assert {"build", "dev", "lint", "test"}.issubset(set(payload["pyproject"]["optional_dependency_group_names"]))
     assert payload["runtime_dependency_policy"] == "stdlib-only-runtime-by-default"
     assert payload["network_required_at_runtime"] is False
     assert payload["installs_background_services"] is False

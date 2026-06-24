@@ -9,7 +9,6 @@ from cleancli.ai_errors import render_ai_error_taxonomy
 from cleancli.ai_policy import render_plan_policy
 from cleancli.ai_versioning import CORE_CONTRACT_SCHEMAS, render_ai_schema_registry
 
-
 AI_HOST_ENTRYPOINT_SCHEMAS: tuple[str, ...] = (
     "cleanmac.capabilities.v1",
     "cleanmac.workflow.v1",
@@ -448,7 +447,9 @@ def render_ai_entrypoint_contract() -> dict[str, Any]:
         "schema": "cleanmac.ai-entrypoint-contract.v1",
         "destructive": False,
         "dry_run": True,
-        "ready": not missing_schema_fragments and not missing_registry_entries and all(check["passed"] for check in checks),
+        "ready": not missing_schema_fragments
+        and not missing_registry_entries
+        and all(check["passed"] for check in checks),
         "purpose": "Machine-verifiable contract for canonical AI Host entrypoints and their fail-closed fallback strategy.",
         "entrypoint_count": len(entrypoints),
         "entrypoint_ids": [str(row["id"]) for row in entrypoints],
@@ -466,7 +467,15 @@ def render_ai_entrypoint_contract() -> dict[str, Any]:
             ["cleanmac", "--json", "capabilities"],
             ["cleanmac", "--json", "workflow", "--categories", "{categories}"],
             ["cleanmac", "--json", "plan", "--categories", "{categories}", "--ai-origin"],
-            ["cleanmac", "--json", "review", "--input-file", "{plan_file}", "--selection-file", "{review_selection_file}"],
+            [
+                "cleanmac",
+                "--json",
+                "review",
+                "--input-file",
+                "{plan_file}",
+                "--selection-file",
+                "{review_selection_file}",
+            ],
             ["cleanmac", "--json", "validate-plan", "--plan-file", "{plan_file}"],
             ["cleanmac", "--json", "explain", "--input-file", "{plan_or_report_file}"],
         ],

@@ -200,7 +200,9 @@ def test_prompt_injection_boundary_path_text_treated_as_data(tmp_path: Path) -> 
     assert result["schema"] == "cleanmac.ai-governance-advice.v1"
     host_controls = result.get("required_host_controls", [])
     path_data_statements = [
-        c for c in host_controls if "path" in str(c).lower() or "data" in str(c).lower() or "untrusted" in str(c).lower()
+        c
+        for c in host_controls
+        if "path" in str(c).lower() or "data" in str(c).lower() or "untrusted" in str(c).lower()
     ]
     assert len(path_data_statements) >= 1, "Host controls must include path/data/untrusted handling"
 
@@ -220,7 +222,9 @@ def test_plan_context_mismatch_policy_blocks_execution(tmp_path: Path) -> None:
     plan = run_cli("clean", "plan", "--categories", "downloads", "--ai-origin", root=root, home=home)
     plan_file.write_text(json.dumps(plan), encoding="utf-8")
 
-    plan_for_token = run_cli("clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash", root=root, home=home)
+    plan_for_token = run_cli(
+        "clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash", root=root, home=home
+    )
     token = plan_for_token["ai_confirmation_summary"]["confirmation_token"]
 
     result = run_cli(
@@ -261,7 +265,9 @@ def test_permanent_delete_deny_policy_blocks_ai_origin(tmp_path: Path) -> None:
     plan = run_cli("clean", "plan", "--categories", "downloads", "--ai-origin", root=root, home=home)
     plan_file.write_text(json.dumps(plan), encoding="utf-8")
 
-    plan_for_token = run_cli("clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash", root=root, home=home)
+    plan_for_token = run_cli(
+        "clean", "run", "--plan-file", str(plan_file), "--delete-mode", "trash", root=root, home=home
+    )
     token = plan_for_token["ai_confirmation_summary"]["confirmation_token"]
 
     result = run_cli(

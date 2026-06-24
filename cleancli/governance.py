@@ -6,7 +6,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-
 GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS = [
     ["cleanmac", "--json", "governance-integrity"],
     ["make", "governance-integrity-smoke"],
@@ -87,7 +86,13 @@ def render_development_governance_todo() -> dict[str, Any]:
             "tighten-delete-exit",
             "Tighten the single delete exit",
             "Keep cleancli/delete_ops.py as the only low-level deletion owner; business modules may only pass policy and candidate paths.",
-            ["python3", "-m", "unittest", "test_cleanmac.CleanMacCLITests.test_real_delete_primitives_are_owned_by_delete_ops", "-v"],
+            [
+                "python3",
+                "-m",
+                "unittest",
+                "test_cleanmac.CleanMacCLITests.test_real_delete_primitives_are_owned_by_delete_ops",
+                "-v",
+            ],
         ),
         (
             "harden-operation-log-reliability",
@@ -111,7 +116,13 @@ def render_development_governance_todo() -> dict[str, Any]:
             "maintain-dangerous-path-corpus",
             "Maintain dangerous path corpus",
             "Continuously update tests/data/dangerous_paths.txt for system roots, Mail, Messages, Keychains, CloudDocs, Containers, and Group Containers.",
-            ["python3", "-m", "unittest", "test_cleanmac.CleanMacCLITests.test_path_safety_rejects_dangerous_path_data", "-v"],
+            [
+                "python3",
+                "-m",
+                "unittest",
+                "test_cleanmac.CleanMacCLITests.test_path_safety_rejects_dangerous_path_data",
+                "-v",
+            ],
         ),
         (
             "improve-dry-run-report-quality",
@@ -625,8 +636,12 @@ def render_zero_resident_contract(*, runtime_lifecycle: dict[str, Any] | None = 
         "implements_gui": "implements_gui",
         "lifecycle": "lifecycle",
     }
-    evidence["background_cpu_expected"] = 0 if lifecycle.get("background_cpu_policy") == "zero-when-not-invoked" else None
-    evidence["background_memory_expected"] = 0 if lifecycle.get("background_memory_policy") == "zero-when-not-invoked" else None
+    evidence["background_cpu_expected"] = (
+        0 if lifecycle.get("background_cpu_policy") == "zero-when-not-invoked" else None
+    )
+    evidence["background_memory_expected"] = (
+        0 if lifecycle.get("background_memory_policy") == "zero-when-not-invoked" else None
+    )
     failed_fields = [
         field for field, value in expected.items() if evidence.get(evidence_key_by_expected_field[field]) != value
     ]
@@ -846,7 +861,10 @@ def render_product_surface_drift_audit(*, project_root: Path | None = None) -> d
         "violations": violations,
         "failed_check_ids": [] if not violations else ["forbidden-product-surface-drift"],
         "stop_reason": "" if not violations else "Forbidden GUI/TUI/resident product-surface drift detected.",
-        "release_gate_commands": [["cleanmac", "--json", "product-surface-drift-audit"], ["python3", "scripts/security_scan.py"]],
+        "release_gate_commands": [
+            ["cleanmac", "--json", "product-surface-drift-audit"],
+            ["python3", "scripts/security_scan.py"],
+        ],
     }
 
 
@@ -1263,7 +1281,9 @@ def render_ai_first_release_checklist(
             ),
             evidence={
                 "integration_pack_ready": ai_host_integration_pack.get("ready"),
-                "entrypoint_contract_ready": entrypoint_contract.get("ready") if isinstance(entrypoint_contract, dict) else None,
+                "entrypoint_contract_ready": entrypoint_contract.get("ready")
+                if isinstance(entrypoint_contract, dict)
+                else None,
                 "preflight_ready": ai_host_preflight.get("ready"),
                 "evidence_ready": ai_host_evidence.get("ready"),
             },
@@ -1314,11 +1334,7 @@ def render_ai_first_release_checklist(
             and development_governance_todo.get("landed_count") == 25
             and development_governance_todo.get("pending_count") == 0
             and development_governance_todo.get("status") == "landed"
-            and [
-                item.get("order")
-                for item in development_governance_todo.get("items", [])
-            ]
-            == list(range(1, 26))
+            and [item.get("order") for item in development_governance_todo.get("items", [])] == list(range(1, 26))
             and all(
                 item.get("status") == "landed"
                 and item.get("landing_evidence", {}).get("release_gated") is True

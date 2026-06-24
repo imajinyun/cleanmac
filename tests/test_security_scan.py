@@ -74,8 +74,12 @@ def test_security_scan_flags_shell_privileged_commands(tmp_path: Path) -> None:
     violations = scanner.scan_repo(root)
 
     assert any("shell must not invoke privileged command 'sudo'" in violation for violation in violations), violations
-    assert any("shell must not invoke privileged command 'launchctl'" in violation for violation in violations), violations
-    assert any("shell must not invoke privileged command 'osascript'" in violation for violation in violations), violations
+    assert any("shell must not invoke privileged command 'launchctl'" in violation for violation in violations), (
+        violations
+    )
+    assert any("shell must not invoke privileged command 'osascript'" in violation for violation in violations), (
+        violations
+    )
 
 
 def test_security_scan_flags_workflow_privileged_run_blocks(tmp_path: Path) -> None:

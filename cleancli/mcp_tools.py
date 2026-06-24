@@ -143,7 +143,7 @@ def validate_mcp_destructive_tool_governance(report: dict[str, Any] | None = Non
         name = str(tool.get("name") or f"index-{index}")
         path = f"$.destructive_tools[{index}]"
         annotations = tool.get("mcp_annotations", {}) if isinstance(tool.get("mcp_annotations"), dict) else {}
-        required_fields = set(str(field) for field in tool.get("required_input_fields", []) if isinstance(field, str))
+        required_fields = {str(field) for field in tool.get("required_input_fields", []) if isinstance(field, str)}
         required_template_tokens = {"--execute", "--yes", "--operation-log"}
         argv_template = [str(token) for token in tool.get("safe_argv_template", [])]
         if tool.get("risk") != "destructive" or tool.get("destructive") is not True:
@@ -153,7 +153,9 @@ def validate_mcp_destructive_tool_governance(report: dict[str, Any] | None = Non
         if tool.get("requires_confirmation") is not True:
             violations.append({"code": "CONFIRMATION_REQUIRED", "tool": name, "path": f"{path}.requires_confirmation"})
         if not DESTRUCTIVE_TOOL_REQUIRED_FIELDS.issubset(required_fields):
-            violations.append({"code": "REQUIRED_INPUT_FIELDS_MISSING", "tool": name, "path": f"{path}.required_input_fields"})
+            violations.append(
+                {"code": "REQUIRED_INPUT_FIELDS_MISSING", "tool": name, "path": f"{path}.required_input_fields"}
+            )
         if annotations.get("destructiveHint") is not True or annotations.get("readOnlyHint") is not False:
             violations.append({"code": "MCP_ANNOTATIONS_INVALID", "tool": name, "path": f"{path}.mcp_annotations"})
         if annotations.get("idempotentHint") is not False or annotations.get("openWorldHint") is not False:
@@ -207,12 +209,17 @@ def render_mcp_destructive_tool_governance() -> dict[str, Any]:
         },
         {
             "id": "destructive-tools-argv-only-no-shell",
-            "passed": all(tool["uses_shell"] is False and tool["invocation_mode"] == "argv" for tool in destructive_tools),
+            "passed": all(
+                tool["uses_shell"] is False and tool["invocation_mode"] == "argv" for tool in destructive_tools
+            ),
             "evidence": MCP_TOOL_INDEX_SCHEMA,
         },
     ]
     for check in checks:
-        check["remediation_commands"] = [["cleanmac", "--json", "mcp-destructive-tool-governance"], ["make", "mcp-tool-index-smoke"]]
+        check["remediation_commands"] = [
+            ["cleanmac", "--json", "mcp-destructive-tool-governance"],
+            ["make", "mcp-tool-index-smoke"],
+        ]
     validation = validate_mcp_destructive_tool_governance(
         {
             "schema": MCP_DESTRUCTIVE_TOOL_GOVERNANCE_SCHEMA,
