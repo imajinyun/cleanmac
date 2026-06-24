@@ -36,6 +36,22 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(pack["safety_chain"]["ready"], pack["safety_chain"])
         self.assertEqual(pack["safety_chain"]["chain_step_count"], 6)
         self.assertFalse(pack["safety_chain"]["execute_gate"]["auto_call_allowed"])
+        self.assertEqual(pack["candidate_evidence_chain"], pack["safety_chain"]["candidate_evidence_chain"])
+        self.assertEqual(pack["candidate_evidence_chain"]["schema"], "cleanmac.candidate-review-evidence.v1")
+        self.assertTrue(pack["candidate_evidence_chain"]["fail_closed_if_missing"])
+        self.assertIn(
+            "review_selection_constraint.selected_review_evidence[]",
+            pack["candidate_evidence_chain"]["required_artifact_paths"],
+        )
+        self.assertIn(
+            "operation_log.ai.candidate_review_evidence",
+            pack["candidate_evidence_chain"]["required_artifact_paths"],
+        )
+        self.assertTrue(pack["host_evidence_requirements"]["candidate_evidence_chain_ready"])
+        self.assertEqual(
+            pack["host_evidence_requirements"]["candidate_evidence_chain_schema"],
+            "cleanmac.candidate-review-evidence.v1",
+        )
         self.assertEqual(pack["operation_log_explainability"]["schema"], "cleanmac.operation-log-explainability.v1")
         self.assertTrue(pack["operation_log_explainability"]["ready"], pack["operation_log_explainability"])
         self.assertEqual(pack["cold_start_budget"]["schema"], "cleanmac.cold-start-budget.v1")
@@ -110,6 +126,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(pack["mcp"]["dependency_governance_uri"], "cleanmac://release/dependency-governance")
         self.assertEqual(pack["mcp"]["surface_audit_uri"], "cleanmac://mcp/surface-audit")
         self.assertIn("cleanmac://ai/workflow-contract", pack["mcp"]["resources"])
+        self.assertTrue(pack["host_evidence_requirements"]["candidate_evidence_chain_ready"])
         self.assertIn("review-ai-host-policy", pack["mcp"]["prompts"])
         self.assertIn("cleanmac_execute_plan", pack["mcp"]["tools"])
         self.assertEqual(pack["recommended_call_sequence"][0], "read cleanmac://mcp/meta-index")
@@ -255,6 +272,14 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(checks["mcp-surface-audit-ready"]["passed"])
         self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
         self.assertTrue(checks["zero-resident-audit-ready"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-exposed"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-preflight-gated"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-release-gated"]["passed"])
+        self.assertEqual(evidence["candidate_evidence_chain"]["schema"], "cleanmac.candidate-review-evidence.v1")
+        self.assertIn(
+            "operation_log.ai.candidate_review_evidence",
+            evidence["candidate_evidence_chain"]["required_artifact_paths"],
+        )
         self.assertEqual(evidence["mcp_surface_audit"]["schema"], "cleanmac.mcp-surface-audit.v1")
         self.assertTrue(evidence["mcp_surface_audit"]["ready"], evidence["mcp_surface_audit"])
         self.assertEqual(evidence["zero_resident_audit"]["schema"], "cleanmac.zero-resident-audit.v1")
@@ -277,6 +302,8 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(preflight["entrypoint"]["entrypoint_contract_resource"], "cleanmac://ai/entrypoints")
         self.assertEqual(preflight["entrypoint"]["safety_chain"], ["cleanmac", "--json", "ai-safety-chain"])
         self.assertEqual(preflight["entrypoint"]["safety_chain_resource"], "cleanmac://ai/safety-chain")
+        self.assertEqual(preflight["entrypoint"]["candidate_evidence_chain"], ["cleanmac", "--json", "ai-safety-chain"])
+        self.assertEqual(preflight["entrypoint"]["candidate_evidence_chain_resource"], "cleanmac://ai/safety-chain")
         self.assertEqual(preflight["entrypoint"]["mcp_resource"], "cleanmac://ai/host-integration-pack")
         self.assertEqual(preflight["entrypoint"]["mcp_meta_index"], "cleanmac://mcp/meta-index")
         self.assertEqual(preflight["entrypoint"]["mcp_prompt_index"], "cleanmac://mcp/prompt-index")
@@ -299,6 +326,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertTrue(checks["host-policy-valid"]["passed"])
         self.assertTrue(checks["ai-entrypoints-ready"]["passed"])
         self.assertTrue(checks["ai-safety-chain-ready"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-ready"]["passed"])
         self.assertTrue(checks["mcp-destructive-tool-governance-ready"]["passed"])
         self.assertTrue(checks["operation-log-explainability-ready"]["passed"])
         self.assertTrue(checks["cold-start-budget-ready"]["passed"])
@@ -316,6 +344,7 @@ class AIHostIntegrationPackTests(unittest.TestCase):
         self.assertEqual(preflight["entrypoint"]["runtime_lifecycle_policy"], "cleanmac://ai/runtime-lifecycle-policy")
         self.assertEqual(preflight["entrypoint"]["zero_resident_audit"], "cleanmac://ai/zero-resident-audit")
         self.assertIn("matching_confirmation_token", preflight["required_before_destructive_tool"])
+        self.assertIn("candidate_evidence_chain_ready", preflight["required_before_destructive_tool"])
         self.assertIn("cold_start_budget_ready", preflight["required_before_destructive_tool"])
         self.assertIn("no_disturbance_ready", preflight["required_before_destructive_tool"])
         self.assertIn("dependency_governance_ready", preflight["required_before_destructive_tool"])

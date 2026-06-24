@@ -39,6 +39,19 @@ def _blocking_codes(samples: Sequence[Mapping[str, Any]]) -> list[str]:
     return sorted(codes)
 
 
+def _candidate_evidence_chain_ready(candidate_evidence_chain: Mapping[str, Any]) -> bool:
+    required_paths = candidate_evidence_chain.get("required_artifact_paths", [])
+    return bool(
+        candidate_evidence_chain.get("schema") == "cleanmac.candidate-review-evidence.v1"
+        and candidate_evidence_chain.get("fail_closed_if_missing") is True
+        and isinstance(required_paths, list)
+        and "review_selection_constraint.selected_review_evidence[]" in required_paths
+        and "dry_run_report.items[].review_evidence" in required_paths
+        and "execute_report.items[].review_evidence" in required_paths
+        and "operation_log.ai.candidate_review_evidence" in required_paths
+    )
+
+
 def render_ai_host_evidence(
     *,
     integration_pack: Mapping[str, Any],
@@ -62,6 +75,9 @@ def render_ai_host_evidence(
     resource_validation = validate_mcp_resource_catalog()
     prompt_validation = validate_mcp_prompt_catalog()
     tool_validation = validate_mcp_tool_catalog()
+    safety_chain = integration_pack.get("safety_chain", {})
+    candidate_evidence_chain = integration_pack.get("candidate_evidence_chain", {})
+    candidate_evidence_requirements = integration_pack.get("host_evidence_requirements", {})
     evidence_checks = [
         {
             "id": "integration-pack-ready",
@@ -126,11 +142,45 @@ def render_ai_host_evidence(
         {
             "id": "ai-safety-chain-ready",
             "passed": bool(
-                isinstance(integration_pack.get("safety_chain"), Mapping)
-                and integration_pack["safety_chain"].get("schema") == "cleanmac.ai-safety-chain.v1"
-                and integration_pack["safety_chain"].get("ready") is True
+                isinstance(safety_chain, Mapping)
+                and safety_chain.get("schema") == "cleanmac.ai-safety-chain.v1"
+                and safety_chain.get("ready") is True
             ),
             "evidence": "cleanmac.ai-safety-chain.v1",
+        },
+        {
+            "id": "candidate-evidence-chain-exposed",
+            "passed": bool(
+                isinstance(candidate_evidence_chain, Mapping)
+                and _candidate_evidence_chain_ready(candidate_evidence_chain)
+                and isinstance(safety_chain, Mapping)
+                and safety_chain.get("candidate_evidence_chain") == candidate_evidence_chain
+            ),
+            "evidence": "cleanmac.candidate-review-evidence.v1",
+        },
+        {
+            "id": "candidate-evidence-chain-preflight-gated",
+            "passed": bool(
+                isinstance(preflight, Mapping)
+                and any(
+                    isinstance(check, Mapping)
+                    and check.get("id") == "candidate-evidence-chain-ready"
+                    and check.get("passed") is True
+                    for check in preflight.get("checks", [])
+                )
+                and "candidate_evidence_chain_ready" in preflight.get("required_before_destructive_tool", [])
+            ),
+            "evidence": "cleanmac.ai-host-preflight.v1",
+        },
+        {
+            "id": "candidate-evidence-chain-release-gated",
+            "passed": bool(
+                isinstance(candidate_evidence_requirements, Mapping)
+                and candidate_evidence_requirements.get("candidate_evidence_chain_ready") is True
+                and candidate_evidence_requirements.get("candidate_evidence_chain_schema")
+                == "cleanmac.candidate-review-evidence.v1"
+            ),
+            "evidence": "cleanmac.ai-host-integration-pack.v1",
         },
         {
             "id": "runtime-lifecycle-policy-valid",
@@ -236,6 +286,12 @@ def render_ai_host_evidence(
         "runtime_lifecycle": dict(runtime_lifecycle),
         "zero_resident_audit": dict(zero_resident_audit),
         "no_disturbance": dict(no_disturbance),
+        "candidate_evidence_chain": dict(candidate_evidence_chain)
+        if isinstance(candidate_evidence_chain, Mapping)
+        else {},
+        "host_evidence_requirements": dict(candidate_evidence_requirements)
+        if isinstance(candidate_evidence_requirements, Mapping)
+        else {},
         "observed_blocking_codes": _blocking_codes(runtime_policy_evidence),
         "integration_pack": {
             "schema": integration_pack.get("schema"),
@@ -266,6 +322,7 @@ def render_ai_host_evidence(
         "review_questions": [
             "Did the host load cleanmac://ai/host-integration-pack before tool calls?",
             "Did the host run cleanmac.ai-host-preflight.v1 and stop if ready=false?",
+            "Did the host verify candidate evidence continuity before dry-run, execution, and operation-log review?",
             "Did the host verify cleanmac.zero-resident-audit.v1 before orchestration?",
             "Did the host verify cleanmac.no-disturbance.v1 before orchestration?",
             "Were raw command arguments denied before CLI execution?",
