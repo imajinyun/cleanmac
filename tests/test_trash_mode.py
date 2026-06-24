@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import os
 import shutil
-import unittest
+
+import pytest
 
 from tests.helpers import make_sandbox, run_cli
 
 
-@unittest.skipIf(not hasattr(os, "symlink"), "symlink unsupported")
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlink unsupported")
 def test_trash_mode_failure_does_not_fallback_to_permanent_delete() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
