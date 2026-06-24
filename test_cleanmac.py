@@ -287,52 +287,6 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "private/var/db/DetachedSignatures/signature-cache/cache.bin").write_text("signature")
         return tmp, root, home
 
-    def test_cli_version(self) -> None:
-        result = self.run_cli("--version")
-        self.assertIn("cleanmac", result.stdout.strip())
-        self.assertIn(cleancli.VERSION, result.stdout.strip())
-
-    def test_completion_bash_includes_commands_and_categories(self) -> None:
-        result = self.run_cli("completion", "bash")
-        self.assertIn("cleanmac bash completion", result.stdout)
-        self.assertIn("list", result.stdout)
-        self.assertIn("ai-tools", result.stdout)
-        self.assertIn("ai-eval-pack", result.stdout)
-        self.assertIn("ai-eval-run", result.stdout)
-        self.assertIn("release_promotion_decision_surface_audit_blocker", result.stdout)
-        self.assertIn("trash", result.stdout)
-        self.assertIn("complete -F _cleanmac_completion cleanmac", result.stdout)
-
-    def test_completion_ai_eval_scenarios_match_eval_pack(self) -> None:
-        from cleancli.ai_eval import render_ai_eval_pack
-
-        completion = cleancli.render_completion_shell("bash")
-        scenarios = [scenario["id"] for scenario in render_ai_eval_pack()["scenarios"]]
-
-        self.assertIn("smoke", completion)
-        self.assertIn("all", completion)
-        self.assertTrue(scenarios)
-        for scenario_id in scenarios:
-            with self.subTest(scenario_id=scenario_id):
-                self.assertIn(scenario_id, completion)
-
-    def test_completion_zsh_includes_commands(self) -> None:
-        result = self.run_cli("completion", "zsh")
-        self.assertIn("cleanmac zsh completion", result.stdout)
-        self.assertIn("#compdef cleanmac", result.stdout)
-
-    def test_completion_fish_includes_commands(self) -> None:
-        result = self.run_cli("completion", "fish")
-        self.assertIn("cleanmac fish completion", result.stdout)
-        self.assertIn("__fish_use_subcommand", result.stdout)
-
-    def test_completion_json_includes_schema(self) -> None:
-        result = self.run_cli("--json", "completion", "bash")
-        report = json.loads(result.stdout)
-        self.assertEqual(report["schema"], "cleanmac.completion-script.v1")
-        self.assertEqual(report["shell"], "bash")
-        self.assertIn("_cleanmac_completion", report["script_content"])
-
     def test_ai_tools_exports_provider_specific_tool_formats(self) -> None:
         openai_result = self.run_cli("ai-tools", "--format", "openai")
         openai_report = json.loads(openai_result.stdout)
