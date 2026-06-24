@@ -95,7 +95,12 @@ macos-smoke:
 	CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1 PYTEST_ADDOPTS="-p no:cacheprovider" "$$tmpdir/venv/bin/python" -m pytest tests/test_bundle_audit.py -q
 
 real-macos-smoke:
-	$(PYTHON) -m unittest tests.test_macos_real_smoke -v
+	tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	$(PYTHON) -m venv "$$tmpdir/venv"; \
+	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
+	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
+	CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1 PYTEST_ADDOPTS="-p no:cacheprovider" "$$tmpdir/venv/bin/python" -m pytest tests/test_macos_real_smoke.py -q
 
 security-smoke:
 	$(PYTHON) scripts/security_scan.py
