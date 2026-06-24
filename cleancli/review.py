@@ -45,33 +45,141 @@ def _item_source(payload: dict[str, Any]) -> list[Any]:
     return []
 
 
+def _source_domain(source_schema: str | None) -> str:
+    if source_schema == "cleanmac.startup-plan.v1":
+        return "startup"
+    if source_schema == "cleanmac.privacy-plan.v1":
+        return "privacy"
+    if source_schema in {"cleanmac.clean.v1", "cleanmac.plan.v1"}:
+        return "clean"
+    if source_schema in {"cleanmac.software-uninstall-plan.v1", "cleanmac.software-orphans.v1"}:
+        return "software"
+    return "review"
+
+
+def _generated_matched_rule(item: dict[str, Any], *, source_schema: str | None) -> str:
+    domain = _source_domain(source_schema)
+    if item.get("matched_rule"):
+        return str(item["matched_rule"])
+    if domain == "startup":
+        kind = str(item.get("kind") or "startup-item")
+        recommendation = str(item.get("recommendation") or "review")
+        return f"startup.{kind}.{recommendation}"
+    if domain == "privacy":
+        scope = str(item.get("scope") or "unknown")
+        kind = str(item.get("kind") or "candidate")
+        return f"privacy.{scope}.{kind}"
+    if domain == "clean":
+        category = str(item.get("category") or "unknown")
+        return f"clean.{category}.candidate"
+    kind = str(item.get("kind") or item.get("category") or "candidate")
+    return f"{domain}.{kind}.candidate"
+
+
+def _generated_match_reason(item: dict[str, Any], *, source_schema: str | None) -> str:
+    if item.get("match_reason"):
+        return str(item["match_reason"])
+    if item.get("preserve_reason"):
+        return str(item["preserve_reason"])
+    if item.get("recommendation"):
+        return str(item["recommendation"])
+    if item.get("scope"):
+        return str(item["scope"])
+    if item.get("category"):
+        return str(item["category"])
+    return _source_domain(source_schema)
+
+
+def _review_evidence(
+    item: dict[str, Any],
+    *,
+    source_schema: str | None,
+    review_evidence: dict[str, Any],
+    risk: str,
+    default_selected: bool,
+    protected: bool,
+) -> dict[str, Any]:
+    if review_evidence:
+        return dict(review_evidence)
+    delete_mode = item.get("delete_mode") or "trash"
+    if protected:
+        recommended_next_action = "excluded-protected"
+    elif default_selected:
+        recommended_next_action = "review-default-selection-before-trash-execution"
+    else:
+        recommended_next_action = "manual-review-required"
+    reason = item.get("reason") or item.get("preserve_reason") or item.get("recommendation")
+    return {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "matched_rule": _generated_matched_rule(item, source_schema=source_schema),
+        "match_reason": _generated_match_reason(item, source_schema=source_schema),
+        "confidence": str(item.get("confidence") or "medium"),
+        "risk": risk,
+        "risk_reason": item.get("risk_reason") or reason,
+        "risk_explanation": item.get("risk_explanation") or reason,
+        "default_selected": default_selected,
+        "why_not_default": item.get("why_not_default") or (None if default_selected else reason),
+        "protected": protected,
+        "delete_mode": delete_mode,
+        "recovery": item.get("recovery") or "Execution is gated and Trash-first when this candidate is executable.",
+        "contains_user_data": bool(
+            item.get("contains_user_data") or item.get("scope") in {"credentials", "cookies", "history", "local-storage"}
+        ),
+        "shared_container": bool(item.get("shared_container") or item.get("kind") == "group-container"),
+        "recommended_next_action": recommended_next_action,
+    }
+
+
 def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    source_schema = str(payload.get("schema")) if payload.get("schema") else None
     for index, item in enumerate(_item_source(payload), start=1):
         if not isinstance(item, dict):
             continue
         path = str(item.get("path") or item.get("argv") or f"item-{index}")
         stable = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
-        rows.append(
-            {
-                "id": str(item.get("id") or f"item-{index}-{stable}"),
-                "path": item.get("path"),
-                "category": item.get("category"),
-                "kind": item.get("kind"),
-                "risk": item.get("risk") or item.get("privacy_risk", "unknown"),
-                "privacy_risk": item.get("privacy_risk"),
-                "data_loss_risk": item.get("data_loss_risk"),
-                "recommendation": item.get("recommendation"),
-                "application": item.get("application"),
-                "profile": item.get("profile"),
-                "scope": item.get("scope"),
-                "bytes": item.get("bytes"),
-                "human": item.get("human"),
-                "default_selected": bool(item.get("default_selected", item.get("status") != "failed")),
-                "protected": bool(item.get("protected")),
-                "reason": item.get("reason") or item.get("match_reason") or item.get("preserve_reason"),
-            }
+        existing_review_evidence = item.get("review_evidence") if isinstance(item.get("review_evidence"), dict) else {}
+        risk = str(item.get("risk") or item.get("privacy_risk", "unknown"))
+        default_selected = bool(item.get("default_selected", item.get("status") != "failed"))
+        protected = bool(item.get("protected"))
+        review_evidence = _review_evidence(
+            item,
+            source_schema=source_schema,
+            review_evidence=existing_review_evidence,
+            risk=risk,
+            default_selected=default_selected,
+            protected=protected,
         )
+        row = {
+            "id": str(item.get("id") or f"item-{index}-{stable}"),
+            "path": item.get("path"),
+            "category": item.get("category"),
+            "kind": item.get("kind"),
+            "risk": risk,
+            "privacy_risk": item.get("privacy_risk"),
+            "data_loss_risk": item.get("data_loss_risk"),
+            "recommendation": item.get("recommendation"),
+            "application": item.get("application"),
+            "profile": item.get("profile"),
+            "scope": item.get("scope"),
+            "bytes": item.get("bytes"),
+            "human": item.get("human"),
+            "default_selected": default_selected,
+            "protected": protected,
+            "reason": item.get("reason") or item.get("match_reason") or item.get("preserve_reason"),
+            "matched_rule": item.get("matched_rule") or review_evidence.get("matched_rule"),
+            "match_reason": item.get("match_reason") or review_evidence.get("match_reason"),
+            "confidence": item.get("confidence") or review_evidence.get("confidence"),
+            "risk_reason": item.get("risk_reason") or review_evidence.get("risk_reason"),
+            "risk_explanation": item.get("risk_explanation") or review_evidence.get("risk_explanation"),
+            "why_not_default": item.get("why_not_default") or review_evidence.get("why_not_default"),
+            "recovery": item.get("recovery") or review_evidence.get("recovery"),
+            "delete_mode": item.get("delete_mode") or review_evidence.get("delete_mode"),
+            "contains_user_data": bool(item.get("contains_user_data", review_evidence.get("contains_user_data", False))),
+            "shared_container": bool(item.get("shared_container", review_evidence.get("shared_container", False))),
+        }
+        row["review_evidence"] = dict(review_evidence)
+        rows.append(row)
     return rows
 
 

@@ -3455,6 +3455,7 @@ def inspect_items(
             if size < min_size_bytes:
                 skipped.append(skipped_row(target.category, target.path, entry, "below-min-size"))
                 continue
+            default_selected = not category.requires_privilege
             rows.append(
                 {
                     "category": target.category,
@@ -3464,6 +3465,31 @@ def inspect_items(
                     "depth": depth,
                     "bytes": size,
                     "human": human_size(size),
+                    "risk": category.risk,
+                    "default_selected": default_selected,
+                    "protected": False,
+                    "delete_mode": "trash",
+                    "review_evidence": {
+                        "schema": "cleanmac.candidate-review-evidence.v1",
+                        "matched_rule": f"clean.{target.category}.candidate",
+                        "match_reason": target.category,
+                        "confidence": "medium",
+                        "risk": category.risk,
+                        "risk_reason": category.description,
+                        "risk_explanation": category.description,
+                        "default_selected": default_selected,
+                        "why_not_default": None
+                        if default_selected
+                        else "privileged category requires explicit review before execution",
+                        "protected": False,
+                        "delete_mode": "trash",
+                        "recovery": "Execution is gated and Trash-first when this candidate is executable.",
+                        "contains_user_data": category.full_disk_access or category.risk in {"high", "critical"},
+                        "shared_container": target.category == "groupContainerCaches",
+                        "recommended_next_action": "review-default-selection-before-trash-execution"
+                        if default_selected
+                        else "manual-review-required",
+                    },
                 }
             )
     if sort == "size-asc":

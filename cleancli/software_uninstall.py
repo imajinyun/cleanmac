@@ -252,6 +252,39 @@ def _why_not_default(*, default_selected: bool, protected: bool, risk: str, conf
     return "not selected by conservative default policy"
 
 
+def _candidate_review_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
+    protected = bool(candidate.get("protected"))
+    default_selected = bool(candidate.get("default_selected"))
+    if protected:
+        recommended_next_action = "excluded-protected"
+    elif default_selected:
+        recommended_next_action = "review-default-selection-before-trash-execution"
+    else:
+        recommended_next_action = "manual-review-required"
+    return {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "matched_rule": candidate.get("matched_rule"),
+        "match_reason": candidate.get("match_reason"),
+        "confidence": candidate.get("confidence"),
+        "risk": candidate.get("risk"),
+        "risk_reason": candidate.get("risk_reason"),
+        "risk_explanation": candidate.get("risk_explanation"),
+        "default_selected": default_selected,
+        "why_not_default": candidate.get("why_not_default"),
+        "protected": protected,
+        "delete_mode": candidate.get("delete_mode"),
+        "recovery": candidate.get("recovery"),
+        "contains_user_data": bool(candidate.get("contains_user_data")),
+        "shared_container": bool(candidate.get("shared_container")),
+        "recommended_next_action": recommended_next_action,
+    }
+
+
+def _attach_review_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
+    candidate["review_evidence"] = _candidate_review_evidence(candidate)
+    return candidate
+
+
 def _candidate(
     path: Path,
     *,
@@ -270,7 +303,15 @@ def _candidate(
     shared_container = kind == "group-container"
     protected = bool(protected_override or leftover_type == "credentials" or protection.should_protect_path(path))
     effective_default = bool(default_selected and not protected)
-    return {
+    matched_rule = f"software-uninstall.{kind}.{match_reason}"
+    risk_reason = RISK_REASONS.get(risk, "risk level assigned by software uninstall policy")
+    risk_explanation = LEFTOVER_TYPE_RISK_EXPLANATIONS.get(leftover_type, risk_reason)
+    recovery = RECOVERY_GUIDANCE.get(kind, "Execution routes to Trash; restore from Trash if needed.")
+    why_not_default = _why_not_default(
+        default_selected=effective_default, protected=protected, risk=risk, confidence=confidence
+    )
+    return _attach_review_evidence(
+        {
         "id": f"{kind}:{_display_path(path)}",
         "path": _display_path(path),
         **_path_interaction_metadata(path),
@@ -279,24 +320,21 @@ def _candidate(
         "bytes": _path_size(path) if bytes_value is None else bytes_value,
         "confidence": confidence,
         "match_reason": match_reason,
-        "matched_rule": f"software-uninstall.{kind}.{match_reason}",
+        "matched_rule": matched_rule,
         "reason": f"Matched {kind} by {match_reason} for the selected app.",
         "risk": risk,
-        "risk_reason": RISK_REASONS.get(risk, "risk level assigned by software uninstall policy"),
-        "risk_explanation": LEFTOVER_TYPE_RISK_EXPLANATIONS.get(
-            leftover_type, RISK_REASONS.get(risk, "risk level assigned by software uninstall policy")
-        ),
-        "recovery": RECOVERY_GUIDANCE.get(kind, "Execution routes to Trash; restore from Trash if needed."),
+        "risk_reason": risk_reason,
+        "risk_explanation": risk_explanation,
+        "recovery": recovery,
         "app_owner": app_owner,
         "contains_user_data": contains_user_data,
         "shared_container": shared_container,
         "default_selected": effective_default,
         "protected": protected,
-        "why_not_default": _why_not_default(
-            default_selected=effective_default, protected=protected, risk=risk, confidence=confidence
-        ),
+        "why_not_default": why_not_default,
         "delete_mode": "trash",
-    }
+        }
+    )
 
 
 def _candidate_paths(app_identity: dict[str, Any], *, root: Path, home: Path) -> list[dict[str, Any]]:
@@ -471,6 +509,8 @@ def _orphan_candidate(
     candidate["recommended_next_action"] = (
         "review-orphan-before-trash-execution" if candidate["default_selected"] else "manual-review-required"
     )
+    candidate = _attach_review_evidence(candidate)
+    candidate["review_evidence"]["recommended_next_action"] = candidate["recommended_next_action"]
     return candidate
 
 

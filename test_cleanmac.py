@@ -1723,6 +1723,14 @@ class CleanMacCLITests(unittest.TestCase):
             )
             self.assertEqual(preview_by_key["trash"]["candidate_count"], 1)
             self.assertEqual(preview_by_key["downloads"]["risk"], "high")
+            for candidate in pre["candidates"]:
+                evidence = candidate["review_evidence"]
+                self.assertEqual(evidence["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertTrue(evidence["matched_rule"].startswith("clean."))
+                self.assertEqual(evidence["risk"], candidate["risk"])
+                self.assertEqual(evidence["default_selected"], candidate["default_selected"])
+                self.assertEqual(evidence["protected"], candidate["protected"])
+                self.assertTrue(validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"])
             self.assertTrue((root / "Users/tester/.Trash/old.tmp").exists())
 
     def test_pre_clean_report_notes_symbolic_link_refresh(self) -> None:
@@ -2394,6 +2402,15 @@ class CleanMacCLITests(unittest.TestCase):
                 self.assertTrue(candidate["matched_rule"].startswith("software-orphan."))
                 self.assertFalse(candidate["installed_app_present"])
                 self.assertEqual(candidate["delete_mode"], "trash")
+                evidence = candidate["review_evidence"]
+                self.assertEqual(evidence["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertEqual(evidence["matched_rule"], candidate["matched_rule"])
+                self.assertEqual(evidence["risk"], candidate["risk"])
+                self.assertEqual(evidence["default_selected"], candidate["default_selected"])
+                self.assertEqual(evidence["protected"], candidate["protected"])
+                self.assertEqual(evidence["delete_mode"], "trash")
+                self.assertTrue(evidence["recommended_next_action"])
+                self.assertTrue(validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"])
             self.assertTrue(validate_contract_payload("cleanmac.software-orphans.v1", report)["valid"])
 
     def test_software_uninstall_plan_blocks_official_uninstallers_with_structured_schema(self) -> None:
@@ -2633,6 +2650,30 @@ class CleanMacCLITests(unittest.TestCase):
                                     "kind": "cache",
                                     "risk": "low",
                                     "default_selected": True,
+                                    "matched_rule": "software-orphan.cache.missing-installed-bundle-id",
+                                    "match_reason": "missing-installed-bundle-id",
+                                    "confidence": "medium",
+                                    "risk_reason": "rebuildable cache",
+                                    "risk_explanation": "Caches are rebuildable after review.",
+                                    "recovery": "Restore from Trash if needed.",
+                                    "delete_mode": "trash",
+                                    "review_evidence": {
+                                        "schema": "cleanmac.candidate-review-evidence.v1",
+                                        "matched_rule": "software-orphan.cache.missing-installed-bundle-id",
+                                        "match_reason": "missing-installed-bundle-id",
+                                        "confidence": "medium",
+                                        "risk": "low",
+                                        "risk_reason": "rebuildable cache",
+                                        "risk_explanation": "Caches are rebuildable after review.",
+                                        "default_selected": True,
+                                        "why_not_default": None,
+                                        "protected": False,
+                                        "delete_mode": "trash",
+                                        "recovery": "Restore from Trash if needed.",
+                                        "contains_user_data": False,
+                                        "shared_container": False,
+                                        "recommended_next_action": "review-orphan-before-trash-execution",
+                                    },
                                 }
                             ]
                         },
@@ -2650,6 +2691,12 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["schema"], "cleanmac.review.v1")
             self.assertEqual(selection["schema"], "cleanmac.review-selection.v1")
             self.assertEqual(selection["selected_item_ids"], ["cache:/tmp/cache"])
+            item = report["items"][0]
+            self.assertEqual(item["matched_rule"], "software-orphan.cache.missing-installed-bundle-id")
+            self.assertEqual(item["match_reason"], "missing-installed-bundle-id")
+            self.assertEqual(item["confidence"], "medium")
+            self.assertEqual(item["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
+            self.assertEqual(item["review_evidence"]["recommended_next_action"], "review-orphan-before-trash-execution")
             self.assertEqual(report["selection_summary"], selection["summary"])
             human_summary = report["human_summary"]
             self.assertEqual(human_summary["schema"], "cleanmac.human-summary.v1")
@@ -3029,11 +3076,27 @@ class CleanMacCLITests(unittest.TestCase):
             startup_plan_file.write_text(json.dumps(startup_plan), encoding="utf-8")
             startup_review = json.loads(self.run_cli("--json", "review", "--input-file", str(startup_plan_file)).stdout)
 
+            for candidate in startup_plan["disable_plan"]["candidates"]:
+                self.assertEqual(candidate["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertTrue(candidate["review_evidence"]["matched_rule"].startswith("startup."))
+                self.assertTrue(
+                    validate_contract_payload("cleanmac.candidate-review-evidence.v1", candidate["review_evidence"])[
+                        "valid"
+                    ]
+                )
             self.assertEqual(startup_review["schema"], "cleanmac.review.v1")
             self.assertEqual(startup_review["source_schema"], "cleanmac.startup-plan.v1")
             self.assertEqual(startup_review["item_count"], 2)
             self.assertEqual(startup_review["default_selected_count"], 1)
             self.assertTrue(any(item["recommendation"] == "review-disable" for item in startup_review["items"]))
+            for item in startup_review["items"]:
+                evidence = item["review_evidence"]
+                self.assertEqual(evidence["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertTrue(evidence["matched_rule"].startswith("startup."))
+                self.assertEqual(evidence["risk"], item["risk"])
+                self.assertEqual(evidence["default_selected"], item["default_selected"])
+                self.assertEqual(evidence["protected"], item["protected"])
+                self.assertTrue(validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"])
 
             privacy_plan_file = root / "privacy-plan.json"
             privacy_plan = json.loads(
@@ -3044,11 +3107,58 @@ class CleanMacCLITests(unittest.TestCase):
             privacy_plan_file.write_text(json.dumps(privacy_plan), encoding="utf-8")
             privacy_review = json.loads(self.run_cli("--json", "review", "--input-file", str(privacy_plan_file)).stdout)
 
+            for candidate in privacy_plan["privacy_plan"]["candidates"]:
+                self.assertEqual(candidate["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertTrue(candidate["review_evidence"]["matched_rule"].startswith("privacy."))
+                self.assertTrue(
+                    validate_contract_payload("cleanmac.candidate-review-evidence.v1", candidate["review_evidence"])[
+                        "valid"
+                    ]
+                )
             self.assertEqual(privacy_review["schema"], "cleanmac.review.v1")
             self.assertEqual(privacy_review["source_schema"], "cleanmac.privacy-plan.v1")
             self.assertGreaterEqual(privacy_review["item_count"], 8)
             self.assertGreaterEqual(privacy_review["default_selected_count"], 1)
             self.assertTrue(any(item["scope"] == "cache" for item in privacy_review["items"]))
+            for item in privacy_review["items"]:
+                evidence = item["review_evidence"]
+                self.assertEqual(evidence["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertTrue(evidence["matched_rule"].startswith("privacy."))
+                self.assertEqual(evidence["risk"], item["risk"])
+                self.assertEqual(evidence["default_selected"], item["default_selected"])
+                self.assertEqual(evidence["protected"], item["protected"])
+                self.assertTrue(validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"])
+
+    def test_review_synthesizes_candidate_evidence_for_clean_reports(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            report = json.loads(
+                self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "--categories",
+                    "trash,downloads",
+                ).stdout
+            )
+            report_file = root / "clean-report.json"
+            report_file.write_text(json.dumps(report), encoding="utf-8")
+            review = json.loads(self.run_cli("--json", "review", "--input-file", str(report_file)).stdout)
+
+            self.assertEqual(review["schema"], "cleanmac.review.v1")
+            self.assertEqual(review["source_schema"], "cleanmac.clean.v1")
+            self.assertGreaterEqual(review["item_count"], 1)
+            for item in review["items"]:
+                evidence = item["review_evidence"]
+                self.assertEqual(evidence["schema"], "cleanmac.candidate-review-evidence.v1")
+                self.assertTrue(evidence["matched_rule"].startswith("clean."))
+                self.assertEqual(evidence["risk"], item["risk"])
+                self.assertEqual(evidence["default_selected"], item["default_selected"])
+                self.assertEqual(evidence["protected"], item["protected"])
+                self.assertTrue(validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"])
 
     def test_startup_and_privacy_plans_expose_current_execution_gate_names(self) -> None:
         tmp, root, home = self.make_sandbox()
