@@ -85,11 +85,14 @@ class AIContractTests(unittest.TestCase):
         self.assertEqual(by_id["plan"]["output_schema"], "cleanmac.plan.v1")
         self.assertEqual(by_id["validate_plan"]["output_schema"], "cleanmac.validate-plan.v1")
         self.assertEqual(by_id["review"]["produces"], ["cleanmac.review.v1", "cleanmac.review-selection.v1"])
+        self.assertEqual(by_id["review"]["required_output"], "items[].review_evidence")
         self.assertEqual(by_id["policy_simulate"]["output_schema"], "cleanmac.ai-policy-simulation.v1")
         self.assertEqual(by_id["dry_run"]["required_output"], "ai_confirmation_summary.confirmation_token")
+        self.assertEqual(by_id["dry_run"]["required_evidence_output"], "items[].review_evidence")
         self.assertFalse(by_id["execute"]["auto_call_allowed"])
         self.assertTrue(by_id["execute"]["destructive"])
         self.assertEqual(by_id["execute"]["requires_gate_schema"], "cleanmac.execute-gate.v1")
+        self.assertIn("operation_log.ai.candidate_review_evidence", by_id["execute"]["required_evidence_output"])
 
         gate = contract["execute_gate"]
         self.assertEqual(gate["schema"], "cleanmac.execute-gate.v1")
@@ -103,8 +106,21 @@ class AIContractTests(unittest.TestCase):
         self.assertIn("--delete-mode trash", gate["required_runtime_flags"])
         self.assertIn("--operation-log", gate["required_runtime_flags"])
         self.assertIn("--confirmation-token", gate["required_runtime_flags"])
+        self.assertEqual(
+            gate["candidate_evidence_requirements"]["schema"], "cleanmac.candidate-review-evidence.v1"
+        )
+        self.assertTrue(gate["candidate_evidence_requirements"]["fail_closed_if_missing"])
+        self.assertIn(
+            "operation_log.ai.candidate_review_evidence",
+            gate["candidate_evidence_requirements"]["required_before_execute"],
+        )
+        evidence_chain = contract["candidate_evidence_chain"]
+        self.assertEqual(evidence_chain["schema"], "cleanmac.candidate-review-evidence.v1")
+        self.assertIn("review_selection_constraint.selected_review_evidence[]", evidence_chain["required_artifact_paths"])
+        self.assertIn("operation_log.ai.candidate_review_evidence", evidence_chain["required_artifact_paths"])
         self.assertIn(["dry_run", "execute"], contract["non_bypassable_edges"])
         self.assertIn(["human_confirmation", "execute"], contract["non_bypassable_edges"])
+        self.assertIn("cleanmac.candidate-review-evidence.v1", contract["required_contract_schemas"])
         self.assertIn("cleanmac.execute-gate.v1", contract["required_contract_schemas"])
 
         validation = validate_contract_payload("cleanmac.ai-safety-chain.v1", contract)

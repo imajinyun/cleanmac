@@ -49,6 +49,22 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertTrue(checks["mcp-resource-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-advertised"]["passed"])
         self.assertTrue(checks["mcp-surface-audit-ready"]["passed"])
+        self.assertTrue(checks["ai-safety-chain-advertised"]["passed"])
+        self.assertTrue(checks["ai-safety-chain-ready"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-exposed"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-preflight-gated"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-release-gated"]["passed"])
+        self.assertEqual(report["candidate_evidence_chain"]["schema"], "cleanmac.candidate-review-evidence.v1")
+        self.assertTrue(report["candidate_evidence_chain"]["fail_closed_if_missing"])
+        self.assertIn(
+            "review_selection_constraint.selected_review_evidence[]",
+            report["candidate_evidence_chain"]["required_artifact_paths"],
+        )
+        self.assertIn(
+            "operation_log.ai.candidate_review_evidence",
+            report["candidate_evidence_chain"]["required_artifact_paths"],
+        )
+        self.assertTrue(report["host_evidence_requirements"]["candidate_evidence_chain_ready"])
         self.assertTrue(checks["runtime-lifecycle-policy-advertised"]["passed"])
         self.assertTrue(checks["runtime-lifecycle-policy-valid"]["passed"])
         self.assertTrue(checks["zero-resident-audit-advertised"]["passed"])
@@ -60,6 +76,10 @@ class AIHostEvidenceTests(unittest.TestCase):
         self.assertTrue(checks["mcp-prompt-catalog-valid"]["passed"])
         self.assertTrue(checks["mcp-tool-index-advertised"]["passed"])
         self.assertTrue(checks["mcp-tool-catalog-valid"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-exposed"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-preflight-gated"]["passed"])
+        self.assertTrue(checks["candidate-evidence-chain-release-gated"]["passed"])
+        self.assertEqual(report["candidate_evidence_chain"]["schema"], "cleanmac.candidate-review-evidence.v1")
         self.assertEqual(report["mcp_meta_index"]["missing_index_uris"], [])
         self.assertEqual(report["mcp_surface_audit"]["schema"], "cleanmac.mcp-surface-audit.v1")
         self.assertTrue(report["mcp_surface_audit"]["ready"], report["mcp_surface_audit"])

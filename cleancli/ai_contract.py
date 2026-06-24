@@ -24,6 +24,7 @@ AI_SAFETY_CHAIN_SCHEMAS: tuple[str, ...] = (
     "cleanmac.plan-policy.v1",
     "cleanmac.validate-plan.v1",
     "cleanmac.review.v1",
+    "cleanmac.candidate-review-evidence.v1",
     "cleanmac.review-selection.v1",
     "cleanmac.review-selection-constraint.v1",
     "cleanmac.review-selection-validation.v1",
@@ -66,6 +67,21 @@ def render_execute_gate_contract() -> dict[str, Any]:
             "confirmation_token_source": "cleanmac_dry_run_plan.ai_confirmation_summary.confirmation_token",
             "operation_log_source": "explicit --operation-log path",
             "selection_source": "cleanmac.review-selection.v1 validated against source fingerprint",
+            "candidate_evidence_source": "review.items[].review_evidence",
+            "selection_evidence_source": "review_selection.selected_review_evidence[]",
+            "operation_log_evidence_source": "operation_log.ai.candidate_review_evidence",
+        },
+        "candidate_evidence_requirements": {
+            "schema": "cleanmac.candidate-review-evidence.v1",
+            "required_before_execute": [
+                "candidate.review_evidence",
+                "review.items[].review_evidence",
+                "review_selection.selected_review_evidence[]",
+                "dry_run_report.items[].review_evidence",
+                "operation_log.ai.candidate_review_evidence",
+            ],
+            "must_match_selected_item_ids": True,
+            "fail_closed_if_missing": True,
         },
         "safe_argv_template": [
             "cleanmac",
@@ -106,6 +122,27 @@ def render_ai_safety_chain_contract() -> dict[str, Any]:
     registry_entries = {str(entry["name"]): entry for entry in registry["entries"]}
     execute_gate = render_execute_gate_contract()
     plan_policy = render_plan_policy()
+    candidate_evidence_chain = {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "chain_id": "candidate-review-selection-execution-log",
+        "required_artifact_paths": [
+            "plan.pre_clean_report.candidates[].review_evidence",
+            "review.items[].review_evidence",
+            "review.selection.selected_item_ids",
+            "review_selection_constraint.selected_review_evidence[]",
+            "dry_run_report.items[].review_evidence",
+            "execute_report.items[].review_evidence",
+            "operation_log.ai.review_selection.selected_review_evidence[]",
+            "operation_log.ai.candidate_review_evidence",
+        ],
+        "ai_host_checks": [
+            "Every selected_item_id has one selected_review_evidence entry before dry-run.",
+            "Every dry-run item exposes review_evidence before asking for confirmation.",
+            "Every operation-log entry exposes ai.candidate_review_evidence after execution evaluation.",
+            "candidate_review_evidence.schema must equal cleanmac.candidate-review-evidence.v1.",
+        ],
+        "fail_closed_if_missing": True,
+    }
     chain_steps = [
         {
             "id": "plan",
@@ -139,6 +176,7 @@ def render_ai_safety_chain_contract() -> dict[str, Any]:
             ],
             "output_schema": "cleanmac.review.v1",
             "produces": ["cleanmac.review.v1", "cleanmac.review-selection.v1"],
+            "required_output": "items[].review_evidence",
             "auto_call_allowed": True,
             "destructive": False,
             "must_precede": ["dry_run", "execute"],
@@ -187,6 +225,7 @@ def render_ai_safety_chain_contract() -> dict[str, Any]:
             ],
             "output_schema": "cleanmac.clean.v1",
             "required_output": "ai_confirmation_summary.confirmation_token",
+            "required_evidence_output": "items[].review_evidence",
             "auto_call_allowed": True,
             "destructive": False,
             "must_precede": ["execute"],
@@ -196,6 +235,7 @@ def render_ai_safety_chain_contract() -> dict[str, Any]:
             "tool": "cleanmac_execute_plan",
             "command": execute_gate["safe_argv_template"],
             "output_schema": "cleanmac.clean.v1",
+            "required_evidence_output": "items[].review_evidence and operation_log.ai.candidate_review_evidence",
             "auto_call_allowed": False,
             "destructive": True,
             "requires_gate_schema": "cleanmac.execute-gate.v1",
@@ -253,6 +293,7 @@ def render_ai_safety_chain_contract() -> dict[str, Any]:
         "missing_schema_fragments": missing_schema_fragments,
         "plan_policy": plan_policy,
         "execute_gate": execute_gate,
+        "candidate_evidence_chain": candidate_evidence_chain,
         "non_bypassable_edges": [
             ["plan", "validate_plan"],
             ["plan", "review"],
@@ -266,6 +307,7 @@ def render_ai_safety_chain_contract() -> dict[str, Any]:
             "Never auto-call cleanmac_execute_plan.",
             "Use only argv templates; never shell/raw command strings.",
             "Bind execute confirmation_token to the latest matching dry-run output.",
+            "Verify candidate evidence continuity from review selection to operation log.",
             "Use --delete-mode trash and --operation-log for AI-originated execution.",
             "Validate review-selection fingerprints before dry-run and execute.",
         ],

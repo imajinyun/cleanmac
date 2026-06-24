@@ -7511,6 +7511,11 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
     require(governance.get("requires_operation_log") is True, "AI_WORKFLOW_OPERATION_LOG_REQUIRED", "$.governance")
     require(governance.get("requires_confirmation_token") is True, "AI_WORKFLOW_CONFIRMATION_TOKEN_REQUIRED", "$.governance")
     require(
+        governance.get("requires_candidate_evidence_chain") is True,
+        "AI_WORKFLOW_CANDIDATE_EVIDENCE_CHAIN_REQUIRED",
+        "$.governance",
+    )
+    require(
         governance.get("destructive_auto_call_allowed") is False,
         "AI_WORKFLOW_DESTRUCTIVE_AUTO_CALL_MUST_BE_DENIED",
         "$.governance",
@@ -7522,12 +7527,29 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
         "dry_run_report": "cleanmac.clean.v1",
         "confirmation_token": "cleanmac.ai-confirmation-summary.v1",
         "operation_log": "cleanmac.operation-log-entry.v1",
+        "candidate_review_evidence": "cleanmac.candidate-review-evidence.v1",
     }.items():
         require(
             isinstance(artifact_contracts.get(artifact), Mapping)
             and artifact_contracts.get(artifact, {}).get("schema") == schema,
             "AI_WORKFLOW_ARTIFACT_CONTRACT_REQUIRED",
             f"$.artifact_contracts.{artifact}",
+        )
+    evidence_chain = payload.get("candidate_evidence_chain", {})
+    require(
+        isinstance(evidence_chain, Mapping)
+        and evidence_chain.get("schema") == "cleanmac.candidate-review-evidence.v1",
+        "AI_WORKFLOW_CANDIDATE_EVIDENCE_CHAIN_CONTRACT_REQUIRED",
+        "$.candidate_evidence_chain",
+    )
+    if isinstance(evidence_chain, Mapping):
+        required_paths = evidence_chain.get("required_artifact_paths", [])
+        require(
+            isinstance(required_paths, list)
+            and "review_selection_constraint.selected_review_evidence[]" in required_paths
+            and "operation_log.ai.candidate_review_evidence" in required_paths,
+            "AI_WORKFLOW_CANDIDATE_EVIDENCE_PATHS_REQUIRED",
+            "$.candidate_evidence_chain.required_artifact_paths",
         )
 
     return {
@@ -7593,6 +7615,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             next_human_action="✅ Approve or edit selected_item_ids in the review selection file.",
             failure_recovery="Regenerate review from the same plan; never expand selection beyond reviewed IDs.",
             produces_schema="cleanmac.review-selection.v1",
+            required_evidence_output="items[].review_evidence",
         ),
         _ai_workflow_step(
             number=4,
@@ -7670,6 +7693,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             next_human_action="🎟️ Read the dry-run report, verify Trash routing, and decide whether to confirm execution.",
             failure_recovery="Use cleanmac.ai-error.v1 next_allowed_tools and repeat from the earliest invalid artifact.",
             required_output="ai_confirmation_summary.confirmation_token",
+            required_evidence_output="items[].review_evidence",
         ),
         _ai_workflow_step(
             number=7,
@@ -7708,8 +7732,30 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             next_human_action="🗑️ Explicitly confirm with the displayed English phrase and the matching dry-run token.",
             failure_recovery="Do not retry execution blindly; regenerate plan or repeat dry-run if context or token changed.",
             requires_human_confirmation=True,
+            required_evidence_output="items[].review_evidence and operation_log.ai.candidate_review_evidence",
         ),
     ]
+    candidate_evidence_chain = {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "chain_id": "candidate-review-selection-execution-log",
+        "required_artifact_paths": [
+            "plan.pre_clean_report.candidates[].review_evidence",
+            "review.items[].review_evidence",
+            "review.selection.selected_item_ids",
+            "review_selection_constraint.selected_review_evidence[]",
+            "dry_run_report.items[].review_evidence",
+            "execute_report.items[].review_evidence",
+            "operation_log.ai.review_selection.selected_review_evidence[]",
+            "operation_log.ai.candidate_review_evidence",
+        ],
+        "host_checks": [
+            "selected_review_evidence count must match selected_count before dry-run",
+            "dry-run report items must expose cleanmac.candidate-review-evidence.v1 before confirmation",
+            "execute report items must preserve review_evidence",
+            "operation log AI audit must expose candidate_review_evidence for every evaluated item",
+        ],
+        "fail_closed_if_missing": True,
+    }
     artifact_contracts = {
         "plan_file": {
             "schema": "cleanmac.plan.v1",
@@ -7720,6 +7766,13 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "schema": "cleanmac.review-selection.v1",
             "producer_step": "normalize_review_selection",
             "consumer_steps": ["simulate_execute_policy", "dry_run_selected_plan", "execute_after_human_confirmation"],
+            "required_evidence_field": "selected_review_evidence",
+        },
+        "candidate_review_evidence": {
+            "schema": "cleanmac.candidate-review-evidence.v1",
+            "producer_steps": ["generate_ai_origin_plan", "normalize_review_selection"],
+            "consumer_steps": ["dry_run_selected_plan", "execute_after_human_confirmation"],
+            "operation_log_field": "ai.candidate_review_evidence",
         },
         "policy_simulation": {
             "schema": "cleanmac.ai-policy-simulation.v1",
@@ -7730,6 +7783,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "schema": "cleanmac.clean.v1",
             "producer_step": "dry_run_selected_plan",
             "required_output": "ai_confirmation_summary.confirmation_token",
+            "required_evidence_field": "items[].review_evidence",
         },
         "confirmation_token": {
             "schema": "cleanmac.ai-confirmation-summary.v1",
@@ -7741,6 +7795,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "schema": "cleanmac.operation-log-entry.v1",
             "producer_step": "execute_after_human_confirmation",
             "failure_policy": "execute-report-must-expose-write-failure",
+            "required_evidence_field": "ai.candidate_review_evidence",
         },
     }
     payload = {
@@ -7780,6 +7835,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
         "recommended_tool_call_order": [step["tool"] for step in steps],
         "steps": steps,
         "artifact_contracts": artifact_contracts,
+        "candidate_evidence_chain": candidate_evidence_chain,
         "execution_gate": {
             "auto_call_allowed": False,
             "requires_human_confirmation": True,
@@ -7789,11 +7845,13 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "requires_review_selection": True,
             "requires_trash_delete_mode": True,
             "requires_operation_log": True,
+            "requires_candidate_evidence_chain": True,
         },
         "host_obligations": [
             "read cleanmac://ai/workflow-contract before orchestrating cleanup",
             "never auto-call cleanmac_execute_plan",
             "stop on policy-simulate blocking_reasons",
+            "verify candidate evidence continuity from review selection to operation log",
             "obtain explicit human confirmation after dry-run evidence",
             "do not substitute permanent delete mode for AI-originated execution",
         ],
@@ -7804,6 +7862,7 @@ def render_ai_workflow(categories: list[Category], *, goal: str, root: Path, hom
             "requires_plan_context": True,
             "requires_operation_log": True,
             "requires_confirmation_token": True,
+            "requires_candidate_evidence_chain": True,
             "destructive_auto_call_allowed": False,
             "forbidden_patterns": ["raw shell", "background scan", "GUI/TUI session", "permanent AI-originated delete"],
         },

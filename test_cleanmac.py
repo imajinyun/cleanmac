@@ -6316,8 +6316,24 @@ class CleanMacCLITests(unittest.TestCase):
             artifact_contracts = report["artifact_contracts"]
             self.assertEqual(artifact_contracts["plan_file"]["schema"], "cleanmac.plan.v1")
             self.assertEqual(artifact_contracts["review_selection_file"]["schema"], "cleanmac.review-selection.v1")
+            self.assertEqual(
+                artifact_contracts["review_selection_file"]["required_evidence_field"], "selected_review_evidence"
+            )
+            self.assertEqual(
+                artifact_contracts["candidate_review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1"
+            )
+            self.assertEqual(
+                artifact_contracts["candidate_review_evidence"]["operation_log_field"],
+                "ai.candidate_review_evidence",
+            )
             self.assertEqual(artifact_contracts["confirmation_token"]["schema"], "cleanmac.ai-confirmation-summary.v1")
             self.assertEqual(artifact_contracts["operation_log"]["schema"], "cleanmac.operation-log-entry.v1")
+            self.assertEqual(artifact_contracts["operation_log"]["required_evidence_field"], "ai.candidate_review_evidence")
+            evidence_chain = report["candidate_evidence_chain"]
+            self.assertEqual(evidence_chain["schema"], "cleanmac.candidate-review-evidence.v1")
+            self.assertTrue(evidence_chain["fail_closed_if_missing"])
+            self.assertIn("review_selection_constraint.selected_review_evidence[]", evidence_chain["required_artifact_paths"])
+            self.assertIn("operation_log.ai.candidate_review_evidence", evidence_chain["required_artifact_paths"])
             single_shot = {row["id"]: row for row in report["single_shot_workflows"]}
             self.assertIn("quick-safe-clean", single_shot)
             self.assertIn("developer-clean", single_shot)
@@ -6329,21 +6345,27 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(steps["generate_ai_origin_plan"]["input_schema"]["type"], "object")
             self.assertIn("categories", steps["generate_ai_origin_plan"]["input_schema"]["required"])
             self.assertEqual(steps["normalize_review_selection"]["produces_schema"], "cleanmac.review-selection.v1")
+            self.assertEqual(steps["normalize_review_selection"]["required_evidence_output"], "items[].review_evidence")
             self.assertEqual(steps["simulate_execute_policy"]["input"]["delete_mode"], "trash")
             self.assertEqual(
                 steps["dry_run_selected_plan"]["required_output"], "ai_confirmation_summary.confirmation_token"
             )
+            self.assertEqual(steps["dry_run_selected_plan"]["required_evidence_output"], "items[].review_evidence")
             execute = steps["execute_after_human_confirmation"]
             self.assertTrue(execute["destructive"])
             self.assertFalse(execute["auto_call_allowed"])
             self.assertTrue(execute["requires_human_confirmation"])
+            self.assertIn("operation_log.ai.candidate_review_evidence", execute["required_evidence_output"])
             self.assertIn("--delete-mode", execute["argv"])
             self.assertIn("trash", execute["argv"])
             self.assertIn("--operation-log", execute["argv"])
             self.assertTrue(report["execution_gate"]["requires_matching_dry_run_confirmation_token"])
             self.assertTrue(report["execution_gate"]["requires_trash_delete_mode"])
+            self.assertTrue(report["execution_gate"]["requires_candidate_evidence_chain"])
             self.assertIn("never auto-call cleanmac_execute_plan", report["host_obligations"])
+            self.assertIn("verify candidate evidence continuity from review selection to operation log", report["host_obligations"])
             self.assertTrue(report["governance"]["requires_confirmation_token"])
+            self.assertTrue(report["governance"]["requires_candidate_evidence_chain"])
 
     def test_workflow_selected_dry_run_scope_includes_high_risk_without_execute(self) -> None:
         tmp, root, home = self.make_sandbox()

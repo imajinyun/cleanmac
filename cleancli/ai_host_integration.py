@@ -24,6 +24,19 @@ from cleancli.mcp_resources import (
 from cleancli.mcp_tools import MCP_DESTRUCTIVE_TOOL_GOVERNANCE_URI, MCP_TOOL_INDEX_URI, mcp_tool_names
 
 
+def _candidate_evidence_chain_ready(candidate_evidence_chain: Mapping[str, Any]) -> bool:
+    required_paths = candidate_evidence_chain.get("required_artifact_paths", [])
+    return bool(
+        candidate_evidence_chain.get("schema") == "cleanmac.candidate-review-evidence.v1"
+        and candidate_evidence_chain.get("fail_closed_if_missing") is True
+        and isinstance(required_paths, list)
+        and "review_selection_constraint.selected_review_evidence[]" in required_paths
+        and "dry_run_report.items[].review_evidence" in required_paths
+        and "execute_report.items[].review_evidence" in required_paths
+        and "operation_log.ai.candidate_review_evidence" in required_paths
+    )
+
+
 def render_ai_host_integration_pack(
     *,
     readiness: Mapping[str, Any],
@@ -87,11 +100,20 @@ def render_ai_host_integration_pack(
     mcp_resources = mcp_resource_uris()
     mcp_prompts = mcp_prompt_names()
     mcp_tools = mcp_tool_names()
+    candidate_evidence_chain = (
+        safety_chain.get("candidate_evidence_chain", {}) if isinstance(safety_chain, Mapping) else {}
+    )
+    candidate_evidence_chain_ready = bool(
+        isinstance(candidate_evidence_chain, Mapping)
+        and _candidate_evidence_chain_ready(candidate_evidence_chain)
+        and AI_SAFETY_CHAIN_URI in mcp_resources
+    )
     ready = bool(
         readiness.get("ready")
         and host_policy.get("valid")
         and entrypoint_contract.get("ready")
         and safety_chain.get("ready")
+        and candidate_evidence_chain_ready
         and destructive_tool_governance.get("ready")
         and operation_log_explainability.get("ready")
         and cold_start_budget.get("ready")
@@ -140,6 +162,16 @@ def render_ai_host_integration_pack(
         "runbook": runbook,
         "entrypoint_contract": dict(entrypoint_contract),
         "safety_chain": dict(safety_chain),
+        "candidate_evidence_chain": dict(candidate_evidence_chain) if isinstance(candidate_evidence_chain, Mapping) else {},
+        "host_evidence_requirements": {
+            "candidate_evidence_chain_ready": candidate_evidence_chain_ready,
+            "candidate_evidence_chain_schema": "cleanmac.candidate-review-evidence.v1",
+            "source_resource": AI_SAFETY_CHAIN_URI,
+            "release_gate": ["make", "ai-host-smoke"],
+            "required_artifact_paths": list(candidate_evidence_chain.get("required_artifact_paths", []))
+            if isinstance(candidate_evidence_chain, Mapping)
+            else [],
+        },
         "destructive_tool_governance": dict(destructive_tool_governance),
         "operation_log_explainability": dict(operation_log_explainability),
         "cold_start_budget": dict(cold_start_budget),
@@ -167,6 +199,7 @@ def render_ai_host_preflight(
     host_policy = integration_pack.get("host_policy", {})
     entrypoint_contract = integration_pack.get("entrypoint_contract", {})
     safety_chain = integration_pack.get("safety_chain", {})
+    candidate_evidence_chain = integration_pack.get("candidate_evidence_chain", {})
     destructive_tool_governance = integration_pack.get("destructive_tool_governance", {})
     operation_log_explainability = integration_pack.get("operation_log_explainability", {})
     cold_start_budget = integration_pack.get("cold_start_budget", {})
@@ -208,6 +241,17 @@ def render_ai_host_preflight(
                 and safety_chain.get("chain_step_count") == 6
             ),
             "evidence": "cleanmac.ai-safety-chain.v1",
+        },
+        {
+            "id": "candidate-evidence-chain-ready",
+            "passed": bool(
+                isinstance(candidate_evidence_chain, Mapping)
+                and _candidate_evidence_chain_ready(candidate_evidence_chain)
+                and isinstance(safety_chain, Mapping)
+                and safety_chain.get("candidate_evidence_chain") == candidate_evidence_chain
+                and AI_SAFETY_CHAIN_URI in resources
+            ),
+            "evidence": "cleanmac.candidate-review-evidence.v1",
         },
         {
             "id": "mcp-destructive-tool-governance-ready",
@@ -335,6 +379,8 @@ def render_ai_host_preflight(
             "entrypoint_contract_resource": AI_ENTRYPOINT_CONTRACT_URI,
             "safety_chain": ["cleanmac", "--json", "ai-safety-chain"],
             "safety_chain_resource": AI_SAFETY_CHAIN_URI,
+            "candidate_evidence_chain": ["cleanmac", "--json", "ai-safety-chain"],
+            "candidate_evidence_chain_resource": AI_SAFETY_CHAIN_URI,
             "mcp_resource": "cleanmac://ai/host-integration-pack",
             "mcp_meta_index": MCP_META_INDEX_URI,
             "mcp_prompt_index": MCP_PROMPT_INDEX_URI,
@@ -360,6 +406,7 @@ def render_ai_host_preflight(
             "plan_context_match",
             "trash_delete_mode",
             "operation_log",
+            "candidate_evidence_chain_ready",
             "operation_log_explainability_ready",
             "cold_start_budget_ready",
             "no_disturbance_ready",
