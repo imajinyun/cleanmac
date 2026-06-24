@@ -208,10 +208,7 @@ def test_script_can_write_release_evidence_bundle(tmp_path: Path) -> None:
     assert stdout["post_publish_verification"]["schema"] == "cleanmac.release-post-publish-verification.v1"
     assert stdout["post_publish_result"]["schema"] == "cleanmac.release-post-publish-result.v1"
     assert stdout["post_publish_result"]["ready"] is False
-    assert (
-        stdout["post_publish_evidence_template"]["schema"]
-        == "cleanmac.release-post-publish-evidence-template.v1"
-    )
+    assert stdout["post_publish_evidence_template"]["schema"] == "cleanmac.release-post-publish-evidence-template.v1"
     assert (
         stdout["post_publish_evidence_template"]["target_input_schema"]
         == "cleanmac.release-post-publish-evidence-input.v1"

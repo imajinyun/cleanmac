@@ -126,12 +126,9 @@ def test_evidence_includes_runtime_denial_samples(evidence_report: dict[str, Any
     assert "destructive-missing-confirmation-denied" in samples
     assert not samples["raw-command-argument-denied"]["decision"]["allowed"]
     assert not samples["destructive-missing-confirmation-denied"]["decision"]["allowed"]
-    raw_codes = {
-        reason["code"] for reason in samples["raw-command-argument-denied"]["decision"]["blocking_reasons"]
-    }
+    raw_codes = {reason["code"] for reason in samples["raw-command-argument-denied"]["decision"]["blocking_reasons"]}
     destructive_codes = {
-        reason["code"]
-        for reason in samples["destructive-missing-confirmation-denied"]["decision"]["blocking_reasons"]
+        reason["code"] for reason in samples["destructive-missing-confirmation-denied"]["decision"]["blocking_reasons"]
     }
     assert raw_codes == {"RAW_COMMAND_ARGUMENT_DENIED"}
     assert "HUMAN_CONFIRMATION_PHRASE_REQUIRED" in destructive_codes

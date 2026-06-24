@@ -160,16 +160,16 @@ def _diagnostics_phase(*, assets_dir: Path) -> dict[str, Any]:
         }
     if governance_integrity.get("ready") is not True:
         remediation_commands = [
-            list(command) for command in governance_integrity.get("remediation_commands", []) if isinstance(command, list)
+            list(command)
+            for command in governance_integrity.get("remediation_commands", [])
+            if isinstance(command, list)
         ]
         return {
             "id": "release-diagnostics",
             "status": "blocked",
             "evidence_schema": "cleanmac.release-diagnostics.v1",
             "blocking_code": "GOVERNANCE_INTEGRITY_NOT_READY",
-            "diagnostic": str(
-                governance_integrity.get("stop_reason") or "Governance integrity evidence is not ready."
-            ),
+            "diagnostic": str(governance_integrity.get("stop_reason") or "Governance integrity evidence is not ready."),
             "governance_integrity": {
                 "schema": governance_integrity.get("schema"),
                 "ready": False,

@@ -145,8 +145,8 @@ class TestAISchemaRegistry:
         plan_schema = entries["cleanmac.plan.v1"]["json_schema"]
         assert "destructive" in plan_schema["required"]
         assert "dry_run" in plan_schema["required"]
-        assert plan_schema["properties"]["destructive"]["const"] == False
-        assert plan_schema["properties"]["dry_run"]["const"] == True
+        assert not plan_schema["properties"]["destructive"]["const"]
+        assert plan_schema["properties"]["dry_run"]["const"]
         assert "cleanmac.release-artifact-manifest.v1" in entries
         assert "json_schema" in entries["cleanmac.release-artifact-manifest.v1"]
         assert "cleanmac.release-readiness.v1" in entries
@@ -350,7 +350,7 @@ class TestAISchemaRegistry:
                     "evidence_schema": "cleanmac.dependency-governance.v1",
                     "severity": "none",
                     "next_actions": [["make", "dependency-audit-smoke"]],
-                }
+                },
             ],
             "release_gate_commands": [["make", "ai-host-smoke"]],
             "review_questions": ["Did ai-host-preflight pass before tool orchestration?"],

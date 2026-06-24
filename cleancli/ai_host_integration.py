@@ -13,10 +13,10 @@ from cleancli.mcp_resources import (
     COLD_START_BUDGET_URI,
     DEPENDENCY_GOVERNANCE_URI,
     MCP_META_INDEX_URI,
-    NO_DISTURBANCE_URI,
-    OPERATION_LOG_EXPLAINABILITY_URI,
     MCP_RESOURCE_INDEX_URI,
     MCP_SURFACE_AUDIT_URI,
+    NO_DISTURBANCE_URI,
+    OPERATION_LOG_EXPLAINABILITY_URI,
     RUNTIME_LIFECYCLE_POLICY_URI,
     ZERO_RESIDENT_AUDIT_URI,
     mcp_resource_uris,
@@ -162,7 +162,9 @@ def render_ai_host_integration_pack(
         "runbook": runbook,
         "entrypoint_contract": dict(entrypoint_contract),
         "safety_chain": dict(safety_chain),
-        "candidate_evidence_chain": dict(candidate_evidence_chain) if isinstance(candidate_evidence_chain, Mapping) else {},
+        "candidate_evidence_chain": dict(candidate_evidence_chain)
+        if isinstance(candidate_evidence_chain, Mapping)
+        else {},
         "host_evidence_requirements": {
             "candidate_evidence_chain_ready": candidate_evidence_chain_ready,
             "candidate_evidence_chain_schema": "cleanmac.candidate-review-evidence.v1",
