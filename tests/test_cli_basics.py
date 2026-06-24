@@ -57,3 +57,46 @@ def test_completion_json_includes_schema() -> None:
     assert report["schema"] == "cleanmac.completion-script.v1"
     assert report["shell"] == "bash"
     assert "_cleanmac_completion" in report["script_content"]
+
+
+def test_list_shows_categories() -> None:
+    result = run_cli("list")
+
+    assert "trash" in result.stdout
+    assert "imessage" in result.stdout
+    assert "Spotlight" in result.stdout
+
+
+def test_list_json_includes_category_metadata() -> None:
+    result = run_cli("--json", "list")
+    report = json.loads(result.stdout)
+    by_key = {row["key"]: row for row in report["categories"]}
+
+    assert report["schema"] == "cleanmac.category-list.v1"
+    assert "categories" in report
+    assert len(report["categories"]) == len(cleancli.CATEGORIES)
+    assert "Deletes all files" in by_key["trash"]["description"]
+    assert by_key["trash"]["default"] is True
+    assert by_key["incompleteDownloads"]["default"] is True
+    assert by_key["downloads"]["default"] is False
+    assert by_key["mails"]["default_older_than_days"] == 30
+    assert "Archives" in ",".join(by_key["xcode"]["paths"])
+    assert by_key["deviceFirmware"]["default_older_than_days"] == 30
+    assert "Rosetta" in by_key["appleSiliconCaches"]["title"]
+    assert "Group Container" in by_key["groupContainerCaches"]["title"]
+    assert "Android Studio" in by_key["androidStudio"]["title"]
+    assert "JetBrains" in by_key["jetbrains"]["title"]
+    assert "Docker" in by_key["docker"]["title"]
+    assert by_key["gpuCaches"]["provider"] == "gpu-cache"
+    assert by_key["imessage"]["full_disk_access"] is True
+
+
+def test_quiet_suppresses_human_readable_output_but_not_json() -> None:
+    quiet_result = run_cli("-q", "list")
+
+    assert quiet_result.stdout.strip() == ""
+
+    json_result = run_cli("-q", "--json", "list")
+    report = json.loads(json_result.stdout)
+    assert report["schema"] == "cleanmac.category-list.v1"
+    assert len(report["categories"]) > 0
