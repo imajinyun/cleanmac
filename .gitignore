@@ -75,6 +75,7 @@ ipython_config.py
 # Local environment files
 .env.*
 !.env.example
+.harness
 
 # IDE / editor metadata
 docs/
