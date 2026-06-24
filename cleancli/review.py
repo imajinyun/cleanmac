@@ -123,7 +123,8 @@ def _review_evidence(
         "delete_mode": delete_mode,
         "recovery": item.get("recovery") or "Execution is gated and Trash-first when this candidate is executable.",
         "contains_user_data": bool(
-            item.get("contains_user_data") or item.get("scope") in {"credentials", "cookies", "history", "local-storage"}
+            item.get("contains_user_data")
+            or item.get("scope") in {"credentials", "cookies", "history", "local-storage"}
         ),
         "shared_container": bool(item.get("shared_container") or item.get("kind") == "group-container"),
         "recommended_next_action": recommended_next_action,
@@ -175,7 +176,9 @@ def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "why_not_default": item.get("why_not_default") or review_evidence.get("why_not_default"),
             "recovery": item.get("recovery") or review_evidence.get("recovery"),
             "delete_mode": item.get("delete_mode") or review_evidence.get("delete_mode"),
-            "contains_user_data": bool(item.get("contains_user_data", review_evidence.get("contains_user_data", False))),
+            "contains_user_data": bool(
+                item.get("contains_user_data", review_evidence.get("contains_user_data", False))
+            ),
             "shared_container": bool(item.get("shared_container", review_evidence.get("shared_container", False))),
         }
         row["review_evidence"] = dict(review_evidence)

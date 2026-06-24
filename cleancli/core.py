@@ -30,9 +30,9 @@ from urllib.parse import quote
 
 from cleancli import ai_schema, delete_ops, protection
 from cleancli.ai_contract import render_ai_entrypoint_contract as render_ai_entrypoint_contract
-from cleancli.ai_contract import render_ai_safety_chain_contract as render_ai_safety_chain_contract
 from cleancli.ai_contract import render_ai_intent_hints as render_ai_intent_hints
 from cleancli.ai_contract import render_ai_recommended_workflow as render_ai_recommended_workflow
+from cleancli.ai_contract import render_ai_safety_chain_contract as render_ai_safety_chain_contract
 from cleancli.ai_contract import render_ai_tool_contract as render_ai_tool_contract
 from cleancli.ai_decision import render_ai_tool_decision_matrix
 from cleancli.ai_errors import classify_cli_error as classify_cli_error
@@ -64,12 +64,11 @@ from cleancli.governance import (
     render_geo_discoverability_policy,
     render_governance_integrity_report,
     render_no_disturbance_contract,
-    render_product_surface_policy,
     render_product_surface_drift_audit,
+    render_product_surface_policy,
     render_runtime_lifecycle_policy,
-    validate_no_disturbance_contract,
-    render_zero_resident_contract,
     render_zero_resident_audit,
+    render_zero_resident_contract,
 )
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.mcp_tools import render_mcp_destructive_tool_governance
@@ -118,9 +117,7 @@ DELETE_LOG_FILE = "~/.cleanmac/deletions.log"
 OPERATIONS_LOG_FILE = "~/.cleanmac/operations.jsonl"
 OPERATION_LOG_EXPLAINABILITY_SCHEMA = "cleanmac.operation-log-explainability.v1"
 OPERATION_LOG_EXPLAINABILITY_URI = "cleanmac://ai/operation-log-explainability"
-OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS = frozenset(
-    {"timestamp", "tool", "parameters", "result", "impact_scope"}
-)
+OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS = frozenset({"timestamp", "tool", "parameters", "result", "impact_scope"})
 DEPENDENCY_GOVERNANCE_SCHEMA = "cleanmac.dependency-governance.v1"
 DEPENDENCY_GOVERNANCE_URI = "cleanmac://release/dependency-governance"
 NO_DISTURBANCE_SCHEMA = "cleanmac.no-disturbance.v1"
@@ -1914,9 +1911,7 @@ def review_selection_constraints(plan_file: str | None, selection_file: str | No
     selected_ids = {str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None}
     normalized_items = normalize_review_items(source_payload)
     selected_paths = [
-        str(item["path"])
-        for item in normalized_items
-        if str(item.get("id")) in selected_ids and item.get("path")
+        str(item["path"]) for item in normalized_items if str(item.get("id")) in selected_ids and item.get("path")
     ]
     selected_evidence = [
         {
@@ -3761,7 +3756,9 @@ def append_operation_log(
         rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
     with log_path.open("a", encoding="utf-8") as handle:
         for entry in entries:
-            handle.write(json.dumps(ensure_operation_log_explainability(entry), ensure_ascii=False, sort_keys=True) + "\n")
+            handle.write(
+                json.dumps(ensure_operation_log_explainability(entry), ensure_ascii=False, sort_keys=True) + "\n"
+            )
     return display_path(log_path)
 
 
@@ -5384,7 +5381,7 @@ def validate_operation_log_explainability(payload: dict[str, Any] | None = None)
         violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
     if report.get("destructive") is not False or report.get("dry_run") is not True:
         violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
-    required_fields = set(str(field) for field in report.get("required_entry_fields", []) if isinstance(field, str))
+    required_fields = {str(field) for field in report.get("required_entry_fields", []) if isinstance(field, str)}
     if not OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS.issubset(required_fields):
         violations.append({"code": "REQUIRED_ENTRY_FIELDS_MISSING", "path": "$.required_entry_fields"})
     sample = report.get("sample_entry", {}) if isinstance(report.get("sample_entry"), dict) else {}
@@ -5533,22 +5530,31 @@ def validate_dependency_governance(payload: dict[str, Any] | None = None) -> dic
         violations.append({"code": "RUNTIME_DEPENDENCIES_MUST_STAY_EMPTY", "path": "$.pyproject.dependencies"})
     optional_groups = pyproject.get("optional_dependency_groups", {})
     if not isinstance(optional_groups, dict) or not {"build", "dev", "lint", "test"}.issubset(optional_groups):
-        violations.append({"code": "OPTIONAL_DEPENDENCY_GROUPS_REQUIRED", "path": "$.pyproject.optional_dependency_groups"})
+        violations.append(
+            {"code": "OPTIONAL_DEPENDENCY_GROUPS_REQUIRED", "path": "$.pyproject.optional_dependency_groups"}
+        )
     release_gates = report.get("release_gate_commands", [])
     if ["make", "dependency-audit-smoke"] not in release_gates:
         violations.append({"code": "DEPENDENCY_AUDIT_SMOKE_REQUIRED", "path": "$.release_gate_commands"})
     audit = report.get("audit", {}) if isinstance(report.get("audit"), dict) else {}
-    if ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"] not in audit.get(
-        "commands", []
-    ):
+    if ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"] not in audit.get("commands", []):
         violations.append({"code": "PIP_AUDIT_COMMAND_REQUIRED", "path": "$.audit.commands"})
     if ["python3", "scripts/generate_sbom.py", "--output", "SBOM.json"] not in audit.get("commands", []):
         violations.append({"code": "SBOM_GENERATION_COMMAND_REQUIRED", "path": "$.audit.commands"})
     product_surface = report.get("product_surface_dependency_policy", {})
     forbidden = product_surface.get("forbidden_dependency_families", []) if isinstance(product_surface, dict) else []
-    if not forbidden or "Textual" not in forbidden or product_surface.get("scan_command") != "python3 scripts/security_scan.py":
-        violations.append({"code": "PRODUCT_SURFACE_DEPENDENCY_POLICY_REQUIRED", "path": "$.product_surface_dependency_policy"})
-    if report.get("network_required_at_runtime") is not False or report.get("installs_background_services") is not False:
+    if (
+        not forbidden
+        or "Textual" not in forbidden
+        or product_surface.get("scan_command") != "python3 scripts/security_scan.py"
+    ):
+        violations.append(
+            {"code": "PRODUCT_SURFACE_DEPENDENCY_POLICY_REQUIRED", "path": "$.product_surface_dependency_policy"}
+        )
+    if (
+        report.get("network_required_at_runtime") is not False
+        or report.get("installs_background_services") is not False
+    ):
         violations.append({"code": "RUNTIME_DEPENDENCY_SIDE_EFFECTS_FORBIDDEN", "path": "$"})
     return {
         "schema": "cleanmac.dependency-governance-validation.v1",
@@ -5652,9 +5658,7 @@ def validate_cold_start_budget(payload: dict[str, Any] | None = None) -> dict[st
     if budgets.get("cli_cold_start_max_ms") != COLD_START_MAX_MS:
         violations.append({"code": "CLI_COLD_START_BUDGET_MISMATCH", "path": "$.budgets.cli_cold_start_max_ms"})
     if budgets.get("ai_host_preflight_max_ms") != COLD_START_PREFLIGHT_MAX_MS:
-        violations.append(
-            {"code": "AI_HOST_PREFLIGHT_BUDGET_MISMATCH", "path": "$.budgets.ai_host_preflight_max_ms"}
-        )
+        violations.append({"code": "AI_HOST_PREFLIGHT_BUDGET_MISMATCH", "path": "$.budgets.ai_host_preflight_max_ms"})
     probes = report.get("ai_host_preflight_probes", [])
     if not isinstance(probes, list) or ["cleanmac", "--json", "capabilities"] not in probes:
         violations.append({"code": "CAPABILITIES_PREFLIGHT_PROBE_REQUIRED", "path": "$.ai_host_preflight_probes"})
@@ -6439,7 +6443,9 @@ def render_explain_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             "human": human_size(total_bytes),
             "item_count": count_by_category.get(category, 0),
             "risk": risk_by_category.get(category, "unknown"),
-            "reason": "regenerable cleanup candidate" if risk_by_category.get(category) != "high" else "high-risk category needs explicit review",
+            "reason": "regenerable cleanup candidate"
+            if risk_by_category.get(category) != "high"
+            else "high-risk category needs explicit review",
         }
         for category, total_bytes in sorted(bytes_by_category.items(), key=lambda item: item[1], reverse=True)
     ]
@@ -6447,7 +6453,9 @@ def render_explain_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     for row in top_categories:
         risk = str(row["risk"])
         risk_summary[risk] = risk_summary.get(risk, 0) + int(row["item_count"])
-    estimated_bytes = int(payload.get("estimated_reclaimable_bytes") or payload.get("total_bytes") or sum(bytes_by_category.values()))
+    estimated_bytes = int(
+        payload.get("estimated_reclaimable_bytes") or payload.get("total_bytes") or sum(bytes_by_category.values())
+    )
     source_schema = str(payload.get("schema", "unknown"))
     destructive = bool(payload.get("destructive", False))
     return {
@@ -6470,7 +6478,13 @@ def render_explain_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             "safe_to_auto_call": True,
             "safe_to_execute": False,
             "preferred_next_actions": ["review", "validate-plan", "policy-simulate", "dry-run"],
-            "execute_requires": ["review-selection-file", "trash delete mode", "plan context", "confirmation token", "operation log"],
+            "execute_requires": [
+                "review-selection-file",
+                "trash delete mode",
+                "plan context",
+                "confirmation token",
+                "operation log",
+            ],
             "do_not": ["convert explanation into deletion", "bypass review", "use raw shell deletion"],
         },
         "user_summary": f"{source_schema} describes {len(candidates)} candidate item(s) totaling {human_size(estimated_bytes)}. Review and dry-run are required before any execution.",
@@ -7470,7 +7484,9 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
     execute_step = steps_by_id.get("execute_after_human_confirmation", {})
     execute_argv = execute_step.get("argv", []) if isinstance(execute_step, Mapping) else []
     governance = payload.get("governance", {}) if isinstance(payload.get("governance"), Mapping) else {}
-    artifact_contracts = payload.get("artifact_contracts", {}) if isinstance(payload.get("artifact_contracts"), Mapping) else {}
+    artifact_contracts = (
+        payload.get("artifact_contracts", {}) if isinstance(payload.get("artifact_contracts"), Mapping) else {}
+    )
 
     require(payload.get("schema") == "cleanmac.ai-workflow.v1", "AI_WORKFLOW_SCHEMA_REQUIRED", "$.schema")
     require(payload.get("destructive") is False, "AI_WORKFLOW_MUST_BE_READ_ONLY", "$.destructive")
@@ -7478,12 +7494,20 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
     require(step_ids == AI_WORKFLOW_STEP_IDS, "AI_WORKFLOW_STEP_ORDER_INVALID", "$.steps")
     require(payload.get("step_count") == len(AI_WORKFLOW_STEP_IDS), "AI_WORKFLOW_STEP_COUNT_INVALID", "$.step_count")
     require(
-        all(int(step.get("number", 0)) == index for index, step in enumerate(steps, start=1) if isinstance(step, Mapping)),
+        all(
+            int(step.get("number", 0)) == index
+            for index, step in enumerate(steps, start=1)
+            if isinstance(step, Mapping)
+        ),
         "AI_WORKFLOW_STEP_NUMBERS_INVALID",
         "$.steps[*].number",
     )
     require(
-        all(not step.get("destructive") and step.get("auto_call_allowed") is True for step in steps[:-1] if isinstance(step, Mapping)),
+        all(
+            not step.get("destructive") and step.get("auto_call_allowed") is True
+            for step in steps[:-1]
+            if isinstance(step, Mapping)
+        ),
         "AI_WORKFLOW_PRE_EXEC_STEPS_MUST_BE_AUTOCALL_READONLY",
         "$.steps[0:6]",
     )
@@ -7506,10 +7530,14 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
     ):
         require(token in execute_argv, "AI_WORKFLOW_EXECUTE_ARG_REQUIRED", f"$.steps[-1].argv[{token}]")
     require(governance.get("delete_mode_for_execute") == "trash", "AI_WORKFLOW_TRASH_EXECUTE_REQUIRED", "$.governance")
-    require(governance.get("requires_review_selection") is True, "AI_WORKFLOW_REVIEW_SELECTION_REQUIRED", "$.governance")
+    require(
+        governance.get("requires_review_selection") is True, "AI_WORKFLOW_REVIEW_SELECTION_REQUIRED", "$.governance"
+    )
     require(governance.get("requires_plan_context") is True, "AI_WORKFLOW_PLAN_CONTEXT_REQUIRED", "$.governance")
     require(governance.get("requires_operation_log") is True, "AI_WORKFLOW_OPERATION_LOG_REQUIRED", "$.governance")
-    require(governance.get("requires_confirmation_token") is True, "AI_WORKFLOW_CONFIRMATION_TOKEN_REQUIRED", "$.governance")
+    require(
+        governance.get("requires_confirmation_token") is True, "AI_WORKFLOW_CONFIRMATION_TOKEN_REQUIRED", "$.governance"
+    )
     require(
         governance.get("requires_candidate_evidence_chain") is True,
         "AI_WORKFLOW_CANDIDATE_EVIDENCE_CHAIN_REQUIRED",
@@ -7537,8 +7565,7 @@ def validate_ai_workflow_contract(payload: Mapping[str, Any]) -> dict[str, Any]:
         )
     evidence_chain = payload.get("candidate_evidence_chain", {})
     require(
-        isinstance(evidence_chain, Mapping)
-        and evidence_chain.get("schema") == "cleanmac.candidate-review-evidence.v1",
+        isinstance(evidence_chain, Mapping) and evidence_chain.get("schema") == "cleanmac.candidate-review-evidence.v1",
         "AI_WORKFLOW_CANDIDATE_EVIDENCE_CHAIN_CONTRACT_REQUIRED",
         "$.candidate_evidence_chain",
     )

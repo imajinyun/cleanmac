@@ -682,7 +682,9 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(governance_integrity["ready"], governance_integrity)
         self.assertEqual(governance_integrity["failed_check_ids"], [])
         self.assertEqual(governance_integrity["stop_reason"], "")
-        self.assertEqual(governance_integrity["next_action"], "Run make governance-integrity-smoke before release readiness.")
+        self.assertEqual(
+            governance_integrity["next_action"], "Run make governance-integrity-smoke before release readiness."
+        )
         self.assertEqual(governance_integrity["readiness_score"]["level"], "ready")
         self.assertIn("cleanmac.geo-discoverability-policy.v1", governance_integrity["governed_contracts"])
         self.assertIn("cleanmac.ai-tool-contract.v1", governance_integrity["governed_contracts"])
@@ -2379,7 +2381,9 @@ class CleanMacCLITests(unittest.TestCase):
             report = json.loads(
                 self.run_cli("--root", str(root), "--home", str(home), "--json", "software", "orphans").stdout
             )
-            by_path = {str(Path(candidate["path"]).resolve(strict=False)): candidate for candidate in report["candidates"]}
+            by_path = {
+                str(Path(candidate["path"]).resolve(strict=False)): candidate for candidate in report["candidates"]
+            }
             old_cache = str((root / "Users/tester/Library/Caches/com.example.oldapp").resolve(strict=False))
             old_daemon = str((root / "Library/LaunchDaemons/com.example.oldapp.plist").resolve(strict=False))
             old_helper = str((root / "Library/PrivilegedHelperTools/com.example.oldapp").resolve(strict=False))
@@ -2631,9 +2635,14 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(app_support.exists())
             self.assertTrue(all(item["delete_mode"] == "trash" for item in execute_report["results"]))
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {2})
-            self.assertEqual({len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {2})
+            self.assertEqual(
+                {len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {2}
+            )
             self.assertTrue(
-                all(record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1" for record in records)
+                all(
+                    record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+                    for record in records
+                )
             )
             self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
             self.assertTrue(any(record.get("trash_path") for record in records if record["status"] == "deleted"))
@@ -3275,9 +3284,14 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertNotIn("Disabled", plistlib.loads(daemon_plist.read_bytes()))
             self.assertEqual(len(records), 2)
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
-            self.assertEqual({len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {1})
+            self.assertEqual(
+                {len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {1}
+            )
             self.assertTrue(
-                all(record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1" for record in records)
+                all(
+                    record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+                    for record in records
+                )
             )
             disabled_result = next(item for item in report["results"] if item["status"] == "disabled")
             self.assertEqual(disabled_result["review_evidence"]["schema"], "cleanmac.candidate-review-evidence.v1")
@@ -4808,10 +4822,15 @@ class CleanMacCLITests(unittest.TestCase):
                 {record["ai"]["review_selection"]["selection_file"] for record in records}, {str(selection_file)}
             )
             self.assertEqual({record["ai"]["review_selection"]["selected_count"] for record in records}, {1})
-            self.assertEqual({len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {1})
+            self.assertEqual(
+                {len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records}, {1}
+            )
             self.assertEqual({record["ai"]["review_selection"]["validation_valid"] for record in records}, {True})
             self.assertTrue(
-                all(record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1" for record in records)
+                all(
+                    record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+                    for record in records
+                )
             )
             self.assertIn("not-in-review-selection", {record.get("reason") for record in records})
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
@@ -6328,11 +6347,15 @@ class CleanMacCLITests(unittest.TestCase):
             )
             self.assertEqual(artifact_contracts["confirmation_token"]["schema"], "cleanmac.ai-confirmation-summary.v1")
             self.assertEqual(artifact_contracts["operation_log"]["schema"], "cleanmac.operation-log-entry.v1")
-            self.assertEqual(artifact_contracts["operation_log"]["required_evidence_field"], "ai.candidate_review_evidence")
+            self.assertEqual(
+                artifact_contracts["operation_log"]["required_evidence_field"], "ai.candidate_review_evidence"
+            )
             evidence_chain = report["candidate_evidence_chain"]
             self.assertEqual(evidence_chain["schema"], "cleanmac.candidate-review-evidence.v1")
             self.assertTrue(evidence_chain["fail_closed_if_missing"])
-            self.assertIn("review_selection_constraint.selected_review_evidence[]", evidence_chain["required_artifact_paths"])
+            self.assertIn(
+                "review_selection_constraint.selected_review_evidence[]", evidence_chain["required_artifact_paths"]
+            )
             self.assertIn("operation_log.ai.candidate_review_evidence", evidence_chain["required_artifact_paths"])
             single_shot = {row["id"]: row for row in report["single_shot_workflows"]}
             self.assertIn("quick-safe-clean", single_shot)
@@ -6363,7 +6386,10 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertTrue(report["execution_gate"]["requires_trash_delete_mode"])
             self.assertTrue(report["execution_gate"]["requires_candidate_evidence_chain"])
             self.assertIn("never auto-call cleanmac_execute_plan", report["host_obligations"])
-            self.assertIn("verify candidate evidence continuity from review selection to operation log", report["host_obligations"])
+            self.assertIn(
+                "verify candidate evidence continuity from review selection to operation log",
+                report["host_obligations"],
+            )
             self.assertTrue(report["governance"]["requires_confirmation_token"])
             self.assertTrue(report["governance"]["requires_candidate_evidence_chain"])
 
