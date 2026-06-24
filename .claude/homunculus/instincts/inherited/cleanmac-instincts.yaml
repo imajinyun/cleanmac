@@ -1,0 +1,519 @@
+# Instincts generated from https://github.com/imajinyun/cleanmac
+# Generated: 2026-06-24T11:42:09.060Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: cleanmac-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: test, chore
+
+## Evidence
+
+- 11 commits analyzed
+- Detected conventional commit pattern
+- Examples: test(pytest): migrate release tests to pytest, chore: update .gitignore
+
+---
+id: cleanmac-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Commit Length
+
+## Action
+
+Keep commit messages concise (~48 characters)
+
+## Evidence
+
+- Average commit message length: 48 chars
+- Based on 11 commits
+
+---
+id: cleanmac-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Naming Files
+
+## Action
+
+Use snake_case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: snake_case
+
+---
+id: cleanmac-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: cleanmac-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: cleanmac-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: cleanmac-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Test Naming
+
+## Action
+
+Name test files using the pattern: *_test.py
+
+## Evidence
+
+- File pattern: *_test.py
+- Consistent across test files
+
+---
+id: cleanmac-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Test Types
+
+## Action
+
+Write unit, integration tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration
+- Coverage config: no
+
+---
+id: cleanmac-workflow-migrate-unittest-to-pytest
+trigger: "when doing migrate unittest to pytest"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Workflow Migrate Unittest To Pytest
+
+## Action
+
+Follow the migrate-unittest-to-pytest workflow:
+1. Identify target test modules using unittest.TestCase or similar wrappers.
+2. Refactor test files in tests/ to use pytest-native functions, assertions, and fixtures (e.g., tmp_path, pytest.raises, parametrize).
+3. Update Makefile to include migrated tests in relevant pytest targets (e.g., pytest-governance-smoke, ai-robustness-smoke, pytest-test).
+4. Add or update implementation/governance plan documents in docs/superpowers/plans/ to record the migration.
+5. Validate migration by running pytest targets and ensuring all tests pass.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: tests/test_*.py, Makefile, docs/superpowers/plans/2026-06-24-pytest-*.md
+
+---
+id: cleanmac-workflow-update-pytest-governance-coverage
+trigger: "when doing update pytest governance coverage"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Workflow Update Pytest Governance Coverage
+
+## Action
+
+Follow the update-pytest-governance-coverage workflow:
+1. Migrate additional test modules from unittest to pytest-native style.
+2. Update Makefile pytest targets to include the new or migrated test files.
+3. Add corresponding governance or implementation plan markdown files under docs/superpowers/plans/.
+4. Validate by running updated pytest targets and confirming successful execution.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: tests/test_*.py, Makefile, docs/superpowers/plans/2026-06-24-pytest-*.md
+
+---
+id: cleanmac-workflow-document-governance-or-migration-plan
+trigger: "when doing document governance or migration plan"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/imajinyun/cleanmac
+---
+
+# Cleanmac Workflow Document Governance Or Migration Plan
+
+## Action
+
+Follow the document-governance-or-migration-plan workflow:
+1. Write a markdown plan document summarizing the migration or governance change.
+2. Add the markdown file to docs/superpowers/plans/ with a date-stamped filename.
+3. Reference the plan in the relevant commit message and ensure it matches the migrated/updated test files.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: docs/superpowers/plans/2026-06-24-pytest-*.md
+
+---
+id: cleanmac-instinct-file-naming
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct File Naming
+
+## Action
+
+Use snake_case for file names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.files
+- Consistent with Python conventions
+
+---
+id: cleanmac-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Function Naming
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.functions
+
+---
+id: cleanmac-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Class Naming
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.classes
+
+---
+id: cleanmac-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.constants
+
+---
+id: cleanmac-instinct-import-style
+trigger: "When importing modules within the package"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+
+---
+id: cleanmac-instinct-export-style
+trigger: "When exporting functions or classes from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+
+---
+id: cleanmac-instinct-test-file-pattern
+trigger: "When creating or naming a test file"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Test File Pattern
+
+## Action
+
+Name the file with the pattern *_test.py and place it in the tests/ directory
+
+## Evidence
+
+- Pattern in testing.filePattern
+- Folder structure in architecture.folderStructure.commonFolders
+
+---
+id: cleanmac-instinct-test-style-pytest
+trigger: "When writing or refactoring tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Test Style Pytest
+
+## Action
+
+Use pytest-native functions, assertions, and fixtures (e.g., tmp_path, pytest.raises, parametrize) instead of unittest.TestCase
+
+## Evidence
+
+- Workflow: migrate-unittest-to-pytest
+- Commits: test(pytest): migrate release tests to pytest
+- Pattern in workflows and commit examples
+
+---
+id: cleanmac-instinct-test-location
+trigger: "When adding new tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Test Location
+
+## Action
+
+Place test files in the separate tests/ directory
+
+## Evidence
+
+- architecture.folderStructure.testLocation is 'separate'
+- tests/ is a common folder
+
+---
+id: cleanmac-instinct-git-commit-format
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Git Commit Format
+
+## Action
+
+Use conventional commit format with prefixes such as test or chore, optionally with scope (e.g., test(pytest): ...)
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Examples: test(pytest): migrate release tests to pytest
+
+---
+id: cleanmac-instinct-git-commit-length
+trigger: "When composing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Git Commit Length
+
+## Action
+
+Keep the commit message concise, around 48 characters on average
+
+## Evidence
+
+- commits.averageLength is 48
+
+---
+id: cleanmac-instinct-migrate-unittest-to-pytest
+trigger: "When someone wants to modernize or standardize test suites from unittest to pytest"
+confidence: 0.98
+domain: workflow
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Migrate Unittest To Pytest
+
+## Action
+
+Refactor target test modules from unittest.TestCase to pytest-native style, update Makefile pytest targets, add/update plan docs, and validate migration by running pytest
+
+## Evidence
+
+- Workflow: migrate-unittest-to-pytest
+- Commits: test(pytest): migrate AI contract tests to pytest
+- Files: tests/test_*.py, Makefile, docs/superpowers/plans/2026-06-24-pytest-*.md
+
+---
+id: cleanmac-instinct-update-pytest-governance-coverage
+trigger: "When someone wants to increase the breadth of test coverage under pytest governance or add new test modules to pytest targets"
+confidence: 0.92
+domain: workflow
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Update Pytest Governance Coverage
+
+## Action
+
+Migrate additional test modules to pytest, update Makefile targets, add governance plan docs, and validate by running updated pytest targets
+
+## Evidence
+
+- Workflow: update-pytest-governance-coverage
+- Commits: test(pytest): expand pytest governance coverage
+- Files: tests/test_*.py, Makefile, docs/superpowers/plans/2026-06-24-pytest-*.md
+
+---
+id: cleanmac-instinct-document-governance-plan
+trigger: "When someone completes a migration or governance update and needs to document the plan or process"
+confidence: 0.87
+domain: workflow
+source: repo-analysis
+source_repo: imajinyun/cleanmac
+---
+
+# Cleanmac Instinct Document Governance Plan
+
+## Action
+
+Create or update a markdown plan document in docs/superpowers/plans/ with a date-stamped filename, referencing the plan in the relevant commit message
+
+## Evidence
+
+- Workflow: document-governance-or-migration-plan
+- Files: docs/superpowers/plans/2026-06-24-pytest-*.md
+
