@@ -19,7 +19,7 @@ jobs:
       CLEANMAC_TEST_MODE: "1"
       CLEANMAC_TEST_NO_AUTH: "1"
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # pinned from actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # pinned from actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9fcd # pinned from actions/setup-python@v5
         with:
