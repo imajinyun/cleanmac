@@ -1,0 +1,27 @@
+name: cleanmac
+root: .
+language: python
+
+commands:
+  allowlist:
+    - python3 -m pytest
+    - make pytest-test
+    - make local-test
+    - make quality-check
+  test:
+    - make pytest-test
+
+acceptance:
+  criteria:
+    - pytest-safe release tests use pytest-native assertions
+    - make pytest-test passes
+  required_commands:
+    - make pytest-test
+  require_review: false
+  require_clean_diff: false
+  require_fix_diff: false
+
+permissions:
+  require_plan_approval: false
+  allow_commit: false
+  allow_push: false
