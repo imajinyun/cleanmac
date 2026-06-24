@@ -76,9 +76,10 @@ ipython_config.py
 .env.*
 !.env.example
 .harness
+docs/*
+!docs/doc
 
 # IDE / editor metadata
-docs/
 .idea/
 .vscode/
 *.swp
