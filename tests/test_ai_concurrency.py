@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 import threading
-import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -53,65 +52,61 @@ def _mcp_call(tool: str) -> dict:
     return json.loads(result.stdout.strip().splitlines()[0])
 
 
-class AIConcurrencyTests(unittest.TestCase):
-    def test_concurrent_capabilities_calls_are_deterministic(self) -> None:
-        results: list[dict] = []
-        errors: list[BaseException] = []
-        lock = threading.Lock()
+def test_concurrent_capabilities_calls_are_deterministic() -> None:
+    results: list[dict] = []
+    errors: list[BaseException] = []
+    lock = threading.Lock()
 
-        def worker() -> None:
-            try:
-                result = _run_cli_json("capabilities")
-                with lock:
-                    results.append(result)
-            except BaseException as exc:  # pragma: no cover - defensive diagnostic path
-                with lock:
-                    errors.append(exc)
+    def worker() -> None:
+        try:
+            result = _run_cli_json("capabilities")
+            with lock:
+                results.append(result)
+        except BaseException as exc:  # pragma: no cover - defensive diagnostic path
+            with lock:
+                errors.append(exc)
 
-        threads = [threading.Thread(target=worker) for _ in range(8)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
 
-        self.assertEqual(errors, [])
-        self.assertEqual(len(results), 8)
-        self.assertEqual({result["schema"] for result in results}, {"cleanmac.capabilities.v1"})
-        self.assertEqual({result["ai_readiness"]["ready"] for result in results}, {True})
-        self.assertEqual({result["ai_self_test"]["passed"] for result in results}, {True})
-
-    def test_concurrent_mcp_tool_calls_do_not_cross_pollute(self) -> None:
-        results: list[dict] = []
-        errors: list[BaseException] = []
-        lock = threading.Lock()
-
-        def worker(tool: str) -> None:
-            try:
-                result = _mcp_call(tool)
-                with lock:
-                    results.append(result)
-            except BaseException as exc:  # pragma: no cover - defensive diagnostic path
-                with lock:
-                    errors.append(exc)
-
-        tools = [
-            "cleanmac_capabilities",
-            "cleanmac_list_categories",
-            "cleanmac_capabilities",
-            "cleanmac_list_categories",
-        ]
-        threads = [threading.Thread(target=worker, args=(tool,)) for tool in tools]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-
-        self.assertEqual(errors, [])
-        self.assertEqual(len(results), len(tools))
-        for response in results:
-            self.assertFalse(response["result"]["isError"], response)
-            self.assertIn("structuredContent", response["result"])
+    assert errors == []
+    assert len(results) == 8
+    assert {result["schema"] for result in results} == {"cleanmac.capabilities.v1"}
+    assert {result["ai_readiness"]["ready"] for result in results} == {True}
+    assert {result["ai_self_test"]["passed"] for result in results} == {True}
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_concurrent_mcp_tool_calls_do_not_cross_pollute() -> None:
+    results: list[dict] = []
+    errors: list[BaseException] = []
+    lock = threading.Lock()
+
+    def worker(tool: str) -> None:
+        try:
+            result = _mcp_call(tool)
+            with lock:
+                results.append(result)
+        except BaseException as exc:  # pragma: no cover - defensive diagnostic path
+            with lock:
+                errors.append(exc)
+
+    tools = [
+        "cleanmac_capabilities",
+        "cleanmac_list_categories",
+        "cleanmac_capabilities",
+        "cleanmac_list_categories",
+    ]
+    threads = [threading.Thread(target=worker, args=(tool,)) for tool in tools]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert len(results) == len(tools)
+    for response in results:
+        assert response["result"]["isError"] is False, response
+        assert "structuredContent" in response["result"]
