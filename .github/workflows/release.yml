@@ -268,7 +268,7 @@ jobs:
           PY
 
       - name: Attest release artifacts
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # pinned from actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # pinned from actions/attest-build-provenance@v4.1.0
         with:
           subject-path: |
             dist/*
