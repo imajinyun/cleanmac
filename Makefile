@@ -70,7 +70,12 @@ script-smoke:
 	$(PYTHON) -c 'import json, subprocess, sys; report=json.loads(subprocess.check_output([sys.executable, "cleanmac.py", "--json", "clean", "scripts", "--categories", "trash,systemLogs"], text=True)); validation=report["template_validation"]; assert report["schema"] == "cleanmac.scripts.v1"; assert validation["schema"] == "cleanmac.command-template-validation.v1"; assert validation["valid"], validation["violations"]; assert validation["template_count"] > 0; assert validation["destructive_template_count"] > 0; assert validation["violation_count"] == 0'
 
 bundle-audit-smoke:
-	$(PYTHON) -m unittest tests.test_bundle_audit -v
+	tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	$(PYTHON) -m venv "$$tmpdir/venv"; \
+	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
+	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
+	CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1 PYTEST_ADDOPTS="-p no:cacheprovider" "$$tmpdir/venv/bin/python" -m pytest tests/test_bundle_audit.py -q
 
 macos-smoke:
 	CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 $(PYTHON) -m unittest \
@@ -81,7 +86,13 @@ macos-smoke:
 		test_cleanmac.CleanMacCLITests.test_test_mode_blocks_privileged_and_automation_helpers \
 		test_cleanmac.CleanMacCLITests.test_path_safety_rejects_dangerous_path_data \
 		test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink \
-		tests.test_bundle_audit tests.test_sudo_guard -v
+		tests.test_sudo_guard -v
+	tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	$(PYTHON) -m venv "$$tmpdir/venv"; \
+	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
+	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
+	CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1 PYTEST_ADDOPTS="-p no:cacheprovider" "$$tmpdir/venv/bin/python" -m pytest tests/test_bundle_audit.py -q
 
 real-macos-smoke:
 	$(PYTHON) -m unittest tests.test_macos_real_smoke -v
