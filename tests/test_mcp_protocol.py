@@ -7,8 +7,6 @@ import os
 import stat
 import subprocess
 import sys
-import tempfile
-import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -37,56 +35,53 @@ def _mcp_request(payload: dict, *, env: dict[str, str] | None = None) -> dict:
     return json.loads(first_line)
 
 
-class MCPProtocolTests(unittest.TestCase):
-    def test_request_without_jsonrpc_field_returns_invalid_request(self) -> None:
-        response = _mcp_request({"id": 1, "method": "tools/list"})
+def test_request_without_jsonrpc_field_returns_invalid_request() -> None:
+    response = _mcp_request({"id": 1, "method": "tools/list"})
 
-        self.assertEqual(response["error"]["code"], -32600)
-        self.assertIn("jsonrpc", response["error"]["message"].lower())
-
-    def test_request_with_wrong_jsonrpc_version_returns_invalid_request(self) -> None:
-        response = _mcp_request({"jsonrpc": "1.0", "id": 2, "method": "tools/list"})
-
-        self.assertEqual(response["error"]["code"], -32600)
-
-    def test_tool_call_respects_injected_timeout(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            sleeper = Path(tmp) / "sleepy_cleanmac.py"
-            sleeper.write_text(
-                "#!/usr/bin/env python3\nimport time\ntime.sleep(2)\nprint('{}')\n",
-                encoding="utf-8",
-            )
-            sleeper.chmod(sleeper.stat().st_mode | stat.S_IXUSR)
-            response = _mcp_request(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 3,
-                    "method": "tools/call",
-                    "params": {"name": "cleanmac_capabilities", "arguments": {}},
-                },
-                env=_mcp_env(CLEANMAC_CLI=str(sleeper), CLEANMAC_MCP_TOOL_TIMEOUT="0.01"),
-            )
-
-        result = response["result"]
-        self.assertTrue(result["isError"])
-        self.assertEqual(result["structuredContent"]["schema"], "cleanmac.mcp-tool-error.v1")
-        self.assertIn("timed out", result["structuredContent"]["message"].lower())
-
-    def test_resource_payload_is_returned_as_data_not_instruction(self) -> None:
-        response = _mcp_request(
-            {
-                "jsonrpc": "2.0",
-                "id": 4,
-                "method": "resources/read",
-                "params": {"uri": "cleanmac://ai/runbook"},
-            }
-        )
-
-        text = response["result"]["contents"][0]["text"]
-        payload = json.loads(text)
-        self.assertEqual(payload["schema"], "cleanmac.ai-runbook.v1")
-        self.assertFalse(payload["execution_gate"]["auto_call_allowed"])
+    assert response["error"]["code"] == -32600
+    assert "jsonrpc" in response["error"]["message"].lower()
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_request_with_wrong_jsonrpc_version_returns_invalid_request() -> None:
+    response = _mcp_request({"jsonrpc": "1.0", "id": 2, "method": "tools/list"})
+
+    assert response["error"]["code"] == -32600
+
+
+def test_tool_call_respects_injected_timeout(tmp_path: Path) -> None:
+    sleeper = tmp_path / "sleepy_cleanmac.py"
+    sleeper.write_text(
+        "#!/usr/bin/env python3\nimport time\ntime.sleep(2)\nprint('{}')\n",
+        encoding="utf-8",
+    )
+    sleeper.chmod(sleeper.stat().st_mode | stat.S_IXUSR)
+    response = _mcp_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "cleanmac_capabilities", "arguments": {}},
+        },
+        env=_mcp_env(CLEANMAC_CLI=str(sleeper), CLEANMAC_MCP_TOOL_TIMEOUT="0.01"),
+    )
+
+    result = response["result"]
+    assert result["isError"] is True
+    assert result["structuredContent"]["schema"] == "cleanmac.mcp-tool-error.v1"
+    assert "timed out" in result["structuredContent"]["message"].lower()
+
+
+def test_resource_payload_is_returned_as_data_not_instruction() -> None:
+    response = _mcp_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "resources/read",
+            "params": {"uri": "cleanmac://ai/runbook"},
+        }
+    )
+
+    text = response["result"]["contents"][0]["text"]
+    payload = json.loads(text)
+    assert payload["schema"] == "cleanmac.ai-runbook.v1"
+    assert payload["execution_gate"]["auto_call_allowed"] is False
