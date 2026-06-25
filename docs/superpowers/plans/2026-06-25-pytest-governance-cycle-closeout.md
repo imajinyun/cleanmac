@@ -23,6 +23,16 @@
 - AI Host governance now has pytest coverage for the one-shot AI workflow route contract, candidate evidence chain, review-selection evidence, dry-run token output, Trash execution gate, operation-log evidence requirements, and in-process AI/release dispatch schema coverage.
 - Open-source governance now has pytest coverage for required governance files, pinned GitHub Actions references, security/dependency/scorecard workflow configuration, README/AGENTS AI-first zero-resident positioning, packaging metadata, and local developer path exclusion.
 
+## Round 78-97 Closeout
+
+- Plan: `2026-06-25-pytest-governance-rounds-78-97.md`.
+- Round 78-97 status: all planned pytest governance rounds are completed and each round has a focused commit.
+- Newly ratcheted pytest surfaces include `tests/test_cli_basics.py`, `tests/test_ai_schema_exports.py`, `tests/test_clean_execution.py`, `tests/test_ai_idempotency.py`, `tests/test_ai_errors.py`, `tests/test_cli_workflows.py`, `tests/test_tool_governance.py`, and `tests/test_review_selection.py`.
+- CLI and capabilities governance now has pytest coverage for safety guardrails, open-source gap metadata, grouped command guidance, profile defaults, links preview metadata, and links execute compatibility.
+- AI schema and clean execution governance now has pytest coverage for provider export parity, safe argv gates, AI confirmation ledgers, execute confirmation-token requirements, token boundary behavior, and JSON safety error taxonomy.
+- Tool governance now has pytest coverage for permissions preflight contracts, readonly tool plans, package-manager adapter metadata, dry-run allowlisted execution, and destructive execution blocking without explicit `yes`.
+- Review-selection governance now has pytest coverage for selection generation evidence, explicit include/exclude behavior, existing-selection validation, display filters, sort ordering, and selection-state preservation.
+
 ---
 
 ## Landed Pytest Governance Surfaces
@@ -41,11 +51,9 @@
 - `test_cleanmac.py` is the only intentional large unittest backlog. It still owns broad legacy CLI compatibility, safety guardrail contracts, governance metadata contracts, human-renderer branch coverage, and remaining edge-case compatibility checks.
 - Do not migrate `test_cleanmac.py` as one large rewrite. Split it by stable ownership boundaries first, then move each extracted slice to pytest.
 - Recommended next slices:
-  - capabilities and governance metadata contracts
-  - CLI plan / dry-run / execute orchestration contracts
+  - remaining CLI plan / dry-run / execute orchestration edge cases
   - delete safety and Trash execution compatibility cases not already covered in `tests/test_delete_ops.py` or `tests/test_trash_mode.py`
   - release workflow and distribution governance checks that are not already covered by release workflow and artifact pytest files
-  - grouped command compatibility and legacy flat-command compatibility checks that are not already covered by grouped command pytest files
   - remaining distribution governance checks not covered by release workflow and artifact pytest files
   - legacy flat-command compatibility checks not already covered by grouped command pytest files
   - human report printer branches and remaining report renderer compatibility checks
@@ -54,11 +62,11 @@
 
 ## Next backlog slices
 
-1. Extract capabilities and governance metadata contracts from `test_cleanmac.py` into pytest coverage for runtime lifecycle, product positioning, boundary governance, development governance TODOs, and AI tool contract metadata.
-2. Extract CLI plan / dry-run / execute orchestration edge cases into pytest coverage for plan context, review-selection constraints, confirmation-token propagation, and operation-log summaries.
-3. Extract human report printer branches into pytest coverage for `cleancli.core.print_report` and plain-text fallbacks without relying on subprocess output.
-4. Extract remaining distribution governance checks into pytest coverage for Homebrew formula metadata, package smoke invariants, and post-publish evidence contracts.
-5. Extract legacy flat-command compatibility checks into pytest coverage for aliases that remain supported alongside grouped commands.
+1. Extract remaining CLI plan / dry-run / execute orchestration edge cases into pytest coverage for plan context, review-selection constraints, confirmation-token propagation, and operation-log summaries.
+2. Extract human report printer branches into pytest coverage for `cleancli.core.print_report` and plain-text fallbacks without relying on subprocess output.
+3. Extract remaining distribution governance checks into pytest coverage for Homebrew formula metadata, package smoke invariants, and post-publish evidence contracts.
+4. Extract legacy flat-command compatibility checks into pytest coverage for aliases that remain supported alongside grouped commands.
+5. Extract remaining real macOS smoke and package smoke edge cases into pytest coverage that can run through temporary venv or Docker-backed validation.
 6. Keep `test_cleanmac.py` runnable until each extracted slice has equivalent pytest coverage and at least one targeted pytest plus `make pytest-test` evidence.
 
 ---

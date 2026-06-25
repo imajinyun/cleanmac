@@ -515,6 +515,10 @@ def test_review_item_scope_filters_display_items_without_changing_selection() ->
         assert [item["id"] for item in selected["items"]] == ["cache:/tmp/cache"]
         assert selected["selection"]["selected_item_ids"] == ["cache:/tmp/cache"]
         assert selected["selection_summary"]["item_count"] == 2
+        assert selected["selection_summary"]["selected_count"] == 1
+        assert selected["selection_summary"]["excluded_count"] == 1
+        assert selected["selection"] == excluded["selection"]
+        assert selected["selection_summary"] == excluded["selection_summary"]
         assert excluded["item_view"] == {
             "scope": "excluded",
             "sort": "source",
@@ -591,6 +595,12 @@ def test_review_item_sort_orders_display_items_without_changing_selection() -> N
         assert selected_first["item_view"]["sort"] == "selected-first"
         assert selected_first["items"][0]["id"] == "low-small:/tmp/a"
         assert selected_first["selection"]["selected_item_ids"] == ["low-small:/tmp/a"]
+        assert risk_sorted["selection"] == bytes_sorted["selection"] == selected_first["selection"]
+        assert (
+            risk_sorted["selection_summary"] == bytes_sorted["selection_summary"] == selected_first["selection_summary"]
+        )
+        assert selected_first["selection_summary"]["selected_kind_counts"] == {"cache": 1}
+        assert selected_first["selection_summary"]["excluded_risk_counts"] == {"critical": 1, "medium": 1}
 
 
 def test_review_html_escapes_paths() -> None:

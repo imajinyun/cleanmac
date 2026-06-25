@@ -433,10 +433,10 @@
 - Modify: `tests/test_review_selection.py`
 - Modify: `docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md`
 
-- [ ] Add pytest coverage for review item scope/sort display filters without changing selected item state.
-- [ ] Update the closeout document with Round 78-97 status and the next backlog slices.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover review display filters`.
+- [x] Add pytest coverage for review item scope/sort display filters without changing selected item state.
+- [x] Update the closeout document with Round 78-97 status and the next backlog slices.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover review display filters`.
 
 ---
 
