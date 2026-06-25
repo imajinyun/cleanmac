@@ -312,3 +312,17 @@ def test_release_workflow_supply_chain_contract() -> None:
 
     for asset in expected_release_assets:
         assert asset in release, asset
+
+
+def test_release_workflow_and_smoke_reuse_release_manifest_script() -> None:
+    release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "scripts/generate_release_manifest.py" in release
+    assert "--dist-dir dist" in release
+    assert "--assets-dir release-assets" in release
+    assert "--evidence" in release
+    assert "manifest = {" not in release
+    assert "scripts/generate_release_manifest.py" in makefile
+    assert "ARTIFACT-MANIFEST.json" in makefile
+    assert "SHA256SUMS" in makefile
