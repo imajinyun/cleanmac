@@ -106,7 +106,15 @@ def test_startup_disable_requires_review_selection_and_records_audit() -> None:
             for record in records
         )
         disabled_result = next(item for item in report["results"] if item["status"] == "disabled")
+        disabled_record = next(record for record in records if record["status"] == "disabled")
         assert disabled_result["review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+        assert disabled_record["backup_path"] == disabled_result["backup_path"]
+        assert disabled_record["backup_sha256"] == disabled_result["backup_sha256"]
+        assert disabled_record["ai"]["candidate_review_evidence"] == disabled_result["review_evidence"]
+        selected_evidence = disabled_record["ai"]["review_selection"]["selected_review_evidence"][0]
+        assert selected_evidence["id"] == disabled_result["id"]
+        assert selected_evidence["path"] == disabled_result["path"]
+        assert selected_evidence["review_evidence"] == disabled_result["review_evidence"]
         assert "not-in-review-selection" in {record.get("reason") for record in records}
 
 
