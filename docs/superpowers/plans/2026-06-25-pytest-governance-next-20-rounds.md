@@ -166,9 +166,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for execute removing only sandbox contents, JSON audit report file output, item failure continuation, and operation log visibility.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover clean execute audit reports`.
+- [x] Add pytest coverage for execute removing only sandbox contents, JSON audit report file output, item failure continuation, and operation log visibility.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover clean execute audit reports`.
 
 ## Round 54: App And Group Container Cleanup Policies
 

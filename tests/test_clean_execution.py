@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from typing import Any
+from unittest import mock
 
 import cleancli.core as cleancli
 from cleancli.ai_versioning import validate_contract_payload
@@ -297,6 +300,43 @@ def test_clean_writes_json_audit_report_file() -> None:
         assert audit["dry_run"] is True
         assert "--report-file" in audit["argv"]
         assert audit["selected_category_keys"] == ["trash"]
+
+
+def test_clean_execute_records_item_failures_and_continues_by_default() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        (root / "Users/tester/Downloads/partial.crdownload").write_text("partial", encoding="utf-8")
+        operation_log = root / "logs" / "operations.jsonl"
+        original_delete_path = cleancli.delete_path
+
+        def flaky_delete(path: Path, **kwargs: Any) -> Path | None:
+            if path.name == "download.bin":
+                raise PermissionError("Operation not permitted")
+            return original_delete_path(path, **kwargs)
+
+        with mock.patch.object(cleancli, "delete_path", side_effect=flaky_delete):
+            report = cleancli.clean(
+                [cleancli.CATEGORY_BY_KEY["downloads"]],
+                root=root,
+                home=home,
+                execute=True,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(operation_log),
+                command_argv=["clean", "--categories", "downloads", "--execute"],
+            )
+
+        records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+        failed = [row for row in report["items"] if row.get("status") == "failed"]
+        deleted = [row for row in report["items"] if row.get("status") == "deleted"]
+
+        assert report["failed_count"] == 1
+        assert report["deleted_count"] == 1
+        assert failed[0]["reason"] == "permission-denied"
+        assert (root / "Users/tester/Downloads/download.bin").exists()
+        assert not (root / "Users/tester/Downloads/partial.crdownload").exists()
+        assert {record["status"] for record in records} == {"failed", "deleted"}
+        assert len(deleted) == 1
 
 
 def test_clean_safety_gate_exposes_single_fail_fast_flag() -> None:
