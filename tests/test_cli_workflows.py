@@ -515,19 +515,25 @@ def test_links_execute_creates_and_removes_symlink_dirs() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
         logs = root / "Users/tester/Library/Containers/com.example/Data/Library/Logs"
-        run_cli(
+        create = run_cli(
             "--root",
             str(root),
             "--home",
             str(home),
+            "--json",
             "links",
             "--kind",
             "logs",
             "--execute",
         )
+        create_report = json.loads(create.stdout)
         link_path = root / "Users/tester/.CleanMacAppLogLinks/com.example"
         assert link_path.is_symlink()
         assert link_path.resolve() == logs.resolve()
+        assert create_report["dry_run"] is False
+        assert create_report["destructive"] is False
+        assert create_report["mappings"][0]["status"] == "created"
+        assert create_report["mappings"][0]["link_path"] == str(link_path.parent.resolve() / link_path.name)
 
         result = run_cli(
             "--root",
@@ -543,6 +549,9 @@ def test_links_execute_creates_and_removes_symlink_dirs() -> None:
         )
         report = json.loads(result.stdout)
         assert report["mode"] == "remove"
+        assert report["destructive"] is True
+        assert report["dry_run"] is False
+        assert report["removed"][0]["existed_before"] is True
         assert report["removed"][0]["removed"] is True
         assert not (root / "Users/tester/.CleanMacAppLogLinks").exists()
 

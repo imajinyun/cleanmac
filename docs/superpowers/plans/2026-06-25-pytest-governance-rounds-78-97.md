@@ -333,9 +333,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for link create/remove execution and existing non-symlink skip behavior.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover links execute compatibility`.
+- [x] Add pytest coverage for link create/remove execution and existing non-symlink skip behavior.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover links execute compatibility`.
 
 ## Round 89: Permissions Preflight Contract
 
