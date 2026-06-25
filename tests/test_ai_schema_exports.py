@@ -140,6 +140,119 @@ def test_provider_export_parity_reports_same_tool_names_directly() -> None:
     assert report["violations"] == []
 
 
+def test_ai_schema_builds_safe_argv_without_shell_or_implicit_execute() -> None:
+    schemas = ai_schema.render_function_schemas()
+    validation = ai_schema.validate_ai_tool_definitions()
+    by_name = {tool["name"]: tool for tool in schemas["tools"]}
+
+    assert validation["schema"] == "cleanmac.ai-schema-validation.v1"
+    assert validation["valid"] is True
+    assert validation["violations"] == []
+    assert validation["tool_count"] == len(schemas["tools"])
+    assert "cleanmac_execute_plan" in validation["destructive_tools"]
+
+    inspect_tool = by_name["cleanmac_inspect"]
+    execute_tool = by_name["cleanmac_execute_plan"]
+    assert inspect_tool["requires_confirmation"] is False
+    assert execute_tool["requires_confirmation"] is True
+    assert execute_tool["auto_call_allowed"] is False
+    assert "operation_log" in execute_tool["parameters"]["required"]
+    assert "require_plan_context" not in execute_tool["parameters"]["required"]
+    assert execute_tool["parameters"]["properties"]["require_plan_context"]["default"] is True
+
+    assert ai_schema.build_tool_argv(
+        "cleanmac_generate_plan",
+        {"categories": ["trash", "downloads"], "max_items": 5},
+    ) == [
+        "cleanmac",
+        "--json",
+        "clean",
+        "plan",
+        "--categories",
+        "trash,downloads",
+        "--ai-origin",
+        "--max-items",
+        "5",
+    ]
+    assert ai_schema.build_tool_argv("cleanmac_dry_run_plan", {"plan_file": "/tmp/plan.json"}) == [
+        "cleanmac",
+        "--json",
+        "clean",
+        "run",
+        "--plan-file",
+        "/tmp/plan.json",
+        "--require-plan-context",
+        "--delete-mode",
+        "trash",
+    ]
+    assert ai_schema.build_tool_argv(
+        "cleanmac_policy_simulate",
+        {
+            "plan_file": "/tmp/plan.json",
+            "execute": True,
+            "delete_mode": "trash",
+            "review_selection_file": "/tmp/selection.json",
+        },
+    ) == [
+        "cleanmac",
+        "--json",
+        "clean",
+        "policy-simulate",
+        "--plan-file",
+        "/tmp/plan.json",
+        "--execute",
+        "--delete-mode",
+        "trash",
+        "--review-selection-file",
+        "/tmp/selection.json",
+        "--require-plan-context",
+    ]
+
+    try:
+        ai_schema.build_tool_argv("cleanmac_execute_plan", {"plan_file": "/tmp/plan.json"})
+    except ValueError as exc:
+        assert "requires explicit user confirmation" in str(exc)
+    else:  # pragma: no cover - pytest assertion guard
+        raise AssertionError("cleanmac_execute_plan accepted missing confirmation")
+
+    execute_argv = ai_schema.build_tool_argv(
+        "cleanmac_execute_plan",
+        {
+            "plan_file": "/tmp/plan.json",
+            "confirmation_phrase": ai_schema.CONFIRMATION_PHRASE,
+            "confirmation_token": "cleanmac-confirm-test",
+            "operation_log": "/tmp/cleanmac-operations.jsonl",
+        },
+    )
+    assert execute_argv == [
+        "cleanmac",
+        "--json",
+        "clean",
+        "run",
+        "--plan-file",
+        "/tmp/plan.json",
+        "--require-plan-context",
+        "--delete-mode",
+        "trash",
+        "--execute",
+        "--yes",
+        "--operation-log",
+        "/tmp/cleanmac-operations.jsonl",
+        "--require-confirmation-token",
+        "--confirmation-token",
+        "cleanmac-confirm-test",
+    ]
+    assert all(part not in {"sh", "bash", "zsh", "-c", "shell"} for part in execute_argv)
+    assert "--execute" not in ai_schema.build_tool_argv("cleanmac_generate_plan", {"categories": ["trash"]})
+
+    try:
+        ai_schema.build_tool_argv("shell", {"command": "rm -rf /"})
+    except ValueError as exc:
+        assert "Unknown cleanmac AI tool" in str(exc)
+    else:  # pragma: no cover - pytest assertion guard
+        raise AssertionError("unknown shell tool was accepted")
+
+
 def test_ai_schema_registry_covers_public_ai_schemas() -> None:
     registry = ai_versioning.render_ai_schema_registry()
     names = {entry["name"] for entry in registry["entries"]}

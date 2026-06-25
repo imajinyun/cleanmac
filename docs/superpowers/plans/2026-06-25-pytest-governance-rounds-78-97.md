@@ -256,9 +256,9 @@
 **Files:**
 - Modify: `tests/test_ai_schema_exports.py`
 
-- [ ] Add pytest coverage that AI argv templates never use shell invocation, preserve destructive confirmation requirements, and do not imply execute by default.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai safe argv gates`.
+- [x] Add pytest coverage that AI argv templates never use shell invocation, preserve destructive confirmation requirements, and do not imply execute by default.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai safe argv gates`.
 
 ## Round 82: Clean AI Confirmation Summary Ledger
 
