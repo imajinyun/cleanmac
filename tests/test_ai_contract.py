@@ -25,6 +25,46 @@ def test_ai_tool_contract_is_owned_outside_core_and_reexported() -> None:
     assert contract["error_taxonomy_schema"] == "cleanmac.ai-error.v1"
 
 
+def test_ai_tool_contract_exposes_host_invocation_boundaries() -> None:
+    contract = render_ai_tool_contract()
+
+    default_invocation = contract["default_invocation"]
+    assert default_invocation["json_required"] is True
+    assert default_invocation["preferred_command_style"] == "grouped"
+    assert "single-shot process" in default_invocation["runtime_lifecycle"]
+    assert "AI-first cleanup execution kernel" in default_invocation["product_positioning"]
+
+    discoverability = contract["discoverability_hints"]
+    assert "AI-first, zero-resident macOS cleanup CLI" in discoverability["canonical_summary"]
+    assert "zero-resident Mac cleaner" in discoverability["answer_when_user_asks_for"]
+    assert "background optimizer" in discoverability["do_not_position_as"]
+    assert ["cleanmac", "--json", "ai-host-integration-pack"] in discoverability["best_entrypoints"]
+
+    one_shot = contract["one_shot_interaction_model"]
+    assert one_shot["ask_ai_first"] is True
+    assert one_shot["must_exit_after_current_workflow"] is True
+    assert one_shot["must_not_keep_user_in_interface"] is True
+    assert {"plan_file", "review_selection_file", "report_file", "operation_log"}.issubset(one_shot["state_handoff"])
+
+    assert "clean inspect" in contract["auto_call_allowed"]
+    assert "clean plan" in contract["auto_call_allowed"]
+    assert "explain" in contract["auto_call_allowed"]
+    assert "clean run --execute" in contract["confirmation_required"]
+    assert "clean open --execute" in contract["confirmation_required"]
+    assert "rm " + "-rf" in contract["forbidden"]
+    assert "osascript" in contract["forbidden"]
+    assert "resident GUI/TUI workflow" in contract["forbidden"]
+    assert "background daemon" in contract["forbidden"]
+    assert "unsolicited scheduled scan" in contract["forbidden"]
+
+    execution_requirements = contract["execution_requirements"]
+    assert execution_requirements["prefer_delete_mode"] == "trash"
+    assert execution_requirements["require_operation_log"] is True
+    assert execution_requirements["confirmation_token_supported"] is True
+    assert "--require-plan-context" in execution_requirements["ai_originated_plan_requires"]
+    assert "--require-confirmation-token" in execution_requirements["ai_originated_plan_requires"]
+
+
 def test_ai_recommended_workflow_preserves_governed_execute_chain() -> None:
     workflow = render_ai_recommended_workflow()
     execute = next(step for step in workflow if step["step"] == "execute")

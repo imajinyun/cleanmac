@@ -85,9 +85,9 @@
 **Files:**
 - Modify: `tests/test_ai_contract.py`
 
-- [ ] Add pytest coverage for `ai_tool_contract` default invocation, discoverability hints, one-shot interaction model, auto-call/confirmation rules, forbidden commands, and execution requirements.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover capabilities ai tool contract`.
+- [x] Add pytest coverage for `ai_tool_contract` default invocation, discoverability hints, one-shot interaction model, auto-call/confirmation rules, forbidden commands, and execution requirements.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover capabilities ai tool contract`.
 
 ## Round 45: AI Workflow And Intent Hints
 
