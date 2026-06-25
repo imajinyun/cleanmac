@@ -121,6 +121,47 @@ def test_analyze_tree_writes_markdown_report_with_file_links() -> None:
         assert "Open in Finder" in markdown
 
 
+def test_analyze_tree_markdown_report_preserves_sandbox_paths_and_schema_fields() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        report_file = root / "tree-report.md"
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "--report-file",
+            str(report_file),
+            "--report-format",
+            "markdown",
+            "analyze",
+            "tree",
+            "--path",
+            "/Users/tester",
+            "--depth",
+            "1",
+            "--top",
+            "5",
+        )
+        report = json.loads(result.stdout)
+        markdown = report_file.read_text(encoding="utf-8")
+
+        assert report["schema"] == "cleanmac.analyze-tree.v1"
+        assert report["destructive"] is False
+        assert report["path"] == str(root / "Users/tester")
+        assert report["report_file"] == str(report_file)
+        assert report["report_format"] == "markdown"
+        assert 0 < report["shown_entries"] <= 5
+        assert report["total_entries"] >= report["shown_entries"]
+        assert report["entries"]
+        assert all(entry["path"].startswith(str(root)) for entry in report["entries"])
+        assert all({"path", "name", "type", "depth", "bytes", "human"}.issubset(entry) for entry in report["entries"])
+        assert str(root / "Users/tester") in markdown
+        assert "file://" in markdown
+        assert "Raw JSON" in markdown
+
+
 def test_analyze_group_rejects_non_cli_view_action() -> None:
     removed_action = "t" + "ui"
     result = run_cli("--json", "analyze", removed_action, "--path", ".", check=False)

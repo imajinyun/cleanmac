@@ -139,9 +139,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py` or `tests/test_report_renderers.py`
 
-- [ ] Add pytest coverage for analyze tree Markdown report output, file links, sandbox root behavior, and JSON schema fields.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover analyze tree report files`.
+- [x] Add pytest coverage for analyze tree Markdown report output, file links, sandbox root behavior, and JSON schema fields.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover analyze tree report files`.
 
 ## Round 51: Profiles And Links Commands
 
