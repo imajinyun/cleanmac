@@ -268,6 +268,81 @@ def test_clean_reports_ai_confirmation_summary_for_dry_run_and_execute() -> None
         assert execute_report["human_summary"]["safe_to_execute"] is False
 
 
+def test_plan_command_generates_reusable_cleanup_plan_contract() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "plan",
+            "--categories",
+            "trash,downloads",
+            "--risk-policy",
+            "strict",
+            "--max-delete-mb",
+            "10",
+            "--include",
+            "*.tmp",
+            "--exclude",
+            "*.keep",
+            "--min-size-mb",
+            "1",
+            "--name-regex",
+            "tmp$",
+            "--max-items",
+            "5",
+            "--older-than-days",
+            "3",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["schema"] == "cleanmac.plan.v1"
+        assert report["selected_category_keys"] == ["trash", "downloads"]
+        assert report["risk_policy"] == "strict"
+        assert report["max_delete_mb"] == 10.0
+        assert report["include_patterns"] == ["*.tmp"]
+        assert report["exclude_patterns"] == ["*.keep"]
+        assert report["min_size_mb"] == 1
+        assert report["name_regex"] == "tmp$"
+        assert report["max_items"] == 5
+        assert report["older_than_days"] == 3.0
+        assert report["dry_run"] is True
+        assert report["ai_origin"] is False
+        assert "pre_clean_report" in report
+        assert report["ai_summary"]["schema"] == "cleanmac.ai-summary.v1"
+        assert report["ai_summary"]["phase"] == "plan"
+        assert report["ai_summary"]["recommended_next_action"] == "dry_run_plan"
+        assert report["ai_summary"]["safe_to_execute_after_confirmation"] is False
+        assert "trash" in report["ai_summary"]["selected_categories"]
+        assert report["ai_confirmation_summary"]["schema"] == "cleanmac.ai-confirmation-summary.v1"
+        assert (
+            report["ai_confirmation_summary"]["confirmation_token_embedded"]
+            == report["ai_confirmation_summary"]["confirmation_token"]
+        )
+        assert report["ai_confirmation_summary"]["confirmation_token_embedded"].startswith("cleanmac-confirm-")
+
+        plan_file = root / "contract-plan.json"
+        plan_file.write_text(json.dumps(report), encoding="utf-8")
+        validation = json.loads(
+            run_cli(
+                "--json",
+                "ai-validate-contract",
+                "--schema",
+                "cleanmac.plan.v1",
+                "--payload-file",
+                str(plan_file),
+            ).stdout
+        )
+
+        assert validation["schema"] == "cleanmac.ai-contract-validation.v1"
+        assert validation["valid"] is True
+        assert validation["target_schema"] == "cleanmac.plan.v1"
+        assert validation["error_count"] == 0
+
+
 def test_clean_execute_removes_only_sandbox_contents() -> None:
     tmp, root, home = make_sandbox()
     with tmp:

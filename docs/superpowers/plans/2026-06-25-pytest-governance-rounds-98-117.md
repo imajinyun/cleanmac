@@ -268,9 +268,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for plan filter metadata, AI summary, embedded confirmation token, and contract validation.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover reusable cleanup plan contract`.
+- [x] Add pytest coverage for plan filter metadata, AI summary, embedded confirmation token, and contract validation.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover reusable cleanup plan contract`.
 
 ## Round 103: Plan Context Failure Contracts
 
