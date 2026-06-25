@@ -6,7 +6,24 @@ from unittest.mock import patch
 import pytest
 
 from cleancli import delete_ops
-from tests.helpers import make_sandbox, policy_for
+from tests.helpers import PROJECT_ROOT, make_sandbox, policy_for
+
+
+def test_real_delete_primitives_are_owned_by_delete_ops() -> None:
+    core_text = (PROJECT_ROOT / "cleancli/core.py").read_text(encoding="utf-8")
+    delete_ops_text = (PROJECT_ROOT / "cleancli/delete_ops.py").read_text(encoding="utf-8")
+
+    assert "shutil.rmtree(" not in core_text
+    assert "shutil.move(" not in core_text
+    assert ".unlink(" not in core_text
+    assert "shutil.rmtree(" in delete_ops_text
+    assert "shutil.move(" in delete_ops_text
+    assert "BLOCKED_TEST_COMMANDS" in delete_ops_text
+    assert "def validate_deletion_path" in delete_ops_text
+    assert "def safe_remove" in delete_ops_text
+    assert "def safe_trash_move" in delete_ops_text
+    assert "def safe_sudo_remove" in delete_ops_text
+    assert "SUDO_REMOVE_COMMAND" in delete_ops_text
 
 
 def test_validate_deletion_path_rejects_empty_relative_and_traversal_paths() -> None:
