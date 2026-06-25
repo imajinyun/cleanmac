@@ -179,9 +179,9 @@
 **Files:**
 - Modify: `tests/test_ai_contract.py` or `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage that core contract validation reports file failures in-process with structured errors.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover contract validation failures`.
+- [x] Add pytest coverage that core contract validation reports file failures in-process with structured errors.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover contract validation failures`.
 
 ## Round 76: Open Source Governance Files
 
