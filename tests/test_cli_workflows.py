@@ -5,6 +5,40 @@ import json
 from tests.helpers import make_sandbox, run_cli
 
 
+def test_capabilities_grouped_command_alias_metadata_matches_cli_contract() -> None:
+    report = json.loads(run_cli("--json", "capabilities").stdout)
+
+    clean_group = report["command_groups"]["clean"]
+    assert clean_group["commands"] == [
+        "clean list",
+        "clean inspect",
+        "clean plan",
+        "clean validate-plan",
+        "clean run",
+        "clean scripts",
+        "clean open",
+        "clean links",
+    ]
+    assert clean_group["flat_command_aliases"] == [
+        "list",
+        "inspect",
+        "plan",
+        "validate-plan",
+        "clean",
+        "scripts",
+        "open",
+        "links",
+    ]
+    assert report["command_groups"]["analyze"]["commands"] == [
+        "analyze categories",
+        "analyze scan",
+        "analyze tree",
+    ]
+    assert report["command_groups"]["analyze"]["flat_command_aliases"] == ["analyze"]
+    assert report["preferred_command_style"] == "grouped"
+    assert report["flat_command_compatibility"] is True
+
+
 def test_grouped_clean_commands_match_flat_alias_reports() -> None:
     tmp, root, home = make_sandbox()
     with tmp:

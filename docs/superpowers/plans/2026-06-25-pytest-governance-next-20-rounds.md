@@ -130,9 +130,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage that grouped clean commands match flat aliases, grouped clean run remains dry-run by default, grouped analyze tree reports largest entries, and non-CLI grouped analyze actions are rejected.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover grouped command compatibility`.
+- [x] Add pytest coverage that grouped clean commands match flat aliases, grouped clean run remains dry-run by default, grouped analyze tree reports largest entries, and non-CLI grouped analyze actions are rejected.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover grouped command compatibility`.
 
 ## Round 50: Analyze Tree Report Files
 
