@@ -143,9 +143,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for `explain` summarizing plans without execution and `diagnose` recommending safe categories while flagging logs.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover explain diagnose routes`.
+- [x] Add pytest coverage for `explain` summarizing plans without execution and `diagnose` recommending safe categories while flagging logs.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover explain diagnose routes`.
 
 ## Round 72: AI Workflow Route Contract
 
