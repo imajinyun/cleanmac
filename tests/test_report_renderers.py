@@ -204,9 +204,12 @@ def test_report_file_html_escapes_audit_content() -> None:
         first_item = report["items"][0]
 
         assert "%3Cscript%3Ealert%281%29.tmp" in first_item["finder_url"]
+        assert "<script>alert(1).tmp" in first_item["path"]
         assert "<script>alert(1).tmp" not in html_text
         assert "&lt;script&gt;alert(1).tmp" in html_text
         assert "%3Cscript%3Ealert%281%29.tmp" in html_text
+        assert "&lt;script&gt;alert(1).tmp" in html_text
+        assert "Raw JSON" in html_text
 
 
 def test_report_file_defaults_to_json_audit_report() -> None:
@@ -231,7 +234,14 @@ def test_report_file_defaults_to_json_audit_report() -> None:
         assert report["report_format"] == "json"
         assert audit_record["schema"] == "cleanmac.audit.v1"
         assert audit_record["report_format"] == "json"
+        assert audit_record["report_file"] == str(report_file)
+        assert "--json" in audit_record["argv"]
+        assert "--report-file" in audit_record["argv"]
+        assert "inspect" in audit_record["argv"]
         assert audit_record["report"]["schema"] == "cleanmac.inspect.v1"
+        assert "report_file" not in audit_record["report"]
+        assert "report_format" not in audit_record["report"]
+        assert audit_record["report"]["items"]
 
 
 def test_core_print_report_human_branches_are_covered_in_process() -> None:
