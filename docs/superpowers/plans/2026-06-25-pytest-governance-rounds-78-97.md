@@ -245,9 +245,9 @@
 **Files:**
 - Modify: `tests/test_ai_schema_exports.py`
 
-- [ ] Add pytest coverage that OpenAI, Anthropic, MCP, and aggregate exports expose identical tool names and no parity violations.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai provider export parity`.
+- [x] Add pytest coverage that OpenAI, Anthropic, MCP, and aggregate exports expose identical tool names and no parity violations.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai provider export parity`.
 
 ## Round 81: AI Safe Argv Builder Gates
 
