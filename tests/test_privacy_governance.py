@@ -103,6 +103,8 @@ def test_privacy_inspect_and_plan_preserve_sensitive_scopes_by_default() -> None
         )
         privacy_plan = credentials_report["privacy_plan"]
         assert credentials_report["schema"] == "cleanmac.privacy-plan.v1"
+        assert privacy_plan["requires_explicit_execute"] is True
+        assert privacy_plan["requires_explicit_future_execute"] is True
         assert privacy_plan["safe_to_auto_execute"] is False
         assert privacy_plan["candidate_count"] >= 3
         assert privacy_plan["default_selected_count"] == 0
