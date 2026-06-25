@@ -267,9 +267,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for dry-run AI confirmation summary, human summary next command, execute summary, and execution ledger fields.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover clean ai confirmation ledger`.
+- [x] Add pytest coverage for dry-run AI confirmation summary, human summary next command, execute summary, and execution ledger fields.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover clean ai confirmation ledger`.
 
 ## Round 83: Execute Requires Bound Confirmation Token
 
