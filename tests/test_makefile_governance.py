@@ -393,6 +393,38 @@ def test_pytest_migrated_targets_keep_native_assertions_and_coverage_floor() -> 
     assert int(fail_under_line.split("=", 1)[1].strip()) >= 55
 
 
+def test_pytest_governance_closeout_documents_remaining_unittest_backlog() -> None:
+    closeout = (PROJECT_ROOT / "docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md").read_text(
+        encoding="utf-8"
+    )
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    scanned_files = [
+        path
+        for path in [PROJECT_ROOT / "test_cleanmac.py", *(PROJECT_ROOT / "tests").glob("test_*.py")]
+        if path.is_file()
+    ]
+    unittest_backlog = [
+        path.relative_to(PROJECT_ROOT).as_posix()
+        for path in scanned_files
+        if path.name != "test_makefile_governance.py"
+        and any(
+            token in path.read_text(encoding="utf-8") for token in ("unittest.TestCase", "self.assert", "unittest.main")
+        )
+    ]
+
+    assert unittest_backlog == ["test_cleanmac.py"]
+    assert "`test_cleanmac.py` is the only intentional large unittest backlog" in closeout
+    assert "`tests/test_makefile_governance.py` intentionally contains" in closeout
+    assert "make pytest-test" in closeout
+    assert "make pytest-governance-smoke" in closeout
+    assert "make ai-robustness-smoke" in closeout
+    assert "Do not migrate `test_cleanmac.py` as one large rewrite" in closeout
+    assert ".harness/store.json" in closeout
+    assert "PYTEST_SAFE_TARGETS" in makefile
+    assert "PYTEST_AI_HOST_TARGETS" in closeout
+    assert "PYTEST_AI_ROBUSTNESS_TARGETS" in closeout
+
+
 def test_python_quality_tooling_is_configured() -> None:
     pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     precommit = (PROJECT_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
