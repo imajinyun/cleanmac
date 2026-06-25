@@ -4,6 +4,7 @@ import json
 
 from cleancli import core
 from tests.helpers import make_sandbox, run_cli
+from tests.test_review_selection import write_review_selection
 
 
 def test_operation_log_records_delete_status_path_bytes_mode_and_trash_path() -> None:
@@ -49,6 +50,120 @@ def test_operation_log_records_delete_status_path_bytes_mode_and_trash_path() ->
         assert record["ai"]["plan_file"] is None
         assert record["ai"]["plan_sha256"] is None
         assert record["ai"]["confirmation_token_validated"] is False
+
+
+def test_clean_execute_persists_operation_log_entries() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        operation_log = root / "logs" / "cleanmac-operations.jsonl"
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "--categories",
+            "downloads",
+            "--execute",
+            "--yes",
+            "--operation-log",
+            str(operation_log),
+        )
+        report = json.loads(result.stdout)
+        records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+        assert report["operation_log"] == str(operation_log)
+        assert report["operation_log_entry_count"] == len(records)
+        assert len(records) >= 1
+        assert {record["schema"] for record in records} == {"cleanmac.operation-log-entry.v1"}
+        assert {record["delete_mode"] for record in records} == {"permanent"}
+        assert all("cleanmac.py" in record["command"] for record in records)
+        assert all("downloads" in record["command"] for record in records)
+        assert all(record["deleted"] for record in records)
+
+
+def test_clean_execute_uses_default_operation_log_under_remapped_home() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "--categories",
+            "downloads",
+            "--execute",
+            "--yes",
+        )
+        report = json.loads(result.stdout)
+        operation_log = root / "Users/tester/.cleanmac/operations.jsonl"
+        records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+        assert report["operation_log"] == str(operation_log)
+        assert report["operation_log_entry_count"] == len(records)
+        assert records[0]["command"].split()[:2] == ["cleanmac.py", "--root"]
+        assert str(root / "Users/tester/Downloads/download.bin") in {record["path"] for record in records}
+
+
+def test_rotate_log_once_rotates_oversized_logs() -> None:
+    tmp, root, _home = make_sandbox()
+    with tmp:
+        log_path = root / "logs" / "operations.jsonl"
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text("x" * 32, encoding="utf-8")
+
+        rotated = core.rotate_log_once(log_path, max_bytes=16)
+
+        assert rotated is True
+        assert not log_path.exists()
+        assert (root / "logs" / "operations.jsonl.1").read_text(encoding="utf-8") == "x" * 32
+
+
+def test_clean_execute_operation_log_records_review_selection_constraint() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        operation_log = root / "logs" / "review-selection-operations.jsonl"
+        plan_file, selection_file, _review_report = write_review_selection(root, home, "trash,downloads")
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            str(plan_file),
+            "--review-selection-file",
+            str(selection_file),
+            "--delete-mode",
+            "trash",
+            "--execute",
+            "--yes",
+            "--operation-log",
+            str(operation_log),
+        )
+        report = json.loads(result.stdout)
+        records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+        assert report["operation_log_entry_count"] == len(records)
+        assert {record["ai"]["review_selection"]["schema"] for record in records} == {
+            "cleanmac.operation-log-review-selection.v1"
+        }
+        assert {record["ai"]["review_selection"]["selection_file"] for record in records} == {str(selection_file)}
+        assert {record["ai"]["review_selection"]["selected_count"] for record in records} == {1}
+        assert {len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records} == {1}
+        assert {record["ai"]["review_selection"]["validation_valid"] for record in records} == {True}
+        assert all(
+            record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+            for record in records
+        )
+        assert "not-in-review-selection" in {record.get("reason") for record in records}
+        assert (root / "Users/tester/Downloads/download.bin").exists()
 
 
 def test_operation_log_explainability_contract_is_ready() -> None:
