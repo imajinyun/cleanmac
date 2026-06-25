@@ -231,7 +231,18 @@ def test_review_generates_selection_file_from_plan() -> None:
 
         assert report["schema"] == "cleanmac.review.v1"
         assert selection["schema"] == "cleanmac.review-selection.v1"
+        assert report["destructive"] is False
+        assert report["dry_run"] is True
+        assert report["source_schema"] == "cleanmac.software-uninstall-plan.v1"
+        assert report["source_fingerprint"] == selection["source_fingerprint"]
+        assert report["selection_file"] == str(selection_file)
+        assert report["selection"] == selection
         assert selection["selected_item_ids"] == ["cache:/tmp/cache"]
+        assert selection["excluded_item_ids"] == []
+        assert selection["explicit_selected_item_ids"] == []
+        assert selection["explicit_excluded_item_ids"] == []
+        assert selection["unknown_item_ids"] == []
+        assert selection["protected_item_ids"] == []
         assert item["matched_rule"] == "software-orphan.cache.missing-installed-bundle-id"
         assert item["match_reason"] == "missing-installed-bundle-id"
         assert item["confidence"] == "medium"
@@ -241,11 +252,15 @@ def test_review_generates_selection_file_from_plan() -> None:
         assert report["human_summary"]["schema"] == "cleanmac.human-summary.v1"
         assert "Review selected 1 of 1" in report["human_summary"]["headline"]
         assert report["human_summary"]["safe_to_execute"] is False
+        assert report["human_summary"]["top_reasons_to_review"] == [
+            "Review output only; destructive execution is still blocked until a dry-run and explicit confirmation."
+        ]
         assert "--review-selection-file" in report["human_summary"]["next_command"]
         assert selection["summary"]["schema"] == "cleanmac.review-selection-summary.v1"
         assert selection["summary"]["selected_count"] == 1
         assert selection["summary"]["excluded_count"] == 0
         assert selection["summary"]["selected_risk_counts"] == {"low": 1}
+        assert selection["summary"]["selected_kind_counts"] == {"cache": 1}
         assert selection["summary"]["requires_sensitive_review"] is False
         assert validate_contract_payload("cleanmac.review.v1", report)["valid"] is True
         assert validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"] is True

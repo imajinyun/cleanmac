@@ -399,9 +399,9 @@
 **Files:**
 - Modify: `tests/test_review_selection.py`
 
-- [ ] Add pytest coverage for review selection generation, candidate evidence, human summary, selected item IDs, and output file contract.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover review selection generation`.
+- [x] Add pytest coverage for review selection generation, candidate evidence, human summary, selected item IDs, and output file contract.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover review selection generation`.
 
 ## Round 95: Review Explicit Include Exclude
 
