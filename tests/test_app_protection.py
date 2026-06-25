@@ -58,6 +58,82 @@ def test_cleanmac_sensitive_path_library_covers_credentials_dev_ai_and_vpn_data(
         assert protection.should_protect_data(path), str(path)
 
 
+def test_extended_app_cache_categories_select_regenerable_caches_and_preserve_credentials() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        cache_fixtures = {
+            "androidStudio": (
+                root / "Users/tester/Library/Caches/Google/AndroidStudio2025.1/index.bin",
+                root / "Users/tester/Library/Caches/Google/AndroidStudio2025.1/index.bin",
+            ),
+            "chrome": (
+                root / "Users/tester/Library/Application Support/Google/Chrome/Default/Cache/cache.bin",
+                root / "Users/tester/Library/Application Support/Google/Chrome/Default/Cache/cache.bin",
+            ),
+            "slack": (
+                root / "Users/tester/Library/Application Support/Slack/Cache/blob.bin",
+                root / "Users/tester/Library/Application Support/Slack/Cache/blob.bin",
+            ),
+            "nodePackageCaches": (
+                root / "Users/tester/.npm/_cacache/index-v5/entry",
+                root / "Users/tester/.npm/_cacache/index-v5",
+            ),
+            "pythonPackageCaches": (
+                root / "Users/tester/Library/Caches/pip/http-v2/entry",
+                root / "Users/tester/Library/Caches/pip/http-v2",
+            ),
+            "goBuildCaches": (
+                root / "Users/tester/Library/Caches/go-build/ab/cache.a",
+                root / "Users/tester/Library/Caches/go-build/ab",
+            ),
+            "homebrewCaches": (
+                root / "Users/tester/Library/Caches/Homebrew/package.tar.gz",
+                root / "Users/tester/Library/Caches/Homebrew/package.tar.gz",
+            ),
+        }
+        credential_paths = (
+            root / "Users/tester/.docker/config.json",
+            root / "Users/tester/.pypirc",
+            root / "Users/tester/.netrc",
+            root / "Users/tester/Library/Application Support/Slack/Cookies",
+            root / "Users/tester/Library/Application Support/Google/Chrome/Default/Login Data",
+        )
+        for path in (*(write_path for write_path, _expected_path in cache_fixtures.values()), *credential_paths):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("x", encoding="utf-8")
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "inspect",
+            "--categories",
+            ",".join(cache_fixtures),
+        )
+        report = json.loads(result.stdout)
+        items = report["items"]
+        assert isinstance(items, list)
+        by_category = {row["category"]: row for row in items if isinstance(row, dict)}
+        item_paths = {row["path"] for row in items if isinstance(row, dict)}
+
+        assert set(cache_fixtures).issubset(by_category)
+        for category, (_write_path, expected_candidate_path) in cache_fixtures.items():
+            row = by_category[category]
+            evidence = row["review_evidence"]
+            assert row["path"] == str(expected_candidate_path)
+            assert row["default_selected"] is True
+            assert row["risk"] == "medium"
+            assert evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
+            assert evidence["matched_rule"] == f"clean.{category}.candidate"
+            assert evidence["default_selected"] is True
+
+        assert not any(str(path) in item_paths for path in credential_paths)
+        assert protection.should_protect_data(home / ".docker/config.json")
+
+
 def test_official_uninstaller_rules_cover_security_mdm_edr_vendors() -> None:
     assert protection.official_uninstaller_vendor(bundle_id="com.crowdstrike.falcon.UserAgent") == "CrowdStrike"
     assert protection.official_uninstaller_vendor(name="Jamf Protect") == "Jamf"
