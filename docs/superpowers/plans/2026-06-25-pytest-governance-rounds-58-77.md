@@ -125,9 +125,9 @@
 **Files:**
 - Modify: `tests/test_makefile_governance.py` or create `tests/test_public_imports.py`
 
-- [ ] Add pytest coverage that public `cleancli` modules import after package splitting and `cleanmac.main` still delegates to `cleancli.cli.main`.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover public module import boundary`.
+- [x] Add pytest coverage that public `cleancli` modules import after package splitting and `cleanmac.main` still delegates to `cleancli.cli.main`.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover public module import boundary`.
 
 ## Round 70: Grouped Command Matrix Smoke
 
