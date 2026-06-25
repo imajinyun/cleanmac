@@ -168,3 +168,34 @@ def test_security_scan_flags_gui_tui_and_resident_product_surfaces(tmp_path: Pat
     assert any("forbidden GUI framework dependency 'pyqt'" in violation for violation in violations), violations
     assert any("autostart product surface is forbidden" in violation for violation in violations), violations
     assert any("LaunchAgent/LaunchDaemon plist is forbidden" in violation for violation in violations), violations
+
+
+def test_security_scan_flags_unsafe_docs_and_generated_script_examples(tmp_path: Path) -> None:
+    scanner = load_security_module()
+    root = tmp_path
+    docs = root / "docs" / "unsafe.md"
+    docs.parent.mkdir()
+    docs.write_text(
+        "Unsafe generated cleanup example:\n\n```sh\nrm -rf ~/Library/Caches/example\n```\n",
+        encoding="utf-8",
+    )
+    generated = root / "scripts" / "generated_cleanup.sh"
+    generated.parent.mkdir()
+    generated.write_text(
+        "#!/bin/sh\nsudo rm -rf /Library/Application\\ Support/example\n",
+        encoding="utf-8",
+    )
+
+    violations = scanner.scan_repo(root)
+
+    assert any("docs/unsafe.md" in violation and "raw rm -rf is forbidden" in violation for violation in violations), (
+        violations
+    )
+    assert any(
+        "scripts/generated_cleanup.sh" in violation and "raw rm -rf is forbidden" in violation
+        for violation in violations
+    ), violations
+    assert any(
+        "scripts/generated_cleanup.sh" in violation and "shell must not invoke privileged command 'sudo'" in violation
+        for violation in violations
+    ), violations
