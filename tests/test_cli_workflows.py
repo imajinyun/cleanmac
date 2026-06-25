@@ -5,6 +5,7 @@ import os
 import time
 
 from tests.helpers import make_sandbox, run_cli
+from tests.test_review_selection import run_cli_unchecked
 
 
 def test_capabilities_grouped_command_alias_metadata_matches_cli_contract() -> None:
@@ -159,6 +160,26 @@ def test_inspect_accepts_budget_flags_as_non_destructive_preview() -> None:
         assert report["budget_summary"]["within_max_items"] is True
         assert report["budget_summary"]["applies_to_execute"] is False
         assert log_file.exists()
+
+
+def test_invalid_name_regex_is_rejected_before_deletion() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli_unchecked(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "inspect",
+            "--categories",
+            "trash",
+            "--name-regex",
+            "[",
+        )
+
+        assert result.returncode != 0
+        assert "Invalid --name-regex" in result.stderr
+        assert (root / "Users/tester/.Trash/old.tmp").exists()
 
 
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
