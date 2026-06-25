@@ -134,9 +134,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for the grouped command matrix smoke remaining non-destructive across clean, analyze, software, privacy, startup, status, optimize, links, and workflow routes.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover grouped command matrix smoke`.
+- [x] Add pytest coverage for the grouped command matrix smoke remaining non-destructive across clean, analyze, software, privacy, startup, status, optimize, links, and workflow routes.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover grouped command matrix smoke`.
 
 ## Round 71: Explain And Diagnose Routes
 

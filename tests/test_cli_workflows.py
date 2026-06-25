@@ -64,6 +64,63 @@ def test_grouped_clean_run_executes_dry_run_alias() -> None:
         assert (root / "Users/tester/.Trash/old.tmp").exists()
 
 
+def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "plan",
+            "--categories",
+            "trash",
+        )
+        plan_file = root / "plan.json"
+        plan_file.write_text(plan_result.stdout, encoding="utf-8")
+
+        cases: list[tuple[list[str], str, dict[str, object]]] = [
+            (["clean", "list"], "cleanmac.category-list.v1", {"categories": list}),
+            (["clean", "inspect", "--categories", "trash"], "cleanmac.inspect.v1", {"dry_run": True}),
+            (["clean", "plan", "--categories", "trash"], "cleanmac.plan.v1", {}),
+            (["clean", "validate-plan", "--plan-file", str(plan_file)], "cleanmac.validate-plan.v1", {"valid": True}),
+            (["clean", "scripts", "--categories", "trash"], "cleanmac.scripts.v1", {}),
+            (["clean", "open", "--categories", "trash"], "cleanmac.open.v1", {"dry_run": True}),
+            (["clean", "links"], "cleanmac.links.v1", {"dry_run": True}),
+            (["software", "list"], "cleanmac.software.v1", {"destructive": False}),
+            (["software", "leftovers"], "cleanmac.software.v1", {"destructive": False}),
+            (["software", "orphans"], "cleanmac.software-orphans.v1", {"dry_run": True}),
+            (["software", "startup-items"], "cleanmac.software.v1", {"destructive": False}),
+            (["startup", "audit"], "cleanmac.startup-audit.v1", {"dry_run": True}),
+            (["startup", "plan"], "cleanmac.startup-plan.v1", {"dry_run": True}),
+            (["privacy", "inspect", "--scope", "cache"], "cleanmac.privacy-inspect.v1", {"dry_run": True}),
+            (["privacy", "plan", "--scope", "credentials"], "cleanmac.privacy-plan.v1", {"dry_run": True}),
+            (["optimize", "list"], "cleanmac.optimize.v1", {"destructive": False}),
+            (["optimize", "run", "--execute"], "cleanmac.optimize.v1", {"execution_supported": False}),
+            (["analyze", "categories", "--categories", "trash"], "cleanmac.analyze.v1", {"dry_run": True}),
+            (["analyze", "scan", "--path", "/Users/tester", "--depth", "1"], "cleanmac.analyze-tree.v1", {}),
+            (["status", "snapshot"], "cleanmac.status.snapshot.v1", {"destructive": False}),
+        ]
+
+        for command_args, expected_schema, expected_fields in cases:
+            result = run_cli("--root", str(root), "--home", str(home), "--json", *command_args)
+            report = json.loads(result.stdout)
+
+            assert report["schema"] == expected_schema, command_args
+            for field, expected in expected_fields.items():
+                if isinstance(expected, type):
+                    assert isinstance(report[field], expected), command_args
+                else:
+                    assert report[field] == expected, command_args
+            if command_args[:2] == ["clean", "scripts"]:
+                assert report["script_inventory"]["schema"] == "cleanmac.script-groups.v1"
+
+        assert (root / "Users/tester/.Trash/old.tmp").exists()
+        assert (root / "Users/tester/Downloads/download.bin").exists()
+
+
 def test_grouped_analyze_tree_reports_largest_entries() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
