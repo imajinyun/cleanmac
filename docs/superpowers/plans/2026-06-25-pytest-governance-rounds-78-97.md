@@ -366,9 +366,9 @@
 **Files:**
 - Modify: `tests/test_tool_governance.py`
 
-- [ ] Add pytest coverage for package-manager dry-run commands, cleanup scope, path categories, and risk metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover package manager adapters`.
+- [x] Add pytest coverage for package-manager dry-run commands, cleanup scope, path categories, and risk metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover package manager adapters`.
 
 ## Round 92: Tool Execute Dry-Run Allowlist
 
