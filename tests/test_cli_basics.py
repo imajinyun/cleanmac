@@ -396,6 +396,128 @@ def test_inspect_accepts_budget_flags_as_non_destructive_preview() -> None:
         assert log_file.exists()
 
 
+def test_invalid_name_regex_is_rejected_before_deletion() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "inspect",
+            "--categories",
+            "trash",
+            "--name-regex",
+            "[",
+            check=False,
+        )
+
+        assert result.returncode != 0
+        assert "Invalid --name-regex" in result.stderr
+        assert (root / "Users/tester/.Trash/old.tmp").exists()
+
+
+def test_incomplete_downloads_skip_active_files() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        (root / "Users/tester/Downloads/partial.crdownload").write_text("partial", encoding="utf-8")
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(cleancli, "is_file_open", lambda path: path.name == "partial.crdownload")
+            report = cleancli.inspect_items(
+                [cleancli.CATEGORY_BY_KEY["incompleteDownloads"]],
+                root=root,
+                home=home,
+                limit=50,
+            )
+
+        assert report["total_candidates"] == 0
+        assert "active-file" in report["skipped_summary"]["by_reason"]
+
+
+def test_mail_downloads_use_age_and_size_defaults() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        old_time = time.time() - 40 * 24 * 60 * 60
+        old_mail = root / "Users/tester/Library/Mail Downloads/old-mail.pdf"
+        old_mail.parent.mkdir(parents=True, exist_ok=True)
+        old_mail.write_text("mail-old", encoding="utf-8")
+        os.utime(old_mail, (old_time, old_time))
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setenv("CLEANMAC_TEST_MODE", "1")
+            result = run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "inspect",
+                "--categories",
+                "mails",
+            )
+        report = json.loads(result.stdout)
+
+        assert report["total_candidates"] == 0
+        assert "below-min-size" in report["skipped_summary"]["by_reason"]
+
+
+def test_gpu_cache_provider_only_returns_stale_allowlisted_dirs() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        stale = root / "private/var/folders/aa/bb/C/app/com.apple.metal"
+        recent = root / "private/var/folders/aa/bb/C/app/com.apple.metalfe"
+        stale.mkdir(parents=True)
+        recent.mkdir(parents=True)
+        stale_file = stale / "shader.cache"
+        recent_file = recent / "shader.cache"
+        stale_file.write_text("old", encoding="utf-8")
+        recent_file.write_text("new", encoding="utf-8")
+        old_time = time.time() - 3 * 24 * 60 * 60
+        os.utime(stale_file, (old_time, old_time))
+        os.utime(stale, (old_time, old_time))
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "gpuCaches",
+        )
+        report = json.loads(result.stdout)
+        paths = [row["path"] for row in report["items"]]
+
+        assert str(stale) in paths
+        assert str(recent) not in paths
+        assert "not-stale" in report["skipped_summary"]["by_reason"]
+
+
+def test_browser_code_sign_cache_provider_uses_x_shard_and_preserves_sandbox_safety() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        cache = root / "private/var/folders/aa/bb/X/com.browser/foo.code_sign_clone"
+        cache.mkdir(parents=True)
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "browserCodeSignCache",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["total_candidates"] == 1
+        assert report["items"][0]["path"] == str(cache)
+        with pytest.raises(RuntimeError, match="outside sandbox root"):
+            cleancli.assert_safe_to_delete(Path("/tmp/cleanmac-outside-candidate"), root=root, home=home)
+
+
 def test_capabilities_json_exposes_distribution_governance_metadata() -> None:
     result = run_cli("--json", "capabilities")
     report = json.loads(result.stdout)
