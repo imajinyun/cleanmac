@@ -378,9 +378,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for `--older-than-days` filtering new candidates and emitting too-new skip reason.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover older than days filtering`.
+- [x] Add pytest coverage for `--older-than-days` filtering new candidates and emitting too-new skip reason.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover older than days filtering`.
 
 ## Round 113: High Risk Requires Yes
 

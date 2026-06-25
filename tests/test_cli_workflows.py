@@ -302,6 +302,38 @@ def test_browser_code_sign_cache_provider_uses_x_shard_and_rejects_outside_root(
             raise AssertionError("outside-root candidate should be rejected")
 
 
+def test_older_than_days_filters_new_candidates() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        old_file = root / "Users/tester/.Trash/ancient.tmp"
+        new_file = root / "Users/tester/.Trash/fresh.tmp"
+        old_file.write_text("old", encoding="utf-8")
+        new_file.write_text("new", encoding="utf-8")
+        old_time = time.time() - 10 * 24 * 60 * 60
+        os.utime(old_file, (old_time, old_time))
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "trash",
+            "--older-than-days",
+            "7",
+            "--sort",
+            "path",
+        )
+        report = json.loads(result.stdout)
+        paths = [row["path"] for row in report["items"]]
+
+        assert str(old_file) in paths
+        assert str(new_file) not in paths
+        assert "too-new" in report["skipped_summary"]["by_reason"]
+
+
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
