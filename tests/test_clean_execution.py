@@ -360,6 +360,111 @@ def test_plan_file_reuses_filters_during_execute() -> None:
         assert not old_file.exists()
 
 
+def test_ai_confirmation_token_is_required_and_bound_before_execute() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        dry_run = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            "downloads",
+            "--delete-mode",
+            "trash",
+            "--max-items",
+            "10",
+            "--max-delete-mb",
+            "5",
+        )
+        token = json.loads(dry_run.stdout)["ai_confirmation_summary"]["confirmation_token"]
+        candidate = root / "Users/tester/Downloads/download.bin"
+
+        missing = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            "downloads",
+            "--delete-mode",
+            "trash",
+            "--max-items",
+            "10",
+            "--max-delete-mb",
+            "5",
+            "--execute",
+            "--yes",
+            "--require-confirmation-token",
+            check=False,
+        )
+        assert missing.returncode != 0
+        assert "confirmation token" in missing.stderr
+        assert candidate.exists()
+
+        mismatch = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            "downloads",
+            "--delete-mode",
+            "trash",
+            "--max-items",
+            "99",
+            "--max-delete-mb",
+            "5",
+            "--execute",
+            "--yes",
+            "--require-confirmation-token",
+            "--confirmation-token",
+            token,
+            check=False,
+        )
+        assert mismatch.returncode != 0
+        assert "confirmation token mismatch" in mismatch.stderr
+        assert candidate.exists()
+
+        execute = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            "downloads",
+            "--delete-mode",
+            "trash",
+            "--max-items",
+            "10",
+            "--max-delete-mb",
+            "5",
+            "--execute",
+            "--yes",
+            "--require-confirmation-token",
+            "--confirmation-token",
+            token,
+        )
+        report = json.loads(execute.stdout)
+
+        assert not candidate.exists()
+        assert report["ai_confirmation_summary"]["confirmation_token_validated"] is True
+        assert report["ai_execution_ledger"]["confirmation"]["token_required"] is True
+        assert report["ai_execution_ledger"]["confirmation"]["token_validated"] is True
+
+
 def test_filters_apply_to_inspect_and_clean() -> None:
     tmp, root, home = make_sandbox()
     with tmp:

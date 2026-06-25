@@ -278,9 +278,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage that execute rejects missing, malformed, wrong-phrase, and mismatched confirmation tokens before deletion.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover execute token requirements`.
+- [x] Add pytest coverage that execute rejects missing, malformed, wrong-phrase, and mismatched confirmation tokens before deletion.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover execute token requirements`.
 
 ## Round 84: Confirmation Token Boundary Conditions
 
