@@ -379,3 +379,37 @@ def test_cli_emits_release_orchestration_reports(command: str, schema: str) -> N
     assert payload["schema"] == schema
     assert payload["destructive"] is False
     assert payload["dry_run"] is True
+
+
+def test_release_workflow_invokes_governed_evidence_commands() -> None:
+    release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    expected_commands = [
+        "cleanmac.py --json release-readiness --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-diagnostics --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-rehearsal --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-rollback-plan --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-post-publish-verification --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-post-publish-result --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-post-publish-evidence-template --dist-dir dist --assets-dir release-assets",
+        "cleanmac.py --json release-promotion-decision --dist-dir dist --assets-dir release-assets",
+        "scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets --evidence",
+    ]
+    expected_assertions = [
+        'assert report["ready"] is True',
+        'assert decision["decision"] == "promote"',
+        'assert decision["safe_to_publish"] is True',
+        'assert evidence["ready"] is True',
+        'assert payloads["RELEASE-READINESS.json"]["ready"] is True',
+        'assert payloads["RELEASE-EVIDENCE.json"]["ready"] is True',
+        'assert payloads["RELEASE-REHEARSAL.json"]["ready"] is True',
+        'assert post_publish_result["manual_only"] is True',
+        'assert post_publish_template["target_input_schema"] == "cleanmac.release-post-publish-evidence-input.v1"',
+    ]
+
+    assert "Verify release readiness" in release
+    assert "Verify governed release evidence" in release
+    assert "Verify governed release promotion decision" in release
+    for command in expected_commands:
+        assert command in release, command
+    for assertion in expected_assertions:
+        assert assertion in release, assertion
