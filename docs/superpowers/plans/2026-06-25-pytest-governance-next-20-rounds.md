@@ -67,9 +67,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py` or `tests/test_ai_governance.py`
 
-- [ ] Add pytest coverage for `governance_integrity` readiness, readiness score, governed contracts, required release gate commands, and remediation commands.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover governance integrity contract`.
+- [x] Add pytest coverage for `governance_integrity` readiness, readiness score, governed contracts, required release gate commands, and remediation commands.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover governance integrity contract`.
 
 ## Round 43: Distribution Governance Metadata
 

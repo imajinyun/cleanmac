@@ -232,6 +232,33 @@ def test_capabilities_json_exposes_open_source_gap_governance_todo() -> None:
     assert gap_todo["items"][1]["id"] == "p0-software-orphan-scan"
 
 
+def test_capabilities_json_exposes_governance_integrity_contract() -> None:
+    result = run_cli("--json", "capabilities")
+    report = json.loads(result.stdout)
+
+    boundaries = report["boundary_governance"]
+    assert "make docs-smoke" in boundaries["verification"]["required_commands"]
+    assert "make governance-smoke" in boundaries["verification"]["required_commands"]
+    assert "make governance-integrity-smoke" in boundaries["verification"]["required_commands"]
+    assert "make open-source-smoke" in boundaries["verification"]["required_commands"]
+
+    governance_integrity = report["governance_integrity"]
+    assert governance_integrity["schema"] == "cleanmac.governance-integrity.v1"
+    assert governance_integrity["ready"] is True
+    assert governance_integrity["failed_check_ids"] == []
+    assert governance_integrity["stop_reason"] == ""
+    assert governance_integrity["readiness_score"]["level"] == "ready"
+    assert "cleanmac.geo-discoverability-policy.v1" in governance_integrity["governed_contracts"]
+    assert "cleanmac.ai-tool-contract.v1" in governance_integrity["governed_contracts"]
+
+    integrity_checks = {row["id"]: row for row in governance_integrity["checks"]}
+    runtime_check = integrity_checks["boundary-runtime-lifecycle-single-source"]
+    assert runtime_check["passed"] is True
+    assert ["make", "governance-integrity-smoke"] in runtime_check["remediation_commands"]
+    assert integrity_checks["boundary-product-surface-single-source"]["passed"] is True
+    assert integrity_checks["boundary-geo-policy-single-source"]["passed"] is True
+
+
 def test_quiet_suppresses_human_readable_output_but_not_json() -> None:
     quiet_result = run_cli("-q", "list")
 
