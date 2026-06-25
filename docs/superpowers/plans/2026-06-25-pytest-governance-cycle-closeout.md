@@ -6,6 +6,15 @@
 
 ---
 
+## Round 38-57 Closeout
+
+- Plan: `2026-06-25-pytest-governance-next-20-rounds.md`.
+- Round 38-57 status: all planned pytest governance rounds are completed and each round has a focused commit.
+- Newly ratcheted pytest surfaces include `tests/test_cli_basics.py`, `tests/test_ai_contract.py`, `tests/test_ai_schema_exports.py`, `tests/test_ai_idempotency.py`, `tests/test_cli_workflows.py`, `tests/test_clean_execution.py`, `tests/test_app_protection.py`, `tests/test_group_containers.py`, `tests/test_software_governance.py`, `tests/test_startup_governance.py`, `tests/test_privacy_governance.py`, and `tests/test_makefile_governance.py`.
+- Round 57 adds the migration backlog ratchet: only `test_cleanmac.py` may remain as the intentional large unittest backlog, while `tests/test_makefile_governance.py` may contain unittest tokens only as literal forbidden-token fixtures.
+
+---
+
 ## Landed Pytest Governance Surfaces
 
 - `PYTEST_SAFE_TARGETS` covers release readiness, release orchestration, release artifacts, path safety, Trash mode, delete ops, and security scan pytest files.
@@ -26,7 +35,16 @@
   - CLI plan / dry-run / execute orchestration contracts
   - delete safety and Trash execution compatibility cases not already covered in `tests/test_delete_ops.py` or `tests/test_trash_mode.py`
   - open-source, release workflow, and distribution governance checks
+  - grouped command compatibility and legacy flat-command compatibility checks
+  - report renderer and audit file compatibility checks
 - `tests/test_makefile_governance.py` intentionally contains `import unittest`, `unittest.TestCase`, `unittest.main`, and `self.assert` as literal forbidden-token fixtures. It is not part of the unittest backlog.
+
+## Next backlog slices
+
+1. Extract release workflow and distribution governance checks from `test_cleanmac.py` into focused pytest files that assert release artifact manifests, Homebrew formula metadata, PyPI publishing gates, and post-publish evidence contracts.
+2. Extract grouped command compatibility from `test_cleanmac.py` into pytest coverage for grouped and legacy flat command parsing, report-file ordering, and compatibility aliases.
+3. Extract report renderer and audit file compatibility checks into pytest coverage for JSON, Markdown, and HTML report output, including escaping and replay behavior.
+4. Keep `test_cleanmac.py` runnable until each extracted slice has equivalent pytest coverage and at least one targeted pytest plus `make pytest-test` evidence.
 
 ---
 

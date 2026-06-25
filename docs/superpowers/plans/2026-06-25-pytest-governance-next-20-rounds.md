@@ -203,10 +203,10 @@
 - Modify: `tests/test_makefile_governance.py`
 - Modify: `docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md`
 
-- [ ] Add a pytest ratchet that records the allowed `test_cleanmac.py` unittest backlog and fails if new `unittest.TestCase`, `self.assert`, or `unittest.main` usage appears outside explicitly documented exceptions.
-- [ ] Update the closeout document with the new Round 38-57 plan link and next backlog slices.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): ratchet unittest migration backlog`.
+- [x] Add a pytest ratchet that records the allowed `test_cleanmac.py` unittest backlog and fails if new `unittest.TestCase`, `self.assert`, or `unittest.main` usage appears outside explicitly documented exceptions.
+- [x] Update the closeout document with the new Round 38-57 plan link and next backlog slices.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): ratchet unittest migration backlog`.
 
 ---
 
