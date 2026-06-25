@@ -166,6 +166,65 @@ def test_clean_execute_operation_log_records_review_selection_constraint() -> No
         assert (root / "Users/tester/Downloads/download.bin").exists()
 
 
+def test_operation_log_records_complete_evidence_chain_for_selected_and_skipped_items() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        operation_log = root / "logs" / "evidence-chain.jsonl"
+        plan_file, selection_file, _review_report = write_review_selection(root, home, "trash,downloads")
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            str(plan_file),
+            "--review-selection-file",
+            str(selection_file),
+            "--delete-mode",
+            "trash",
+            "--execute",
+            "--yes",
+            "--operation-log",
+            str(operation_log),
+        )
+        report = json.loads(result.stdout)
+        records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+        deleted_record = next(record for record in records if record["status"] == "deleted")
+        skipped_record = next(record for record in records if record["status"] == "skipped")
+
+        assert report["operation_log_entry_count"] == len(records)
+        assert len(records) >= 2
+        for record in records:
+            assert record["schema"] == "cleanmac.operation-log-entry.v1"
+            assert record["tool"] == "cleanmac.clean.run"
+            assert record["parameters"]["path"] == record["path"]
+            assert record["parameters"]["category"] == record["category"]
+            assert record["parameters"]["delete_mode"] == "trash"
+            assert record["result"]["status"] == record["status"]
+            assert record["result"]["deleted"] == record["deleted"]
+            assert record["impact_scope"]["path"] == record["path"]
+            assert record["impact_scope"]["bytes"] == record["bytes"]
+            assert record["impact_scope"]["trash_path"] == record["trash_path"]
+            assert record["ai"]["schema"] == "cleanmac.operation-log-ai-audit.v1"
+            assert record["ai"]["review_selection"]["schema"] == "cleanmac.operation-log-review-selection.v1"
+            assert record["ai"]["review_selection"]["selection_file"] == str(selection_file)
+            assert record["ai"]["review_selection"]["validation_valid"] is True
+            assert len(record["ai"]["review_selection"]["selected_review_evidence"]) == 1
+            candidate_evidence = record["ai"]["candidate_review_evidence"]
+            assert candidate_evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
+            assert candidate_evidence["matched_rule"].startswith("clean.")
+            assert candidate_evidence["delete_mode"] == "trash"
+
+        assert deleted_record["deleted"] is True
+        assert deleted_record["trash_path"]
+        assert skipped_record["deleted"] is False
+        assert skipped_record["reason"] == "not-in-review-selection"
+
+
 def test_operation_log_explainability_contract_is_ready() -> None:
     result = run_cli("--json", "operation-log-explainability")
     payload = json.loads(result.stdout)
