@@ -363,6 +363,36 @@ def test_makefile_pytest_targets_are_structured_and_ci_gated() -> None:
     assert "python -m unittest tests.test_ai_" not in ci
 
 
+def test_pytest_migrated_targets_keep_native_assertions_and_coverage_floor() -> None:
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+    target_lines = [
+        row
+        for row in makefile.splitlines()
+        if row.startswith(("PYTEST_SAFE_TARGETS :=", "PYTEST_AI_HOST_TARGETS :=", "PYTEST_AI_ROBUSTNESS_TARGETS :="))
+    ]
+    migrated_targets = {
+        target for line in target_lines for target in line.split(":=", 1)[1].split() if target.startswith("tests/test_")
+    }
+
+    assert "tests/test_mcp_server.py" in migrated_targets
+    assert "tests/test_ai_eval.py" in migrated_targets
+    assert "tests/test_release_readiness.py" in migrated_targets
+    forbidden = ("import unittest", "unittest.TestCase", "unittest.main", "self.assert")
+    for target in sorted(migrated_targets):
+        text = (PROJECT_ROOT / target).read_text(encoding="utf-8")
+        assert "def test_" in text, target
+        for token in forbidden:
+            assert token not in text, f"{target} still contains {token}"
+
+    assert "[tool.coverage.run]" in pyproject
+    assert 'source = ["cleancli", "cleanmac"]' in pyproject
+    assert "[tool.coverage.report]" in pyproject
+    fail_under_line = next(line for line in pyproject.splitlines() if line.startswith("fail_under = "))
+    assert int(fail_under_line.split("=", 1)[1].strip()) >= 55
+
+
 def test_python_quality_tooling_is_configured() -> None:
     pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     precommit = (PROJECT_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
