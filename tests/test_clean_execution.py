@@ -194,6 +194,13 @@ def test_clean_reports_ai_confirmation_summary_for_dry_run_and_execute() -> None
         assert summary["confirmation_token"].startswith("cleanmac-confirm-")
         assert summary["confirmation_token_context"]["delete_mode"] == "trash"
         assert summary["confirmation_token_context"]["max_items"] == 10
+        assert summary["confirmation_token_context"]["schema"] == "cleanmac.ai-confirmation-token-context.v1"
+        assert summary["confirmation_token_context"]["root"] == str(root)
+        assert summary["confirmation_token_context"]["home"] == str(home)
+        assert summary["confirmation_token_context"]["selected_categories"] == ["trash", "downloads"]
+        assert summary["confirmation_token_context"]["max_delete_mb"] == 5.0
+        assert summary["confirmation_token_context"]["candidate_count"] == len(dry_report["items"])
+        assert summary["confirmation_token_context"]["plan_file"] is None
         assert summary["delete_mode"] == "trash"
         assert summary["operation_log"] == cleancli.OPERATIONS_LOG_FILE
         assert summary["estimated_reclaimable_bytes"] == dry_report["total_bytes"]
@@ -245,11 +252,18 @@ def test_clean_reports_ai_confirmation_summary_for_dry_run_and_execute() -> None
         assert execute_summary["operation_log"] == execute_report["operation_log"]
         assert execute_ledger["schema"] == "cleanmac.ai-execution-ledger.v1"
         assert execute_ledger["phase"] == "clean-execute"
+        assert execute_ledger["execution"]["delete_mode"] == "trash"
+        assert execute_ledger["execution"]["destructive"] is True
+        assert execute_ledger["execution"]["trash_recoverable"] is True
         assert execute_ledger["confirmation"]["token_validated"] is False
+        assert execute_ledger["confirmation"]["token_required"] is False
         assert execute_ledger["operation_log"]["status"] == "ready"
         assert execute_ledger["operation_log"]["ready"] is True
+        assert execute_ledger["operation_log"]["path"] == execute_report["operation_log"]
+        assert execute_ledger["operation_log"]["entry_count"] >= 1
         assert execute_report["ai_summary"]["phase"] == "clean-execute"
         assert execute_report["ai_summary"]["recommended_next_action"] == "review_operation_log"
+        assert execute_report["human_summary"]["headline"].startswith("Executed ")
         assert execute_report["human_summary"]["next_command"] == []
         assert execute_report["human_summary"]["safe_to_execute"] is False
 
