@@ -205,6 +205,29 @@ def test_diagnose_recommends_safe_categories_and_flags_logs() -> None:
         assert "trash,mails,xcode" in report["suggested_safe_command"]
 
 
+def test_workflow_selected_dry_run_scope_includes_high_risk_without_execute() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "workflow",
+            "--categories",
+            "trash,downloads",
+            "--dry-run-scope",
+            "selected",
+        )
+        report = json.loads(result.stdout)
+
+        assert [category["key"] for category in report["dry_run_categories"]] == ["trash", "downloads"]
+        assert report["reports"]["dry_run"]["dry_run"] is True
+        assert len(report["reports"]["dry_run"]["items"]) >= 2
+        assert (root / "Users/tester/Downloads/download.bin").exists()
+
+
 def test_grouped_analyze_tree_reports_largest_entries() -> None:
     tmp, root, home = make_sandbox()
     with tmp:

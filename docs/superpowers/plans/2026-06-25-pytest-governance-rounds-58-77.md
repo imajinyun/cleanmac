@@ -161,9 +161,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage that selected dry-run workflows can include high-risk categories without execute behavior.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover workflow selected dry-run scope`.
+- [x] Add pytest coverage that selected dry-run workflows can include high-risk categories without execute behavior.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover workflow selected dry-run scope`.
 
 ## Round 74: Core AI Dispatches In Process
 
