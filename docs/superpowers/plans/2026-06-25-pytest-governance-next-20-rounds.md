@@ -112,9 +112,9 @@
 **Files:**
 - Modify: `tests/test_ai_idempotency.py` or `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for dry-run and execute confirmation summary fields, token context, Trash delete mode, budget fields, and execute result counts.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover confirmation summary contracts`.
+- [x] Add pytest coverage for dry-run and execute confirmation summary fields, token context, Trash delete mode, budget fields, and execute result counts.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover confirmation summary contracts`.
 
 ## Round 48: Confirmation Token Boundary Conditions
 

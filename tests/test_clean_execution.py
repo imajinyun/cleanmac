@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import cleancli.core as cleancli
 from cleancli.ai_versioning import validate_contract_payload
 from tests.helpers import make_sandbox, run_cli
 
@@ -133,6 +134,94 @@ def test_clean_human_output_shows_pre_and_post_reports() -> None:
         assert "Post-clean report:" in result.stdout
         assert "estimated reclaim" in result.stdout
         assert "estimated reclaimed" in result.stdout
+
+
+def test_clean_reports_ai_confirmation_summary_for_dry_run_and_execute() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        dry_run = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            "trash,downloads",
+            "--delete-mode",
+            "trash",
+            "--max-items",
+            "10",
+            "--max-delete-mb",
+            "5",
+        )
+        dry_report = json.loads(dry_run.stdout)
+        summary = dry_report["ai_confirmation_summary"]
+
+        assert summary["requires_confirmation"] is True
+        assert summary["recommended_confirmation_phrase"] == "Confirm cleanmac cleanup execution"
+        assert summary["confirmation_token"].startswith("cleanmac-confirm-")
+        assert summary["confirmation_token_context"]["delete_mode"] == "trash"
+        assert summary["confirmation_token_context"]["max_items"] == 10
+        assert summary["delete_mode"] == "trash"
+        assert summary["operation_log"] == cleancli.OPERATIONS_LOG_FILE
+        assert summary["estimated_reclaimable_bytes"] == dry_report["total_bytes"]
+        assert summary["category_count"] == 2
+        assert summary["item_count"] == len(dry_report["items"])
+        assert summary["skipped_count"] == dry_report["skipped_count"]
+        assert summary["recommended_next_action"] == "ask_user_confirmation"
+        assert summary["safe_to_auto_execute"] is False
+        assert {"trash", "downloads"}.issubset(summary["selected_categories"])
+
+        human_summary = dry_report["human_summary"]
+        assert human_summary["schema"] == "cleanmac.human-summary.v1"
+        assert "Dry-run found" in human_summary["headline"]
+        assert human_summary["safe_to_execute"] is False
+        assert "--execute" in human_summary["next_command"]
+        assert "--confirmation-token" in human_summary["next_command"]
+        assert summary["confirmation_token"] in human_summary["next_command"]
+        assert human_summary["top_reasons_to_review"]
+
+        ai_summary = dry_report["ai_summary"]
+        assert ai_summary["schema"] == "cleanmac.ai-summary.v1"
+        assert ai_summary["phase"] == "clean-dry-run"
+        assert ai_summary["recommended_next_action"] == "ask_user_confirmation"
+        assert ai_summary["safe_to_execute_after_confirmation"] is True
+        assert "Trash" in " ".join(ai_summary["reasons"])
+
+        execute = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--categories",
+            "downloads",
+            "--delete-mode",
+            "trash",
+            "--execute",
+            "--yes",
+        )
+        execute_report = json.loads(execute.stdout)
+        execute_summary = execute_report["ai_confirmation_summary"]
+        execute_ledger = execute_report["ai_execution_ledger"]
+
+        assert execute_summary["requires_confirmation"] is False
+        assert execute_summary["recommended_next_action"] == "review_operation_log"
+        assert execute_summary["deleted_count"] == sum(1 for row in execute_report["items"] if row["deleted"])
+        assert execute_summary["operation_log"] == execute_report["operation_log"]
+        assert execute_ledger["schema"] == "cleanmac.ai-execution-ledger.v1"
+        assert execute_ledger["phase"] == "clean-execute"
+        assert execute_ledger["confirmation"]["token_validated"] is False
+        assert execute_ledger["operation_log"]["status"] == "ready"
+        assert execute_ledger["operation_log"]["ready"] is True
+        assert execute_report["ai_summary"]["phase"] == "clean-execute"
+        assert execute_report["ai_summary"]["recommended_next_action"] == "review_operation_log"
+        assert execute_report["human_summary"]["next_command"] == []
+        assert execute_report["human_summary"]["safe_to_execute"] is False
 
 
 def test_clean_execute_removes_only_sandbox_contents() -> None:
