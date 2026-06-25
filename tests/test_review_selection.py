@@ -326,10 +326,14 @@ def test_review_selection_supports_explicit_include_and_exclude() -> None:
             ).stdout
         )
         selection = json.loads(selection_file.read_text(encoding="utf-8"))
+        items = {item["id"]: item for item in report["items"]}
 
         assert report["selection"] == selection
+        assert report["selection_summary"] == selection["summary"]
+        assert report["item_count"] == 3
+        assert report["default_selected_count"] == 1
         assert selection["selected_item_ids"] == ["history:/tmp/history"]
-        assert "cache:/tmp/cache" in selection["excluded_item_ids"]
+        assert selection["excluded_item_ids"] == ["cache:/tmp/cache", "protected:/System/Library"]
         assert selection["explicit_selected_item_ids"] == [
             "history:/tmp/history",
             "protected:/System/Library",
@@ -340,10 +344,18 @@ def test_review_selection_supports_explicit_include_and_exclude() -> None:
         assert selection["unknown_item_ids"] == ["missing:item"]
         assert selection["summary"]["selected_risk_counts"] == {"medium": 1}
         assert selection["summary"]["excluded_risk_counts"] == {"critical": 1, "low": 1}
+        assert selection["summary"]["selected_kind_counts"] == {"history": 1}
+        assert selection["summary"]["selected_count"] == 1
+        assert selection["summary"]["excluded_count"] == 2
         assert selection["summary"]["protected_count"] == 1
         assert selection["summary"]["unknown_item_count"] == 1
+        assert items["history:/tmp/history"]["review_evidence"]["recommended_next_action"] == "manual-review-required"
+        assert items["protected:/System/Library"]["review_evidence"]["recommended_next_action"] == "excluded-protected"
+        assert "1 protected item(s)" in report["human_summary"]["top_reasons_to_review"][1]
+        assert "1 requested item ID(s)" in report["human_summary"]["top_reasons_to_review"][2]
         assert validate_contract_payload("cleanmac.review.v1", report)["valid"] is True
         assert validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"] is True
+        assert validate_contract_payload("cleanmac.review-selection-summary.v1", selection["summary"])["valid"] is True
 
 
 def test_review_validates_existing_selection_fingerprint_and_ids() -> None:
