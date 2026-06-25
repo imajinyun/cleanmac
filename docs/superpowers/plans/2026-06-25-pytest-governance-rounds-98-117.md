@@ -279,9 +279,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for require-plan-context missing plan, root mismatch, and home mismatch failures.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover plan context failure contracts`.
+- [x] Add pytest coverage for require-plan-context missing plan, root mismatch, and home mismatch failures.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover plan context failure contracts`.
 
 ## Round 104: Inspect Direct Child Sorting
 
