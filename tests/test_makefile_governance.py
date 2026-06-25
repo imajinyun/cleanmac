@@ -397,6 +397,9 @@ def test_pytest_governance_closeout_documents_remaining_unittest_backlog() -> No
     closeout = (PROJECT_ROOT / "docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md").read_text(
         encoding="utf-8"
     )
+    next_rounds = (PROJECT_ROOT / "docs/superpowers/plans/2026-06-25-pytest-governance-next-20-rounds.md").read_text(
+        encoding="utf-8"
+    )
     makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
     scanned_files = [
         path
@@ -413,12 +416,24 @@ def test_pytest_governance_closeout_documents_remaining_unittest_backlog() -> No
     ]
 
     assert unittest_backlog == ["test_cleanmac.py"]
+    assert "2026-06-25-pytest-governance-next-20-rounds.md" in closeout
+    assert "Round 38-57" in closeout
+    assert next_rounds.count("- [x] Commit with `test(pytest):") == 20
+    assert not [line for line in next_rounds.splitlines() if line.startswith("- [ ]")]
     assert "`test_cleanmac.py` is the only intentional large unittest backlog" in closeout
     assert "`tests/test_makefile_governance.py` intentionally contains" in closeout
+    assert "`tests/test_clean_execution.py`" in closeout
+    assert "`tests/test_app_protection.py`" in closeout
+    assert "`tests/test_software_governance.py`" in closeout
+    assert "`tests/test_startup_governance.py`" in closeout
+    assert "`tests/test_privacy_governance.py`" in closeout
     assert "make pytest-test" in closeout
     assert "make pytest-governance-smoke" in closeout
     assert "make ai-robustness-smoke" in closeout
     assert "Do not migrate `test_cleanmac.py` as one large rewrite" in closeout
+    assert "Next backlog slices" in closeout
+    assert "release workflow and distribution governance checks" in closeout
+    assert "grouped command compatibility" in closeout
     assert ".harness/store.json" in closeout
     assert "PYTEST_SAFE_TARGETS" in makefile
     assert "PYTEST_AI_HOST_TARGETS" in closeout
