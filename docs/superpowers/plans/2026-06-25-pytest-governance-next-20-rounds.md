@@ -94,9 +94,9 @@
 **Files:**
 - Modify: `tests/test_ai_runbook.py` or `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for `ai_recommended_workflow` discover/plan/dry-run/confirm/execute contracts and `ai_intent_hints` for developer, browser, and Xcode cleanup categories.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai workflow intent hints`.
+- [x] Add pytest coverage for `ai_recommended_workflow` discover/plan/dry-run/confirm/execute contracts and `ai_intent_hints` for developer, browser, and Xcode cleanup categories.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai workflow intent hints`.
 
 ## Round 46: Provider Export And MCP Catalog Parity
 

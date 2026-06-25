@@ -77,6 +77,49 @@ def test_ai_recommended_workflow_preserves_governed_execute_chain() -> None:
     assert "--require-confirmation-token" in execute["command_template"]
 
 
+def test_ai_recommended_workflow_and_intent_hints_cover_common_cleanup_paths() -> None:
+    workflow = render_ai_recommended_workflow()
+    by_step = {row["step"]: row for row in workflow}
+
+    assert [row["step"] for row in workflow] == [
+        "discover",
+        "diagnose",
+        "inspect",
+        "plan",
+        "validate_plan",
+        "dry_run",
+        "confirm",
+        "execute",
+    ]
+    assert by_step["discover"]["command"] == ["cleanmac", "--json", "capabilities"]
+    assert by_step["plan"]["auto_call_allowed"] is True
+    assert "--ai-origin" in by_step["plan"]["command_template"]
+    assert by_step["dry_run"]["auto_call_allowed"] is True
+    assert "--execute" not in by_step["dry_run"]["command_template"]
+    assert "--require-plan-context" in by_step["dry_run"]["command_template"]
+    assert by_step["confirm"]["auto_call_allowed"] is False
+    assert by_step["confirm"]["auto_prepare_allowed"] is True
+    assert by_step["confirm"]["requires_user_confirmation"] is True
+    assert by_step["confirm"]["confirmation_phrase"] == "Confirm cleanmac cleanup execution"
+    assert by_step["execute"]["auto_call_allowed"] is False
+    assert by_step["execute"]["requires_user_confirmation"] is True
+    assert "--execute" in by_step["execute"]["command_template"]
+    assert "--operation-log" in by_step["execute"]["command_template"]
+    assert "--require-confirmation-token" in by_step["execute"]["command_template"]
+
+    intents = {row["intent"]: row for row in render_ai_intent_hints()}
+    assert "developer_cache_cleanup" in intents
+    assert "nodePackageCaches" in intents["developer_cache_cleanup"]["recommended_categories"]
+    assert "pythonPackageCaches" in intents["developer_cache_cleanup"]["recommended_categories"]
+    assert intents["developer_cache_cleanup"]["default_delete_mode"] == "trash"
+    assert "browser_cache_cleanup" in intents
+    assert "browserCodeSignCache" in intents["browser_cache_cleanup"]["recommended_categories"]
+    assert "credentials" in intents["browser_cache_cleanup"]["warning"]
+    assert "xcode_cleanup" in intents
+    assert "deviceFirmware" in intents["xcode_cleanup"]["recommended_categories"]
+    assert "warning" in intents["xcode_cleanup"]
+
+
 def test_ai_intent_hints_remain_readonly_for_analysis_and_uninstall_planning() -> None:
     hints = render_ai_intent_hints()
     by_intent = {row["intent"]: row for row in hints}
