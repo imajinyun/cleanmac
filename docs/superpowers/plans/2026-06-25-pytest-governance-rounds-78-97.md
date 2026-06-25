@@ -234,9 +234,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage for open-source gap governance item IDs, evidence fields, non-goals, and release-gate metadata exposed through capabilities.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover open source gap metadata`.
+- [x] Add pytest coverage for open-source gap governance item IDs, evidence fields, non-goals, and release-gate metadata exposed through capabilities.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover open source gap metadata`.
 
 ## Round 80: AI Provider Export Parity
 
