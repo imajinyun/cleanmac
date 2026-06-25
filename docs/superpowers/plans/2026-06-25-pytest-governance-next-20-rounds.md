@@ -175,9 +175,9 @@
 **Files:**
 - Modify: `tests/test_app_protection.py` or `tests/test_group_containers.py`
 
-- [ ] Add pytest coverage for bundle blocklist, bundle allowlist, protected app container skip, group container Apple skip, developer tool cache rules, browser/collaboration/package cache rules, and credential preservation.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover app container cleanup policies`.
+- [x] Add pytest coverage for bundle blocklist, bundle allowlist, protected app container skip, group container Apple skip, developer tool cache rules, browser/collaboration/package cache rules, and credential preservation.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover app container cleanup policies`.
 
 ## Round 55: Software Uninstall Execution Evidence
 
