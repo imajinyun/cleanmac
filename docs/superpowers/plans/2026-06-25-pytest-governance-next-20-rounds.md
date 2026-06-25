@@ -193,9 +193,9 @@
 **Files:**
 - Modify: `tests/test_startup_governance.py` and `tests/test_privacy_governance.py`
 
-- [ ] Add pytest coverage for startup backup metadata, privacy sensitive-scope preservation, selected item/path matching, unsafe candidate blocking, Trash routing, and candidate review evidence.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover governed startup privacy evidence`.
+- [x] Add pytest coverage for startup backup metadata, privacy sensitive-scope preservation, selected item/path matching, unsafe candidate blocking, Trash routing, and candidate review evidence.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover governed startup privacy evidence`.
 
 ## Round 57: Migration Backlog Ratchet
 

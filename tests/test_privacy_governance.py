@@ -222,6 +222,13 @@ def test_privacy_execute_requires_review_selection_and_records_audit() -> None:
         assert "not-in-review-selection" in {record.get("reason") for record in all_records}
         assert {record["ai"]["review_selection"]["selected_count"] for record in all_records} == {1}
         assert {record["delete_mode"] for record in all_records} == {"trash"}
+        deleted_record = next(record for record in all_records if record["status"] == "deleted")
+        assert deleted_record["trash_path"] == deleted_result["trash_path"]
+        assert deleted_record["ai"]["candidate_review_evidence"] == deleted_result["review_evidence"]
+        selected_evidence = deleted_record["ai"]["review_selection"]["selected_review_evidence"][0]
+        assert selected_evidence["id"] == deleted_result["id"]
+        assert selected_evidence["path"] == deleted_result["path"]
+        assert selected_evidence["review_evidence"] == deleted_result["review_evidence"]
 
         permanent_result = run_cli_unchecked(
             "--root",
@@ -241,6 +248,9 @@ def test_privacy_execute_requires_review_selection_and_records_audit() -> None:
             "--yes",
         )
         assert permanent_result.returncode != 0
+        permanent_error = json.loads(permanent_result.stderr)
+        assert permanent_error["error"]["code"] == "CLI_ARGUMENT_ERROR"
+        assert "invalid choice: 'permanent'" in permanent_error["error"]["message"]
 
 
 def test_privacy_execute_blocks_outside_symlink_and_credential_candidates() -> None:
