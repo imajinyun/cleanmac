@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import shlex
+from pathlib import Path
 
 import pytest
 
 import cleancli.core as cleancli
 from cleancli.ai_eval import render_ai_eval_pack
 from tests.helpers import run_cli
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_cli_version_reports_package_version() -> None:
@@ -257,6 +261,39 @@ def test_capabilities_json_exposes_governance_integrity_contract() -> None:
     assert ["make", "governance-integrity-smoke"] in runtime_check["remediation_commands"]
     assert integrity_checks["boundary-product-surface-single-source"]["passed"] is True
     assert integrity_checks["boundary-geo-policy-single-source"]["passed"] is True
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "heading"),
+    [
+        ("docs/doc/README.md", "### 5. Generate audit report files"),
+        ("docs/doc/README.CN.md", "### 5. 生成审计报告文件"),
+    ],
+)
+def test_readme_audit_examples_keep_global_flags_before_grouped_clean_command(
+    relative_path: str,
+    heading: str,
+) -> None:
+    path = PROJECT_ROOT / relative_path
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = lines.index(heading)
+    fence_start = next(index for index in range(start, len(lines)) if lines[index] == "```bash")
+    fence_end = next(index for index in range(fence_start + 1, len(lines)) if lines[index] == "```")
+    command = " ".join(
+        line.strip().removesuffix("\\").strip()
+        for line in lines[fence_start + 1 : fence_end]
+        if not line.strip().startswith(">")
+    )
+    parts = shlex.split(command)
+
+    assert parts[:2] == ["python3", "cleanmac.py"]
+    assert parts.index("--report-file") < parts.index("clean")
+    actual_argv, grouped_command = cleancli.normalize_grouped_argv(parts[2:])
+    parsed = cleancli.parse_args(actual_argv)
+    assert parsed.json is True
+    assert parsed.report_file == "/tmp/cleanmac-audit.json"
+    assert parsed.command == "clean"
+    assert grouped_command == {"group": "clean", "action": "run", "mapped_command": "clean"}
 
 
 def test_capabilities_json_exposes_distribution_governance_metadata() -> None:
