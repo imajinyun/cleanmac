@@ -323,9 +323,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage that invalid `--name-regex` is rejected before candidate deletion.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover invalid name regex gate`.
+- [x] Add pytest coverage that invalid `--name-regex` is rejected before candidate deletion.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover invalid name regex gate`.
 
 ## Round 108: Incomplete Downloads Active Skip
 
