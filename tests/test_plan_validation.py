@@ -313,3 +313,53 @@ def test_validate_plan_includes_current_preview_and_budgets() -> None:
         assert report["preview"]["shown_candidates"] == 1
         assert report["budget_summary"]["within_max_items"] is True
         assert report["budget_summary"]["within_max_delete_budget"] is True
+
+
+@pytest.mark.parametrize(
+    ("plan_context", "expected_message"),
+    [
+        ({"root": "/elsewhere", "home": "/Users/tester"}, "Plan root mismatch"),
+        ({"root": None, "home": "/Users/other"}, "Plan home mismatch"),
+    ],
+)
+def test_clean_replay_context_mismatch_emits_json_ai_error(
+    plan_context: dict[str, str | None], expected_message: str
+) -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_file = root / "context-plan.json"
+        payload = {
+            "schema": "cleanmac.plan.v1",
+            "selected_category_keys": ["trash"],
+            "root": str(root) if plan_context["root"] is None else plan_context["root"],
+            "home": plan_context["home"],
+        }
+        plan_file.write_text(json.dumps(payload), encoding="utf-8")
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            str(plan_file),
+            "--require-plan-context",
+            check=False,
+        )
+
+        assert result.returncode != 0
+        assert result.stdout == ""
+        report = json.loads(result.stderr)
+        assert report["schema"] == "cleanmac.ai-error.v1"
+        assert report["destructive_operation_started"] is False
+        assert report["error"]["code"] == "PLAN_CONTEXT_MISMATCH"
+        assert report["error"]["category"] == "context_mismatch"
+        assert expected_message in report["error"]["message"]
+        assert report["safe_to_auto_retry"] is False
+        assert report["error"]["recovery_commands"] == [
+            ["cleanmac", "--json", "clean", "plan", "--categories", "trash"]
+        ]
+        assert (root / "Users/tester/.Trash/old.tmp").exists()
