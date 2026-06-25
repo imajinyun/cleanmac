@@ -118,17 +118,25 @@ def test_report_file_can_emit_html_audit_report() -> None:
         assert report["report_file"] == str(report_file)
         assert report["report_format"] == "html"
         assert "finder_url" in first_item
+        assert first_item["finder_url"].startswith("file://")
         assert first_item["open_command"][0] == "open"
         assert first_item["reveal_command"][:2] == ["open", "-R"]
         assert "<!doctype html>" in html_text
+        assert "<title>cleanmac.inspect.v1</title>" in html_text
         assert "cleanmac audit report" in html_text
+        assert "<th>schema</th><td><code>cleanmac.inspect.v1</code></td>" in html_text
+        assert "<th>dry_run</th><td><code>True</code></td>" in html_text
+        assert "<th>destructive</th><td><code>False</code></td>" in html_text
         assert "Scan summary" in html_text
         assert "Top reclaimable" in html_text
         assert "Category cards" in html_text
         assert "Skipped reasons" in html_text
         assert "Selected-to-delete review" in html_text
         assert "Copyable execution command" in html_text
+        assert "This command still uses the governed CLI plan / review-selection / delete_ops path." in html_text
         assert "<input type='checkbox' disabled" in html_text
+        assert "Finder URL" in html_text
+        assert "file://" in html_text
         assert "open -R" in html_text
         assert "old.tmp" in html_text
 
