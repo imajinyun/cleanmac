@@ -10,6 +10,7 @@ from unittest import mock
 import cleancli.core as cleancli
 from cleancli.ai_versioning import validate_contract_payload
 from tests.helpers import make_sandbox, run_cli
+from tests.test_review_selection import run_cli_unchecked
 
 
 def test_clean_defaults_to_dry_run() -> None:
@@ -341,6 +342,84 @@ def test_plan_command_generates_reusable_cleanup_plan_contract() -> None:
         assert validation["valid"] is True
         assert validation["target_schema"] == "cleanmac.plan.v1"
         assert validation["error_count"] == 0
+
+
+def test_require_plan_context_rejects_missing_plan_file() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli_unchecked(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--categories",
+            "trash",
+            "--require-plan-context",
+        )
+
+        assert result.returncode != 0
+        assert "requires --plan-file" in result.stderr
+
+
+def test_require_plan_context_rejects_root_mismatch() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_file = root / "plan.json"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "selected_category_keys": ["trash"],
+                    "root": "/different/root",
+                    "home": str(home),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = run_cli_unchecked(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--plan-file",
+            str(plan_file),
+            "--require-plan-context",
+        )
+
+        assert result.returncode != 0
+        assert "Plan root mismatch" in result.stderr
+
+
+def test_require_plan_context_rejects_home_mismatch() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_file = root / "plan.json"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "selected_category_keys": ["trash"],
+                    "root": str(root),
+                    "home": "/Users/other",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = run_cli_unchecked(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--plan-file",
+            str(plan_file),
+            "--require-plan-context",
+        )
+
+        assert result.returncode != 0
+        assert "Plan home mismatch" in result.stderr
 
 
 def test_clean_execute_removes_only_sandbox_contents() -> None:
