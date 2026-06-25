@@ -617,6 +617,56 @@ def test_review_html_escapes_paths() -> None:
         assert "<script>alert(1)</script>" not in result.stdout
 
 
+def test_review_html_includes_selection_summary_and_selected_state() -> None:
+    tmp, root, _home = make_sandbox()
+    with tmp:
+        plan_file = root / "plan.json"
+        selected_id = "cache:/tmp/cache?<selected>"
+        excluded_id = "history:/tmp/history&raw"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "schema": "cleanmac.software-uninstall-plan.v1",
+                    "uninstall_plan": {
+                        "candidates": [
+                            {
+                                "id": selected_id,
+                                "path": "/tmp/cache",
+                                "kind": "cache",
+                                "risk": "low",
+                                "bytes": 5,
+                                "default_selected": True,
+                            },
+                            {
+                                "id": excluded_id,
+                                "path": "/tmp/history",
+                                "kind": "history",
+                                "risk": "medium",
+                                "bytes": 7,
+                                "default_selected": False,
+                            },
+                        ]
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = run_cli("review", "--input-file", str(plan_file), "--format", "html")
+
+        assert "Selection summary" in result.stdout
+        assert "Review items" in result.stdout
+        assert "Selected bytes" in result.stdout
+        assert "requires_sensitive_review" in result.stdout
+        assert "class='selected'" in result.stdout
+        assert "class='excluded'" in result.stdout
+        assert "<input type='checkbox' disabled checked>" in result.stdout
+        assert "cache:/tmp/cache?&lt;selected&gt;" in result.stdout
+        assert "history:/tmp/history&amp;raw" in result.stdout
+        assert selected_id not in result.stdout
+        assert excluded_id not in result.stdout
+
+
 def test_review_supports_startup_and_privacy_plans() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
