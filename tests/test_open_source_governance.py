@@ -156,3 +156,23 @@ def test_pyproject_exposes_open_source_ai_first_metadata() -> None:
     assert "[project.urls]" in pyproject
     assert "Security =" in pyproject
     assert "pip-audit>=" in pyproject
+
+
+def test_project_files_do_not_contain_removed_product_references() -> None:
+    forbidden = ("clean" + "me", "Clean" + " Me", "clean" + " me", "mo" + "le", "MO" + "LE")
+    local_developer_path = "/" + "users" + "/" + "bytedance"
+    scanned = [
+        PROJECT_ROOT / "cleanmac.py",
+        PROJECT_ROOT / "test_cleanmac.py",
+        PROJECT_ROOT / "README.md",
+        PROJECT_ROOT / "README.CN.md",
+        PROJECT_ROOT / "Makefile",
+        PROJECT_ROOT / ".github/workflows/ci.yml",
+    ]
+
+    for path in scanned:
+        content = path.read_text(encoding="utf-8")
+        lowered = content.lower()
+        for token in forbidden:
+            assert token.lower() not in lowered, path.name
+        assert local_developer_path not in lowered, path.name
