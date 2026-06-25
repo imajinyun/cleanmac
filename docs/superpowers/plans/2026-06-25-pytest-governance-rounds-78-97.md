@@ -300,9 +300,9 @@
 **Files:**
 - Modify: `tests/test_ai_errors.py`
 
-- [ ] Add pytest coverage for unknown-category guidance and missing-confirmation JSON error contracts.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover json safety error taxonomy`.
+- [x] Add pytest coverage for unknown-category guidance and missing-confirmation JSON error contracts.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover json safety error taxonomy`.
 
 ## Round 86: CLI Unknown Category And Analyze Guidance
 
