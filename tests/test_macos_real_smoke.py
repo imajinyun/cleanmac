@@ -10,7 +10,36 @@ import pytest
 from scripts.audit_bundle_drift import audit_bundle_drift
 from tests.helpers import cleanmac_test_env, make_sandbox, run_cli
 
+SKIP_REASON = "real macOS smoke requires a macOS runner"
 pytestmark = pytest.mark.skipif(platform.system() != "Darwin", reason="real macOS smoke requires a macOS runner")
+
+
+def test_real_macos_smoke_skip_reason_is_explicit_for_non_darwin_runners() -> None:
+    assert SKIP_REASON == "real macOS smoke requires a macOS runner"
+    assert pytestmark.kwargs["reason"] == SKIP_REASON
+
+
+def test_real_macos_smoke_makefile_uses_temporary_venv_and_no_auth() -> None:
+    makefile = Path("Makefile").read_text(encoding="utf-8")
+    target = makefile.split("\nreal-macos-smoke:\n", 1)[1].split("\nsecurity-smoke:\n", 1)[0]
+
+    expected_fragments = [
+        "tmpdir=$$(mktemp -d)",
+        "trap 'rm -rf \"$$tmpdir\"' EXIT",
+        '$(PYTHON) -m venv "$$tmpdir/venv"',
+        '"$$tmpdir/venv/bin/python" -m pip install --upgrade pip',
+        "\"$$tmpdir/venv/bin/python\" -m pip install -e '.[test]'",
+        "CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1",
+        'PYTEST_ADDOPTS="-p no:cacheprovider"',
+        '"$$tmpdir/venv/bin/python" -m pytest tests/test_macos_real_smoke.py -q',
+    ]
+    cursor = -1
+    for fragment in expected_fragments:
+        index = target.find(fragment, cursor + 1)
+        assert index > cursor, fragment
+        cursor = index
+
+    assert ".venv/bin/python -m pytest tests/test_macos_real_smoke.py" not in target
 
 
 def test_real_macos_readonly_bundle_audit_emits_schema() -> None:
