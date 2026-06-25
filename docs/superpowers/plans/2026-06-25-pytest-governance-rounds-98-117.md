@@ -367,9 +367,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for browser code-sign X-shard discovery and outside-root safety rejection.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover browser code sign shard safety`.
+- [x] Add pytest coverage for browser code-sign X-shard discovery and outside-root safety rejection.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover browser code sign shard safety`.
 
 ## Round 112: Older Than Days Filtering
 
