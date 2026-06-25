@@ -301,9 +301,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for recursive inspect min-size filtering, path sort, and depth metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover inspect recursive path sort`.
+- [x] Add pytest coverage for recursive inspect min-size filtering, path sort, and depth metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover inspect recursive path sort`.
 
 ## Round 106: Inspect Budget Preview Flags
 

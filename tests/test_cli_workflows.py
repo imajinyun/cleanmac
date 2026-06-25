@@ -94,6 +94,39 @@ def test_inspect_lists_direct_children_sorted_by_size() -> None:
         assert report["ai_summary"]["headline"]
 
 
+def test_inspect_supports_recursive_min_size_and_path_sort() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        nested = root / "Users/tester/.Trash/nested"
+        nested.mkdir()
+        (nested / "small.txt").write_text("tiny", encoding="utf-8")
+        (nested / "large.bin").write_bytes(b"x" * (1024 * 1024 + 1))
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "trash",
+            "--recursive",
+            "--min-size-mb",
+            "1",
+            "--sort",
+            "path",
+        )
+        report = json.loads(result.stdout)
+        paths = [row["path"] for row in report["items"]]
+
+        assert report["recursive"] is True
+        assert report["min_size_mb"] == 1
+        assert paths == sorted(paths)
+        assert any(path.endswith("nested/large.bin") for path in paths)
+        large_row = next(row for row in report["items"] if row["path"].endswith("nested/large.bin"))
+        assert large_row["depth"] == 2
+
+
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
