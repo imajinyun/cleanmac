@@ -264,3 +264,51 @@ def test_distribution_smoke_mentions_contract_and_release_commands() -> None:
     assert "cleanmac.ai-contract-samples.v1" in makefile
     assert "cleanmac.release-artifact-manifest.v1" in makefile
     assert "cleanmac --json capabilities" in makefile.replace('"', "")
+
+
+def test_release_workflow_supply_chain_contract() -> None:
+    release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    expected_release_assets = {
+        "release-assets/SBOM.json",
+        "release-assets/SHA256SUMS",
+        "release-assets/ARTIFACT-MANIFEST.json",
+        "release-assets/RELEASE-READINESS.json",
+        "release-assets/RELEASE-DIAGNOSTICS.json",
+        "release-assets/RELEASE-EVIDENCE.json",
+        "release-assets/RELEASE-REHEARSAL.json",
+        "release-assets/RELEASE-PROMOTION-DECISION.json",
+        "release-assets/RELEASE-ROLLBACK-PLAN.json",
+        "release-assets/RELEASE-POST-PUBLISH-VERIFICATION.json",
+        "release-assets/RELEASE-POST-PUBLISH-RESULT.json",
+        "release-assets/cleanmac.rb",
+    }
+
+    assert "permissions:\n  contents: read" in release
+    assert "name: Build release artifacts" in release
+    assert "name: Verify release artifacts (${{ matrix.os }})" in release
+    assert "name: Attest and publish release artifacts" in release
+    assert "contents: write" in release
+    assert "id-token: write" in release
+    assert "attestations: write" in release
+    assert "environment: release" in release
+    assert "PYTHON: .venv/bin/python" in release
+    assert "Create venv and install build dependencies" in release
+    assert ".venv/bin/python -m pip install -e '.[dev,build]'" in release
+    assert "name: cleanmac-dist" in release
+    assert "name: cleanmac-release-assets" in release
+    assert "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b" in release
+    assert "pypa/gh-action-pypi-publish@release/v1" in release
+    assert "actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32" in release
+    assert "softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b" in release
+    assert 'packages-dir: "release-assets"' not in release
+
+    uses_lines = [line.strip() for line in release.splitlines() if line.strip().startswith("uses: ")]
+    assert uses_lines
+    for line in uses_lines:
+        assert "@" in line, line
+        ref = line.split("@", 1)[1].split()[0]
+        assert len(ref) == 40
+        assert all(char in "0123456789abcdef" for char in ref), line
+
+    for asset in expected_release_assets:
+        assert asset in release, asset
