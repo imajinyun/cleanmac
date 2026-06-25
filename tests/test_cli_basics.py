@@ -262,6 +262,23 @@ def test_capabilities_json_exposes_open_source_gap_governance_todo() -> None:
     assert "TUI parity" in gap_todo["non_goals"]
     assert gap_todo["items"][0]["id"] == "p0-software-leftover-discovery"
     assert gap_todo["items"][1]["id"] == "p0-software-orphan-scan"
+    assert gap_todo["destructive"] is False
+    assert gap_todo["dry_run"] is True
+    assert gap_todo["in_progress_count"] == 2
+    assert gap_todo["pending_count"] == 8
+    assert gap_todo["landed_count"] == 0
+    assert "resident monitoring" in gap_todo["non_goals"]
+    assert "background cleanup automation" in gap_todo["non_goals"]
+
+    statuses = {item["status"] for item in gap_todo["items"]}
+    priorities = {item["priority"] for item in gap_todo["items"]}
+    assert statuses == {"in_progress", "pending"}
+    assert priorities == {"P0", "P1", "P2"}
+    assert all(item["governance_action"] for item in gap_todo["items"])
+    assert all(item["reference_projects"] for item in gap_todo["items"])
+    assert all(isinstance(item["verification_command"], list) for item in gap_todo["items"])
+    assert all(item["verification_command"][0] == "cleanmac" for item in gap_todo["items"])
+    assert gap_todo["items"][-1]["id"] == "p2-privacy-scope-parity"
 
 
 def test_capabilities_json_exposes_governance_integrity_contract() -> None:
