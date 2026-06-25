@@ -450,6 +450,81 @@ def test_clean_safety_gate_exposes_single_fail_fast_flag() -> None:
         assert report["safety_gate"]["fail_fast"] is True
 
 
+def test_execute_high_risk_requires_yes() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--categories",
+            "downloads",
+            "--execute",
+            check=False,
+        )
+
+        assert result.returncode != 0
+        assert "without --yes" in result.stderr
+        assert (root / "Users/tester/Downloads/download.bin").exists()
+
+
+def test_clean_risk_policy_strict_requires_yes_for_medium_risk() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        log_file = root / "Users/tester/Library/logs/noisy.log"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        log_file.write_text("log", encoding="utf-8")
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--categories",
+            "userLogs",
+            "--execute",
+            "--risk-policy",
+            "strict",
+            check=False,
+        )
+
+        assert result.returncode != 0
+        assert "risk policy 'strict'" in result.stderr
+        assert log_file.exists()
+
+
+def test_clean_risk_policy_permissive_allows_high_risk_without_yes() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "--categories",
+            "downloads",
+            "--execute",
+            "--risk-policy",
+            "permissive",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["risk_policy"] == "permissive"
+        assert report["pre_clean_report"]["summary"]["yes_required_categories"] == []
+        assert not (root / "Users/tester/Downloads/download.bin").exists()
+
+
+def test_clean_execute_live_root_requires_explicit_allow_flag() -> None:
+    result = run_cli("clean", "--categories", "trash", "--execute", check=False)
+
+    assert result.returncode != 0
+    assert "live root '/'" in result.stderr
+
+
 def test_clean_max_delete_budget_blocks_execute_before_deleting() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
