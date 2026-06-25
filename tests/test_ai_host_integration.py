@@ -235,6 +235,38 @@ def test_evidence_reports_runtime_governance_audit_pack() -> None:
     assert ["make", "release-readiness-smoke"] in evidence["release_gate_commands"]
 
 
+def test_host_facing_reports_share_candidate_evidence_readiness_contract() -> None:
+    pack = render_ai_host_integration_pack_report()
+    preflight = render_ai_host_preflight_report()
+    evidence = render_ai_host_evidence_report()
+
+    candidate_chain = pack["candidate_evidence_chain"]
+    required_paths = set(candidate_chain["required_artifact_paths"])
+    preflight_checks = {check["id"]: check for check in preflight["checks"]}
+    evidence_checks = {check["id"]: check for check in evidence["evidence_checks"]}
+
+    assert candidate_chain == pack["safety_chain"]["candidate_evidence_chain"]
+    assert candidate_chain == evidence["candidate_evidence_chain"]
+    assert pack["host_evidence_requirements"] == evidence["host_evidence_requirements"]
+    assert pack["host_evidence_requirements"]["candidate_evidence_chain_ready"] is True
+    assert pack["host_evidence_requirements"]["source_resource"] == "cleanmac://ai/safety-chain"
+    assert preflight["entrypoint"]["candidate_evidence_chain_resource"] == "cleanmac://ai/safety-chain"
+    assert required_paths >= {
+        "review_selection_constraint.selected_review_evidence[]",
+        "dry_run_report.items[].review_evidence",
+        "execute_report.items[].review_evidence",
+        "operation_log.ai.candidate_review_evidence",
+    }
+    assert preflight_checks["candidate-evidence-chain-ready"]["passed"] is True
+    assert preflight_checks["candidate-evidence-chain-ready"]["evidence"] == "cleanmac.candidate-review-evidence.v1"
+    assert "candidate_evidence_chain_ready" in preflight["required_before_destructive_tool"]
+    assert evidence_checks["candidate-evidence-chain-exposed"]["passed"] is True
+    assert evidence_checks["candidate-evidence-chain-preflight-gated"]["passed"] is True
+    assert evidence_checks["candidate-evidence-chain-release-gated"]["passed"] is True
+    assert pack["host_evidence_requirements"]["release_gate"] in preflight["release_gate_commands"]
+    assert pack["host_evidence_requirements"]["release_gate"] in evidence["release_gate_commands"]
+
+
 def test_preflight_reports_runtime_governance_gate() -> None:
     preflight = render_ai_host_preflight_report()
 
