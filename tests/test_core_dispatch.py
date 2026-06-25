@@ -140,3 +140,19 @@ def test_core_main_contract_validation_and_eval_run_dispatches_in_process() -> N
     }
     with patch("cleancli.core.render_ai_eval_run", return_value=eval_report):
         assert run_main_json("ai-eval-run", "--scenario", "contract_samples_roundtrip") == eval_report
+
+
+def test_core_contract_validation_reports_file_failures_in_process() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        missing = Path(tmp) / "missing.json"
+        missing_report = cleancli.render_ai_contract_validation("cleanmac.plan.v1", str(missing))
+
+        assert missing_report["valid"] is False
+        assert missing_report["errors"][0]["code"] == "PAYLOAD_FILE_READ_FAILED"
+
+        invalid_json = Path(tmp) / "invalid.json"
+        invalid_json.write_text("{", encoding="utf-8")
+        invalid_report = cleancli.render_ai_contract_validation("cleanmac.plan.v1", str(invalid_json))
+
+        assert invalid_report["valid"] is False
+        assert invalid_report["errors"][0]["code"] == "PAYLOAD_INVALID_JSON"
