@@ -198,10 +198,10 @@
 - Modify: `tests/test_open_source_governance.py` or `tests/test_makefile_governance.py`
 - Modify: `docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md`
 
-- [ ] Add pytest coverage that scanned project files do not contain removed product references or local developer paths.
-- [ ] Update the closeout document with Round 58-77 status and the next backlog slices.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): ratchet removed product references`.
+- [x] Add pytest coverage that scanned project files do not contain removed product references or local developer paths.
+- [x] Update the closeout document with Round 58-77 status and the next backlog slices.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): ratchet removed product references`.
 
 ---
 
