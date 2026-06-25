@@ -232,11 +232,33 @@ def test_package_manager_tool_execute_dry_run_uses_only_readonly_commands() -> N
 
 
 def test_tool_execute_blocks_destructive_without_yes() -> None:
+    runner = mock.Mock()
     with mock.patch.object(tool_adapters.shutil, "which", return_value="/usr/local/bin/docker"):
         report = tool_adapters.execute_tool(
-            "docker", execute=True, yes=False, root=Path("/tmp/root"), home=Path("/Users/tester")
+            "docker",
+            execute=True,
+            yes=False,
+            root=Path("/tmp/root"),
+            home=Path("/Users/tester"),
+            runner=runner,
         )
 
     assert report["destructive"] is True
+    assert report["dry_run"] is False
+    assert report["selected_tool"] == "docker"
+    assert report["safe_to_auto_execute"] is False
+    assert report["blocked_reasons"] == ["explicit-yes-required"]
     assert "explicit-yes-required" in report["blocked_reasons"]
+    assert [result["argv"] for result in report["results"]] == [
+        ["docker", "builder", "prune", "--force"],
+        ["docker", "image", "prune", "--force"],
+        ["docker", "container", "prune", "--force"],
+    ]
     assert all(result["status"] == "blocked" for result in report["results"])
+    assert all(result["returncode"] is None for result in report["results"])
+    assert all(result["error"] == "explicit --yes required" for result in report["results"])
+    assert [entry["action"] for entry in report["operation_log_entries"]] == ["tool-execute"] * 3
+    assert all(entry["status"] == "blocked" for entry in report["operation_log_entries"])
+    assert report["succeeded_count"] == 0
+    assert report["failed_count"] == 3
+    runner.assert_not_called()
