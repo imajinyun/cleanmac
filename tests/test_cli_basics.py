@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
+import time
 from pathlib import Path
 
 import pytest
 
 import cleancli.core as cleancli
 from cleancli.ai_eval import render_ai_eval_pack
-from tests.helpers import run_cli
+from tests.helpers import make_sandbox, run_cli
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -294,6 +296,104 @@ def test_readme_audit_examples_keep_global_flags_before_grouped_clean_command(
     assert parsed.report_file == "/tmp/cleanmac-audit.json"
     assert parsed.command == "clean"
     assert grouped_command == {"group": "clean", "action": "run", "mapped_command": "clean"}
+
+
+def test_inspect_lists_direct_children_sorted_by_size_with_ai_summary() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        (root / "Users/tester/.Trash/big.tmp").write_text("x" * 100, encoding="utf-8")
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "trash",
+            "--limit",
+            "1",
+        )
+        report = json.loads(result.stdout)
+        ai_summary = report["ai_summary"]
+
+        assert report["shown_candidates"] == 1
+        assert report["items"][0]["path"].endswith("big.tmp")
+        assert ai_summary["schema"] == "cleanmac.ai-summary.v1"
+        assert ai_summary["phase"] == "inspect"
+        assert ai_summary["recommended_next_action"] == "generate_plan"
+        assert ai_summary["safe_to_execute_after_confirmation"] is False
+        assert "trash" in ai_summary["selected_categories"]
+        assert ai_summary["headline"]
+
+
+def test_inspect_supports_recursive_min_size_and_path_sort() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        nested = root / "Users/tester/.Trash/nested"
+        nested.mkdir()
+        (nested / "small.txt").write_text("tiny", encoding="utf-8")
+        (nested / "large.bin").write_bytes(b"x" * (1024 * 1024 + 1))
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "trash",
+            "--recursive",
+            "--min-size-mb",
+            "1",
+            "--sort",
+            "path",
+        )
+        report = json.loads(result.stdout)
+        paths = [row["path"] for row in report["items"]]
+
+        assert report["recursive"] is True
+        assert report["min_size_mb"] == 1
+        assert paths == sorted(paths)
+        assert any(path.endswith("nested/large.bin") for path in paths)
+        large_row = next(row for row in report["items"] if row["path"].endswith("nested/large.bin"))
+        assert large_row["depth"] == 2
+
+
+def test_inspect_accepts_budget_flags_as_non_destructive_preview() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        old_time = time.time() - 8 * 24 * 60 * 60
+        log_file = root / "Users/tester/Library/logs/noisy.log"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        log_file.write_text("log", encoding="utf-8")
+
+        os.utime(log_file, (old_time, old_time))
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "userLogs",
+            "--older-than-days",
+            "7",
+            "--max-delete-mb",
+            "1000",
+            "--max-items",
+            "500",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["max_delete_mb"] == 1000.0
+        assert report["max_items"] == 500
+        assert report["budget_summary"]["within_max_delete_budget"] is True
+        assert report["budget_summary"]["within_max_items"] is True
+        assert report["budget_summary"]["applies_to_execute"] is False
+        assert log_file.exists()
 
 
 def test_capabilities_json_exposes_distribution_governance_metadata() -> None:
