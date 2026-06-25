@@ -157,9 +157,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for clean default dry-run, pre-clean report, symbolic-link refresh note, execute post-clean report, and human output pre/post summaries.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover clean dry-run reports`.
+- [x] Add pytest coverage for clean default dry-run, pre-clean report, symbolic-link refresh note, execute post-clean report, and human output pre/post summaries.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover clean dry-run reports`.
 
 ## Round 53: Clean Execute Sandbox And Audit Reports
 

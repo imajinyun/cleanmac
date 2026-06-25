@@ -136,6 +136,31 @@ def test_clean_human_output_shows_pre_and_post_reports() -> None:
         assert "estimated reclaimed" in result.stdout
 
 
+def test_clean_human_dry_run_shows_pre_clean_report_without_post_clean_report() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--categories",
+            "trash,downloads",
+        )
+
+        assert "Pre-clean report:" in result.stdout
+        assert "selected categories : 2" in result.stdout
+        assert "high-risk categories: downloads" in result.stdout
+        assert "semantics           : delete target contents; preserve parent directories" in result.stdout
+        assert "DRY-RUN:" in result.stdout
+        assert "[trash] would delete:" in result.stdout
+        assert "[downloads] would delete:" in result.stdout
+        assert "Post-clean report:" not in result.stdout
+        assert (root / "Users/tester/.Trash/old.tmp").exists()
+        assert (root / "Users/tester/Downloads/download.bin").exists()
+
+
 def test_clean_reports_ai_confirmation_summary_for_dry_run_and_execute() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
