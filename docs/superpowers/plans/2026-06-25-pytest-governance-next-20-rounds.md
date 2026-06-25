@@ -40,9 +40,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage for zero-resident runtime lifecycle fields, forbidden GUI/TUI/daemon/login-item/background-scan surfaces, product positioning, and GEO discoverability policy.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover runtime lifecycle boundaries`.
+- [x] Add pytest coverage for zero-resident runtime lifecycle fields, forbidden GUI/TUI/daemon/login-item/background-scan surfaces, product positioning, and GEO discoverability policy.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover runtime lifecycle boundaries`.
 
 ## Round 40: Development Governance TODO Integrity
 

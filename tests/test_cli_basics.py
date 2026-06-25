@@ -141,6 +141,56 @@ def test_capabilities_json_exposes_grouped_commands_and_ai_safety_boundaries() -
     assert safety["default_operation_log_file"] == cleancli.OPERATIONS_LOG_FILE
 
 
+def test_capabilities_json_exposes_runtime_lifecycle_and_product_boundaries() -> None:
+    result = run_cli("--json", "capabilities")
+    report = json.loads(result.stdout)
+
+    runtime_lifecycle = report["runtime_lifecycle"]
+    assert runtime_lifecycle["schema"] == "cleanmac.runtime-lifecycle-policy.v1"
+    assert runtime_lifecycle["product_model"] == "ai-first-ephemeral-cli"
+    assert runtime_lifecycle["runs_only_when_invoked"] is True
+    assert runtime_lifecycle["exits_after_workflow"] is True
+    assert runtime_lifecycle["resident_processes"] == 0
+    assert runtime_lifecycle["background_cpu_policy"] == "zero-when-not-invoked"
+    assert runtime_lifecycle["background_memory_policy"] == "zero-when-not-invoked"
+    assert runtime_lifecycle["implements_tui"] is False
+    assert runtime_lifecycle["implements_gui"] is False
+    assert runtime_lifecycle["installs_background_daemon"] is False
+    assert runtime_lifecycle["installs_login_item"] is False
+    assert runtime_lifecycle["performs_unsolicited_scans"] is False
+    assert "background cleanup daemon" in runtime_lifecycle["forbidden_product_patterns"]
+
+    positioning = report["product_positioning"]
+    assert positioning["schema"] == "cleanmac.product-positioning.v1"
+    assert "AI-first cleanup execution kernel" in positioning["positioning"]
+    assert "AI-first, zero-resident macOS cleanup CLI" in positioning["canonical_summary"]
+    assert "MCP macOS cleanup tool" in positioning["search_queries"]
+    assert "model-context-protocol" in positioning["recommended_topics"]
+    assert "GUI/TUI feature parity with app-first cleaners" in positioning["non_goals"]
+
+    boundaries = report["boundary_governance"]
+    assert boundaries["schema"] == "cleanmac.boundary-governance.v1"
+    assert boundaries["runtime_lifecycle"] == runtime_lifecycle
+    assert "background daemon" in boundaries["forbidden_automation"]
+    assert "menu bar resident app" in boundaries["forbidden_automation"]
+    assert "unsolicited scheduled scan" in boundaries["forbidden_automation"]
+    assert "clean --execute" in boundaries["forbidden_automation"]
+    assert "--allow-live-root" in boundaries["forbidden_automation"]
+
+    geo_policy = boundaries["geo_discoverability_policy"]
+    assert geo_policy["schema"] == "cleanmac.geo-discoverability-policy.v1"
+    assert "AI-first, zero-resident macOS cleanup CLI" in geo_policy["canonical_summary"]
+    assert "AI Agent cleanup tool" in geo_policy["primary_queries"]
+    assert "safe Trash-based execution" in geo_policy["must_describe_as"]
+    assert "GUI cleaner" in geo_policy["must_not_describe_as"]
+    assert ["cleanmac", "--json", "capabilities"] in geo_policy["ai_entrypoints"]
+
+    product_surface_policy = boundaries["product_surface_policy"]
+    assert product_surface_policy["schema"] == "cleanmac.product-surface-policy.v1"
+    assert "LaunchAgent" in product_surface_policy["forbidden_surfaces"]
+    assert "Textual" in product_surface_policy["forbidden_dependency_families"]
+
+
 def test_quiet_suppresses_human_readable_output_but_not_json() -> None:
     quiet_result = run_cli("-q", "list")
 
