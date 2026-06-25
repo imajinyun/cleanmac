@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -300,6 +302,48 @@ def test_clean_writes_json_audit_report_file() -> None:
         assert audit["dry_run"] is True
         assert "--report-file" in audit["argv"]
         assert audit["selected_category_keys"] == ["trash"]
+
+
+def test_plan_file_reuses_filters_during_execute() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        keep = root / "Users/tester/.Trash/keep.keep"
+        old_file = root / "Users/tester/.Trash/old.tmp"
+        keep.write_text("keep", encoding="utf-8")
+        old_file.write_text("old", encoding="utf-8")
+        old_time = time.time() - 10 * 24 * 60 * 60
+        os.utime(old_file, (old_time, old_time))
+        os.utime(keep, (old_time, old_time))
+        plan_file = root / "plan.json"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "selected_category_keys": ["trash"],
+                    "exclude_patterns": ["*.keep"],
+                    "older_than_days": 7,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "--plan-file",
+            str(plan_file),
+            "--execute",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["exclude_patterns"] == ["*.keep"]
+        assert report["older_than_days"] == 7.0
+        assert report["skipped_summary"]["by_reason"] == {"excluded": 1}
+        assert keep.exists()
+        assert not old_file.exists()
 
 
 def test_clean_execute_records_item_failures_and_continues_by_default() -> None:
