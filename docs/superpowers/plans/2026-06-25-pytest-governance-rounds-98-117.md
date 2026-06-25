@@ -400,9 +400,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for strict risk policy blocking medium-risk execution without `--yes`.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover strict risk policy requires yes`.
+- [x] Add pytest coverage for strict risk policy blocking medium-risk execution without `--yes`.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover strict risk policy requires yes`.
 
 ## Round 115: Permissive Risk Policy Allows Execute
 
