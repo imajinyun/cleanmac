@@ -204,6 +204,38 @@ def test_incomplete_downloads_skip_active_files() -> None:
         assert "active-file" in report["skipped_summary"]["by_reason"]
 
 
+def test_mail_downloads_use_age_and_size_defaults() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        old_time = time.time() - 40 * 24 * 60 * 60
+        old_mail = root / "Users/tester/Library/Mail Downloads/old-mail.pdf"
+        old_mail.parent.mkdir(parents=True, exist_ok=True)
+        old_mail.write_text("small", encoding="utf-8")
+        os.utime(old_mail, (old_time, old_time))
+        original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+        os.environ["CLEANMAC_TEST_MODE"] = "1"
+        try:
+            result = run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "inspect",
+                "--categories",
+                "mails",
+            )
+        finally:
+            if original_test_mode is None:
+                os.environ.pop("CLEANMAC_TEST_MODE", None)
+            else:
+                os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+        report = json.loads(result.stdout)
+
+        assert report["total_candidates"] == 0
+        assert "below-min-size" in report["skipped_summary"]["by_reason"]
+
+
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
