@@ -766,6 +766,7 @@ def test_clean_risk_policy_strict_requires_yes_for_medium_risk() -> None:
 
         assert result.returncode != 0
         assert "risk policy 'strict'" in result.stderr
+        assert "userLogs(medium)" in result.stderr
         assert log_file.exists()
 
 
