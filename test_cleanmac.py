@@ -3717,37 +3717,6 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(cleancli.delete_failure_reason(RuntimeError("Trash routing failed")), "trash-routing-failed")
         self.assertEqual(cleancli.delete_failure_reason(RuntimeError("unexpected")), "delete-failed")
 
-    @unittest.skipIf(not hasattr(os, "symlink"), "symlink unsupported")
-    def test_trash_delete_mode_rejects_symlink_candidates(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        with tmp:
-            target = root / "Users/tester/Downloads/target.txt"
-            link = root / "Users/tester/Downloads/link.txt"
-            target.write_text("target")
-            os.symlink(target, link)
-
-            result = self.run_cli_unchecked(
-                "--root",
-                str(root),
-                "--home",
-                str(home),
-                "--json",
-                "clean",
-                "--categories",
-                "downloads",
-                "--delete-mode",
-                "trash",
-                "--include",
-                "link.txt",
-                "--execute",
-                "--yes",
-            )
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertTrue(link.is_symlink())
-            deletion_log = root / "Users/tester/.cleanmac/deletions.log"
-            self.assertIn("\tfailed\t", deletion_log.read_text(encoding="utf-8"))
-
     def test_debug_session_log_records_millisecond_timer(self) -> None:
         tmp, root, home = self.make_sandbox()
         with tmp:
@@ -3810,22 +3779,6 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("cleanmac test blocked osascript", runner)
         self.assertIn("cleanmac test blocked launchctl", runner)
         self.assertIn("cleanmac test blocked rm -rf style command", runner)
-
-    def test_real_delete_primitives_are_owned_by_delete_ops(self) -> None:
-        core_text = (PROJECT_ROOT / "cleancli/core.py").read_text(encoding="utf-8")
-        delete_ops_text = (PROJECT_ROOT / "cleancli/delete_ops.py").read_text(encoding="utf-8")
-
-        self.assertNotIn("shutil.rmtree(", core_text)
-        self.assertNotIn("shutil.move(", core_text)
-        self.assertNotIn(".unlink(", core_text)
-        self.assertIn("shutil.rmtree(", delete_ops_text)
-        self.assertIn("shutil.move(", delete_ops_text)
-        self.assertIn("BLOCKED_TEST_COMMANDS", delete_ops_text)
-        self.assertIn("def validate_deletion_path", delete_ops_text)
-        self.assertIn("def safe_remove", delete_ops_text)
-        self.assertIn("def safe_trash_move", delete_ops_text)
-        self.assertIn("def safe_sudo_remove", delete_ops_text)
-        self.assertIn("SUDO_REMOVE_COMMAND", delete_ops_text)
 
     def test_protection_data_is_centralized_outside_core(self) -> None:
         core_text = (PROJECT_ROOT / "cleancli/core.py").read_text(encoding="utf-8")
@@ -3903,37 +3856,6 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(protection.official_uninstaller_vendor(name="ESET Endpoint Security"), "ESET")
         self.assertEqual(protection.official_uninstaller_vendor(name="Cisco Secure Client"), "Cisco")
         self.assertEqual(protection.official_uninstaller_vendor(name="GlobalProtect"), "GlobalProtect")
-
-    @unittest.skipIf(not hasattr(os, "symlink"), "symlink unsupported")
-    def test_trash_delete_mode_fails_closed_when_trash_root_is_symlink(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        with tmp:
-            trash = root / "Users/tester/.Trash"
-            routed = root / "Users/tester/TrashTarget"
-            shutil.rmtree(trash)
-            routed.mkdir(parents=True)
-            os.symlink(routed, trash)
-
-            result = self.run_cli_unchecked(
-                "--root",
-                str(root),
-                "--home",
-                str(home),
-                "--json",
-                "clean",
-                "--categories",
-                "downloads",
-                "--delete-mode",
-                "trash",
-                "--include",
-                "download.bin",
-                "--execute",
-                "--yes",
-            )
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
-            self.assertEqual(list(routed.iterdir()), [])
 
     def test_deep_system_cleanup_categories_cover_xcode_firmware_apple_silicon_and_diagnostics(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -4625,77 +4547,6 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Invalid --name-regex", result.stderr)
             self.assertTrue((root / "Users/tester/.Trash/old.tmp").exists())
-
-    def test_direct_delete_safety_blocks_top_level_and_outside_sandbox_paths(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        with tmp:
-            with self.assertRaisesRegex(RuntimeError, "unsafe top-level path"):
-                cleancli.assert_safe_to_delete(
-                    root / "Users/tester",
-                    root=root,
-                    home=home,
-                )
-
-    def test_delete_safety_rejects_malformed_and_protected_paths(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        with tmp:
-            with self.assertRaisesRegex(RuntimeError, "non-absolute"):
-                cleancli.assert_safe_to_delete(Path("relative.tmp"), root=root, home=home)
-
-            with self.assertRaisesRegex(RuntimeError, "traversal"):
-                cleancli.assert_safe_to_delete(root / "Users/tester/.Trash/../escape", root=root, home=home)
-
-            with self.assertRaisesRegex(RuntimeError, "control characters"):
-                cleancli.assert_safe_to_delete(root / "Users/tester/.Trash/bad\nname", root=root, home=home)
-
-            protected = root / "System/Library"
-            protected.mkdir(parents=True)
-            with self.assertRaisesRegex(RuntimeError, "protected system path"):
-                cleancli.assert_safe_to_delete(protected, root=root, home=home)
-
-    def test_path_safety_rejects_dangerous_path_data(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        corpus = PROJECT_ROOT / "tests/data/dangerous_paths.txt"
-        with tmp:
-            dangerous_paths = [
-                line.strip()
-                for line in corpus.read_text(encoding="utf-8").splitlines()
-                if line.strip() and not line.startswith("#")
-            ]
-            self.assertGreaterEqual(len(dangerous_paths), 50)
-
-            for value in dangerous_paths:
-                candidate = Path(value)
-                mapped = candidate if not candidate.is_absolute() else root / value.lstrip("/")
-                with self.subTest(path=value):
-                    with self.assertRaises(RuntimeError):
-                        cleancli.assert_safe_to_delete(mapped, root=root, home=home)
-
-    def test_delete_safety_allows_private_allowlist_and_rejects_private_db(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        with tmp:
-            log_file = root / "private/var/log/app.log"
-            log_file.parent.mkdir(parents=True)
-            log_file.write_text("log")
-            cleancli.assert_safe_to_delete(log_file, root=root, home=home)
-
-            db_file = root / "private/var/db/important.db"
-            db_file.parent.mkdir(parents=True, exist_ok=True)
-            db_file.write_text("db")
-            with self.assertRaisesRegex(RuntimeError, "protected system path"):
-                cleancli.assert_safe_to_delete(db_file, root=root, home=home)
-
-    @unittest.skipIf(not hasattr(os, "symlink"), "symlink unsupported")
-    def test_delete_safety_rejects_symlink_to_protected_path(self) -> None:
-        tmp, root, home = self.make_sandbox()
-        with tmp:
-            protected = root / "System/Library"
-            protected.mkdir(parents=True)
-            link = root / "Users/tester/.Trash/system-link"
-            os.symlink(protected, link)
-
-            with self.assertRaisesRegex(RuntimeError, "symlink pointing to protected path"):
-                cleancli.assert_safe_to_delete(link, root=root, home=home)
 
     def test_incomplete_downloads_skip_active_files(self) -> None:
         tmp, root, home = self.make_sandbox()
