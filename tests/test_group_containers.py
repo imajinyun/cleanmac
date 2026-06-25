@@ -10,9 +10,14 @@ def test_com_apple_group_container_is_skipped_by_default() -> None:
     with tmp:
         report = run_clean_json(root, home, "inspect", "--categories", "groupContainerCaches", "--older-than-days", "0")
         reasons = skipped_by_path(report)
+        items = report["items"]
+        assert isinstance(items, list)
+        item_paths = {str(row["path"]) for row in items if isinstance(row, dict)}
 
         path = root / "Users/tester/Library/Group Containers/group.com.apple.notes/Library/Caches/cache.bin"
+        allowed = root / "Users/tester/Library/Group Containers/group.com.example.app/Library/Caches/cache.bin"
         assert reasons[str(path)] == "protected-group-container"
+        assert str(allowed) in item_paths
 
 
 def test_safari_extension_group_container_is_skipped_by_default() -> None:
