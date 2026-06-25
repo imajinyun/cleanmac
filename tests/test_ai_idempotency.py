@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+from cleancli.core import CATEGORIES, ai_confirmation_token, ai_confirmation_token_context
 from tests.helpers import cleanmac_test_env, make_sandbox, run_clean_json
 
 VOLATILE_KEYS = {"generated_at", "expires_at", "timestamp", "started_at", "finished_at", "duration_ms"}
@@ -83,3 +84,69 @@ def test_replayed_dry_run_token_changes_when_plan_content_changes() -> None:
     assert token2
     assert token1 != token2
     assert sha1 != sha2
+
+
+def test_ai_confirmation_token_changes_across_execution_boundaries() -> None:
+    categories = [category for category in CATEGORIES if category.key in ("trash", "downloads")]
+    base: dict[str, Any] = {
+        "categories": categories,
+        "root": Path("/sandbox"),
+        "home": Path("/Users/tester"),
+        "risk_policy": "default",
+        "max_delete_mb": 10.0,
+        "max_items": 5,
+        "include_patterns": [],
+        "exclude_patterns": [],
+        "older_than_days": None,
+        "min_size_mb": 0,
+        "name_regex": None,
+        "bundle_allowlist": [],
+        "bundle_blocklist": ["com.apple.mail"],
+        "delete_mode": "trash",
+        "plan_file": None,
+        "rows": [],
+    }
+
+    context = ai_confirmation_token_context(**base)
+    token = ai_confirmation_token(context)
+    hex_part = token.removeprefix("cleanmac-confirm-")
+
+    assert token.startswith("cleanmac-confirm-")
+    assert len(hex_part) == 32
+    assert set(hex_part).issubset(set("0123456789abcdef"))
+    assert ai_confirmation_token(ai_confirmation_token_context(**base)) == token
+    assert context["delete_mode"] == "trash"
+    assert context["max_delete_mb"] == 10.0
+    assert context["max_items"] == 5
+    assert context["bundle_blocklist"] == ["com.apple.mail"]
+
+    assert ai_confirmation_token(ai_confirmation_token_context(**(base | {"root": Path("/other")}))) != token
+    assert ai_confirmation_token(ai_confirmation_token_context(**(base | {"home": Path("/Users/other")}))) != token
+    assert ai_confirmation_token(ai_confirmation_token_context(**(base | {"delete_mode": "permanent"}))) != token
+    assert ai_confirmation_token(ai_confirmation_token_context(**(base | {"max_delete_mb": 20.0}))) != token
+    assert ai_confirmation_token(ai_confirmation_token_context(**(base | {"max_items": 10}))) != token
+
+    single_category = [category for category in CATEGORIES if category.key == "trash"]
+    assert ai_confirmation_token(ai_confirmation_token_context(**(base | {"categories": single_category}))) != token
+
+    empty_context = ai_confirmation_token_context(
+        categories=[],
+        root=Path("/"),
+        home=Path("/"),
+        risk_policy="default",
+        max_delete_mb=None,
+        max_items=None,
+        include_patterns=[],
+        exclude_patterns=[],
+        older_than_days=None,
+        min_size_mb=0,
+        name_regex=None,
+        bundle_allowlist=[],
+        bundle_blocklist=[],
+        delete_mode="permanent",
+        plan_file=None,
+        rows=[],
+    )
+    empty_token = ai_confirmation_token(empty_context)
+    assert empty_token.startswith("cleanmac-confirm-")
+    assert len(empty_token.removeprefix("cleanmac-confirm-")) == 32
