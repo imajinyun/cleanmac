@@ -251,6 +251,74 @@ def test_makefile_release_check_dry_run_orders_quality_gates() -> None:
         cursor = index
 
 
+def test_makefile_no_cache_release_check_preserves_docker_isolation() -> None:
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    no_cache_check = makefile.split("\nno-cache-check:\n", 1)[1].split("\ndocker-test:\n", 1)[0]
+    no_cache_release_check = makefile.split("\nno-cache-release-check:\n", 1)[1]
+
+    no_cache_fragments = [
+        "export PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1 CLEANMAC_TEST_NO_AUTH=1",
+        'CLEANMAC_TEST_MODE=1 PYTEST_ADDOPTS="-p no:cacheprovider"',
+        '$(PYTHON) -m venv "$$tmpdir/venv"',
+        '"$$venv_python" -m pip install --no-cache-dir --upgrade pip',
+        "\"$$venv_python\" -m pip install --no-cache-dir -e '.[dev,build]'",
+        'RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$venv_python" -m ruff format --check .',
+        'mypy --cache-dir "$$mypy_cache" cleanmac.py cleancli test_cleanmac.py tests',
+        'coverage run --data-file "$$coverage_dir/.coverage" -m unittest -v',
+        "pytest $(PYTEST_SAFE_TARGETS) -q -p no:cacheprovider",
+        "[ ! -e .pytest_cache ] || /bin/rm -R .pytest_cache",
+        "[ ! -e .mypy_cache ] || /bin/rm -R .mypy_cache",
+        "[ ! -e .ruff_cache ] || /bin/rm -R .ruff_cache",
+    ]
+    for fragment in no_cache_fragments:
+        assert fragment in no_cache_check, fragment
+
+    expected_release_fragments = [
+        "PIP_NO_CACHE_DIR=1 $(MAKE) no-cache-check",
+        "PIP_NO_CACHE_DIR=1 $(MAKE) distribution-smoke homebrew-formula-smoke release-artifacts-smoke",
+        "release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke",
+        "release-post-publish-evidence-template-smoke no-cache-docker-test",
+    ]
+    cursor = -1
+    for fragment in expected_release_fragments:
+        index = no_cache_release_check.find(fragment, cursor + 1)
+        assert index > cursor, fragment
+        cursor = index
+
+    if shutil.which("make") is None:
+        pytest.skip("make is not installed in this validation environment")
+    result = subprocess.run(
+        ["make", "-n", "PYTHON=python3", "no-cache-docker-test"],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    output = result.stdout
+
+    expected_fragments = [
+        'DOCKER_RUN_FLAGS="--pull=always"',
+        "docker run --rm",
+        "--pull=always",
+        '-v "',
+        ':/work:ro"',
+        '-w "/work/cleanmac"',
+        "debian:bookworm-slim",
+        "python3 -m venv /tmp/cleanmac-venv",
+        '/tmp/cleanmac-venv/bin/python -m pip install -e ".[test]"',
+        "PYTHONDONTWRITEBYTECODE=1 /tmp/cleanmac-venv/bin/python -m unittest -v",
+    ]
+    cursor = -1
+    for fragment in expected_fragments:
+        index = output.find(fragment, cursor + 1)
+        assert index > cursor, fragment
+        cursor = index
+
+    assert ":/work:rw" not in output
+    assert "pip install -e '.[dev,build]'" not in output
+    assert "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v" not in output
+
+
 def test_python_quality_tooling_is_configured() -> None:
     pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     precommit = (PROJECT_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
