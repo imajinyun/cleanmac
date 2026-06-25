@@ -789,6 +789,7 @@ def test_clean_risk_policy_permissive_allows_high_risk_without_yes() -> None:
         report = json.loads(result.stdout)
 
         assert report["risk_policy"] == "permissive"
+        assert report["dry_run"] is False
         assert report["pre_clean_report"]["summary"]["yes_required_categories"] == []
         assert not (root / "Users/tester/Downloads/download.bin").exists()
 

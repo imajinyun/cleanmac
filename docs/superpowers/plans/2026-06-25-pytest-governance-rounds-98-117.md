@@ -411,9 +411,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for permissive risk policy allowing high-risk execution without `--yes` in sandbox.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover permissive risk policy execute`.
+- [x] Add pytest coverage for permissive risk policy allowing high-risk execution without `--yes` in sandbox.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover permissive risk policy execute`.
 
 ## Round 116: Execute Safety Budget Gates
 
