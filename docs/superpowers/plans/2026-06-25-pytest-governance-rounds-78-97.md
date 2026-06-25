@@ -265,7 +265,7 @@
 **Aiflow task ID:** `cleanmac-pytest-governance-round-82-clean-ai-confirmation-ledger`
 
 **Files:**
-- Modify: `tests/test_clean_execution.py`
+- Modify: `tests/test_ai_idempotency.py`
 
 - [x] Add pytest coverage for dry-run AI confirmation summary, human summary next command, execute summary, and execution ledger fields.
 - [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
@@ -289,9 +289,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for token context stability, category/order sensitivity, delete-mode binding, and plan-derived token boundaries.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover token boundary conditions`.
+- [x] Add pytest coverage for token context stability, category/order sensitivity, delete-mode binding, and plan-derived token boundaries.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover token boundary conditions`.
 
 ## Round 85: JSON Safety Error Taxonomy
 

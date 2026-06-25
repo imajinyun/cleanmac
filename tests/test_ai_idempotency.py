@@ -150,3 +150,74 @@ def test_ai_confirmation_token_changes_across_execution_boundaries() -> None:
     empty_token = ai_confirmation_token(empty_context)
     assert empty_token.startswith("cleanmac-confirm-")
     assert len(empty_token.removeprefix("cleanmac-confirm-")) == 32
+
+
+def test_ai_confirmation_token_binds_filters_plan_and_candidate_rows(tmp_path: Path) -> None:
+    categories = [category for category in CATEGORIES if category.key in ("trash", "downloads")]
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text('{"schema":"cleanmac.plan.v1","selected_category_keys":["trash"]}', encoding="utf-8")
+    base: dict[str, Any] = {
+        "categories": categories,
+        "root": Path("/sandbox"),
+        "home": Path("/Users/tester"),
+        "risk_policy": "default",
+        "max_delete_mb": 10.0,
+        "max_items": 5,
+        "include_patterns": ["*.tmp"],
+        "exclude_patterns": ["*.keep"],
+        "older_than_days": 7.0,
+        "min_size_mb": 1,
+        "name_regex": "cache",
+        "bundle_allowlist": ["com.example.allowed"],
+        "bundle_blocklist": ["com.apple.mail"],
+        "delete_mode": "trash",
+        "plan_file": str(plan_file),
+        "rows": [
+            {
+                "category": "trash",
+                "path": "/sandbox/Users/tester/.Trash/old.tmp",
+                "bytes": 10,
+                "bundle_id": None,
+            }
+        ],
+    }
+
+    context = ai_confirmation_token_context(**base)
+    token = ai_confirmation_token(context)
+
+    assert context["plan_file"] == str(plan_file)
+    assert context["plan_sha256"]
+    assert context["candidate_count"] == 1
+    assert context["candidate_bytes"] == 10
+    assert context["candidates"] == [
+        {
+            "category": "trash",
+            "path": "/sandbox/Users/tester/.Trash/old.tmp",
+            "bytes": 10,
+            "bundle_id": None,
+        }
+    ]
+
+    variant_keys = {
+        "include_patterns": ["*.log"],
+        "exclude_patterns": ["*.bak"],
+        "older_than_days": 30.0,
+        "min_size_mb": 2,
+        "name_regex": "logs",
+        "bundle_allowlist": ["com.example.other"],
+        "bundle_blocklist": ["com.apple.MobileSMS"],
+        "rows": [
+            {
+                "category": "downloads",
+                "path": "/sandbox/Users/tester/Downloads/download.bin",
+                "bytes": 20,
+                "bundle_id": "com.example.app",
+            }
+        ],
+    }
+    for key, value in variant_keys.items():
+        changed = base | {key: value}
+        assert ai_confirmation_token(ai_confirmation_token_context(**changed)) != token
+
+    plan_file.write_text('{"schema":"cleanmac.plan.v1","selected_category_keys":["downloads"]}', encoding="utf-8")
+    assert ai_confirmation_token(ai_confirmation_token_context(**base)) != token
