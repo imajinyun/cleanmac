@@ -161,12 +161,11 @@ def test_developer_tool_plan_explains_cleanup_scope_and_risks() -> None:
 
 
 def test_tool_execute_dry_run_uses_allowlisted_commands() -> None:
-    completed = subprocess.CompletedProcess(["docker", "system", "df"], 0, stdout="TYPE TOTAL", stderr="")
     calls: list[list[str]] = []
 
     def fake_runner(argv: Any, timeout: float) -> subprocess.CompletedProcess[str]:
         calls.append(list(argv))
-        return completed
+        return subprocess.CompletedProcess(list(argv), 0, stdout="TYPE TOTAL", stderr="")
 
     with mock.patch.object(tool_adapters.shutil, "which", return_value="/usr/local/bin/docker"):
         report = tool_adapters.execute_tool(
@@ -180,9 +179,22 @@ def test_tool_execute_dry_run_uses_allowlisted_commands() -> None:
 
     assert report["schema"] == "cleanmac.tool-execution-result.v1"
     assert report["destructive"] is False
-    assert ["docker", "system", "df"] in calls
+    assert report["dry_run"] is True
+    assert report["selected_tool"] == "docker"
+    assert report["safe_to_auto_execute"] is False
+    assert report["blocked_reasons"] == []
+    assert calls == [
+        ["docker", "system", "df"],
+        ["docker", "system", "df", "--verbose"],
+        ["docker", "builder", "du"],
+    ]
     assert ["docker", "builder", "prune", "--force"] not in calls
+    assert ["docker", "image", "prune", "--force"] not in calls
+    assert ["docker", "container", "prune", "--force"] not in calls
+    assert [result["argv"] for result in report["results"]] == calls
+    assert [entry["action"] for entry in report["operation_log_entries"]] == ["tool-dry-run"] * 3
     assert report["failed_count"] == 0
+    assert report["succeeded_count"] == 3
 
 
 def test_package_manager_tool_execute_dry_run_uses_only_readonly_commands() -> None:

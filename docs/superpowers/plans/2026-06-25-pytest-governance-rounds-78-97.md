@@ -377,9 +377,9 @@
 **Files:**
 - Modify: `tests/test_tool_governance.py`
 
-- [ ] Add pytest coverage for dry-run execution using only allowlisted readonly commands across Docker and package-manager adapters.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover tool execute dry-run allowlist`.
+- [x] Add pytest coverage for dry-run execution using only allowlisted readonly commands across Docker and package-manager adapters.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover tool execute dry-run allowlist`.
 
 ## Round 93: Tool Execute Destructive Blocks
 
