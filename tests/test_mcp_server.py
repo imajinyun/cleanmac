@@ -297,6 +297,55 @@ def test_resources_read_mcp_meta_index() -> None:
     assert all(index["ready"] is True for index in payload["indexes"])
 
 
+def test_mcp_indexes_align_with_host_integration_pack_contracts() -> None:
+    from cleancli.core import render_ai_host_integration_pack_report
+
+    resources_response = _mcp_request({"jsonrpc": "2.0", "id": 190, "method": "resources/list"})
+    advertised_uris = {resource["uri"] for resource in resources_response["result"]["resources"]}
+    pack = render_ai_host_integration_pack_report()
+    mcp = pack["mcp"]
+
+    index_payloads = {}
+    for request_id, uri in enumerate(
+        [
+            mcp["meta_index_uri"],
+            "cleanmac://mcp/resource-index",
+            mcp["prompt_index_uri"],
+            mcp["tool_index_uri"],
+            mcp["destructive_tool_governance_uri"],
+        ],
+        start=191,
+    ):
+        response = _mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": "resources/read",
+                "params": {"uri": uri},
+            }
+        )
+        contents = response["result"]["contents"]
+        assert contents[0]["uri"] == uri
+        index_payloads[uri] = json.loads(contents[0]["text"])
+
+    assert advertised_uris == set(mcp["resources"])
+    assert set(index_payloads[mcp["meta_index_uri"]]["index_uris"]) == {
+        "cleanmac://mcp/resource-index",
+        mcp["prompt_index_uri"],
+        mcp["tool_index_uri"],
+        mcp["destructive_tool_governance_uri"],
+    }
+    assert set(index_payloads["cleanmac://mcp/resource-index"]["resource_uris"]) == advertised_uris
+    assert set(index_payloads[mcp["prompt_index_uri"]]["prompt_names"]) == set(mcp["prompts"])
+    assert set(index_payloads[mcp["tool_index_uri"]]["tool_names"]) == set(mcp["tools"])
+    assert set(index_payloads[mcp["destructive_tool_governance_uri"]]["destructive_tool_names"]) <= set(mcp["tools"])
+    assert index_payloads[mcp["destructive_tool_governance_uri"]]["ready"] is True
+    assert all(
+        not tool["uses_shell"] and tool["invocation_mode"] == "argv"
+        for tool in index_payloads[mcp["destructive_tool_governance_uri"]]["destructive_tools"]
+    )
+
+
 def test_resources_read_mcp_resource_index() -> None:
     response = _mcp_request(
         {
