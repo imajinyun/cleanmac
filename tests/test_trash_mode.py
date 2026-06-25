@@ -1,11 +1,40 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 
 import pytest
 
 from tests.helpers import make_sandbox, run_cli
+
+
+def test_trash_delete_mode_routes_candidates_to_recoverable_trash() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "--categories",
+            "downloads",
+            "--delete-mode",
+            "trash",
+            "--execute",
+            "--yes",
+        )
+        report = json.loads(result.stdout)
+        trash_entries = list((root / "Users/tester/.Trash").glob("cleanmac-*download.bin*"))
+
+        assert report["delete_mode"] == "trash"
+        assert not (root / "Users/tester/Downloads/download.bin").exists()
+        assert trash_entries
+        assert any(row["trash_path"] for row in report["items"] if row["path"].endswith("download.bin"))
+        deletion_log = root / "Users/tester/.cleanmac/deletions.log"
+        assert "\ttrash\t" in deletion_log.read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlink unsupported")
