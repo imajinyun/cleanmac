@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cleancli import delete_ops
+from cleancli import core, delete_ops
 from tests.helpers import PROJECT_ROOT, make_sandbox, policy_for
 
 
@@ -107,6 +107,21 @@ def test_safe_sudo_remove_blocks_no_auth_and_symlinks() -> None:
         link.symlink_to(target)
         with pytest.raises(RuntimeError, match="sudo remove symlink"):
             delete_ops.safe_sudo_remove(link, policy=policy, dry_run=True)
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_reason"),
+    [
+        (PermissionError("Operation not permitted"), "permission-denied"),
+        (RuntimeError("Lacking write permission for candidate"), "permission-denied"),
+        (RuntimeError("symlink target is protected"), "symlink-protected"),
+        (RuntimeError("Refusing to delete /System"), "protected-path"),
+        (RuntimeError("Trash routing failed"), "trash-routing-failed"),
+        (RuntimeError("unexpected"), "delete-failed"),
+    ],
+)
+def test_delete_failure_reason_maps_safety_and_recoverable_failures(exc: Exception, expected_reason: str) -> None:
+    assert core.delete_failure_reason(exc) == expected_reason
 
 
 def test_require_trash_first_delete_mode_blocks_permanent_without_explicit_gate() -> None:
