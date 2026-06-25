@@ -66,6 +66,34 @@ def test_grouped_clean_run_executes_dry_run_alias() -> None:
         assert (root / "Users/tester/.Trash/old.tmp").exists()
 
 
+def test_inspect_lists_direct_children_sorted_by_size() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        (root / "Users/tester/.Trash/big.tmp").write_text("x" * 100, encoding="utf-8")
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "trash",
+            "--limit",
+            "1",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["shown_candidates"] == 1
+        assert report["items"][0]["path"].endswith("big.tmp")
+        assert report["ai_summary"]["schema"] == "cleanmac.ai-summary.v1"
+        assert report["ai_summary"]["phase"] == "inspect"
+        assert report["ai_summary"]["recommended_next_action"] == "generate_plan"
+        assert report["ai_summary"]["safe_to_execute_after_confirmation"] is False
+        assert "trash" in report["ai_summary"]["selected_categories"]
+        assert report["ai_summary"]["headline"]
+
+
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
