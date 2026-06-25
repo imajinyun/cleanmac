@@ -123,6 +123,53 @@ def test_promotion_decision_exposes_mcp_surface_audit_blocking_code(tmp_path: Pa
     assert "mcp-surface-audit-ready" in decision["rehearsal_summary"]["failed_gate_ids"]
 
 
+def test_promotion_decision_preserves_multiple_release_readiness_gate_blockers(tmp_path: Path) -> None:
+    dist, assets = _write_ready_release_assets(tmp_path)
+    readiness = json.loads((assets / "RELEASE-READINESS.json").read_text(encoding="utf-8"))
+    readiness["ready"] = False
+    readiness["manual_review_required"] = True
+    readiness["readiness_score"] = {"passed": 11, "total": 13, "level": "blocked"}
+    readiness["failed_gate_ids"] = ["ai-host-evidence-ready", "mcp-surface-audit-ready"]
+    for gate in readiness["gates"]:
+        if gate["id"] == "ai-host-evidence-ready":
+            gate["passed"] = False
+            gate["severity"] = "blocking"
+            gate["diagnostic"] = "AI Host evidence pack is incomplete."
+            gate["blocking_code"] = "AI_HOST_EVIDENCE_NOT_READY"
+            gate["next_actions"] = [["make", "ai-host-smoke"], ["make", "mcp-smoke"]]
+        if gate["id"] == "mcp-surface-audit-ready":
+            gate["passed"] = False
+            gate["severity"] = "blocking"
+            gate["diagnostic"] = "mcp-surface-audit failed: required-tools-advertised"
+            gate["blocking_code"] = "MCP_SURFACE_AUDIT_NOT_READY"
+            gate["next_actions"] = [["make", "mcp-surface-audit-smoke"]]
+    (assets / "RELEASE-READINESS.json").write_text(json.dumps(readiness), encoding="utf-8")
+
+    rehearsal = render_release_rehearsal(dist_dir=dist, assets_dir=assets)
+    decision = render_release_promotion_decision(dist_dir=dist, assets_dir=assets)
+
+    readiness_phase = {phase["id"]: phase for phase in rehearsal["phases"]}["release-readiness"]
+    assert rehearsal["ready"] is False
+    assert readiness_phase["blocking_code"] == "RELEASE_READINESS_BLOCKED"
+    assert readiness_phase["failed_gate_ids"] == ["ai-host-evidence-ready", "mcp-surface-audit-ready"]
+    assert readiness_phase["gate_blocking_codes"] == [
+        "AI_HOST_EVIDENCE_NOT_READY",
+        "MCP_SURFACE_AUDIT_NOT_READY",
+    ]
+    assert ["make", "ai-host-smoke"] in readiness_phase["next_actions"]
+    assert ["make", "mcp-surface-audit-smoke"] in readiness_phase["next_actions"]
+    assert decision["decision"] == "block"
+    assert decision["blocking_codes"] == [
+        "RELEASE_READINESS_BLOCKED",
+        "AI_HOST_EVIDENCE_NOT_READY",
+        "MCP_SURFACE_AUDIT_NOT_READY",
+    ]
+    assert decision["rehearsal_summary"]["failed_gate_ids"] == [
+        "ai-host-evidence-ready",
+        "mcp-surface-audit-ready",
+    ]
+
+
 def test_rehearsal_blocks_when_diagnostics_governance_integrity_is_not_ready(tmp_path: Path) -> None:
     dist, assets = _write_ready_release_assets(tmp_path)
     diagnostics = json.loads((assets / "RELEASE-DIAGNOSTICS.json").read_text(encoding="utf-8"))
