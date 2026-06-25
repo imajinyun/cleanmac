@@ -449,6 +449,17 @@ def test_profiles_and_links_expose_safe_metadata_contracts() -> None:
         assert by_name["safe"]["max_delete_mb"] == 1024
         assert by_name["developer"]["max_delete_mb"] == 4096
         assert by_name["browser"]["max_delete_mb"] == 2048
+        assert by_name["safe"]["categories"] == ["trash", "downloads", "userCache", "userLogs"]
+        assert by_name["developer"]["categories"] == [
+            "xcode",
+            "nodePackageCaches",
+            "pythonPackageCaches",
+            "goBuildCaches",
+        ]
+        assert by_name["browser"]["categories"] == ["chrome", "firefox"]
+        assert by_name["developer"]["risk_policy"] == "default"
+        assert by_name["browser"]["risk_policy"] == "strict"
+        assert all(profile["delete_mode"] == "trash" for profile in profiles["profiles"])
         assert all(profile["safe_to_auto_execute"] is False for profile in profiles["profiles"])
         assert by_name["developer"]["example_plan_command"] == [
             "cleanmac",
@@ -469,6 +480,10 @@ def test_profiles_and_links_expose_safe_metadata_contracts() -> None:
         resolved_root = str(root.resolve())
         assert links["container_root"] == str((root / "Users/tester/Library/Containers").resolve())
         assert links["mappings"]
+        assert {mapping["kind"] for mapping in links["mappings"]} == {"logs", "cache"}
+        assert any(mapping["container"] == "com.example" for mapping in links["mappings"])
+        assert any(mapping["link_dir"].endswith(".CleanMacAppLogLinks") for mapping in links["mappings"])
+        assert any(mapping["link_dir"].endswith(".CleanMacAppCacheLinks") for mapping in links["mappings"])
         for mapping in links["mappings"]:
             assert mapping["status"] == "planned"
             assert mapping["kind"] in {"logs", "cache"}

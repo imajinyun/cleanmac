@@ -322,9 +322,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for profile safe category expansion, budget defaults, link preview metadata, and non-destructive defaults.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover profiles links preview`.
+- [x] Add pytest coverage for profile safe category expansion, budget defaults, link preview metadata, and non-destructive defaults.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover profiles links preview`.
 
 ## Round 88: Links Execute Compatibility
 
