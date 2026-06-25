@@ -121,9 +121,9 @@
 **Files:**
 - Modify: `tests/test_ai_idempotency.py`
 
-- [ ] Add pytest coverage for token generation inputs and mismatches across categories, root/home, delete mode, max delete MB, and selected plan content.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover confirmation token boundaries`.
+- [x] Add pytest coverage for token generation inputs and mismatches across categories, root/home, delete mode, max delete MB, and selected plan content.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover confirmation token boundaries`.
 
 ## Round 49: Grouped Command Compatibility
 
