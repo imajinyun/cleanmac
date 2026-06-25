@@ -101,6 +101,21 @@ def test_verify_manifest_fails_closed_when_artifact_is_missing(tmp_path: Path) -
         verify_release_artifact_manifest(manifest, dist_dir=dist, assets_dir=assets)
 
 
+def test_verify_manifest_fails_closed_when_artifact_checksum_changes(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    assets = tmp_path / "release-assets"
+    dist.mkdir()
+    assets.mkdir()
+    wheel = dist / "cleanmac-0.1.0-py3-none-any.whl"
+    wheel.write_text("original wheel", encoding="utf-8")
+    (assets / "SBOM.json").write_text("{}", encoding="utf-8")
+    manifest = build_release_artifact_manifest(dist_dir=dist, assets_dir=assets)
+    wheel.write_text("tampered wheel", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="SHA256 mismatch for cleanmac-0.1.0-py3-none-any.whl"):
+        verify_release_artifact_manifest(manifest, dist_dir=dist, assets_dir=assets)
+
+
 def test_manifest_json_is_deterministic(tmp_path: Path) -> None:
     dist = tmp_path / "dist"
     assets = tmp_path / "release-assets"
