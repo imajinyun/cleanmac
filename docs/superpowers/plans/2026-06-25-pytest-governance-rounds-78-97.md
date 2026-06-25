@@ -311,9 +311,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for unknown category CLI guidance and analyze report sandbox-root metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover cli guidance contracts`.
+- [x] Add pytest coverage for unknown category CLI guidance and analyze report sandbox-root metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover cli guidance contracts`.
 
 ## Round 87: Profiles And Links Preview Metadata
 
