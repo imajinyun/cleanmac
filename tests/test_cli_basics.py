@@ -259,6 +259,31 @@ def test_capabilities_json_exposes_governance_integrity_contract() -> None:
     assert integrity_checks["boundary-geo-policy-single-source"]["passed"] is True
 
 
+def test_capabilities_json_exposes_distribution_governance_metadata() -> None:
+    result = run_cli("--json", "capabilities")
+    report = json.loads(result.stdout)
+
+    distribution_governance = report["safety_guardrails"]["distribution_governance"]
+    assert distribution_governance["schema"] == "cleanmac.distribution-governance.v1"
+    assert {"wheel", "sdist", "standalone-zipapp", "homebrew-formula"}.issubset(
+        distribution_governance["supported_artifacts"]
+    )
+    assert distribution_governance["release_manifest"] == "release-assets/ARTIFACT-MANIFEST.json"
+    assert distribution_governance["standalone_smoke_command"] == "python cleanmac.pyz --json capabilities"
+
+    homebrew_policy = distribution_governance["homebrew_formula_policy"]
+    assert homebrew_policy["status"] == "tap-publishable"
+    assert homebrew_policy["tap"] == "cleanmac/tap"
+    assert homebrew_policy["formula_path"] == "Formula/cleanmac.rb"
+    assert homebrew_policy["formula_asset"] == "release-assets/cleanmac.rb"
+    assert homebrew_policy["recommended_install_method"] == "brew tap cleanmac/tap && brew install cleanmac"
+    assert homebrew_policy["publish_automatically"] is False
+    assert {"class_name", "url", "sha256", "license", "test do"}.issubset(homebrew_policy["formula_checks"])
+
+    privileged_ownership = report["safety_guardrails"]["privileged_command_ownership"]
+    assert privileged_ownership["scan_command"] == "python3 scripts/security_scan.py"
+
+
 def test_quiet_suppresses_human_readable_output_but_not_json() -> None:
     quiet_result = run_cli("-q", "list")
 

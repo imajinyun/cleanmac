@@ -76,9 +76,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py` or `tests/test_release_artifacts.py`
 
-- [ ] Add pytest coverage for distribution governance artifact types, Homebrew tap policy, release manifest path, and privileged command ownership scan command.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover distribution governance metadata`.
+- [x] Add pytest coverage for distribution governance artifact types, Homebrew tap policy, release manifest path, and privileged command ownership scan command.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover distribution governance metadata`.
 
 ## Round 44: AI Tool Contract From Capabilities
 
