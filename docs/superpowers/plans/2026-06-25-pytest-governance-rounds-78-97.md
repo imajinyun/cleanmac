@@ -355,9 +355,9 @@
 **Files:**
 - Modify: `tests/test_tool_governance.py`
 
-- [ ] Add pytest coverage for readonly tool-plan behavior, manual destructive recommendations, excluded commands, and contract schema validation.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover tool plan readonly manual commands`.
+- [x] Add pytest coverage for readonly tool-plan behavior, manual destructive recommendations, excluded commands, and contract schema validation.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover tool plan readonly manual commands`.
 
 ## Round 91: Package Manager Adapter Metadata
 
