@@ -145,7 +145,9 @@ def test_bundle_allowlist_skips_non_allowlisted_bundle() -> None:
         )
         report = json.loads(result.stdout)
 
-        assert report["skipped_summary"]["by_reason"]["bundle-not-allowlisted"] >= 1
+        assert report["dry_run"] is True
+        assert report["bundle_allowlist"] == ["com.allowed"]
+        assert report["skipped_summary"]["by_reason"] == {"bundle-not-allowlisted": 2}
 
 
 def test_bundle_blocklist_skips_matching_bundle() -> None:
@@ -166,8 +168,36 @@ def test_bundle_blocklist_skips_matching_bundle() -> None:
         )
         report = json.loads(result.stdout)
 
+        assert report["dry_run"] is False
+        assert report["bundle_blocklist"] == ["com.example"]
+        assert report["total_bytes"] == 0
         assert report["skipped_summary"]["by_reason"]["bundle-blocklisted"] == 1
         assert (root / "Users/tester/Library/Containers/com.example/Data/Library/Caches/cache.bin").exists()
+
+
+def test_container_cache_policy_preserves_protected_app_data() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "inspect",
+            "--categories",
+            "userAppCache",
+        )
+        report = json.loads(result.stdout)
+        item_paths = {row["path"] for row in report["items"]}
+        skipped_paths = {row["path"]: row["reason"] for row in report["skipped"]}
+
+        assert str(root / "Users/tester/Library/Containers/com.example/Data/Library/Caches/cache.bin") in item_paths
+        assert (
+            skipped_paths[str(root / "Users/tester/Library/Containers/com.apple.Notes/Data/Library/Caches/cache.bin")]
+            == "protected-container-data"
+        )
 
 
 def test_max_delete_budget_rejects_execution_before_deleting() -> None:
