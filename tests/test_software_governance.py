@@ -235,3 +235,130 @@ def test_software_uninstall_plan_protects_system_bundle_with_explainable_default
         assert app_bundle["default_selected"] is False
         assert app_bundle["why_not_default"] == "plan blocked: protected-from-uninstall"
         assert app_bundle["app_owner"] == "apple"
+
+
+def test_software_uninstall_execute_requires_review_selection_and_records_trash_evidence() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        _write_app(root, "Example", "com.example.app")
+        app_support = root / "Users/tester/Library/Application Support/Example"
+        app_support.mkdir(parents=True)
+        app_support.joinpath("state.db").write_text("preserve until explicit selection", encoding="utf-8")
+        cache_path = root / "Users/tester/Library/Caches/com.example.app"
+        cache_path.mkdir(parents=True)
+        cache_path.joinpath("cache.bin").write_text("cache", encoding="utf-8")
+        plan_file = root / "software-plan.json"
+        selection_file = root / "software-selection.json"
+        operation_log = root / "logs" / "software-uninstall.jsonl"
+
+        plan = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "software",
+                "uninstall-plan",
+                "--app",
+                "Example",
+            ).stdout
+        )
+        plan_file.write_text(json.dumps(plan), encoding="utf-8")
+        review_report = json.loads(
+            run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)).stdout
+        )
+        selected_ids = [item["id"] for item in review_report["items"] if item["kind"] in {"app-bundle", "cache"}]
+        selection = dict(review_report["selection"])
+        selection["selected_item_ids"] = selected_ids
+        selection["excluded_item_ids"] = [
+            item["id"] for item in review_report["items"] if item["id"] not in selected_ids
+        ]
+        selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+        missing_selection = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "software",
+            "execute",
+            "--plan-file",
+            str(plan_file),
+            check=False,
+        )
+        assert missing_selection.returncode != 0
+        assert json.loads(missing_selection.stderr)["error"]["code"] == "SELECTION_VALIDATION_FAILED"
+
+        dry_run_report = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "software",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--operation-log",
+                str(operation_log),
+            ).stdout
+        )
+        planned_result = next(item for item in dry_run_report["results"] if item["status"] == "planned")
+
+        assert dry_run_report["schema"] == "cleanmac.software-uninstall-result.v1"
+        assert dry_run_report["dry_run"] is True
+        assert dry_run_report["planned_count"] == 2
+        assert dry_run_report["skipped_count"] >= 1
+        assert len(dry_run_report["review_selection"]["selected_review_evidence"]) == 2
+        assert planned_result["finder_url"].startswith("file://")
+        assert planned_result["reveal_command"][:2] == ["open", "-R"]
+        assert planned_result["review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+        assert (root / "Applications/Example.app").exists()
+        assert cache_path.exists()
+        assert app_support.exists()
+        assert validate_contract_payload("cleanmac.software-uninstall-result.v1", dry_run_report)["valid"] is True
+
+        execute_report = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "software",
+                "execute",
+                "--plan-file",
+                str(plan_file),
+                "--review-selection-file",
+                str(selection_file),
+                "--execute",
+                "--yes",
+                "--delete-mode",
+                "trash",
+                "--operation-log",
+                str(operation_log),
+            ).stdout
+        )
+        records = [json.loads(line) for line in operation_log.read_text(encoding="utf-8").splitlines()]
+
+        assert execute_report["dry_run"] is False
+        assert execute_report["deleted_count"] == 2
+        assert execute_report["skipped_count"] >= 1
+        assert not (root / "Applications/Example.app").exists()
+        assert not cache_path.exists()
+        assert app_support.exists()
+        assert all(item["delete_mode"] == "trash" for item in execute_report["results"])
+        assert {record["ai"]["review_selection"]["selected_count"] for record in records} == {2}
+        assert {len(record["ai"]["review_selection"]["selected_review_evidence"]) for record in records} == {2}
+        assert all(
+            record["ai"]["candidate_review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
+            for record in records
+        )
+        assert "not-in-review-selection" in {record.get("reason") for record in records}
+        assert any(record.get("trash_path") for record in records if record["status"] == "deleted")
+        assert validate_contract_payload("cleanmac.software-uninstall-result.v1", execute_report)["valid"] is True
