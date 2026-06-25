@@ -345,9 +345,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for Mail Downloads age and minimum-size defaults.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover mail downloads age size defaults`.
+- [x] Add pytest coverage for Mail Downloads age and minimum-size defaults.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover mail downloads age size defaults`.
 
 ## Round 110: GPU Cache Stale Allowlist
 
