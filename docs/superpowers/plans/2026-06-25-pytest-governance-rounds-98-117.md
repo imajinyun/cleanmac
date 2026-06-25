@@ -356,9 +356,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for GPU cache provider stale allowlisted directories and not-stale skip reason.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover gpu cache stale allowlist`.
+- [x] Add pytest coverage for GPU cache provider stale allowlisted directories and not-stale skip reason.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover gpu cache stale allowlist`.
 
 ## Round 111: Browser Code Sign Shard Safety
 

@@ -236,6 +236,39 @@ def test_mail_downloads_use_age_and_size_defaults() -> None:
         assert "below-min-size" in report["skipped_summary"]["by_reason"]
 
 
+def test_gpu_cache_provider_only_returns_stale_allowlisted_dirs() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        stale = root / "private/var/folders/aa/bb/C/app/com.apple.metal"
+        recent = root / "private/var/folders/aa/bb/C/app/com.apple.metalfe"
+        stale.mkdir(parents=True)
+        recent.mkdir(parents=True)
+        stale_file = stale / "shader.cache"
+        recent_file = recent / "shader.cache"
+        stale_file.write_text("old", encoding="utf-8")
+        recent_file.write_text("new", encoding="utf-8")
+        old_time = time.time() - 3 * 24 * 60 * 60
+        os.utime(stale_file, (old_time, old_time))
+        os.utime(stale, (old_time, old_time))
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "gpuCaches",
+        )
+        report = json.loads(result.stdout)
+        paths = [row["path"] for row in report["items"]]
+
+        assert str(stale) in paths
+        assert str(recent) not in paths
+        assert "not-stale" in report["skipped_summary"]["by_reason"]
+
+
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
