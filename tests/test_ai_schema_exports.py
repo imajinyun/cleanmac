@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from cleancli import ai_versioning
+from cleancli import ai_schema, ai_versioning
 from tests.helpers import run_cli
 
 EXPECTED_TOOL_COUNT = 38
@@ -123,6 +123,21 @@ def test_capabilities_provider_exports_match_mcp_catalog_and_validation() -> Non
     assert contract_compatibility["compatible"] is True
     assert contract_compatibility["function_tool_count"] == len(tool_names)
     assert contract_compatibility["mcp_tool_count"] == len(tool_names)
+
+
+def test_provider_export_parity_reports_same_tool_names_directly() -> None:
+    report = ai_schema.render_provider_export_parity()
+
+    assert report["schema"] == "cleanmac.ai-provider-export-parity.v1"
+    assert report["same_tool_names"] is True
+    assert report["same_tool_count"] is True
+    assert report["tool_count"] == EXPECTED_TOOL_COUNT
+    assert report["function_tool_count"] == EXPECTED_TOOL_COUNT
+    assert report["openai_tool_count"] == EXPECTED_TOOL_COUNT
+    assert report["anthropic_tool_count"] == EXPECTED_TOOL_COUNT
+    assert report["mcp_tool_count"] == EXPECTED_TOOL_COUNT
+    assert report["violation_count"] == 0
+    assert report["violations"] == []
 
 
 def test_ai_schema_registry_covers_public_ai_schemas() -> None:
