@@ -326,6 +326,19 @@ def test_analyze_tree_markdown_report_preserves_sandbox_paths_and_schema_fields(
         assert "Raw JSON" in markdown
 
 
+def test_unknown_category_cli_guidance_matches_grouped_compatibility() -> None:
+    list_result = run_cli("list", "--categories", "doesNotExist", check=False)
+
+    assert list_result.returncode != 0
+    assert "unrecognized arguments" in list_result.stderr
+
+    inspect_result = run_cli("inspect", "--categories", "doesNotExist", check=False)
+    assert inspect_result.returncode != 0
+    assert "Unknown category: doesNotExist" in inspect_result.stderr
+    assert "trash" in inspect_result.stderr
+    assert "imessage" in inspect_result.stderr
+
+
 def test_analyze_group_rejects_non_cli_view_action() -> None:
     removed_action = "t" + "ui"
     result = run_cli("--json", "analyze", removed_action, "--path", ".", check=False)
