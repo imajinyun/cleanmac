@@ -127,6 +127,40 @@ def test_inspect_supports_recursive_min_size_and_path_sort() -> None:
         assert large_row["depth"] == 2
 
 
+def test_inspect_accepts_budget_flags_as_non_destructive_preview() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        old_time = time.time() - 8 * 24 * 60 * 60
+        log_file = root / "Users/tester/Library/logs/noisy.log"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        log_file.write_text("log", encoding="utf-8")
+        os.utime(log_file, (old_time, old_time))
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "userLogs",
+            "--older-than-days",
+            "7",
+            "--max-delete-mb",
+            "1000",
+            "--max-items",
+            "500",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["max_delete_mb"] == 1000.0
+        assert report["max_items"] == 500
+        assert report["budget_summary"]["within_max_delete_budget"] is True
+        assert report["budget_summary"]["within_max_items"] is True
+        assert report["budget_summary"]["applies_to_execute"] is False
+        assert log_file.exists()
+
+
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
     tmp, root, home = make_sandbox()
     with tmp:

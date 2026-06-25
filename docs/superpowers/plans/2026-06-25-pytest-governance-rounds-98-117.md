@@ -312,9 +312,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for inspect budget flags as non-destructive preview metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover inspect budget preview flags`.
+- [x] Add pytest coverage for inspect budget flags as non-destructive preview metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover inspect budget preview flags`.
 
 ## Round 107: Invalid Name Regex Gate
 
