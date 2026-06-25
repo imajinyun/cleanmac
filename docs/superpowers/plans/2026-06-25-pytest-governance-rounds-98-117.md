@@ -290,9 +290,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for inspect direct child size sorting, limit behavior, and AI summary metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover inspect direct child sorting`.
+- [x] Add pytest coverage for inspect direct child size sorting, limit behavior, and AI summary metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover inspect direct child sorting`.
 
 ## Round 105: Inspect Recursive Path Sort
 
