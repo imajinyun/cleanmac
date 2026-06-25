@@ -845,3 +845,31 @@ def test_clean_max_items_blocks_execute_before_deleting() -> None:
         assert "exceeds --max-items budget" in result.stderr
         assert (root / "Users/tester/.Trash/old.tmp").exists()
         assert (root / "Users/tester/.Trash/extra.tmp").exists()
+
+
+def test_clean_fail_on_skipped_blocks_execute_before_deleting() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        remove = root / "Users/tester/.Trash/remove.tmp"
+        keep = root / "Users/tester/.Trash/keep.tmp"
+        remove.write_text("remove", encoding="utf-8")
+        keep.write_text("keep", encoding="utf-8")
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "clean",
+            "--categories",
+            "trash",
+            "--exclude",
+            "*keep.tmp",
+            "--fail-on-skipped",
+            "--execute",
+            check=False,
+        )
+
+        assert result.returncode != 0
+        assert "candidate(s) were skipped" in result.stderr
+        assert remove.exists()
+        assert keep.exists()

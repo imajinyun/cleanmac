@@ -422,9 +422,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage for live-root, max-delete-budget, max-items, and fail-on-skipped execute gates.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover execute safety budget gates`.
+- [x] Add pytest coverage for live-root, max-delete-budget, max-items, and fail-on-skipped execute gates.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover execute safety budget gates`.
 
 ## Round 117: Human Report Branch Closeout
 
