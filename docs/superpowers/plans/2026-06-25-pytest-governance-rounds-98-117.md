@@ -334,9 +334,9 @@
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for active incomplete-download files being skipped with explicit reason.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover incomplete downloads active skip`.
+- [x] Add pytest coverage for active incomplete-download files being skipped with explicit reason.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover incomplete downloads active skip`.
 
 ## Round 109: Mail Downloads Age Size Defaults
 

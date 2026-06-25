@@ -4,6 +4,7 @@ import json
 import os
 import time
 
+import cleancli.core as cleancli
 from tests.helpers import make_sandbox, run_cli
 from tests.test_review_selection import run_cli_unchecked
 
@@ -180,6 +181,27 @@ def test_invalid_name_regex_is_rejected_before_deletion() -> None:
         assert result.returncode != 0
         assert "Invalid --name-regex" in result.stderr
         assert (root / "Users/tester/.Trash/old.tmp").exists()
+
+
+def test_incomplete_downloads_skip_active_files() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        partial = root / "Users/tester/Downloads/partial.crdownload"
+        partial.write_text("partial", encoding="utf-8")
+        original = cleancli.is_file_open
+        cleancli.is_file_open = lambda path: path.name == "partial.crdownload"  # type: ignore[assignment]
+        try:
+            report = cleancli.inspect_items(
+                [cleancli.CATEGORY_BY_KEY["incompleteDownloads"]],
+                root=root,
+                home=home,
+                limit=50,
+            )
+        finally:
+            cleancli.is_file_open = original  # type: ignore[assignment]
+
+        assert report["total_candidates"] == 0
+        assert "active-file" in report["skipped_summary"]["by_reason"]
 
 
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
