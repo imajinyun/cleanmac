@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from pathlib import Path
 
 import cleancli.core as cleancli
 from tests.helpers import make_sandbox, run_cli
@@ -267,6 +268,38 @@ def test_gpu_cache_provider_only_returns_stale_allowlisted_dirs() -> None:
         assert str(stale) in paths
         assert str(recent) not in paths
         assert "not-stale" in report["skipped_summary"]["by_reason"]
+
+
+def test_browser_code_sign_cache_provider_uses_x_shard_and_rejects_outside_root() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        cache = root / "private/var/folders/aa/bb/X/com.browser/foo.code_sign_clone"
+        cache.mkdir(parents=True)
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "browserCodeSignCache",
+        )
+        report = json.loads(result.stdout)
+
+        assert report["total_candidates"] == 1
+        assert report["items"][0]["path"] == str(cache)
+        try:
+            cleancli.assert_safe_to_delete(
+                Path("/tmp/cleanmac-outside-candidate"),
+                root=root,
+                home=home,
+            )
+        except RuntimeError as exc:
+            assert "outside sandbox root" in str(exc)
+        else:
+            raise AssertionError("outside-root candidate should be rejected")
 
 
 def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
