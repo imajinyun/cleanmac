@@ -388,9 +388,9 @@
 **Files:**
 - Modify: `tests/test_tool_governance.py`
 
-- [ ] Add pytest coverage that destructive tool execution blocks without explicit yes and reports blocked reasons for all results.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover tool execute destructive blocks`.
+- [x] Add pytest coverage that destructive tool execution blocks without explicit yes and reports blocked reasons for all results.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover tool execute destructive blocks`.
 
 ## Round 94: Review Selection Generation Evidence
 
