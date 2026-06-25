@@ -184,9 +184,9 @@
 **Files:**
 - Modify: `tests/test_software_governance.py`
 
-- [ ] Add pytest coverage for uninstall plan official uninstaller routing, orphan leftovers, protected system bundle skip, review-selection-required execute path, Trash routing, and operation-log evidence.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover software uninstall evidence`.
+- [x] Add pytest coverage for uninstall plan official uninstaller routing, orphan leftovers, protected system bundle skip, review-selection-required execute path, Trash routing, and operation-log evidence.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover software uninstall evidence`.
 
 ## Round 56: Startup And Privacy Execute Evidence
 
