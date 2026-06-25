@@ -148,9 +148,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage for profile expansion defaults, safe budgets, links report mappings, link execute/create/remove behavior, and non-symlink skip handling.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover profiles and links commands`.
+- [x] Add pytest coverage for profile expansion defaults, safe budgets, links report mappings, link execute/create/remove behavior, and non-symlink skip handling.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover profiles and links commands`.
 
 ## Round 52: Clean Dry-Run And Pre/Post Reports
 

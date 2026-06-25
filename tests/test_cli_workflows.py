@@ -255,6 +255,51 @@ def test_profiles_expand_to_safe_category_and_budget_defaults() -> None:
         }
 
 
+def test_profiles_and_links_expose_safe_metadata_contracts() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        profiles = json.loads(run_cli("--json", "profiles").stdout)
+        links = json.loads(run_cli("--root", str(root), "--home", str(home), "--json", "links").stdout)
+
+        by_name = {profile["name"]: profile for profile in profiles["profiles"]}
+        assert profiles["schema"] == "cleanmac.profiles.v1"
+        assert profiles["destructive"] is False
+        assert profiles["dry_run"] is True
+        assert profiles["profile_count"] == 3
+        assert set(by_name) == {"safe", "developer", "browser"}
+        assert by_name["safe"]["risk_policy"] == "strict"
+        assert by_name["safe"]["delete_mode"] == "trash"
+        assert by_name["safe"]["max_delete_mb"] == 1024
+        assert by_name["developer"]["max_delete_mb"] == 4096
+        assert by_name["browser"]["max_delete_mb"] == 2048
+        assert all(profile["safe_to_auto_execute"] is False for profile in profiles["profiles"])
+        assert by_name["developer"]["example_plan_command"] == [
+            "cleanmac",
+            "--json",
+            "clean",
+            "plan",
+            "--profile",
+            "developer",
+        ]
+
+        assert links["schema"] == "cleanmac.links.v1"
+        assert links["destructive"] is False
+        assert links["dry_run"] is True
+        assert links["mode"] == "create-update"
+        assert links["kind"] == "all"
+        assert links["model"]["create"] == "create app log/cache symlink directories"
+        assert links["model"]["remove"] == "remove app log/cache symlink directories"
+        resolved_root = str(root.resolve())
+        assert links["container_root"] == str((root / "Users/tester/Library/Containers").resolve())
+        assert links["mappings"]
+        for mapping in links["mappings"]:
+            assert mapping["status"] == "planned"
+            assert mapping["kind"] in {"logs", "cache"}
+            assert mapping["source"].startswith(resolved_root)
+            assert mapping["link_path"].startswith(str((root / "Users/tester").resolve()))
+        assert links["removed"] == []
+
+
 def test_links_reports_symbolic_link_mappings() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
