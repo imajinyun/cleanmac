@@ -234,9 +234,9 @@
 **Files:**
 - Modify: `tests/test_review_selection.py`
 
-- [ ] Add pytest coverage for startup/privacy plans normalized through review with candidate review evidence and registered schemas.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover review startup privacy evidence`.
+- [x] Add pytest coverage for startup/privacy plans normalized through review with candidate review evidence and registered schemas.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover review startup privacy evidence`.
 
 ## Round 100: Review Clean Report Evidence
 

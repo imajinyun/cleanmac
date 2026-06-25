@@ -677,6 +677,12 @@ def test_review_supports_startup_and_privacy_plans() -> None:
         startup_plan_file.write_text(json.dumps(startup_plan), encoding="utf-8")
         startup_review = json.loads(run_cli("--json", "review", "--input-file", str(startup_plan_file)).stdout)
 
+        for candidate in startup_plan["disable_plan"]["candidates"]:
+            evidence = candidate["review_evidence"]
+            assert evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
+            assert evidence["matched_rule"].startswith("startup.")
+            assert validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"] is True
+
         assert startup_review["schema"] == "cleanmac.review.v1"
         assert startup_review["source_schema"] == "cleanmac.startup-plan.v1"
         assert startup_review["item_count"] == 2
@@ -697,6 +703,12 @@ def test_review_supports_startup_and_privacy_plans() -> None:
         )
         privacy_plan_file.write_text(json.dumps(privacy_plan), encoding="utf-8")
         privacy_review = json.loads(run_cli("--json", "review", "--input-file", str(privacy_plan_file)).stdout)
+
+        for candidate in privacy_plan["privacy_plan"]["candidates"]:
+            evidence = candidate["review_evidence"]
+            assert evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
+            assert evidence["matched_rule"].startswith("privacy.")
+            assert validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"] is True
 
         assert privacy_review["schema"] == "cleanmac.review.v1"
         assert privacy_review["source_schema"] == "cleanmac.privacy-plan.v1"
