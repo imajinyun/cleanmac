@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 
 from tests.helpers import make_sandbox, run_cli
 
@@ -119,6 +121,88 @@ def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
 
         assert (root / "Users/tester/.Trash/old.tmp").exists()
         assert (root / "Users/tester/Downloads/download.bin").exists()
+
+
+def test_explain_summarizes_plan_without_execution() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        trash_file = root / "Users/tester/.Trash/old.tmp"
+        trash_file.write_bytes(b"x" * 2048)
+        plan_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "plan",
+            "--categories",
+            "trash",
+        )
+        plan_file = root / "plan.json"
+        plan_file.write_text(plan_result.stdout, encoding="utf-8")
+
+        explain_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "explain",
+            "--input-file",
+            str(plan_file),
+        )
+        report = json.loads(explain_result.stdout)
+
+        assert report["schema"] == "cleanmac.explain.v1"
+        assert report["destructive"] is False
+        assert report["dry_run"] is True
+        assert report["source_schema"] == "cleanmac.plan.v1"
+        assert report["summary"]["candidate_count"] == 1
+        assert report["summary"]["estimated_reclaimable_bytes"] == 2048
+        assert report["ai_guidance"]["safe_to_execute"] is False
+        assert "trash delete mode" in report["ai_guidance"]["execute_requires"]
+        assert report["top_categories"][0]["category"] == "trash"
+        assert trash_file.exists()
+
+
+def test_diagnose_recommends_safe_categories_and_flags_logs() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        mail_file = root / "Users/tester/Library/Mail Downloads/old-mail.pdf"
+        mail_file.parent.mkdir(parents=True)
+        mail_file.write_bytes(b"m" * (5 * 1024 * 1024 + 1))
+        old_timestamp = time.time() - (40 * 24 * 60 * 60)
+        os.utime(mail_file, (old_timestamp, old_timestamp))
+
+        xcode_cache = root / "Users/tester/Library/Developer/Xcode/DerivedData/App-a/cache.db"
+        xcode_cache.parent.mkdir(parents=True)
+        xcode_cache.write_text("derived", encoding="utf-8")
+
+        log_file = root / "Users/tester/Library/logs/noisy.log"
+        log_file.parent.mkdir(parents=True)
+        log_file.write_text("log", encoding="utf-8")
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "diagnose",
+            "--categories",
+            "trash,mails,xcode,userLogs,downloads",
+            "--log-threshold-mb",
+            "0",
+        )
+        report = json.loads(result.stdout)
+        issue_codes = {issue["code"] for issue in report["issues"]}
+
+        assert report["recommended_clean_categories"] == ["trash", "mails", "xcode"]
+        assert "userLogs" in report["advanced_options"]["selected_advanced_keys"]
+        assert report["advanced_options"]["requires_extra_review"] is True
+        assert "large-logs-may-indicate-problem" in issue_codes
+        assert "downloads" in report["caution_clean_categories"]
+        assert "trash,mails,xcode" in report["suggested_safe_command"]
 
 
 def test_grouped_analyze_tree_reports_largest_entries() -> None:
