@@ -421,9 +421,9 @@
 **Files:**
 - Modify: `tests/test_review_selection.py`
 
-- [ ] Add pytest coverage for existing selection fingerprint validation, source mismatch handling, and selected ID/path validation.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover review selection validation`.
+- [x] Add pytest coverage for existing selection fingerprint validation, source mismatch handling, and selected ID/path validation.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover review selection validation`.
 
 ## Round 97: Review Display Filters And Closeout
 

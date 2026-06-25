@@ -410,7 +410,16 @@ def test_review_validates_existing_selection_fingerprint_and_ids() -> None:
 
         assert generated["source_fingerprint"] == selection["source_fingerprint"]
         assert replayed["selection_validation"]["valid"] is True
+        assert replayed["selection_validation"]["schema"] == "cleanmac.review-selection-validation.v1"
+        assert replayed["selection_validation"]["fingerprint_matches"] is True
+        assert replayed["selection_validation"]["blocked_reasons"] == []
+        assert replayed["selection_validation"]["unknown_selected_item_ids"] == []
+        assert replayed["selection_validation"]["unknown_excluded_item_ids"] == []
+        assert replayed["selection_validation"]["protected_selected_item_ids"] == []
+        assert replayed["selection_validation"]["overlap_item_ids"] == []
         assert replayed["selection"]["selected_item_ids"] == ["cache:/tmp/cache", "logs:/tmp/logs"]
+        assert replayed["selection"]["explicit_selected_item_ids"] == ["cache:/tmp/cache", "logs:/tmp/logs"]
+        assert replayed["selection"]["summary"]["selected_kind_counts"] == {"cache": 1, "logs": 1}
 
         selection["source_fingerprint"] = "stale"
         selection["selected_item_ids"].append("missing:item")
@@ -429,6 +438,10 @@ def test_review_validates_existing_selection_fingerprint_and_ids() -> None:
 
         assert invalid.returncode == 1
         assert invalid_report["selection_validation"]["valid"] is False
+        assert invalid_report["selection_validation"]["fingerprint_matches"] is False
+        assert invalid_report["selection_validation"]["selection_source_fingerprint"] == "stale"
+        assert invalid_report["selection_validation"]["unknown_selected_item_ids"] == ["missing:item"]
+        assert invalid_report["selection"]["unknown_item_ids"] == ["missing:item"]
         assert invalid_report["selection_validation"]["blocked_reasons"] == [
             "source-fingerprint-mismatch",
             "unknown-item-id",
