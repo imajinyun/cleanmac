@@ -188,9 +188,9 @@
 **Files:**
 - Modify: `tests/test_open_source_governance.py` or `tests/test_makefile_governance.py`
 
-- [ ] Add pytest coverage for required governance files, pinned GitHub Actions, security/dependency/scorecard workflows, README/AGENTS AI-first zero-resident positioning, and packaging metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover open source governance files`.
+- [x] Add pytest coverage for required governance files, pinned GitHub Actions, security/dependency/scorecard workflows, README/AGENTS AI-first zero-resident positioning, and packaging metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover open source governance files`.
 
 ## Round 77: Removed Product Reference Ratchet
 
