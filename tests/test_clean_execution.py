@@ -740,6 +740,7 @@ def test_execute_high_risk_requires_yes() -> None:
 
         assert result.returncode != 0
         assert "without --yes" in result.stderr
+        assert "downloads(high)" in result.stderr
         assert (root / "Users/tester/Downloads/download.bin").exists()
 
 

@@ -389,9 +389,9 @@
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage that high-risk execute without `--yes` fails before deletion.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover high risk requires yes`.
+- [x] Add pytest coverage that high-risk execute without `--yes` fails before deletion.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover high risk requires yes`.
 
 ## Round 114: Strict Risk Policy Requires Yes
 
