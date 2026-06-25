@@ -58,9 +58,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage for `open_source_gap_governance_todo` ordering, P0 priorities, non-goals, and first software-leftover IDs.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover open source gap governance todo`.
+- [x] Add pytest coverage for `open_source_gap_governance_todo` ordering, P0 priorities, non-goals, and first software-leftover IDs.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover open source gap governance todo`.
 
 ## Round 42: Governance Integrity Contract
 

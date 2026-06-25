@@ -216,6 +216,22 @@ def test_capabilities_json_exposes_development_governance_todo_integrity() -> No
         assert landing_evidence["evidence_refs"]
 
 
+def test_capabilities_json_exposes_open_source_gap_governance_todo() -> None:
+    result = run_cli("--json", "capabilities")
+    report = json.loads(result.stdout)
+
+    gap_todo = report["boundary_governance"]["open_source_gap_governance_todo"]
+    assert gap_todo["schema"] == "cleanmac.open-source-gap-governance-todo.v1"
+    assert gap_todo["ordered"] is True
+    assert gap_todo["item_count"] == 10
+    assert [item["order"] for item in gap_todo["items"]] == list(range(1, 11))
+    assert [item["priority"] for item in gap_todo["items"][:4]] == ["P0", "P0", "P0", "P0"]
+    assert "GUI parity" in gap_todo["non_goals"]
+    assert "TUI parity" in gap_todo["non_goals"]
+    assert gap_todo["items"][0]["id"] == "p0-software-leftover-discovery"
+    assert gap_todo["items"][1]["id"] == "p0-software-orphan-scan"
+
+
 def test_quiet_suppresses_human_readable_output_but_not_json() -> None:
     quiet_result = run_cli("-q", "list")
 
