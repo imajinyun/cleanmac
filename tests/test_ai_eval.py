@@ -251,6 +251,36 @@ def test_ai_eval_run_smoke_covers_runner_in_process() -> None:
     assert result_ids == selected_ids
 
 
+def test_ai_eval_smoke_blocking_code_expectations_match_runner_observations() -> None:
+    from cleancli.ai_eval import render_ai_eval_pack, render_ai_eval_run, scenario_ids, selected_scenario_ids
+
+    pack = render_ai_eval_pack()
+    selected_ids = set(selected_scenario_ids("smoke", scenario_ids(pack)))
+    expected_by_id = {
+        scenario["id"]: set(scenario["expected_blocking_codes"])
+        for scenario in pack["scenarios"]
+        if scenario["id"] in selected_ids and scenario["expected_blocking_codes"]
+    }
+
+    report = render_ai_eval_run(scenario="smoke", cli=CLI)
+    results_by_id = {result["id"]: result for result in report["results"]}
+    ready_path_scenarios = {
+        "confirmation_token_policy",
+        "release_readiness_surface_audit_gate",
+    }
+
+    assert ready_path_scenarios < set(expected_by_id)
+    for scenario_id in ready_path_scenarios:
+        assert results_by_id[scenario_id]["passed"]
+        assert results_by_id[scenario_id]["observed_blocking_codes"] == []
+
+    for scenario_id, expected_codes in expected_by_id.items():
+        if scenario_id in ready_path_scenarios:
+            continue
+        observed_codes = set(results_by_id[scenario_id]["observed_blocking_codes"])
+        assert expected_codes <= observed_codes, scenario_id
+
+
 def test_ai_eval_selection_helpers_cover_all_single_and_unknown_requests() -> None:
     from cleancli.ai_eval import render_ai_eval_pack, scenario_ids, selected_scenario_ids
 
