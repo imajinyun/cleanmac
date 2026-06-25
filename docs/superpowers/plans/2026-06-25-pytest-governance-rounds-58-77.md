@@ -152,9 +152,9 @@
 **Files:**
 - Modify: `tests/test_ai_runbook.py` or `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for `ai-workflow` one-shot governed cleanup route, validation schema, review-selection gate, trash execution, and single-shot workflow lifecycle fields.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai workflow route contract`.
+- [x] Add pytest coverage for `ai-workflow` one-shot governed cleanup route, validation schema, review-selection gate, trash execution, and single-shot workflow lifecycle fields.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai workflow route contract`.
 
 ## Round 73: Workflow Selected Dry-Run Scope
 
