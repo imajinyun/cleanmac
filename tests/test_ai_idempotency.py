@@ -55,3 +55,31 @@ def test_replayed_dry_run_keeps_token_stable_within_same_plan() -> None:
     token2 = cast(dict[str, Any], second["ai_confirmation_summary"])["confirmation_token"]
     assert token1
     assert token1 == token2
+
+
+def test_replayed_dry_run_token_changes_when_plan_content_changes() -> None:
+    with cleanmac_test_env():
+        tmp, root, home = make_sandbox()
+        with tmp:
+            plan_file = Path(tmp.name) / "plan.json"
+            plan = run_clean_json(root, home, "plan", "--categories", "trash", "--ai-origin")
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            first = run_clean_json(root, home, "run", "--plan-file", str(plan_file), "--delete-mode", "trash")
+
+            drifted_plan = dict(plan)
+            drifted_plan["selected_category_keys"] = ["downloads"]
+            drifted_plan["categories"] = ["downloads"]
+            plan_file.write_text(json.dumps(drifted_plan), encoding="utf-8")
+            second = run_clean_json(root, home, "run", "--plan-file", str(plan_file), "--delete-mode", "trash")
+
+    first_summary = cast(dict[str, Any], first["ai_confirmation_summary"])
+    second_summary = cast(dict[str, Any], second["ai_confirmation_summary"])
+    token1 = first_summary["confirmation_token"]
+    token2 = second_summary["confirmation_token"]
+    sha1 = cast(dict[str, Any], first_summary["confirmation_token_context"])["plan_sha256"]
+    sha2 = cast(dict[str, Any], second_summary["confirmation_token_context"])["plan_sha256"]
+
+    assert token1
+    assert token2
+    assert token1 != token2
+    assert sha1 != sha2
