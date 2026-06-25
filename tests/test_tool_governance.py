@@ -57,13 +57,30 @@ def test_tool_plan_is_readonly_and_lists_manual_commands() -> None:
 
     assert report["schema"] == "cleanmac.tool-plan.v1"
     assert report["destructive"] is False
+    assert report["dry_run"] is True
+    assert report["adapter_count"] == 1
+    assert report["selected_tool"] == "docker"
     assert report["safe_to_auto_execute"] is False
+    assert report["execution_policy"] == {
+        "default_mode": "dry-run",
+        "auto_execute_allowed": False,
+        "requires_human_confirmation_for_execute": True,
+        "external_prune_commands_are_recommendations_only_in_plan": True,
+    }
     assert adapter["key"] == "docker"
     assert ["docker", "system", "df"] in adapter["dry_run_commands"]
     assert ["docker", "system", "df", "--verbose"] in adapter["dry_run_commands"]
+    assert ["docker", "builder", "du"] in adapter["dry_run_commands"]
     assert ["docker", "builder", "prune"] in adapter["manual_execute_commands"]
+    assert ["docker", "image", "prune"] in adapter["manual_execute_commands"]
+    assert ["docker", "container", "prune"] in adapter["manual_execute_commands"]
     assert ["docker", "volume", "prune"] in adapter["excluded_destructive_commands"]
+    assert ["docker", "system", "prune", "--volumes"] in adapter["excluded_destructive_commands"]
     assert adapter["execution_policy"]["external_prune_commands_are_recommendations_only_in_plan"] is True
+    assert all(command["auto_call_allowed"] is True for command in adapter["recommended_commands"][:3])
+    assert all(command["auto_call_allowed"] is False for command in adapter["recommended_commands"][3:])
+    assert adapter["auto_execute_allowed"] is False
+    assert any("read-only" in note for note in adapter["notes"])
     assert validate_contract_payload("cleanmac.tool-plan.v1", report)["valid"] is True
     assert not any(adapter["auto_execute_allowed"] for adapter in report["adapters"])
 
