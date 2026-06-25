@@ -723,3 +723,35 @@ def test_review_supports_startup_and_privacy_plans() -> None:
             assert evidence["default_selected"] == item["default_selected"]
             assert evidence["protected"] == item["protected"]
             assert validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"] is True
+
+
+def test_review_synthesizes_candidate_evidence_for_clean_reports() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        report = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "--categories",
+                "trash,downloads",
+            ).stdout
+        )
+        report_file = root / "clean-report.json"
+        report_file.write_text(json.dumps(report), encoding="utf-8")
+        review = json.loads(run_cli("--json", "review", "--input-file", str(report_file)).stdout)
+
+        assert review["schema"] == "cleanmac.review.v1"
+        assert review["source_schema"] == "cleanmac.clean.v1"
+        assert review["item_count"] >= 1
+        for item in review["items"]:
+            evidence = item["review_evidence"]
+            assert evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
+            assert evidence["matched_rule"].startswith("clean.")
+            assert evidence["risk"] == item["risk"]
+            assert evidence["default_selected"] == item["default_selected"]
+            assert evidence["protected"] == item["protected"]
+            assert validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"] is True

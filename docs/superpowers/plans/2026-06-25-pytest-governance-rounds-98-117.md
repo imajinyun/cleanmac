@@ -245,9 +245,9 @@
 **Files:**
 - Modify: `tests/test_review_selection.py`
 
-- [ ] Add pytest coverage for review synthesizing clean report candidate evidence and matching clean rule metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover review clean report evidence`.
+- [x] Add pytest coverage for review synthesizing clean report candidate evidence and matching clean rule metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover review clean report evidence`.
 
 ## Round 101: Startup Privacy Execution Gates
 
