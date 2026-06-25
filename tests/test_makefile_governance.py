@@ -319,6 +319,50 @@ def test_makefile_no_cache_release_check_preserves_docker_isolation() -> None:
     assert "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v" not in output
 
 
+def test_makefile_pytest_targets_are_structured_and_ci_gated() -> None:
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    ci = (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    def make_variable(name: str) -> list[str]:
+        line = next(row for row in makefile.splitlines() if row.startswith(f"{name} :="))
+        return line.split(":=", 1)[1].split()
+
+    safe_targets = make_variable("PYTEST_SAFE_TARGETS")
+    ai_host_targets = make_variable("PYTEST_AI_HOST_TARGETS")
+    robustness_targets = make_variable("PYTEST_AI_ROBUSTNESS_TARGETS")
+
+    assert len(safe_targets) >= 7
+    assert len(ai_host_targets) >= 10
+    assert len(robustness_targets) >= 15
+    assert len(safe_targets) == len(set(safe_targets))
+    assert len(ai_host_targets) == len(set(ai_host_targets))
+    assert len(robustness_targets) == len(set(robustness_targets))
+    for target in [*safe_targets, *ai_host_targets, *robustness_targets]:
+        assert target.startswith("tests/test_"), target
+        assert (PROJECT_ROOT / target).is_file(), target
+
+    pytest_parity = makefile.split("\npytest-parity-test:\n", 1)[1].split("\npytest-ai-host-smoke:\n", 1)[0]
+    pytest_ai_host = makefile.split("\npytest-ai-host-smoke:\n", 1)[1].split(
+        "\npytest-no-unittest-regression-smoke:\n", 1
+    )[0]
+    ai_robustness = makefile.split("\nai-robustness-smoke:\n", 1)[1].split("\ndistribution-smoke:\n", 1)[0]
+
+    assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_SAFE_TARGETS) -q' in pytest_parity
+    assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_HOST_TARGETS) -q' in pytest_ai_host
+    assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_ROBUSTNESS_TARGETS) -q' in ai_robustness
+    assert 'PYTEST_ADDOPTS="-p no:cacheprovider"' in pytest_parity
+    assert 'PYTEST_ADDOPTS="-p no:cacheprovider"' in pytest_ai_host
+    assert 'PYTEST_ADDOPTS="-p no:cacheprovider"' in ai_robustness
+
+    quality_job = ci.split("  quality:\n", 1)[1].split("\n  smoke:\n", 1)[0]
+    assert "Run quality checks" in quality_job
+    assert "run: make quality-check" in quality_job
+    assert "Run pytest compatibility check" in quality_job
+    assert "run: make pytest-test" in quality_job
+    assert "python -m pytest tests -q" not in ci
+    assert "python -m unittest tests.test_ai_" not in ci
+
+
 def test_python_quality_tooling_is_configured() -> None:
     pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     precommit = (PROJECT_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
