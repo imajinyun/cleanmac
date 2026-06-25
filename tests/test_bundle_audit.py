@@ -89,3 +89,31 @@ def test_bundle_drift_cli_exits_nonzero_when_fail_on_drift_is_requested(tmp_path
         )
 
     assert status == 1
+
+
+def test_bundle_drift_audit_reports_policy_sources_and_coverage_reasons(tmp_path: Path) -> None:
+    audit = load_audit_module()
+    system_root = tmp_path / "System" / "Applications"
+    write_app(system_root, "Finder.app", "com.apple.finder")
+    write_app(system_root, "ApplePrefix.app", "com.apple.unlisted-but-protected")
+    write_app(system_root, "CriticalPattern.app", "org.pqrs.Karabiner-Elements.VirtualHIDDevice")
+    write_app(system_root, "DataPattern.app", "com.jetbrains.toolbox")
+    write_app(system_root, "Uncovered.app", "org.example.uncovered")
+
+    report = audit.audit_bundle_drift(system_roots=[system_root], informational_roots=[])
+    rows_by_bundle = {row["bundle_id"]: row for row in report["system_bundles"]}
+
+    assert report["policy_sources"] == {
+        "default_protected_bundle_count": len(audit.DEFAULT_PROTECTED_BUNDLE_IDS),
+        "protected_bundle_prefixes": list(audit.PROTECTED_BUNDLE_PREFIXES),
+        "system_critical_bundle_pattern_count": len(audit.SYSTEM_CRITICAL_BUNDLE_PATTERNS),
+        "data_protected_bundle_pattern_count": len(audit.DATA_PROTECTED_BUNDLE_PATTERNS),
+    }
+    assert rows_by_bundle["com.apple.finder"]["coverage_reason"] == "default-protected-bundle-id"
+    assert rows_by_bundle["com.apple.unlisted-but-protected"]["coverage_reason"] == "protected-bundle-prefix"
+    assert rows_by_bundle["org.pqrs.Karabiner-Elements.VirtualHIDDevice"]["coverage_reason"] == (
+        "system-critical-bundle-pattern"
+    )
+    assert rows_by_bundle["com.jetbrains.toolbox"]["coverage_reason"] == "data-protected-bundle-pattern"
+    assert rows_by_bundle["org.example.uncovered"]["coverage_reason"] is None
+    assert [row["bundle_id"] for row in report["uncovered_system_bundles"]] == ["org.example.uncovered"]
