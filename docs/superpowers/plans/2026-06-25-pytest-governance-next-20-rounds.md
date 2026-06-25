@@ -103,9 +103,9 @@
 **Files:**
 - Modify: `tests/test_ai_schema_exports.py`
 
-- [ ] Add pytest coverage comparing `ai_function_schemas`, OpenAI function exports, Anthropic tool exports, MCP catalog names, argv-only invocation, and schema validation summary.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover provider export mcp parity`.
+- [x] Add pytest coverage comparing `ai_function_schemas`, OpenAI function exports, Anthropic tool exports, MCP catalog names, argv-only invocation, and schema validation summary.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover provider export mcp parity`.
 
 ## Round 47: Confirmation Summary Contracts
 
