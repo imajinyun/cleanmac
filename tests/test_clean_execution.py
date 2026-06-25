@@ -346,6 +346,53 @@ def test_plan_file_reuses_filters_during_execute() -> None:
         assert not old_file.exists()
 
 
+def test_filters_apply_to_inspect_and_clean() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        keep = root / "Users/tester/.Trash/keep.tmp"
+        remove = root / "Users/tester/.Trash/remove.log"
+        keep.write_text("keep", encoding="utf-8")
+        remove.write_text("remove", encoding="utf-8")
+
+        inspect_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "inspect",
+            "--categories",
+            "trash",
+            "--name-regex",
+            "remove\\.log$",
+        )
+        inspect_report = json.loads(inspect_result.stdout)
+        inspect_paths = [row["path"] for row in inspect_report["items"]]
+
+        assert str(remove) in inspect_paths
+        assert str(keep) not in inspect_paths
+        assert "name-regex-mismatch" in inspect_report["skipped_summary"]["by_reason"]
+
+        clean_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "--categories",
+            "trash",
+            "--exclude",
+            "*keep.tmp",
+            "--execute",
+        )
+        clean_report = json.loads(clean_result.stdout)
+
+        assert clean_report["skipped_summary"]["by_reason"] == {"excluded": 1}
+        assert keep.exists()
+        assert not remove.exists()
+
+
 def test_clean_execute_records_item_failures_and_continues_by_default() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
