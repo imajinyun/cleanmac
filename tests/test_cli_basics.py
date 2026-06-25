@@ -191,6 +191,31 @@ def test_capabilities_json_exposes_runtime_lifecycle_and_product_boundaries() ->
     assert "Textual" in product_surface_policy["forbidden_dependency_families"]
 
 
+def test_capabilities_json_exposes_development_governance_todo_integrity() -> None:
+    result = run_cli("--json", "capabilities")
+    report = json.loads(result.stdout)
+
+    governance_todo = report["boundary_governance"]["development_governance_todo"]
+    assert governance_todo["schema"] == "cleanmac.development-governance-todo.v1"
+    assert governance_todo["ordered"] is True
+    assert governance_todo["item_count"] == 25
+    assert governance_todo["landed_count"] == 25
+    assert governance_todo["pending_count"] == 0
+    assert governance_todo["status"] == "landed"
+    assert [item["order"] for item in governance_todo["items"]] == list(range(1, 26))
+    assert {item["status"] for item in governance_todo["items"]} == {"landed"}
+    assert governance_todo["items"][0]["id"] == "strengthen-ai-first-entrypoints"
+    assert governance_todo["items"][24]["id"] == "gate-release-with-ai-mcp-checklist"
+    assert ["make", "ai-first-release-checklist-smoke"] in governance_todo["release_gate_commands"]
+    assert report["safety_guardrails"]["development_governance_todo"] == governance_todo
+
+    for item in governance_todo["items"]:
+        landing_evidence = item["landing_evidence"]
+        assert landing_evidence["state"] == "landed"
+        assert landing_evidence["release_gated"] is True
+        assert landing_evidence["evidence_refs"]
+
+
 def test_quiet_suppresses_human_readable_output_but_not_json() -> None:
     quiet_result = run_cli("-q", "list")
 

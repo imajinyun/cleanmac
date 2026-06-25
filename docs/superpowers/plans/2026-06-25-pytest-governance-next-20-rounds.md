@@ -49,9 +49,9 @@
 **Files:**
 - Modify: `tests/test_cli_basics.py` or `tests/test_makefile_governance.py`
 
-- [ ] Add pytest coverage that `development_governance_todo` is ordered, 25/25 landed, release gated, mirrored under safety guardrails, and exposes the expected first/last IDs.
-- [ ] Validate with targeted pytest, ruff, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover development governance todo integrity`.
+- [x] Add pytest coverage that `development_governance_todo` is ordered, 25/25 landed, release gated, mirrored under safety guardrails, and exposes the expected first/last IDs.
+- [x] Validate with targeted pytest, ruff, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover development governance todo integrity`.
 
 ## Round 41: Open Source Gap Governance TODO
 
