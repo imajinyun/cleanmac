@@ -145,6 +145,32 @@ def test_capabilities_json_exposes_grouped_commands_and_ai_safety_boundaries() -
     assert safety["trash_routing_flag"] == "clean --delete-mode trash"
     assert safety["operation_log_flag"] == "clean --operation-log"
     assert safety["default_operation_log_file"] == cleancli.OPERATIONS_LOG_FILE
+    assert safety["deletion_budget_flag"] == "clean --max-delete-mb"
+
+
+def test_capabilities_json_exposes_deep_safety_guardrail_metadata() -> None:
+    result = run_cli("--json", "capabilities")
+    report = json.loads(result.stdout)
+
+    safety = report["safety_guardrails"]
+    assert safety["log_rotation"]["operations_log_rotate_bytes"] == 5 * 1024 * 1024
+    assert {"deviceFirmware", "appleSiliconCaches"}.issubset(safety["deep_system_cleanup_categories"])
+    assert safety["default_protected_bundle_count"] >= 40
+    assert "com.apple.mail" in safety["default_protected_bundle_ids"]
+    assert "CrowdStrike" in safety["official_uninstaller_vendors"]
+    assert "CLEANMAC_TEST_NO_AUTH" in safety["test_mode_environment"]["no_auth"]
+    assert safety["private_path_allowlist_enabled"] is True
+    assert safety["symlink_target_validation_enabled"] is True
+    assert "gpuCaches" in safety["dynamic_provider_categories"]
+    assert safety["bundle_drift_audit"]["command"] == "python3 scripts/audit_bundle_drift.py --json --fail-on-drift"
+
+    clean_categories = report["command_groups"]["clean"].get("categories")
+    category_keys = (
+        {row["key"] for row in clean_categories}
+        if clean_categories
+        else {category.key for category in cleancli.CATEGORIES}
+    )
+    assert "groupContainerCaches" in category_keys
 
 
 def test_capabilities_json_exposes_runtime_lifecycle_and_product_boundaries() -> None:
