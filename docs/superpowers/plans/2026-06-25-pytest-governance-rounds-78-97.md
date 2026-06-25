@@ -410,9 +410,9 @@
 **Files:**
 - Modify: `tests/test_review_selection.py`
 
-- [ ] Add pytest coverage for explicit include/exclude selections, protected candidate exclusion, and unknown ID failures.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover review include exclude`.
+- [x] Add pytest coverage for explicit include/exclude selections, protected candidate exclusion, and unknown ID failures.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover review include exclude`.
 
 ## Round 96: Review Existing Selection Validation
 
