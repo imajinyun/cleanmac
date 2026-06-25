@@ -1,0 +1,329 @@
+from __future__ import annotations
+
+import shutil
+import subprocess
+
+import pytest
+
+from tests.helpers import PROJECT_ROOT
+
+
+def test_makefile_exposes_validation_targets() -> None:
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "format:" in makefile
+    assert "lint:" in makefile
+    assert "type-check:" in makefile
+    assert "coverage:" in makefile
+    assert "quality-check: lint type-check coverage" in makefile
+    assert "local-test:" in makefile
+    assert "PYTHON=$(PYTHON) ./scripts/test.sh" in makefile
+    assert "pytest-parity-test:" in makefile
+    assert "pytest-governance-smoke:" in makefile
+    assert "pytest-governance-smoke: pytest-no-unittest-regression-smoke" in makefile
+    assert "pytest-no-unittest-regression-smoke:" in makefile
+    assert "pytest-ai-host-smoke:" in makefile
+    assert "pytest-test:" in makefile
+    assert "pytest-test: pytest-parity-test" in makefile
+    assert '$(PYTHON) -m venv "$$tmpdir/venv"' in makefile
+    assert "\"$$tmpdir/venv/bin/python\" -m pip install -e '.[test]'" in makefile
+    assert 'PYTEST_ADDOPTS="-p no:cacheprovider"' in makefile
+    assert "CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1" in makefile
+    assert (
+        "PYTEST_SAFE_TARGETS := tests/test_release_readiness.py tests/test_release_orchestration.py "
+        "tests/test_release_artifacts.py tests/test_path_safety.py tests/test_trash_mode.py "
+        "tests/test_delete_ops.py tests/test_security_scan.py"
+    ) in makefile
+    assert (
+        "PYTEST_AI_ROBUSTNESS_TARGETS := tests/test_ai_versioning.py tests/test_mcp_protocol.py "
+        "tests/test_ai_concurrency.py tests/test_ai_policy.py tests/test_ai_host_integration.py"
+    ) in makefile
+    assert (
+        "PYTEST_AI_HOST_TARGETS := tests/test_ai_runbook.py tests/test_ai_host_policy.py "
+        "tests/test_ai_self_test.py tests/test_ai_decision_matrix.py tests/test_ai_governance.py "
+        "tests/test_ai_host_evidence.py tests/test_ai_readiness.py tests/test_ai_host_scenarios.py "
+        "tests/test_ai_eval.py tests/test_mcp_server.py"
+    ) in makefile
+    assert "tests/test_ai_trace_persistence.py" in makefile
+    assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_SAFE_TARGETS) -q' in makefile
+    assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_HOST_TARGETS) -q' in makefile
+    assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_ROBUSTNESS_TARGETS) -q' in makefile
+    assert "assert targets == expected, targets" in makefile
+    assert "assert robustness_targets ==" in makefile
+    assert 'old_all="pytest test_cleanmac.py " + "tests -q"' in makefile
+    assert 'old_robustness="python -m unittest " + "tests.test_ai_versioning"' in makefile
+    assert "assert old_all not in text" in makefile
+    assert "assert old_robustness not in text" in makefile
+    assert 'forbidden=("import unittest", "unittest.TestCase", "unittest.main", "self.assert")' in makefile
+    assert 'Path("tests/test_mcp_server.py").read_text' in makefile
+    assert "build-check:" in makefile
+    assert "package-smoke:" in makefile
+    assert "script-smoke:" in makefile
+    assert "bundle-audit-smoke:" in makefile
+    assert "macos-smoke:" in makefile
+    assert "security-smoke:" in makefile
+    assert "dependency-audit-smoke:" in makefile
+    assert "docs-smoke:" in makefile
+    assert "governance-smoke:" in makefile
+    assert "governance-integrity-smoke:" in makefile
+    assert "ai-first-release-checklist-smoke:" in makefile
+    assert "ai-governance-smoke:" in makefile
+    assert "ai-contract-smoke:" in makefile
+    assert "governed-execution-smoke:" in makefile
+    assert 'run("ai-contract-samples")' in makefile
+    assert 'samples["schema"] == "cleanmac.ai-contract-samples.v1"' in makefile
+    assert "cleanmac.mcp-resource-index.v1" in makefile
+    assert "mcp-resource-index-smoke:" in makefile
+    assert "cleanmac.mcp-prompt-index.v1" in makefile
+    assert "mcp-prompt-index-smoke:" in makefile
+    assert "cleanmac.mcp-meta-index.v1" in makefile
+    assert "mcp-meta-index-smoke:" in makefile
+    assert "cleanmac.mcp-tool-index.v1" in makefile
+    assert "mcp-tool-index-smoke:" in makefile
+    assert "cleanmac.mcp-surface-audit.v1" in makefile
+    assert "mcp-surface-audit-smoke:" in makefile
+    assert 'payload["ready"] is True, payload' in makefile
+    assert 'payload["resource_count"] == 42' in makefile
+    assert "cleanmac://mcp/destructive-tool-governance" in makefile
+    assert "cleanmac://ai/operation-log-explainability" in makefile
+    assert "cleanmac://ai/cold-start-budget" in makefile
+    assert "cleanmac://ai/no-disturbance" in makefile
+    assert "cleanmac://ai/entrypoints" in makefile
+    assert "cleanmac://ai/safety-chain" in makefile
+    assert "cleanmac://ai/workflow-contract" in makefile
+    assert "contract_samples_roundtrip" in makefile
+    assert 'run("ai-eval-run", "--scenario", "contract_samples_roundtrip")' in makefile
+    assert "open-source-smoke:" in makefile
+    assert "ai-host-smoke:" in makefile
+    assert "$(MAKE) pytest-ai-host-smoke" in makefile
+    assert "ai-robustness-smoke:" in makefile
+    assert "distribution-smoke:" in makefile
+    assert "homebrew-formula-smoke:" in makefile
+    assert "zipapp" in makefile
+    assert "cleanmac.pyz" in makefile
+    assert "class Cleanmac < Formula" in makefile
+    assert "homebrew_formula" in makefile
+    assert "release-artifacts-smoke:" in makefile
+    assert "release-readiness-contract-smoke:" in makefile
+    assert "release-readiness-smoke:" in makefile
+    assert "release-rehearsal-smoke:" in makefile
+    assert "release-promotion-smoke:" in makefile
+    assert "release-rollback-smoke:" in makefile
+    assert "release-post-publish-smoke:" in makefile
+    assert "release-post-publish-result-smoke:" in makefile
+    assert "--dist-dir" in makefile
+    assert "--assets-dir" in makefile
+    assert 'assert report["ready"] is True' in makefile
+    assert "no-cache-check:" in makefile
+    assert "docker-test" in makefile
+    assert "no-cache-docker-test:" in makefile
+    assert "no-cache-release-check:" in makefile
+    assert (
+        "release-check: quality-check local-test pytest-test pytest-governance-smoke build-check package-smoke "
+        "script-smoke bundle-audit-smoke macos-smoke security-smoke dependency-audit-smoke docs-smoke "
+        "governance-smoke governance-integrity-smoke zero-resident-audit-smoke ai-first-release-checklist-smoke "
+        "ai-governance-smoke ai-contract-smoke governed-execution-smoke mcp-smoke mcp-meta-index-smoke "
+        "mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke "
+        "ai-host-smoke ai-robustness-smoke open-source-smoke distribution-smoke homebrew-formula-smoke "
+        "release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke "
+        "release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke "
+        "release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke "
+        "docker-test"
+    ) in makefile
+    assert "PYTHON ?= python3" in makefile
+    assert "DOCKER_IMAGE ?= debian:bookworm-slim" in makefile
+    assert "RUFF_REQUIREMENT ?= ruff>=0.8" in makefile
+    assert "DOCKER_RUN_FLAGS ?=" in makefile
+    assert '-v "$(SANDBOX_MOUNT):/work:ro"' in makefile
+    assert "$(DOCKER_RUN_FLAGS)" in makefile
+    assert '/tmp/cleanmac-venv/bin/python -m pip install -e ".[test]"' in makefile
+    assert "PYTHONDONTWRITEBYTECODE=1 /tmp/cleanmac-venv/bin/python -m unittest -v" in makefile
+    assert 'DOCKER_RUN_FLAGS="--pull=always" $(MAKE) docker-test' in makefile
+    assert "$(PYTHON) -m ruff format --check ." not in makefile
+    assert "$(PYTHON) -m ruff check ." not in makefile
+    assert "\"$$tmpdir/venv/bin/python\" -m pip install '$(RUFF_REQUIREMENT)'" in makefile
+    assert ('RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff format --check .') in makefile
+    assert 'RUFF_CACHE_DIR="$$tmpdir/ruff-cache" "$$tmpdir/venv/bin/python" -m ruff check .' in makefile
+    assert "$(PYTHON) -m mypy" not in makefile
+    assert "$(PYTHON) -m coverage run -m unittest -v" not in makefile
+    assert "\"$$tmpdir/venv/bin/python\" -m pip install -e '.[dev]'" in makefile
+    assert '"$$tmpdir/venv/bin/python" -m mypy cleanmac.py cleancli test_cleanmac.py tests' in makefile
+    assert '"$$tmpdir/venv/bin/python" -m coverage run -m unittest -v' in makefile
+    assert "PIP_NO_CACHE_DIR=1" in makefile
+    assert '--cache-dir "$$mypy_cache"' in makefile
+    assert "/tmp/cleanmac-mypy-cache-$$$$" in makefile
+    assert 'coverage run --data-file "$$coverage_dir/.coverage"' in makefile
+    assert '"$$venv_python" -m pytest $(PYTEST_SAFE_TARGETS) -q -p no:cacheprovider' in makefile
+    assert "tests/test_ai_eval.py tests/test_mcp_server.py" in makefile
+    assert "$(PYTHON) -m unittest tests.test_ai_eval tests.test_mcp_server" not in makefile
+    assert "pip install --no-cache-dir" in makefile
+    assert "[ ! -e .pytest_cache ] || /bin/rm -R .pytest_cache" in makefile
+    assert "./scripts/test.sh" in makefile
+    assert "pytest-test" in makefile
+    assert "ai-governance-smoke" in makefile
+    assert "$(PYTHON) -m build --wheel --sdist --outdir" in makefile
+    assert "$(PYTHON) -m twine check" in makefile
+    assert "-m pip install -e ." in makefile
+    assert "-m build --wheel --sdist" in makefile
+    assert "cleanmac-*.tar.gz" in makefile
+    assert "wheel-capabilities.json" in makefile
+    assert "sdist-capabilities.json" in makefile
+    assert "python3 python3-venv make" in makefile
+    assert "trap 'rm -rf" in makefile
+    assert "capabilities.json" in makefile
+    assert "template_validation" in makefile
+    assert "cleanmac.command-template-validation.v1" in makefile
+    assert "make docs-smoke" in makefile
+    assert "make governance-smoke" in makefile
+    assert "make governance-integrity-smoke" in makefile
+    assert "make pytest-governance-smoke" in makefile
+    assert "make ai-governance-smoke" in makefile
+    assert "ai-contract-smoke" in makefile
+    assert "make ai-robustness-smoke" in makefile
+    assert "make release-readiness-smoke" in makefile
+    assert "make open-source-smoke" in makefile
+    assert "make dependency-audit-smoke" in makefile
+    assert "make no-cache-check" in makefile
+    assert "make no-cache-release-check" in makefile
+    assert "CONTRIBUTING.md" in makefile
+    assert "SECURITY.md" in makefile
+    assert "CODE_OF_CONDUCT.md" in makefile
+    assert ".github/PULL_REQUEST_TEMPLATE.md" in makefile
+    assert ".gitleaks.toml" in makefile
+    assert ".github/dependabot.yml" in makefile
+    assert ".github/workflows/codeql.yml" in makefile
+    assert ".github/workflows/release.yml" in makefile
+    assert "SHA256SUMS" in makefile
+    assert "SBOM.json" in makefile
+    assert "pip-audit" in makefile
+    assert "trash_routing_flag" in makefile
+    assert "README.CN.md" in makefile
+    assert "-m json.tool" in makefile
+
+
+def test_makefile_release_check_dry_run_orders_quality_gates() -> None:
+    if shutil.which("make") is None:
+        pytest.skip("make is not installed in this validation environment")
+    result = subprocess.run(
+        ["make", "-n", "PYTHON=python3", "release-check"],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    output = result.stdout
+
+    expected_fragments = [
+        'python3 -m venv "$tmpdir/venv"',
+        "\"$tmpdir/venv/bin/python\" -m pip install 'ruff>=0.8'",
+        'RUFF_CACHE_DIR="$tmpdir/ruff-cache" "$tmpdir/venv/bin/python" -m ruff format --check .',
+        'RUFF_CACHE_DIR="$tmpdir/ruff-cache" "$tmpdir/venv/bin/python" -m ruff check .',
+        "\"$tmpdir/venv/bin/python\" -m pip install -e '.[dev]'",
+        '"$tmpdir/venv/bin/python" -m mypy cleanmac.py cleancli test_cleanmac.py tests',
+        "\"$tmpdir/venv/bin/python\" -m pip install -e '.[test]'",
+        '"$tmpdir/venv/bin/python" -m coverage run -m unittest -v',
+        "PYTHON=python3 ./scripts/test.sh",
+        '"$tmpdir/venv/bin/python" -m pytest tests/test_release_readiness.py tests/test_release_orchestration.py '
+        "tests/test_release_artifacts.py tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_ops.py "
+        "tests/test_security_scan.py -q",
+        "python3 -m build --wheel --sdist --outdir",
+        "python3 -m twine check",
+        "-m pip install -e .",
+        'cleanmac" --json capabilities',
+        "-m json.tool",
+        "template_validation",
+        "pip_audit --skip-editable --progress-spinner off",
+        "scripts/generate_sbom.py",
+        "README.CN.md",
+        'run("workflow",',
+        "CONTRIBUTING.md",
+        'build-venv/bin/python" -m build --wheel --sdist',
+        "wheel-capabilities.json",
+        "sdist-capabilities.json",
+        "install-capabilities.json",
+        "docker run --rm",
+    ]
+    assert "SHA256SUMS" in output
+    cursor = -1
+    for fragment in expected_fragments:
+        index = output.find(fragment)
+        assert index > cursor, fragment
+        cursor = index
+
+
+def test_python_quality_tooling_is_configured() -> None:
+    pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    precommit = (PROJECT_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    ci = (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    security_scan = (PROJECT_ROOT / "scripts/security_scan.py").read_text(encoding="utf-8")
+
+    assert "[project.optional-dependencies]" in pyproject
+    assert 'license = "MIT"' in pyproject
+    assert "license = {text" not in pyproject
+    assert "dev = [" in pyproject
+    assert "ruff>=" in pyproject
+    assert "mypy>=" in pyproject
+    assert "pytest>=" in pyproject
+    assert "pytest-cov>=" in pyproject
+    assert "coverage[toml]>=" in pyproject
+    assert "pip-audit>=" in pyproject
+    assert "[tool.ruff]" in pyproject
+    assert "[tool.mypy]" in pyproject
+    assert "[tool.pytest.ini_options]" in pyproject
+    assert "[tool.coverage.run]" in pyproject
+    assert "[tool.coverage.report]" in pyproject
+
+    assert "pre-commit-hooks" in precommit
+    assert "ruff-pre-commit" in precommit
+    assert "mirrors-mypy" in precommit
+
+    assert "actions/setup-python@v6.2.0" in ci
+    assert "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405" in ci
+    assert "PYTHON: .venv/bin/python" in ci
+    assert "Create venv and install dev dependencies" in ci
+    assert "Create venv and install build dependencies" in ci
+    assert "Create venv and install smoke dependencies" in ci
+    assert "Create venv and install test dependencies" in ci
+    assert "Create no-cache venv bootstrap" in ci
+    assert 'python-version: ["3.10", "3.11", "3.12", "3.13"]' in ci
+    assert "make quality-check" in ci
+    assert "make local-test" in ci
+    assert "Run pytest compatibility check" in ci
+    assert "make pytest-test" in ci
+    assert "make ai-robustness-smoke" in ci
+    assert "make build-check" in ci
+    assert "make package-smoke" in ci
+    assert "make script-smoke" in ci
+    assert "make docs-smoke" in ci
+    assert "make governance-smoke" in ci
+    assert "make open-source-smoke" in ci
+    assert "make distribution-smoke" in ci
+    assert "make dependency-audit-smoke" in ci
+    assert "make docker-test" in ci
+    assert "make no-cache-check" in ci
+    assert "make no-cache-docker-test" in ci
+    assert "Compatibility smoke" in ci
+    assert "os: [macos-14, macos-15, ubuntu-latest]" in ci
+    assert "CLEANMAC_TEST_NO_AUTH" in ci
+    assert "macOS smoke for remap, Trash, plist, and bundle parsing" in ci
+    assert "make macos-smoke" in ci
+    assert "Ubuntu sandbox, governance JSON, and package build smoke" in ci
+    assert "test_grouped_clean_commands_match_flat_alias_reports" in ci
+    assert "Linux container smoke" in ci
+    assert "Check unsafe delete patterns" in ci
+    assert "make security-smoke" in ci
+    assert "shutil.rmtree must stay in cleancli/delete_ops.py" in security_scan
+    assert "subprocess must not directly invoke rm" in security_scan
+    assert "shell must not invoke privileged command" in security_scan
+    assert "workflow must not invoke privileged command" in security_scan
+    assert "Scan for secrets (gitleaks)" in ci
+    assert "gitleaks/gitleaks-action" in ci
+    assert "No-cache dependency install" in ci
+    assert "no-cache-check:" in makefile
+    assert "set -e" in makefile
+    assert "--no-cache-dir" in makefile
+    assert 'PYTEST_ADDOPTS="-p no:cacheprovider"' in makefile
+    fail_under_line = next(line for line in pyproject.splitlines() if line.startswith("fail_under = "))
+    assert int(fail_under_line.split("=", 1)[1].strip()) >= 55
+    assert "actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # pinned from actions/cache@v6.0.0" in ci
