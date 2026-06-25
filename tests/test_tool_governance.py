@@ -29,9 +29,24 @@ def test_permissions_preflight_reports_privilege_and_fda_requirements() -> None:
 
         assert report["schema"] == "cleanmac.permissions-preflight.v1"
         assert report["destructive"] is False
+        assert report["dry_run"] is True
+        assert report["category_count"] == 3
+        assert set(by_key) == {"imessage", "systemLogs", "trash"}
+        assert report["live_root"] is False
+        assert report["blocked_or_needs_attention_count"] == 0
+        assert report["recommended_next_action"] == "safe_to_dry_run_selected_categories"
         assert by_key["imessage"]["full_disk_access"] is True
+        assert by_key["imessage"]["requires_privilege"] is True
+        assert by_key["imessage"]["execute_ready"] is True
+        assert by_key["imessage"]["blockers"] == []
+        assert by_key["imessage"]["hints"] == []
         assert by_key["systemLogs"]["requires_privilege"] is True
+        assert by_key["systemLogs"]["full_disk_access"] is False
+        assert by_key["systemLogs"]["execute_ready"] is True
+        assert by_key["systemLogs"]["blockers"] == []
         assert by_key["trash"]["requires_privilege"] is False
+        assert by_key["trash"]["full_disk_access"] is False
+        assert by_key["trash"]["execute_ready"] is True
         assert validate_contract_payload("cleanmac.permissions-preflight.v1", report)["valid"] is True
 
 

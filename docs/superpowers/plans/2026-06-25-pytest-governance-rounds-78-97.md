@@ -344,9 +344,9 @@
 **Files:**
 - Modify: `tests/test_tool_governance.py`
 
-- [ ] Add pytest coverage for permissions preflight contract validation, privilege requirements, FDA requirements, and read-only semantics.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover permissions preflight contract`.
+- [x] Add pytest coverage for permissions preflight contract validation, privilege requirements, FDA requirements, and read-only semantics.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover permissions preflight contract`.
 
 ## Round 90: Tool Plan Readonly Manual Commands
 
