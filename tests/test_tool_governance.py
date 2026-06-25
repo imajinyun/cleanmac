@@ -91,18 +91,49 @@ def test_tool_plan_expands_package_manager_dry_run_adapters() -> None:
     adapters = {adapter["key"]: adapter for adapter in report["adapters"]}
 
     assert report["schema"] == "cleanmac.tool-plan.v1"
+    assert report["destructive"] is False
+    assert report["dry_run"] is True
+    assert report["selected_tool"] == "package-managers"
+    assert report["adapter_count"] == 7
     assert set(adapters) == {"npm", "pnpm", "yarn", "pip", "uv", "poetry", "cargo"}
     assert ["npm", "cache", "verify"] in adapters["npm"]["dry_run_commands"]
     assert ["npm", "config", "get", "cache"] in adapters["npm"]["dry_run_commands"]
+    assert ["npm", "cache", "clean", "--force"] in adapters["npm"]["manual_execute_commands"]
     assert ["pnpm", "store", "status"] in adapters["pnpm"]["dry_run_commands"]
     assert ["pnpm", "store", "path"] in adapters["pnpm"]["dry_run_commands"]
+    assert ["pnpm", "store", "prune"] in adapters["pnpm"]["manual_execute_commands"]
     assert ["yarn", "cache", "dir"] in adapters["yarn"]["dry_run_commands"]
+    assert ["rm", "-rf", "~/.yarn"] in adapters["yarn"]["excluded_destructive_commands"]
     assert ["pip", "cache", "info"] in adapters["pip"]["dry_run_commands"]
     assert ["pip", "cache", "dir"] in adapters["pip"]["dry_run_commands"]
+    assert ["pip", "cache", "purge"] in adapters["pip"]["manual_execute_commands"]
     assert ["uv", "cache", "dir"] in adapters["uv"]["dry_run_commands"]
+    assert ["uv", "cache", "clean"] in adapters["uv"]["excluded_destructive_commands"]
     assert ["poetry", "cache", "list"] in adapters["poetry"]["dry_run_commands"]
+    assert ["poetry", "cache", "clear", "PyPI", "--all"] in adapters["poetry"]["manual_execute_commands"]
     assert ["cargo", "--version"] in adapters["cargo"]["dry_run_commands"]
+    assert adapters["cargo"]["manual_execute_commands"] == []
+    assert ["cargo", "cache", "--remove-dir", "all"] in adapters["cargo"]["excluded_destructive_commands"]
+    assert adapters["npm"]["path_categories"] == ["nodePackageCaches"]
+    assert adapters["pnpm"]["path_categories"] == ["nodePackageCaches"]
+    assert adapters["yarn"]["path_categories"] == ["nodePackageCaches"]
+    assert adapters["pip"]["path_categories"] == ["pythonPackageCaches"]
+    assert adapters["uv"]["path_categories"] == ["pythonPackageCaches"]
+    assert adapters["poetry"]["path_categories"] == ["pythonPackageCaches"]
+    assert adapters["cargo"]["path_categories"] == ["cargoCaches"]
     assert not any(adapter["auto_execute_allowed"] for adapter in adapters.values())
+    assert all(
+        command["auto_call_allowed"] is True
+        for adapter in adapters.values()
+        for command in adapter["recommended_commands"]
+        if command["purpose"] == "dry-run-analysis"
+    )
+    assert all(
+        command["auto_call_allowed"] is False
+        for adapter in adapters.values()
+        for command in adapter["recommended_commands"]
+        if command["purpose"] == "manual-human-confirmed-cleanup"
+    )
 
 
 def test_developer_tool_plan_explains_cleanup_scope_and_risks() -> None:
