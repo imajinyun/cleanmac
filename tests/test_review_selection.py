@@ -331,6 +331,228 @@ def test_review_selection_supports_explicit_include_and_exclude() -> None:
         assert validate_contract_payload("cleanmac.review-selection.v1", selection)["valid"] is True
 
 
+def test_review_validates_existing_selection_fingerprint_and_ids() -> None:
+    tmp, root, _home = make_sandbox()
+    with tmp:
+        plan_file = root / "plan.json"
+        selection_file = root / "selection.json"
+        invalid_selection_file = root / "invalid-selection.json"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "schema": "cleanmac.software-uninstall-plan.v1",
+                    "uninstall_plan": {
+                        "candidates": [
+                            {
+                                "id": "cache:/tmp/cache",
+                                "path": "/tmp/cache",
+                                "kind": "cache",
+                                "risk": "low",
+                                "default_selected": True,
+                            },
+                            {
+                                "id": "logs:/tmp/logs",
+                                "path": "/tmp/logs",
+                                "kind": "logs",
+                                "risk": "low",
+                                "default_selected": False,
+                            },
+                        ]
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        generated = json.loads(
+            run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file)).stdout
+        )
+        selection = json.loads(selection_file.read_text(encoding="utf-8"))
+
+        replayed = json.loads(
+            run_cli(
+                "--json",
+                "review",
+                "--input-file",
+                str(plan_file),
+                "--selection-input-file",
+                str(selection_file),
+                "--select-item",
+                "logs:/tmp/logs",
+            ).stdout
+        )
+
+        assert generated["source_fingerprint"] == selection["source_fingerprint"]
+        assert replayed["selection_validation"]["valid"] is True
+        assert replayed["selection"]["selected_item_ids"] == ["cache:/tmp/cache", "logs:/tmp/logs"]
+
+        selection["source_fingerprint"] = "stale"
+        selection["selected_item_ids"].append("missing:item")
+        invalid_selection_file.write_text(json.dumps(selection), encoding="utf-8")
+
+        invalid = run_cli_unchecked(
+            "--json",
+            "review",
+            "--input-file",
+            str(plan_file),
+            "--selection-input-file",
+            str(invalid_selection_file),
+            "--require-valid-selection",
+        )
+        invalid_report = json.loads(invalid.stdout)
+
+        assert invalid.returncode == 1
+        assert invalid_report["selection_validation"]["valid"] is False
+        assert invalid_report["selection_validation"]["blocked_reasons"] == [
+            "source-fingerprint-mismatch",
+            "unknown-item-id",
+        ]
+
+
+def test_review_item_scope_filters_display_items_without_changing_selection() -> None:
+    tmp, root, _home = make_sandbox()
+    with tmp:
+        plan_file = root / "plan.json"
+        selection_file = root / "selection.json"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "schema": "cleanmac.software-uninstall-plan.v1",
+                    "uninstall_plan": {
+                        "candidates": [
+                            {
+                                "id": "cache:/tmp/cache",
+                                "path": "/tmp/cache",
+                                "kind": "cache",
+                                "risk": "low",
+                                "default_selected": True,
+                            },
+                            {
+                                "id": "history:/tmp/history",
+                                "path": "/tmp/history",
+                                "kind": "history",
+                                "risk": "medium",
+                                "default_selected": False,
+                            },
+                        ]
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        run_cli("--json", "review", "--input-file", str(plan_file), "--selection-file", str(selection_file))
+
+        selected = json.loads(
+            run_cli(
+                "--json",
+                "review",
+                "--input-file",
+                str(plan_file),
+                "--selection-input-file",
+                str(selection_file),
+                "--item-scope",
+                "selected",
+            ).stdout
+        )
+        excluded = json.loads(
+            run_cli(
+                "--json",
+                "review",
+                "--input-file",
+                str(plan_file),
+                "--selection-input-file",
+                str(selection_file),
+                "--item-scope",
+                "excluded",
+            ).stdout
+        )
+
+        assert selected["item_view"] == {
+            "scope": "selected",
+            "sort": "source",
+            "item_count": 1,
+            "source_item_count": 2,
+        }
+        assert [item["id"] for item in selected["items"]] == ["cache:/tmp/cache"]
+        assert selected["selection"]["selected_item_ids"] == ["cache:/tmp/cache"]
+        assert selected["selection_summary"]["item_count"] == 2
+        assert excluded["item_view"] == {
+            "scope": "excluded",
+            "sort": "source",
+            "item_count": 1,
+            "source_item_count": 2,
+        }
+        assert [item["id"] for item in excluded["items"]] == ["history:/tmp/history"]
+        assert excluded["selection"]["selected_item_ids"] == ["cache:/tmp/cache"]
+
+
+def test_review_item_sort_orders_display_items_without_changing_selection() -> None:
+    tmp, root, _home = make_sandbox()
+    with tmp:
+        plan_file = root / "plan.json"
+        plan_file.write_text(
+            json.dumps(
+                {
+                    "schema": "cleanmac.software-uninstall-plan.v1",
+                    "uninstall_plan": {
+                        "candidates": [
+                            {
+                                "id": "low-small:/tmp/a",
+                                "path": "/tmp/a",
+                                "kind": "cache",
+                                "risk": "low",
+                                "bytes": 1,
+                                "default_selected": True,
+                            },
+                            {
+                                "id": "critical-medium:/tmp/b",
+                                "path": "/tmp/b",
+                                "kind": "history",
+                                "risk": "critical",
+                                "bytes": 5,
+                                "default_selected": False,
+                            },
+                            {
+                                "id": "medium-large:/tmp/c",
+                                "path": "/tmp/c",
+                                "kind": "logs",
+                                "risk": "medium",
+                                "bytes": 9,
+                                "default_selected": False,
+                            },
+                        ]
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        risk_sorted = json.loads(
+            run_cli("--json", "review", "--input-file", str(plan_file), "--item-sort", "risk-desc").stdout
+        )
+        bytes_sorted = json.loads(
+            run_cli("--json", "review", "--input-file", str(plan_file), "--item-sort", "bytes-desc").stdout
+        )
+        selected_first = json.loads(
+            run_cli("--json", "review", "--input-file", str(plan_file), "--item-sort", "selected-first").stdout
+        )
+
+        assert risk_sorted["item_view"]["sort"] == "risk-desc"
+        assert [item["id"] for item in risk_sorted["items"]] == [
+            "critical-medium:/tmp/b",
+            "medium-large:/tmp/c",
+            "low-small:/tmp/a",
+        ]
+        assert bytes_sorted["item_view"]["sort"] == "bytes-desc"
+        assert [item["id"] for item in bytes_sorted["items"]] == [
+            "medium-large:/tmp/c",
+            "critical-medium:/tmp/b",
+            "low-small:/tmp/a",
+        ]
+        assert selected_first["item_view"]["sort"] == "selected-first"
+        assert selected_first["items"][0]["id"] == "low-small:/tmp/a"
+        assert selected_first["selection"]["selected_item_ids"] == ["low-small:/tmp/a"]
+
+
 def test_review_html_escapes_paths() -> None:
     tmp, root, _home = make_sandbox()
     with tmp:
