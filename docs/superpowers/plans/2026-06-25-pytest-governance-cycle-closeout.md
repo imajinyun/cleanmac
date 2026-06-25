@@ -33,6 +33,17 @@
 - Tool governance now has pytest coverage for permissions preflight contracts, readonly tool plans, package-manager adapter metadata, dry-run allowlisted execution, and destructive execution blocking without explicit `yes`.
 - Review-selection governance now has pytest coverage for selection generation evidence, explicit include/exclude behavior, existing-selection validation, display filters, sort ordering, and selection-state preservation.
 
+## Round 98-117 Closeout
+
+- Plan: `2026-06-25-pytest-governance-rounds-98-117.md`.
+- Round 98-117 status: all planned pytest governance rounds are completed and each round has a focused commit.
+- Newly ratcheted pytest surfaces include `tests/test_review_selection.py`, `tests/test_startup_governance.py`, `tests/test_privacy_governance.py`, `tests/test_clean_execution.py`, `tests/test_cli_workflows.py`, and `tests/test_report_renderers.py`.
+- Review-selection governance now has pytest coverage for HTML selected-state rendering, startup/privacy review evidence, and clean report evidence.
+- Startup/privacy execute governance now has pytest coverage for destructive execute gate metadata and safe argv preservation.
+- CLI inspect governance now has pytest coverage for direct child sorting, recursive path sorting, budget preview flags, invalid name regex rejection, incomplete-download active skips, Mail Downloads defaults, GPU stale allowlist behavior, browser code-sign X-shard discovery, and `--older-than-days` filtering.
+- Clean execution governance now has pytest coverage for reusable plan contracts, plan-context rejection, high-risk and strict risk-policy `--yes` gates, permissive risk-policy execute behavior, and execute pre-delete budget/skipped gates.
+- Human report governance now has pytest coverage for remaining in-process execute-mode report branches without relying on subprocess output.
+
 ---
 
 ## Landed Pytest Governance Surfaces
@@ -48,7 +59,7 @@
 
 ## Remaining Unittest Migration Backlog
 
-- `test_cleanmac.py` is the only intentional large unittest backlog. It still owns broad legacy CLI compatibility, safety guardrail contracts, governance metadata contracts, human-renderer branch coverage, and remaining edge-case compatibility checks.
+- `test_cleanmac.py` is the only intentional large unittest backlog. It still owns broad legacy CLI compatibility, safety guardrail contracts, governance metadata contracts, and remaining edge-case compatibility checks.
 - Do not migrate `test_cleanmac.py` as one large rewrite. Split it by stable ownership boundaries first, then move each extracted slice to pytest.
 - Recommended next slices:
   - remaining CLI plan / dry-run / execute orchestration edge cases
@@ -56,8 +67,7 @@
   - release workflow and distribution governance checks that are not already covered by release workflow and artifact pytest files
   - remaining distribution governance checks not covered by release workflow and artifact pytest files
   - legacy flat-command compatibility checks not already covered by grouped command pytest files
-  - human report printer branches and remaining report renderer compatibility checks
-  - in-process human output rendering branches in `cleancli.core.print_report`
+  - remaining report renderer compatibility checks not already covered in pytest
 - `tests/test_makefile_governance.py` intentionally contains `import unittest`, `unittest.TestCase`, `unittest.main`, and `self.assert` as literal forbidden-token fixtures. It is not part of the unittest backlog.
 
 ## Next backlog slices

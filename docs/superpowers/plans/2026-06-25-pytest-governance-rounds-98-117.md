@@ -434,9 +434,9 @@
 - Modify: `tests/test_report_renderers.py`
 - Modify: `docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md`
 
-- [ ] Add pytest coverage for remaining in-process human report branches and close out Rounds 98-117.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover human report branch closeout`.
+- [x] Add pytest coverage for remaining in-process human report branches and close out Rounds 98-117.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover human report branch closeout`.
 
 ---
 

@@ -338,3 +338,43 @@ def test_core_print_report_human_branches_are_covered_in_process() -> None:
         with contextlib.redirect_stdout(stdout):
             cleancli.print_report(report, as_json=False, command=command)
         assert stdout.getvalue(), command
+
+
+def test_core_print_report_execute_mode_human_branches_are_covered_in_process() -> None:
+    reports: list[tuple[str, dict[str, object], list[str]]] = [
+        ("links", {"dry_run": False, "mode": "refresh", "kind": "logs", "targets": []}, ["EXECUTE", "kind=logs"]),
+        (
+            "open",
+            {
+                "dry_run": False,
+                "targets": [
+                    {
+                        "category": "trash",
+                        "special_case": True,
+                        "status": "opened",
+                        "command": "open -R",
+                        "exists": True,
+                    }
+                ],
+            },
+            ["EXECUTE: Finder targets", "[trash] special opened"],
+        ),
+        (
+            "clean",
+            {
+                "dry_run": False,
+                "total_human": "1 B",
+                "items": [{"category": "trash", "deleted": True, "path": "/tmp/a", "human": "1 B"}],
+            },
+            ["EXECUTE: 1 B across 1 item(s)", "[trash] deleted: /tmp/a"],
+        ),
+    ]
+
+    for command, report, expected_lines in reports:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            cleancli.print_report(report, as_json=False, command=command)
+        output = stdout.getvalue()
+
+        for expected in expected_lines:
+            assert expected in output
