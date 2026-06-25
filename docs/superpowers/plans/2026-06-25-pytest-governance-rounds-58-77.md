@@ -170,9 +170,9 @@
 **Files:**
 - Modify: `tests/test_ai_contract.py` or `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for in-process `cleancli.core.main` AI/release dispatches and schema outputs without spawning external processes.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover core ai dispatches`.
+- [x] Add pytest coverage for in-process `cleancli.core.main` AI/release dispatches and schema outputs without spawning external processes.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover core ai dispatches`.
 
 ## Round 75: Contract Validation Failure Reporting
 
