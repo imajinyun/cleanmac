@@ -47,6 +47,8 @@ def test_startup_audit_and_plan_classify_disable_candidates() -> None:
         plan = json.loads(run_cli("--root", str(root), "--home", str(home), "--json", "startup", "plan").stdout)
 
         assert plan["schema"] == "cleanmac.startup-plan.v1"
+        assert plan["disable_plan"]["requires_explicit_execute"] is True
+        assert plan["disable_plan"]["requires_explicit_future_execute"] is True
         assert plan["disable_plan"]["safe_to_auto_execute"] is False
         assert plan["disable_plan"]["candidate_count"] == 2
         assert plan["disable_plan"]["default_selected_count"] == 1

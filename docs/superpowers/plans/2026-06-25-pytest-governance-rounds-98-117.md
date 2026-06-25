@@ -257,9 +257,9 @@
 - Modify: `tests/test_startup_governance.py`
 - Modify: `tests/test_privacy_governance.py`
 
-- [ ] Add pytest coverage for startup/privacy plan explicit execute gates and no-auto-execute metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover startup privacy execution gates`.
+- [x] Add pytest coverage for startup/privacy plan explicit execute gates and no-auto-execute metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover startup privacy execution gates`.
 
 ## Round 102: Reusable Cleanup Plan Contract
 
