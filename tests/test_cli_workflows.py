@@ -947,6 +947,8 @@ def test_links_execute_skips_existing_non_symlink_mapping() -> None:
         link_path = root / "Users/tester/.CleanMacAppLogLinks/com.example"
         link_path.parent.mkdir(parents=True)
         link_path.mkdir()
+        sentinel = link_path / "keep.txt"
+        sentinel.write_text("preserve", encoding="utf-8")
 
         result = run_cli(
             "--root",
@@ -962,9 +964,19 @@ def test_links_execute_skips_existing_non_symlink_mapping() -> None:
         report = json.loads(result.stdout)
         mapping = report["mappings"][0]
 
+        assert report["dry_run"] is False
+        assert report["destructive"] is False
+        assert mapping["kind"] == "logs"
+        assert mapping["container"] == "com.example"
+        assert mapping["source"] == str(
+            (root / "Users/tester/Library/Containers/com.example/Data/Library/Logs").resolve()
+        )
+        assert mapping["link_dir"] == str(link_path.parent.resolve())
+        assert mapping["link_path"] == str(link_path.parent.resolve() / link_path.name)
         assert mapping["status"] == "skipped-existing-non-symlink"
         assert link_path.is_dir()
         assert not link_path.is_symlink()
+        assert sentinel.read_text(encoding="utf-8") == "preserve"
 
 
 def test_analyze_uses_sandbox_root() -> None:
