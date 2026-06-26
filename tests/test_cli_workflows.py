@@ -878,8 +878,13 @@ def test_links_execute_creates_and_removes_symlink_dirs() -> None:
         assert link_path.resolve() == logs.resolve()
         assert create_report["dry_run"] is False
         assert create_report["destructive"] is False
-        assert create_report["mappings"][0]["status"] == "created"
-        assert create_report["mappings"][0]["link_path"] == str(link_path.parent.resolve() / link_path.name)
+        created_mapping = create_report["mappings"][0]
+        assert created_mapping["kind"] == "logs"
+        assert created_mapping["container"] == "com.example"
+        assert created_mapping["status"] == "created"
+        assert created_mapping["source"] == str(logs.resolve())
+        assert created_mapping["link_dir"] == str(link_path.parent.resolve())
+        assert created_mapping["link_path"] == str(link_path.parent.resolve() / link_path.name)
 
         result = run_cli(
             "--root",
@@ -897,8 +902,11 @@ def test_links_execute_creates_and_removes_symlink_dirs() -> None:
         assert report["mode"] == "remove"
         assert report["destructive"] is True
         assert report["dry_run"] is False
-        assert report["removed"][0]["existed_before"] is True
-        assert report["removed"][0]["removed"] is True
+        removed = report["removed"][0]
+        assert removed["kind"] == "logs"
+        assert removed["link_dir"] == str(link_path.parent.resolve())
+        assert removed["existed_before"] is True
+        assert removed["removed"] is True
         assert not (root / "Users/tester/.CleanMacAppLogLinks").exists()
 
 
