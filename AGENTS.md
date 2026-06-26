@@ -50,6 +50,9 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 ## ⚙️ Common Commands
 
 ```bash
+# Convenience wrapper: dry-run preview → confirm → Trash execution
+./scripts/quick_clean.sh developer
+
 python3 cleanmac.py --json capabilities
 python3 cleanmac.py --json clean inspect --categories trash
 python3 cleanmac.py --json plan --categories trash --max-items 10
@@ -66,6 +69,7 @@ make quality-check
 make local-test
 make package-smoke
 make script-smoke
+make quick-clean-smoke
 make docs-smoke
 make governance-smoke
 make ai-governance-smoke
@@ -77,7 +81,7 @@ make release-artifacts-smoke
 make docker-test
 ```
 
-Quality validation must use virtual environments for `ruff`, `mypy`, and `pytest`; do not rely on globally installed Python tools. `make lint`, `make type-check`, `make coverage`, `make quality-check`, and `make pytest-test` create temporary venvs or run through the workflow-provided `.venv/bin/python` and install the required extras before executing tools. Pytest validation must use `make pytest-test`; that target creates a temporary venv, installs the test extra, and runs pytest inside the venv. Never write validation virtual environments into the repository. If a release or environment-sensitive issue cannot be reproduced on the host, run the Docker validation path (`make docker-test` or `make no-cache-docker-test`) and report Docker availability if it cannot run locally.
+Quality validation must use virtual environments for `ruff`, `mypy`, and `pytest`; do not rely on globally installed Python tools. `make lint`, `make type-check`, `make coverage`, `make quality-check`, and `make pytest-test` create temporary venvs or run through the workflow-provided `.venv/bin/python` and install the required extras before executing tools. Pytest validation must use `make pytest-test`; that target creates a temporary venv, installs the test extra, and runs pytest inside the venv. Never write validation virtual environments into the repository. Validation targets that create caches, coverage files, editable-install metadata, or bytecode must remove those leftovers before exiting; use `make clean-test-artifacts` for manual cleanup. If a release or environment-sensitive issue cannot be reproduced on the host, run the Docker validation path (`make docker-test` or `make no-cache-docker-test`) and report Docker availability if it cannot run locally.
 
 ```bash
 tmpdir=$(mktemp -d)
@@ -91,6 +95,7 @@ python3 -m venv "$tmpdir/venv"
 "$tmpdir/venv/bin/python" -m coverage run -m unittest -v
 "$tmpdir/venv/bin/python" -m coverage report
 rm -R "$tmpdir"
+make clean-test-artifacts
 ```
 
 ## 🛡️ Critical Safety Rules
@@ -240,4 +245,5 @@ python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_ma
 - Changes touching safety, deletion, protection, CI, release, or script templates must also run `make local-test` or the matching smoke target.
 - All documentation optimizations must be written in English by default, including agent guides, workflow guidance, README updates, and release-facing instructions.
 - Before release or after broad changes, run temporary-venv lint/type/pytest plus `make docker-test`.
+- After validation, remove local test leftovers with `make clean-test-artifacts` or an equivalent trap in the validation target.
 - Do not skip validation because local dependencies are missing; install them in a temporary venv first, then report the actual results.

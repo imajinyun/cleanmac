@@ -10,6 +10,7 @@ from tests.helpers import PROJECT_ROOT
 
 def test_makefile_exposes_validation_targets() -> None:
     makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    agent_guide = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
     assert "format:" in makefile
     assert "lint:" in makefile
@@ -25,6 +26,13 @@ def test_makefile_exposes_validation_targets() -> None:
     assert "pytest-ai-host-smoke:" in makefile
     assert "pytest-test:" in makefile
     assert "pytest-test: pytest-parity-test" in makefile
+    assert "clean-test-artifacts:" in makefile
+    assert "[ ! -e .coverage ] || /bin/rm -f .coverage" in makefile
+    assert "[ ! -e cleanmac.egg-info ] || /bin/rm -R cleanmac.egg-info" in makefile
+    assert "find cleancli tests scripts -type d -name __pycache__" in makefile
+    assert "make clean-test-artifacts" in agent_guide
+    assert "Validation targets that create caches" in agent_guide
+    assert "After validation, remove local test leftovers" in agent_guide
     assert '$(PYTHON) -m venv "$$tmpdir/venv"' in makefile
     assert "\"$$tmpdir/venv/bin/python\" -m pip install -e '.[test]'" in makefile
     assert 'PYTEST_ADDOPTS="-p no:cacheprovider"' in makefile
@@ -48,6 +56,7 @@ def test_makefile_exposes_validation_targets() -> None:
     assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_SAFE_TARGETS) -q' in makefile
     assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_HOST_TARGETS) -q' in makefile
     assert '"$$tmpdir/venv/bin/python" -m pytest $(PYTEST_AI_ROBUSTNESS_TARGETS) -q' in makefile
+    assert "trap 'rm -rf \"$$tmpdir\"; $(MAKE) clean-test-artifacts >/dev/null' EXIT" in makefile
     assert "assert targets == expected, targets" in makefile
     assert "assert robustness_targets ==" in makefile
     assert 'old_all="pytest test_cleanmac.py " + "tests -q"' in makefile

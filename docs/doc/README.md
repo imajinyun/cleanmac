@@ -69,6 +69,9 @@ cleanmac is an **AI-first cleanup execution kernel**. It does not compete on GUI
 ## 🚀 Quick Start
 
 ```bash
+# 0️⃣ One-shot convenience wrapper (dry-run preview → confirm → Trash)
+./scripts/quick_clean.sh developer
+
 # 1️⃣ Check environment
 python3 cleanmac.py capabilities
 python3 cleanmac.py --json doctor
@@ -885,6 +888,7 @@ make docs-smoke                                    # Doc validation
 make governance-smoke                              # Governance contracts
 make governance-integrity-smoke                    # Governance integrity release gate
 make zero-resident-audit-smoke                     # Zero-resident product boundary audit
+make no-disturbance-smoke                           # No-disturbance silent-by-default gate
 make ai-first-release-checklist-smoke              # AI-first release checklist gate
 make pytest-governance-smoke                       # Pytest safe target policy
 make ai-contract-smoke                             # AI contract samples and schema fragments
@@ -934,6 +938,7 @@ make no-cache-release-check                        # No-cache release validation
 | `governance-smoke` | Governance contracts |
 | `governance-integrity-smoke` | Governance integrity contract and release gate |
 | `zero-resident-audit-smoke` | Zero-resident product boundary audit and release gate |
+| `no-disturbance-smoke` | No-disturbance silent-by-default contract and release gate |
 | `ai-first-release-checklist-smoke` | AI-first release checklist contract and release gate |
 | `pytest-governance-smoke` | Pytest safe target policy and release-only parity scope |
 | `ai-governance-smoke` | AI governance route check |
@@ -958,7 +963,7 @@ make no-cache-release-check                        # No-cache release validation
 | `no-cache-docker-test` | Docker test with --pull=always |
 | `release-check` | All gates combined |
 
-Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions. `make governance-integrity-smoke` validates the governance integrity release gate before readiness, and `make zero-resident-audit-smoke` validates `cleanmac.zero-resident-audit.v1`, confirming the AI-first ephemeral CLI boundary: no GUI, no TUI, no daemon, no login item, no unsolicited scan loop, and zero background CPU/memory policy when not invoked. `make ai-first-release-checklist-smoke` validates `cleanmac.ai-first-release-checklist.v1`, binding AI Host entrypoints, JSON contracts, governance integrity, zero-resident evidence, product-surface drift, and MCP surface readiness into one release gate. `make pytest-governance-smoke` validates that pytest parity uses the explicit release-only safe target list instead of broad `test_cleanmac.py tests` collection. `make release-readiness-contract-smoke` validates release readiness contract shape, and `make release-readiness-smoke` validates the read-only `cleanmac.release-readiness.v1` bundle before `make release-check` and `make no-cache-release-check` proceed. `make release-diagnostics-smoke` additionally validates `cleanmac.release-diagnostics.v1`, `cleanmac.release-evidence.v1`, and `cleanmac.release-operator-summary.v1`. `make release-rehearsal-smoke`, `make release-promotion-smoke`, `make release-rollback-smoke`, `make release-post-publish-smoke`, `make release-post-publish-result-smoke`, and `make release-post-publish-evidence-template-smoke` cover `cleanmac.release-rehearsal.v1`, `cleanmac.release-promotion-decision.v1`, `cleanmac.release-rollback-plan.v1`, `cleanmac.release-post-publish-verification.v1`, `cleanmac.release-post-publish-result.v1`, and `cleanmac.release-post-publish-evidence-template.v1`; CI archives `RELEASE-REHEARSAL.json`, `RELEASE-PROMOTION-DECISION.json`, `RELEASE-ROLLBACK-PLAN.json`, `RELEASE-POST-PUBLISH-VERIFICATION.json`, `RELEASE-POST-PUBLISH-RESULT.json`, and `RELEASE-POST-PUBLISH-EVIDENCE.example.json` with the release evidence.
+Release artifact verification also emits `cleanmac.release-artifact-manifest.v1` via `scripts/generate_release_manifest.py`. The manifest binds wheel/sdist artifacts, `SBOM.json`, `cleanmac.rb`, and `SHA256SUMS` so release candidates can be verified consistently in local smoke tests and GitHub Actions. `make governance-integrity-smoke` validates the governance integrity release gate before readiness, and `make zero-resident-audit-smoke` validates `cleanmac.zero-resident-audit.v1`, and `make no-disturbance-smoke` validates `cleanmac.no-disturbance.v1`, confirming the AI-first ephemeral CLI boundary: no GUI, no TUI, no daemon, no login item, no unsolicited scan loop, and zero background CPU/memory policy when not invoked. `make ai-first-release-checklist-smoke` validates `cleanmac.ai-first-release-checklist.v1`, binding AI Host entrypoints, JSON contracts, governance integrity, zero-resident evidence, product-surface drift, and MCP surface readiness into one release gate. `make pytest-governance-smoke` validates that pytest parity uses the explicit release-only safe target list instead of broad `test_cleanmac.py tests` collection. `make release-readiness-contract-smoke` validates release readiness contract shape, and `make release-readiness-smoke` validates the read-only `cleanmac.release-readiness.v1` bundle before `make release-check` and `make no-cache-release-check` proceed. `make release-diagnostics-smoke` additionally validates `cleanmac.release-diagnostics.v1`, `cleanmac.release-evidence.v1`, and `cleanmac.release-operator-summary.v1`. `make release-rehearsal-smoke`, `make release-promotion-smoke`, `make release-rollback-smoke`, `make release-post-publish-smoke`, `make release-post-publish-result-smoke`, and `make release-post-publish-evidence-template-smoke` cover `cleanmac.release-rehearsal.v1`, `cleanmac.release-promotion-decision.v1`, `cleanmac.release-rollback-plan.v1`, `cleanmac.release-post-publish-verification.v1`, `cleanmac.release-post-publish-result.v1`, and `cleanmac.release-post-publish-evidence-template.v1`; CI archives `RELEASE-REHEARSAL.json`, `RELEASE-PROMOTION-DECISION.json`, `RELEASE-ROLLBACK-PLAN.json`, `RELEASE-POST-PUBLISH-VERIFICATION.json`, `RELEASE-POST-PUBLISH-RESULT.json`, and `RELEASE-POST-PUBLISH-EVIDENCE.example.json` with the release evidence.
 
 ### 🤖 CI Configuration
 
