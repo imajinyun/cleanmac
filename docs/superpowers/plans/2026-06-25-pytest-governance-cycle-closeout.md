@@ -44,6 +44,16 @@
 - Clean execution governance now has pytest coverage for reusable plan contracts, plan-context rejection, high-risk and strict risk-policy `--yes` gates, permissive risk-policy execute behavior, and execute pre-delete budget/skipped gates.
 - Human report governance now has pytest coverage for remaining in-process execute-mode report branches without relying on subprocess output.
 
+## Round 118-137 Closeout
+
+- Plan: `2026-06-26-pytest-governance-rounds-118-137.md`.
+- Round 118-137 status: all planned pytest governance rounds are completed and each round has a focused commit.
+- Newly ratcheted pytest surfaces include `tests/test_trash_mode.py`, `tests/test_delete_ops.py`, `tests/test_clean_execution.py`, `tests/test_sudo_guard.py`, `tests/test_app_protection.py`, `tests/test_cli_workflows.py`, `tests/test_ai_contract.py`, `tests/test_ai_idempotency.py`, `tests/test_report_renderers.py`, `tests/test_cli_basics.py`, and `tests/test_open_source_governance.py`.
+- Delete and execution safety now has pytest coverage for recoverable Trash routing evidence, delete failure reason mapping, fail-fast item failure handling, protected-path fail-closed behavior, and test-mode blocking for privileged helpers.
+- Protection and cleanup category governance now has pytest coverage for hardening protection metadata, deep-system cleanup categories, doctor environment guidance, special Finder targets, built-in profile defaults, and links preview/create/remove/skip behavior.
+- AI and report governance now has pytest coverage for AI policy simulator guards, AI-origin drifted-plan rejection, conservative AI execute guards, and analyze-tree Markdown report file links.
+- Distribution governance now has pytest coverage for release workflow artifact evidence, SBOM/manifest/Homebrew formula generation, cross-platform release asset verification, build provenance attestation, and trusted publishing boundaries.
+
 ---
 
 ## Landed Pytest Governance Surfaces
@@ -66,7 +76,7 @@
   - delete safety and Trash execution compatibility cases not already covered in `tests/test_delete_ops.py` or `tests/test_trash_mode.py`
   - release workflow and distribution governance checks that are not already covered by release workflow and artifact pytest files
   - remaining distribution governance checks not covered by release workflow and artifact pytest files
-  - legacy flat-command compatibility checks not already covered by grouped command pytest files
+  - legacy flat-command compatibility checks and grouped command compatibility checks not already covered by grouped command pytest files
   - remaining report renderer compatibility checks not already covered in pytest
 - `tests/test_makefile_governance.py` intentionally contains `import unittest`, `unittest.TestCase`, `unittest.main`, and `self.assert` as literal forbidden-token fixtures. It is not part of the unittest backlog.
 

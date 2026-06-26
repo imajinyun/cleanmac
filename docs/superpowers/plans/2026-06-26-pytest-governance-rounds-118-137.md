@@ -175,9 +175,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_trash_mode.py`
 
-- [ ] Add pytest coverage for recoverable Trash routing report fields and deletion log evidence.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover trash recoverable routing`.
+- [x] Add pytest coverage for recoverable Trash routing report fields and deletion log evidence.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover trash recoverable routing`.
 
 ### Round 119: Delete Failure Reason Mapping
 
@@ -186,9 +186,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_delete_ops.py`
 
-- [ ] Add pytest coverage for delete failure reason taxonomy.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover delete failure reason mapping`.
+- [x] Add pytest coverage for delete failure reason taxonomy.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover delete failure reason mapping`.
 
 ### Round 120: Clean Fail-Fast Item Failure
 
@@ -197,9 +197,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage that fail-fast stops on item deletion failure.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover clean fail fast item failure`.
+- [x] Add pytest coverage that fail-fast stops on item deletion failure.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover clean fail fast item failure`.
 
 ### Round 121: Clean Protected Failure Fail-Closed
 
@@ -208,9 +208,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_clean_execution.py`
 
-- [ ] Add pytest coverage that protected path execution failures fail closed.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover protected failure fail closed`.
+- [x] Add pytest coverage that protected path execution failures fail closed.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover protected failure fail closed`.
 
 ### Round 122: Test Mode Privileged Helper Blocks
 
@@ -219,9 +219,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_sudo_guard.py`
 
-- [ ] Add pytest coverage for test-mode sudo, osascript, and launchctl helper blocking.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover test mode helper blocks`.
+- [x] Add pytest coverage for test-mode sudo, osascript, and launchctl helper blocking.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover test mode helper blocks`.
 
 ### Round 123: Hardening Protection Categories
 
@@ -230,9 +230,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_app_protection.py`
 
-- [ ] Add pytest coverage for hardening protection category metadata and vendor rules.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover hardening protection categories`.
+- [x] Add pytest coverage for hardening protection category metadata and vendor rules.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover hardening protection categories`.
 
 ### Round 124: Deep System Cleanup Categories
 
@@ -241,9 +241,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for Xcode, firmware, Apple Silicon, and diagnostics inspect candidates.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover deep system cleanup categories`.
+- [x] Add pytest coverage for Xcode, firmware, Apple Silicon, and diagnostics inspect candidates.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover deep system cleanup categories`.
 
 ### Round 125: AI Policy Simulator Guards
 
@@ -252,9 +252,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_ai_contract.py`
 
-- [ ] Add pytest coverage for missing and satisfied AI policy simulator guards.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai policy simulator guards`.
+- [x] Add pytest coverage for missing and satisfied AI policy simulator guards.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai policy simulator guards`.
 
 ### Round 126: AI-Origin Drifted Plan Rejection
 
@@ -263,9 +263,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_ai_idempotency.py`
 
-- [ ] Add pytest coverage for AI-originated execute rejection when plan candidates drift.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai drifted plan rejection`.
+- [x] Add pytest coverage for AI-originated execute rejection when plan candidates drift.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai drifted plan rejection`.
 
 ### Round 127: AI-Origin Conservative Execute Guards
 
@@ -274,9 +274,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_ai_contract.py`
 
-- [ ] Add pytest coverage for AI-originated plan conservative execute guards and success ledger.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover ai conservative execute guards`.
+- [x] Add pytest coverage for AI-originated plan conservative execute guards and success ledger.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover ai conservative execute guards`.
 
 ### Round 128: Analyze Tree Markdown Report Links
 
@@ -285,9 +285,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_report_renderers.py`
 
-- [ ] Add pytest coverage for analyze-tree Markdown report file links.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover analyze tree markdown links`.
+- [x] Add pytest coverage for analyze-tree Markdown report file links.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover analyze tree markdown links`.
 
 ### Round 129: Doctor Environment Guidance
 
@@ -296,9 +296,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage for doctor environment and Full Disk Access guidance.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover doctor environment guidance`.
+- [x] Add pytest coverage for doctor environment and Full Disk Access guidance.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover doctor environment guidance`.
 
 ### Round 130: Open Special Finder Targets
 
@@ -307,9 +307,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for special Finder target preview metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover open special finder targets`.
+- [x] Add pytest coverage for special Finder target preview metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover open special finder targets`.
 
 ### Round 131: Profiles Safe Budget Defaults
 
@@ -318,9 +318,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_basics.py`
 
-- [ ] Add pytest coverage for profile category and budget default expansion.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover profiles safe budget defaults`.
+- [x] Add pytest coverage for profile category and budget default expansion.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover profiles safe budget defaults`.
 
 ### Round 132: Links Symbolic Link Mappings
 
@@ -329,9 +329,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for links mapping preview metadata.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover links symbolic mappings`.
+- [x] Add pytest coverage for links mapping preview metadata.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover links symbolic mappings`.
 
 ### Round 133: Links Execute Create Remove
 
@@ -340,9 +340,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for links execute create and remove behavior.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover links execute create remove`.
+- [x] Add pytest coverage for links execute create and remove behavior.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover links execute create remove`.
 
 ### Round 134: Links Remove Dry-Run Preserves
 
@@ -351,9 +351,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for links remove dry-run preserving existing link directories.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover links remove dry run`.
+- [x] Add pytest coverage for links remove dry-run preserving existing link directories.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover links remove dry run`.
 
 ### Round 135: Links Skip Existing Non-Symlink
 
@@ -362,9 +362,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_cli_workflows.py`
 
-- [ ] Add pytest coverage for links execute skipping existing non-symlink mappings.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover links non symlink skip`.
+- [x] Add pytest coverage for links execute skipping existing non-symlink mappings.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover links non symlink skip`.
 
 ### Round 136: Distribution Governance Files
 
@@ -373,9 +373,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 **Files:**
 - Modify: `tests/test_open_source_governance.py`
 
-- [ ] Add pytest coverage for remaining distribution/open-source governance file checks.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): cover distribution governance files`.
+- [x] Add pytest coverage for remaining distribution/open-source governance file checks.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): cover distribution governance files`.
 
 ### Round 137: Cycle Closeout
 
@@ -385,9 +385,9 @@ No production defects are targeted in this batch. The risk being governed is reg
 - Modify: `tests/test_report_renderers.py`
 - Modify: `docs/superpowers/plans/2026-06-25-pytest-governance-cycle-closeout.md`
 
-- [ ] Add final pytest coverage for this batch and update cycle closeout.
-- [ ] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
-- [ ] Commit with `test(pytest): close pytest governance cycle`.
+- [x] Add final pytest coverage for this batch and update cycle closeout.
+- [x] Validate with targeted pytest, ruff format/check, and `make pytest-test`.
+- [x] Commit with `test(pytest): close pytest governance cycle`.
 
 ## Acceptance Criteria
 
