@@ -270,6 +270,47 @@ def test_gpu_cache_provider_only_returns_stale_allowlisted_dirs() -> None:
         assert "not-stale" in report["skipped_summary"]["by_reason"]
 
 
+def test_deep_system_cleanup_categories_cover_xcode_firmware_apple_silicon_and_diagnostics() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        fixtures = (
+            root / "Users/tester/Library/Developer/Xcode/Archives/App.xcarchive/info.plist",
+            root / "Users/tester/Library/Developer/Xcode/iOS DeviceSupport/17.0/symbols.bin",
+            root / "private/var/db/oah/runtime-cache/cache.bin",
+            root / "private/var/db/DetachedSignatures/signature-cache/cache.bin",
+            root / "Library/Logs/DiagnosticReports/crash.ips",
+        )
+        for path in fixtures:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("cache", encoding="utf-8")
+
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "inspect",
+            "--categories",
+            "xcode,deviceFirmware,appleSiliconCaches,systemDiagnostics",
+            "--older-than-days",
+            "0",
+            "--limit",
+            "50",
+        )
+        report = json.loads(result.stdout)
+        paths = [row["path"] for row in report["items"]]
+
+        assert str(root / "Users/tester/Library/Developer/Xcode/Archives/App.xcarchive") in paths
+        assert str(root / "Users/tester/Library/Developer/Xcode/iOS DeviceSupport/17.0") in paths
+        assert str(root / "private/var/db/oah/runtime-cache") in paths
+        assert str(root / "private/var/db/DetachedSignatures/signature-cache") in paths
+        assert str(root / "Library/Logs/DiagnosticReports/crash.ips") in paths
+        assert report["by_category"]["deviceFirmware"]["count"] == 1
+        assert report["by_category"]["appleSiliconCaches"]["count"] == 2
+
+
 def test_browser_code_sign_cache_provider_uses_x_shard_and_rejects_outside_root() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
