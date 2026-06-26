@@ -244,6 +244,37 @@ def test_report_file_defaults_to_json_audit_report() -> None:
         assert audit_record["report"]["items"]
 
 
+def test_analyze_tree_writes_markdown_report_with_file_links() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        report_file = root / "tree-report.md"
+        result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "--report-file",
+            str(report_file),
+            "--report-format",
+            "markdown",
+            "analyze",
+            "tree",
+            "--path",
+            "/Users/tester",
+            "--depth",
+            "1",
+            "--top",
+            "5",
+        )
+        report = json.loads(result.stdout)
+        markdown = report_file.read_text(encoding="utf-8")
+
+        assert report["report_format"] == "markdown"
+        assert "# cleanmac.analyze-tree.v1" in markdown
+        assert "Open in Finder" in markdown
+
+
 def test_core_print_report_human_branches_are_covered_in_process() -> None:
     reports: list[tuple[str, dict[str, object]]] = [
         ("analyze", {"total_human": "1 B", "categories": [{"key": "trash", "human": "1 B", "risk": "low"}]}),
