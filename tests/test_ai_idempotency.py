@@ -8,6 +8,7 @@ from typing import Any, cast
 
 from cleancli.core import CATEGORIES, ai_confirmation_token, ai_confirmation_token_context
 from tests.helpers import cleanmac_test_env, make_sandbox, run_clean_json
+from tests.test_review_selection import run_cli_unchecked
 
 VOLATILE_KEYS = {"generated_at", "expires_at", "timestamp", "started_at", "finished_at", "duration_ms"}
 
@@ -84,6 +85,56 @@ def test_replayed_dry_run_token_changes_when_plan_content_changes() -> None:
     assert token2
     assert token1 != token2
     assert sha1 != sha2
+
+
+def test_ai_originated_execute_refuses_drifted_plan() -> None:
+    with cleanmac_test_env():
+        tmp, root, home = make_sandbox()
+        with tmp:
+            plan_file = root / "ai-plan.json"
+            operation_log = root / "operations.jsonl"
+            plan = run_clean_json(root, home, "plan", "--categories", "downloads", "--ai-origin")
+            plan_file.write_text(json.dumps(plan), encoding="utf-8")
+            dry_run = run_clean_json(
+                root,
+                home,
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--require-plan-context",
+                "--delete-mode",
+                "trash",
+            )
+            token = cast(dict[str, Any], dry_run["ai_confirmation_summary"])["confirmation_token"]
+
+            drifted = root / "Users/tester/Downloads/download.bin"
+            drifted.write_text("download-drifted", encoding="utf-8")
+
+            execute = run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--require-plan-context",
+                "--delete-mode",
+                "trash",
+                "--execute",
+                "--yes",
+                "--operation-log",
+                str(operation_log),
+                "--require-confirmation-token",
+                "--confirmation-token",
+                str(token),
+            )
+
+            assert execute.returncode != 0
+            assert json.loads(execute.stderr)["error"]["code"] == "PLAN_STALE_OR_DRIFTED"
+            assert drifted.exists()
 
 
 def test_ai_confirmation_token_changes_across_execution_boundaries() -> None:
