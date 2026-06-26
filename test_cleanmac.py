@@ -123,6 +123,164 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Library/Logs/DiagnosticReports").mkdir(parents=True)
         (root / "private/var/db/oah/runtime-cache").mkdir(parents=True)
         (root / "private/var/db/DetachedSignatures/signature-cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.spotify.client").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Spotify/PersistentCache/mercury.db").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Spotify/Users/spotify-user").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/ru.keepcoder.Telegram").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/org.telegram.desktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Telegram Desktop/tdata/user_data/cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.tencent.xinWeChat/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.tencent.xinWeChat").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.tencent.xinWeChat/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/net.whatsapp.WhatsApp").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/WhatsApp/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Signal/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Signal/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Signal/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/org.whispersystems.signal-desktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Signal/sql").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Figma/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Figma/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Figma/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Figma/Service Worker/CacheStorage/cache-a").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Caches/com.figma.Desktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.Word/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.Excel/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.Outlook/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.microsoft.office").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.Word/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Library/Caches/Metadata").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/obsidian/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/obsidian/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/obsidian/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/obsidian/Service Worker/CacheStorage/cache-a").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Caches/md.obsidian").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Sublime Text/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Sublime Text 4/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.sublimetext.4").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Sublime Text/Packages/User").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Sublime Text/Local").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/GPUCache").mkdir(parents=True)
+        (
+            root
+            / "Users/tester/Library/Application Support/com.operasoftware.Opera/Service Worker/CacheStorage/cache-a"
+        ).mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.operasoftware.Opera").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.dropbox.Dropbox").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Dropbox/Cache").mkdir(parents=True)
+        (root / "Users/tester/Dropbox").mkdir(parents=True)
+        (root / "Users/tester/.dropbox").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Linear/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Linear/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Linear/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Linear/Service Worker/CacheStorage/cache-a").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Caches/com.linear.macOS").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.bohemiancoding.sketch3").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.bohemiancoding.sketch3/Plugins").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.bohemiancoding.sketch3/Libraries").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Zeplin/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Zeplin/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Zeplin/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/io.zeplin.osx").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/org.videolan.vlc").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/org.videolan.vlc").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/fr.handbrake.HandBrake").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/HandBrake").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.apple.Music").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Music").mkdir(parents=True)
+        (root / "Users/tester/Music/Music Library.musiclibrary").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.apple.podcasts").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.apple.podcasts/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.apple.podcasts/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Reddit/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Reddit/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Reddit/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.reddit.Reddit").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.google.GoogleDrive").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Google/DriveFS").mkdir(parents=True)
+        (root / "Users/tester/Library/CloudStorage/GoogleDrive-user@gmail.com/My Drive").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.microsoft.OneDrive").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.microsoft.OneDrive-mac/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/OneDrive - Personal").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Todoist/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Todoist/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Todoist/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.todoist.mac.Todoist").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.culturedcode.ThingsMac/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.culturedcode.ThingsMac/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.culturedcode.ThingsMac").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.googlecode.iterm2").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/iTerm2/DynamicProfiles").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/iTerm2/Scripts").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.tencent.qq/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.tencent.qq").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/QQ/caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.tencent.qq/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.alibaba.DingTalkMac").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/DingTalk/cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.alibaba.DingTalkMac/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.alibaba.DingTalkMac/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.bytedance.lark").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.bytedance.feishu").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Lark/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Lark/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Lark/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Lark/Local Storage").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.evernote.Evernote").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.evernote.Evernote/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Evernote/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.evernote.Evernote/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.youdao.YoudaoNote").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.youdao.YoudaoNote/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.youdao.YoudaoNote/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/dev.warp.Warp-Stable").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/.warp").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.tinyapp.TablePlus").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/Connections").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/org.mozilla.torproject.torbrowser").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/profile.default").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/mega.mac").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/MEGA/Cache").mkdir(parents=True)
+        (root / "Users/tester/MEGA").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.sync.desktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Sync/Cache").mkdir(parents=True)
+        (root / "Users/tester/Sync").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.cisco.webex.meetings").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Cisco/Webex/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/WebEx Folder/Recording").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/blenderfoundation/blender").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Blender/4.0/config").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Blender/4.0/scripts").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.seriflabs.affinityphoto").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.seriflabs.affinitydesigner").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.seriflabs.affinitypublisher").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Affinity Photo").mkdir(parents=True)
+        (root / "Users/tester/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.runningwithcrayons.Alfred").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.runningwithcrayons.Alfred-Preferences").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Alfred/workflows").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/notion-calendar").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Notion Calendar/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Notion Calendar/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Notion Calendar/GPUCache").mkdir(parents=True)
 
         (root / "Users/tester/.Trash/old.tmp").write_text("trash")
         (root / "Users/tester/Downloads/download.bin").write_text("download")
@@ -264,6 +422,301 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/.gradle/gradle.properties").write_text("signingPassword=secret")
         (root / "Users/tester/.cargo/credentials").write_text("token = secret")
         (root / "Users/tester/.cocoapods/config.yaml").write_text("trunk_token: secret")
+        (root / "Users/tester/Library/Caches/com.spotify.client/cache.bin").write_text("spotify-cache")
+        (root / "Users/tester/Library/Application Support/Spotify/PersistentCache/mercury.db/cache.bin").write_text(
+            "spotify-persistent"
+        )
+        (root / "Users/tester/Library/Application Support/Spotify/prefs").write_text("spotify-prefs")
+        (root / "Users/tester/Library/Caches/ru.keepcoder.Telegram/cache.bin").write_text("telegram-cache")
+        (root / "Users/tester/Library/Caches/org.telegram.desktop/cache.bin").write_text("telegram-desktop-cache")
+        (root / "Users/tester/Library/Application Support/Telegram Desktop/tdata/user_data/cache/cache.bin").write_text(
+            "telegram-user-cache"
+        )
+        (root / "Users/tester/Library/Containers/com.tencent.xinWeChat/Data/Library/Caches/cache.bin").write_text(
+            "wechat-cache"
+        )
+        (root / "Users/tester/Library/Caches/com.tencent.xinWeChat/cache.bin").write_text("wechat-cache-2")
+        (root / "Users/tester/Library/Containers/com.tencent.xinWeChat/Data/Documents/msg.db").write_text("wechat-msg")
+        (root / "Users/tester/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/cache.bin").write_text(
+            "whatsapp-cache"
+        )
+        (root / "Users/tester/Library/Caches/net.whatsapp.WhatsApp/cache.bin").write_text("whatsapp-cache-2")
+        (root / "Users/tester/Library/Application Support/WhatsApp/Cache/cache.bin").write_text("whatsapp-cache-3")
+        (root / "Users/tester/Library/Application Support/WhatsApp/ChatStorage.sqlite").write_text("whatsapp-chat")
+        (root / "Users/tester/Library/Application Support/Signal/Cache/cache.bin").write_text("signal-cache")
+        (root / "Users/tester/Library/Application Support/Signal/Code Cache/cache.bin").write_text("signal-code-cache")
+        (root / "Users/tester/Library/Application Support/Signal/GPUCache/cache.bin").write_text("signal-gpu-cache")
+        (root / "Users/tester/Library/Caches/org.whispersystems.signal-desktop/cache.bin").write_text(
+            "signal-desktop-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Signal/config.json").write_text("signal-config")
+        (root / "Users/tester/Library/Application Support/Signal/sql/db.sqlite").write_text("signal-db")
+        (root / "Users/tester/Library/Application Support/Figma/Cache/cache.bin").write_text("figma-cache")
+        (root / "Users/tester/Library/Application Support/Figma/Code Cache/cache.bin").write_text("figma-code-cache")
+        (root / "Users/tester/Library/Application Support/Figma/GPUCache/cache.bin").write_text("figma-gpu-cache")
+        (
+            root / "Users/tester/Library/Application Support/Figma/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("figma-service-worker-cache")
+        (root / "Users/tester/Library/Caches/com.figma.Desktop/cache.bin").write_text("figma-desktop-cache")
+        (root / "Users/tester/Library/Application Support/Figma/Preferences").write_text("figma-prefs")
+        (root / "Users/tester/Library/Containers/com.microsoft.Word/Data/Library/Caches/cache.bin").write_text(
+            "word-cache"
+        )
+        (root / "Users/tester/Library/Containers/com.microsoft.Excel/Data/Library/Caches/cache.bin").write_text(
+            "excel-cache"
+        )
+        (root / "Users/tester/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches/cache.bin").write_text(
+            "powerpoint-cache"
+        )
+        (root / "Users/tester/Library/Containers/com.microsoft.Outlook/Data/Library/Caches/cache.bin").write_text(
+            "outlook-cache"
+        )
+        (root / "Users/tester/Library/Caches/com.microsoft.office/cache.bin").write_text("office-cache")
+        (root / "Users/tester/Library/Containers/com.microsoft.Word/Data/Documents/report.docx").write_text("word-doc")
+        (root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Library/Caches/cache.bin").write_text(
+            "onenote-cache"
+        )
+        (
+            root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Library/Caches/Metadata/meta.bin"
+        ).write_text("onenote-meta")
+        (root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Documents/notebook.one").write_text(
+            "onenote-data"
+        )
+        (root / "Users/tester/Library/Application Support/obsidian/Cache/cache.bin").write_text("obsidian-cache")
+        (root / "Users/tester/Library/Application Support/obsidian/Code Cache/cache.bin").write_text(
+            "obsidian-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/obsidian/GPUCache/cache.bin").write_text("obsidian-gpu-cache")
+        (
+            root / "Users/tester/Library/Application Support/obsidian/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("obsidian-service-worker-cache")
+        (root / "Users/tester/Library/Caches/md.obsidian/cache.bin").write_text("obsidian-desktop-cache")
+        (root / "Users/tester/Library/Application Support/obsidian/obsidian.json").write_text("obsidian-config")
+        (root / "Users/tester/Library/Application Support/Sublime Text/Cache/cache.bin").write_text("sublime-cache")
+        (root / "Users/tester/Library/Application Support/Sublime Text 4/Cache/cache.bin").write_text("sublime4-cache")
+        (root / "Users/tester/Library/Caches/com.sublimetext.4/cache.bin").write_text("sublime4-cache-dir")
+        (
+            root / "Users/tester/Library/Application Support/Sublime Text/Packages/User/Preferences.sublime-settings"
+        ).write_text("sublime-prefs")
+        (root / "Users/tester/Library/Application Support/Sublime Text/Local/License.sublime_license").write_text(
+            "sublime-license"
+        )
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Cache/data_0").write_text(
+            "opera-cache"
+        )
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Code Cache/cache.bin").write_text(
+            "opera-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/GPUCache/cache.bin").write_text(
+            "opera-gpu-cache"
+        )
+        (
+            root
+            / "Users/tester/Library/Application Support/com.operasoftware.Opera/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("opera-service-worker-cache")
+        (root / "Users/tester/Library/Caches/com.operasoftware.Opera/cache.bin").write_text("opera-cache-dir")
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Bookmarks").write_text(
+            "opera-bookmarks"
+        )
+        (root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Login Data").write_text("opera-login")
+        (root / "Users/tester/Library/Caches/com.dropbox.Dropbox/cache.bin").write_text("dropbox-cache")
+        (root / "Users/tester/Library/Application Support/Dropbox/Cache/cache.bin").write_text("dropbox-cache-2")
+        (root / "Users/tester/Dropbox/important.docx").write_text("dropbox-user-file")
+        (root / "Users/tester/.dropbox/info.json").write_text("dropbox-info")
+        (root / "Users/tester/Library/Application Support/Linear/Cache/cache.bin").write_text("linear-cache")
+        (root / "Users/tester/Library/Application Support/Linear/Code Cache/cache.bin").write_text("linear-code-cache")
+        (root / "Users/tester/Library/Application Support/Linear/GPUCache/cache.bin").write_text("linear-gpu-cache")
+        (
+            root / "Users/tester/Library/Application Support/Linear/Service Worker/CacheStorage/cache-a/cache.bin"
+        ).write_text("linear-service-worker-cache")
+        (root / "Users/tester/Library/Caches/com.linear.macOS/cache.bin").write_text("linear-desktop-cache")
+        (root / "Users/tester/Library/Application Support/Linear/Preferences").write_text("linear-prefs")
+        (root / "Users/tester/Library/Caches/com.bohemiancoding.sketch3/cache.bin").write_text("sketch-cache")
+        (
+            root / "Users/tester/Library/Application Support/com.bohemiancoding.sketch3/Plugins/plugin.sketchplugin"
+        ).write_text("sketch-plugin")
+        (
+            root / "Users/tester/Library/Application Support/com.bohemiancoding.sketch3/Libraries/library.sketch"
+        ).write_text("sketch-library")
+        (root / "Users/tester/Library/Application Support/Zeplin/Cache/cache.bin").write_text("zeplin-cache")
+        (root / "Users/tester/Library/Application Support/Zeplin/Code Cache/cache.bin").write_text("zeplin-code-cache")
+        (root / "Users/tester/Library/Application Support/Zeplin/GPUCache/cache.bin").write_text("zeplin-gpu-cache")
+        (root / "Users/tester/Library/Caches/io.zeplin.osx/cache.bin").write_text("zeplin-desktop-cache")
+        (root / "Users/tester/Library/Application Support/Zeplin/Preferences").write_text("zeplin-prefs")
+        (root / "Users/tester/Library/Caches/org.videolan.vlc/cache.bin").write_text("vlc-cache")
+        (root / "Users/tester/Library/Application Support/org.videolan.vlc/vlcrc").write_text("vlc-config")
+        (root / "Users/tester/Library/Caches/fr.handbrake.HandBrake/cache.bin").write_text("handbrake-cache")
+        (root / "Users/tester/Library/Application Support/HandBrake/UserPresets.plist").write_text("handbrake-presets")
+        (root / "Users/tester/Library/Caches/com.apple.Music/cache.bin").write_text("applemusic-cache")
+        (root / "Users/tester/Library/Application Support/Music/iTunes Library.itl").write_text("applemusic-lib")
+        (root / "Users/tester/Music/Music Library.musiclibrary/Music Library.musiclibrary").write_text(
+            "applemusic-lib-data"
+        )
+        (root / "Users/tester/Library/Caches/com.apple.podcasts/cache.bin").write_text("podcasts-cache")
+        (root / "Users/tester/Library/Containers/com.apple.podcasts/Data/Library/Caches/cache.bin").write_text(
+            "podcasts-container-cache"
+        )
+        (root / "Users/tester/Library/Containers/com.apple.podcasts/Data/Documents/subscriptions.plist").write_text(
+            "podcasts-subs"
+        )
+        (root / "Users/tester/Library/Application Support/Reddit/Cache/cache.bin").write_text("reddit-cache")
+        (root / "Users/tester/Library/Application Support/Reddit/Code Cache/cache.bin").write_text("reddit-code-cache")
+        (root / "Users/tester/Library/Application Support/Reddit/GPUCache/cache.bin").write_text("reddit-gpu-cache")
+        (root / "Users/tester/Library/Caches/com.reddit.Reddit/cache.bin").write_text("reddit-desktop-cache")
+        (root / "Users/tester/Library/Application Support/Reddit/Preferences").write_text("reddit-prefs")
+        (root / "Users/tester/Library/Caches/com.google.GoogleDrive/cache.bin").write_text("googledrive-cache")
+        (root / "Users/tester/Library/Application Support/Google/DriveFS/settings.db").write_text(
+            "googledrive-settings"
+        )
+        (root / "Users/tester/Library/CloudStorage/GoogleDrive-user@gmail.com/My Drive/important.docx").write_text(
+            "googledrive-user-file"
+        )
+        (root / "Users/tester/Library/Caches/com.microsoft.OneDrive/cache.bin").write_text("onedrive-cache")
+        (root / "Users/tester/Library/Containers/com.microsoft.OneDrive-mac/Data/Library/Caches/cache.bin").write_text(
+            "onedrive-container-cache"
+        )
+        (root / "Users/tester/OneDrive - Personal/important.docx").write_text("onedrive-user-file")
+        (root / "Users/tester/Library/Application Support/Todoist/Cache/cache.bin").write_text("todoist-cache")
+        (root / "Users/tester/Library/Application Support/Todoist/Code Cache/cache.bin").write_text(
+            "todoist-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Todoist/GPUCache/cache.bin").write_text("todoist-gpu-cache")
+        (root / "Users/tester/Library/Caches/com.todoist.mac.Todoist/cache.bin").write_text("todoist-desktop-cache")
+        (root / "Users/tester/Library/Application Support/Todoist/Preferences").write_text("todoist-prefs")
+        (root / "Users/tester/Library/Containers/com.culturedcode.ThingsMac/Data/Library/Caches/cache.bin").write_text(
+            "things-cache"
+        )
+        (
+            root / "Users/tester/Library/Containers/com.culturedcode.ThingsMac/Data/Documents/things-data.sqlite"
+        ).write_text("things-data")
+        (root / "Users/tester/Library/Caches/com.culturedcode.ThingsMac/cache.bin").write_text("things-desktop-cache")
+        (root / "Users/tester/Library/Caches/com.googlecode.iterm2/cache.bin").write_text("iterm2-cache")
+        (root / "Users/tester/Library/Application Support/iTerm2/com.googlecode.iterm2.plist").write_text(
+            "iterm2-prefs"
+        )
+        (root / "Users/tester/Library/Application Support/iTerm2/DynamicProfiles/profiles.json").write_text(
+            "iterm2-profiles"
+        )
+        (root / "Users/tester/Library/Application Support/iTerm2/Scripts/script.py").write_text("iterm2-script")
+        (root / "Users/tester/Library/Containers/com.tencent.qq/Data/Library/Caches/cache.bin").write_text("qq-cache")
+        (root / "Users/tester/Library/Caches/com.tencent.qq/cache.bin").write_text("qq-cache-2")
+        (root / "Users/tester/Library/Application Support/QQ/caches/cache.bin").write_text("qq-cache-3")
+        (root / "Users/tester/Library/Containers/com.tencent.qq/Data/Documents/msg.db").write_text("qq-msg")
+        (root / "Users/tester/Library/Caches/com.alibaba.DingTalkMac/cache.bin").write_text("dingtalk-cache")
+        (root / "Users/tester/Library/Application Support/DingTalk/cache/cache.bin").write_text("dingtalk-cache-2")
+        (root / "Users/tester/Library/Containers/com.alibaba.DingTalkMac/Data/Library/Caches/cache.bin").write_text(
+            "dingtalk-cache-3"
+        )
+        (root / "Users/tester/Library/Containers/com.alibaba.DingTalkMac/Data/Documents/file.doc").write_text(
+            "dingtalk-doc"
+        )
+        (root / "Users/tester/Library/Caches/com.bytedance.lark/cache.bin").write_text("feishu-cache")
+        (root / "Users/tester/Library/Caches/com.bytedance.feishu/cache.bin").write_text("feishu-cache-2")
+        (root / "Users/tester/Library/Application Support/Lark/Cache/cache.bin").write_text("lark-cache")
+        (root / "Users/tester/Library/Application Support/Lark/Code Cache/cache.bin").write_text("lark-code-cache")
+        (root / "Users/tester/Library/Application Support/Lark/GPUCache/cache.bin").write_text("lark-gpu-cache")
+        (root / "Users/tester/Library/Application Support/Lark/Local Storage/state.db").write_text("lark-local-storage")
+        (root / "Users/tester/Library/Application Support/Lark/Preferences").write_text("lark-prefs")
+        (root / "Users/tester/Library/Caches/com.evernote.Evernote/cache.bin").write_text("evernote-cache")
+        (root / "Users/tester/Library/Containers/com.evernote.Evernote/Data/Library/Caches/cache.bin").write_text(
+            "evernote-cache-2"
+        )
+        (root / "Users/tester/Library/Application Support/Evernote/Cache/cache.bin").write_text("evernote-cache-3")
+        (root / "Users/tester/Library/Containers/com.evernote.Evernote/Data/Documents/note.enex").write_text(
+            "evernote-data"
+        )
+        (root / "Users/tester/Library/Caches/com.youdao.YoudaoNote/cache.bin").write_text("youdao-cache")
+        (root / "Users/tester/Library/Containers/com.youdao.YoudaoNote/Data/Library/Caches/cache.bin").write_text(
+            "youdao-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.youdao.YoudaoNote/Data/Documents/note.ydb").write_text(
+            "youdao-data"
+        )
+        (root / "Users/tester/Library/Caches/dev.warp.Warp-Stable/cache.bin").write_text("warp-cache")
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/Cache/cache.bin").write_text(
+            "warp-cache-2"
+        )
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/Code Cache/cache.bin").write_text(
+            "warp-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/GPUCache/cache.bin").write_text(
+            "warp-gpu-cache"
+        )
+        (root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/settings.json").write_text(
+            "warp-settings"
+        )
+        (root / "Users/tester/.warp/config.yaml").write_text("warp-config")
+        (root / "Users/tester/Library/Caches/com.tinyapp.TablePlus/cache.bin").write_text("tableplus-cache")
+        (root / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/Cache/cache.bin").write_text(
+            "tableplus-cache-2"
+        )
+        (
+            root / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/Connections/connections.plist"
+        ).write_text("tableplus-connections")
+        (root / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/License").write_text(
+            "tableplus-license"
+        )
+        (root / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/Caches/cache.bin").write_text(
+            "tor-cache"
+        )
+        (root / "Users/tester/Library/Caches/org.mozilla.torproject.torbrowser/cache.bin").write_text("tor-cache-2")
+        (
+            root / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/profile.default/bookmarks.html"
+        ).write_text("tor-bookmarks")
+        (
+            root / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/profile.default/logins.json"
+        ).write_text("tor-logins")
+        (root / "Users/tester/Library/Caches/mega.mac/cache.bin").write_text("mega-cache")
+        (root / "Users/tester/Library/Application Support/MEGA/Cache/cache.bin").write_text("mega-cache-2")
+        (root / "Users/tester/MEGA/important.docx").write_text("mega-user-file")
+        (root / "Users/tester/Library/Application Support/MEGA/mega.cfg").write_text("mega-config")
+        (root / "Users/tester/Library/Caches/com.sync.desktop/cache.bin").write_text("sync-cache")
+        (root / "Users/tester/Library/Application Support/Sync/Cache/cache.bin").write_text("sync-cache-2")
+        (root / "Users/tester/Sync/important.docx").write_text("sync-user-file")
+        (root / "Users/tester/Library/Application Support/Sync/Sync Preferences").write_text("sync-prefs")
+        (root / "Users/tester/Library/Caches/com.cisco.webex.meetings/cache.bin").write_text("webex-cache")
+        (root / "Users/tester/Library/Application Support/Cisco/Webex/Cache/cache.bin").write_text("webex-cache-2")
+        (root / "Users/tester/Library/Application Support/WebEx Folder/Recording/meeting.mp4").write_text(
+            "webex-recording"
+        )
+        (root / "Users/tester/Library/Application Support/Cisco/Webex/Preferences").write_text("webex-prefs")
+        (root / "Users/tester/Library/Caches/blenderfoundation/blender/cache.bin").write_text("blender-cache")
+        (root / "Users/tester/Library/Application Support/Blender/4.0/config/userpref.blend").write_text(
+            "blender-prefs"
+        )
+        (root / "Users/tester/Library/Application Support/Blender/4.0/scripts/addon.py").write_text("blender-script")
+        (root / "Users/tester/Library/Caches/com.seriflabs.affinityphoto/cache.bin").write_text("affinity-photo-cache")
+        (root / "Users/tester/Library/Caches/com.seriflabs.affinitydesigner/cache.bin").write_text(
+            "affinity-designer-cache"
+        )
+        (root / "Users/tester/Library/Caches/com.seriflabs.affinitypublisher/cache.bin").write_text(
+            "affinity-publisher-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Affinity Photo/personas.dat").write_text(
+            "affinity-photo-data"
+        )
+        (root / "Users/tester/Documents/design.afphoto").write_text("affinity-photo-file")
+        (root / "Users/tester/Library/Caches/com.runningwithcrayons.Alfred/cache.bin").write_text("alfred-cache")
+        (root / "Users/tester/Library/Caches/com.runningwithcrayons.Alfred-Preferences/cache.bin").write_text(
+            "alfred-prefs-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Alfred/Alfred.alfredpreferences").write_text("alfred-prefs")
+        (root / "Users/tester/Library/Application Support/Alfred/workflows/workflow.alfredworkflow").write_text(
+            "alfred-workflow"
+        )
+        (root / "Users/tester/Library/Caches/notion-calendar/cache.bin").write_text("notion-calendar-cache")
+        (root / "Users/tester/Library/Application Support/Notion Calendar/Cache/cache.bin").write_text(
+            "notion-calendar-cache-2"
+        )
+        (root / "Users/tester/Library/Application Support/Notion Calendar/Code Cache/cache.bin").write_text(
+            "notion-calendar-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Notion Calendar/GPUCache/cache.bin").write_text(
+            "notion-calendar-gpu-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Notion Calendar/Preferences").write_text(
+            "notion-calendar-prefs"
+        )
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb").write_text(
             "windsurf-state"
@@ -1633,10 +2086,14 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertFalse(report["dry_run"])
             self.assertEqual(report["bundle_blocklist"], ["com.example"])
-            self.assertEqual(report["total_bytes"], 0)
-            self.assertEqual(report["skipped_summary"]["by_reason"]["bundle-blocklisted"], 1)
+            self.assertGreaterEqual(report["skipped_summary"]["by_reason"].get("bundle-blocklisted", 0), 1)
             self.assertTrue(
                 (root / "Users/tester/Library/Containers/com.example/Data/Library/Caches/cache.bin").exists()
+            )
+            blocklisted_paths = {row["path"] for row in report["skipped"] if row["reason"] == "bundle-blocklisted"}
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.example/Data/Library/Caches/cache.bin"),
+                blocklisted_paths,
             )
 
     def test_clean_bundle_allowlist_skips_non_allowlisted_application_candidates(self) -> None:
@@ -1658,7 +2115,14 @@ class CleanMacCLITests(unittest.TestCase):
 
             self.assertTrue(report["dry_run"])
             self.assertEqual(report["bundle_allowlist"], ["com.allowed"])
-            self.assertEqual(report["skipped_summary"]["by_reason"], {"bundle-not-allowlisted": 2})
+            self.assertGreaterEqual(report["skipped_summary"]["by_reason"].get("bundle-not-allowlisted", 0), 2)
+            not_allowlisted_paths = {
+                row["path"] for row in report["skipped"] if row["reason"] == "bundle-not-allowlisted"
+            }
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.example/Data/Library/Caches/cache.bin"),
+                not_allowlisted_paths,
+            )
 
     def test_container_cache_policy_preserves_protected_app_data(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -1895,6 +2359,546 @@ class CleanMacCLITests(unittest.TestCase):
             }
             for protected_root in protected_roots:
                 self.assertEqual(skipped_reasons[protected_root], "app-protected-data")
+
+    def test_app_cache_expansion_covers_music_messaging_creative_and_productivity_apps(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "200",
+                    "--categories",
+                    "spotify,telegram,wechat,whatsapp,signal,figma,microsoftOffice,"
+                    "onenote,obsidian,sublimeText,opera,dropbox",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.spotify.client/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/ru.keepcoder.Telegram/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/org.telegram.desktop/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.tencent.xinWeChat/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.tencent.xinWeChat/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/net.whatsapp.WhatsApp/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Signal/Cache/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/org.whispersystems.signal-desktop/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Figma/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.figma.Desktop/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.Word/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.Excel/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.Outlook/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Application Support/obsidian/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/md.obsidian/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.sublimetext.4/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Cache/data_0"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.dropbox.Dropbox/cache.bin"), paths)
+
+    def test_expanded_app_cache_rules_preserve_user_data_for_new_categories(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "200",
+                    "--categories",
+                    "spotify,telegram,wechat,whatsapp,signal,figma,microsoftOffice,"
+                    "onenote,obsidian,sublimeText,opera,dropbox",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Spotify/prefs"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.tencent.xinWeChat/Data/Documents/msg.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/WhatsApp/ChatStorage.sqlite"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Signal/config.json"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Signal/sql/db.sqlite"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Figma/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.Word/Data/Documents/report.docx"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.onenote.mac/Data/Documents/notebook.one"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/obsidian/obsidian.json"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/Sublime Text/Packages/User/Preferences.sublime-settings"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Sublime Text/Local/License.sublime_license"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Bookmarks"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/com.operasoftware.Opera/Login Data"),
+                candidate_paths,
+            )
+            self.assertNotIn(str(root / "Users/tester/Dropbox/important.docx"), candidate_paths)
+            self.assertNotIn(str(root / "Users/tester/.dropbox/info.json"), candidate_paths)
+
+    def test_round3_app_cache_expansion_covers_productivity_media_and_cloud_apps(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "300",
+                    "--categories",
+                    "linear,sketch,zeplin,vlc,handbrake,appleMusic,podcasts,reddit,"
+                    "googleDrive,onedrive,todoist,things,iterm2",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Linear/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.linear.macOS/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.bohemiancoding.sketch3/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Zeplin/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/io.zeplin.osx/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/org.videolan.vlc/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/fr.handbrake.HandBrake/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.apple.Music/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.apple.podcasts/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.apple.podcasts/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Reddit/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.reddit.Reddit/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.google.GoogleDrive/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.microsoft.OneDrive/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.microsoft.OneDrive-mac/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Todoist/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.todoist.mac.Todoist/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.culturedcode.ThingsMac/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.culturedcode.ThingsMac/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.googlecode.iterm2/cache.bin"), paths)
+
+    def test_round3_app_cache_rules_preserve_user_data_for_new_categories(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "300",
+                    "--categories",
+                    "linear,sketch,zeplin,vlc,handbrake,appleMusic,podcasts,reddit,"
+                    "googleDrive,onedrive,todoist,things,iterm2",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Linear/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/com.bohemiancoding.sketch3/Plugins/plugin.sketchplugin"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/com.bohemiancoding.sketch3/Libraries/library.sketch"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Zeplin/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/org.videolan.vlc/vlcrc"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/HandBrake/UserPresets.plist"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Music/iTunes Library.itl"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Music/Music Library.musiclibrary/Music Library.musiclibrary"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.apple.podcasts/Data/Documents/subscriptions.plist"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Reddit/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Google/DriveFS/settings.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/CloudStorage/GoogleDrive-user@gmail.com/My Drive/important.docx"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/OneDrive - Personal/important.docx"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Todoist/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Containers/com.culturedcode.ThingsMac/Data/Documents/things-data.sqlite"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/iTerm2/com.googlecode.iterm2.plist"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/iTerm2/DynamicProfiles/profiles.json"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/iTerm2/Scripts/script.py"),
+                candidate_paths,
+            )
+
+    def test_round4_app_cache_expansion_covers_messaging_notes_and_productivity_apps(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "400",
+                    "--categories",
+                    "qq,dingTalk,feishu,evernote,youdaoNote,warp,tablePlus,"
+                    "torBrowser,mega,sync,webex,blender,affinity,alfred,notionCalendar",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.tencent.qq/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.tencent.qq/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.alibaba.DingTalkMac/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.alibaba.DingTalkMac/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.bytedance.lark/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Lark/Cache/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.evernote.Evernote/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.evernote.Evernote/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.youdao.YoudaoNote/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.youdao.YoudaoNote/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/dev.warp.Warp-Stable/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.tinyapp.TablePlus/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/org.mozilla.torproject.torbrowser/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/mega.mac/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.sync.desktop/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.cisco.webex.meetings/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/blenderfoundation/blender/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.seriflabs.affinityphoto/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.seriflabs.affinitydesigner/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.seriflabs.affinitypublisher/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.runningwithcrayons.Alfred/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/notion-calendar/cache.bin"), paths)
+
+    def test_round4_app_cache_rules_preserve_user_data_for_new_categories(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "400",
+                    "--categories",
+                    "qq,dingTalk,feishu,evernote,youdaoNote,warp,tablePlus,"
+                    "torBrowser,mega,sync,webex,blender,affinity,alfred,notionCalendar",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.tencent.qq/Data/Documents/msg.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.alibaba.DingTalkMac/Data/Documents/file.doc"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Lark/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Lark/Local Storage/state.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.evernote.Evernote/Data/Documents/note.enex"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.youdao.YoudaoNote/Data/Documents/note.ydb"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/dev.warp.Warp-Stable/settings.json"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/.warp/config.yaml"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/Connections/connections.plist"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/com.tinyapp.TablePlus/License"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/profile.default/bookmarks.html"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root
+                    / "Users/tester/Library/Application Support/TorBrowser-Data/Browser/profile.default/logins.json"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/MEGA/important.docx"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/MEGA/mega.cfg"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Sync/important.docx"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Sync/Sync Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/WebEx Folder/Recording/meeting.mp4"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Cisco/Webex/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Blender/4.0/config/userpref.blend"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Blender/4.0/scripts/addon.py"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Documents/design.afphoto"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Affinity Photo/personas.dat"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Alfred/Alfred.alfredpreferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Alfred/workflows/workflow.alfredworkflow"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Notion Calendar/Preferences"),
+                candidate_paths,
+            )
 
     def test_software_uninstall_plan_routes_official_uninstallers(self) -> None:
         tmp, root, home = self.make_sandbox()
