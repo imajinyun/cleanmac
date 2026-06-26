@@ -769,4 +769,556 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/storage/*",
         ),
     },
+    "spotify": {
+        "title": "Spotify caches",
+        "paths": (
+            "~/Library/Caches/com.spotify.client/",
+            "~/Library/Application Support/Spotify/PersistentCache/",
+            "~/Library/Application Support/Spotify/Storage/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Spotify/prefs",
+            "*/Application Support/Spotify/Users/*",
+            "*/Application Support/Spotify/local-files.bnk",
+        ),
+    },
+    "telegram": {
+        "title": "Telegram caches",
+        "paths": (
+            "~/Library/Caches/ru.keepcoder.Telegram/",
+            "~/Library/Caches/org.telegram.desktop/",
+            "~/Library/Application Support/Telegram Desktop/tdata/user_data/cache/",
+        ),
+        "protected_patterns": (
+            "*/tdata/*",
+            "*/user_data/*",
+            "*/config/*",
+        ),
+    },
+    "wechat": {
+        "title": "WeChat caches",
+        "paths": (
+            "~/Library/Containers/com.tencent.xinWeChat/Data/Library/Caches/",
+            "~/Library/Caches/com.tencent.xinWeChat/",
+        ),
+        "protected_patterns": (
+            "*/WeChat Files/*/Msg/*",
+            "*/WeChat Files/*/Contacts/*",
+            "*/com.tencent.xinWeChat/Data/Documents/*",
+        ),
+    },
+    "whatsapp": {
+        "title": "WhatsApp caches",
+        "paths": (
+            "~/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/",
+            "~/Library/Caches/net.whatsapp.WhatsApp/",
+            "~/Library/Application Support/WhatsApp/Cache/",
+        ),
+        "protected_patterns": (
+            "*/ChatStorage.sqlite",
+            "*/Documents/*",
+        ),
+    },
+    "signal": {
+        "title": "Signal caches",
+        "paths": (
+            "~/Library/Application Support/Signal/Cache/",
+            "~/Library/Application Support/Signal/Code Cache/",
+            "~/Library/Application Support/Signal/GPUCache/",
+            "~/Library/Caches/org.whispersystems.signal-desktop/",
+        ),
+        "protected_patterns": (
+            "*/config.json",
+            "*/sql/db.sqlite",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Cookies*",
+        ),
+    },
+    "figma": {
+        "title": "Figma caches",
+        "paths": (
+            "~/Library/Application Support/Figma/Cache/",
+            "~/Library/Application Support/Figma/Code Cache/",
+            "~/Library/Application Support/Figma/GPUCache/",
+            "~/Library/Application Support/Figma/Service Worker/CacheStorage/",
+            "~/Library/Caches/com.figma.Desktop/",
+        ),
+        "protected_patterns": (
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Cookies*",
+            "*/Preferences",
+        ),
+    },
+    "microsoftOffice": {
+        "title": "Microsoft Office caches",
+        "paths": (
+            "~/Library/Containers/com.microsoft.Word/Data/Library/Caches/",
+            "~/Library/Containers/com.microsoft.Excel/Data/Library/Caches/",
+            "~/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches/",
+            "~/Library/Containers/com.microsoft.Outlook/Data/Library/Caches/",
+            "~/Library/Caches/com.microsoft.office/",
+            "~/Library/Caches/com.microsoft.Office/Microsoft Office Upload Center/",
+        ),
+        "protected_patterns": (
+            "*/Data/Documents/*",
+            "*/Data/Library/Preferences/*",
+            "*/Group Containers/UBF8T346G9.Office/*",
+        ),
+    },
+    "onenote": {
+        "title": "Microsoft OneNote caches",
+        "paths": (
+            "~/Library/Containers/com.microsoft.onenote.mac/Data/Library/Caches/",
+            "~/Library/Containers/com.microsoft.onenote.mac/Data/Library/Caches/Metadata/",
+        ),
+        "protected_patterns": (
+            "*/Data/Documents/*",
+            "*/Data/Library/Application Support/*",
+        ),
+    },
+    "obsidian": {
+        "title": "Obsidian caches",
+        "paths": (
+            "~/Library/Application Support/obsidian/Cache/",
+            "~/Library/Application Support/obsidian/Code Cache/",
+            "~/Library/Application Support/obsidian/GPUCache/",
+            "~/Library/Application Support/obsidian/Service Worker/CacheStorage/",
+            "~/Library/Caches/md.obsidian/",
+        ),
+        "protected_patterns": (
+            "*/obsidian.json",
+            "*/obsidian-vault.json",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Cookies*",
+            "*/Preferences",
+        ),
+    },
+    "sublimeText": {
+        "title": "Sublime Text caches",
+        "paths": (
+            "~/Library/Caches/com.sublimetext.4/",
+            "~/Library/Caches/com.sublimetext.3/",
+            "~/Library/Caches/com.sublimetext.2/",
+            "~/Library/Application Support/Sublime Text/Cache/",
+            "~/Library/Application Support/Sublime Text 3/Cache/",
+            "~/Library/Application Support/Sublime Text 4/Cache/",
+        ),
+        "protected_patterns": (
+            "*/Packages/User/*",
+            "*/Local/License.sublime_license",
+            "*/Local/Session.sublime_session",
+            "*/Installed Packages/*",
+        ),
+    },
+    "opera": {
+        "title": "Opera browser caches",
+        "paths": (
+            "~/Library/Application Support/com.operasoftware.Opera/Cache/",
+            "~/Library/Application Support/com.operasoftware.Opera/Code Cache/",
+            "~/Library/Application Support/com.operasoftware.Opera/GPUCache/",
+            "~/Library/Application Support/com.operasoftware.Opera/Service Worker/CacheStorage/",
+            "~/Library/Caches/com.operasoftware.Opera/",
+        ),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/Preferences",
+            "*/Local State",
+            "*/Extensions/*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+        ),
+    },
+    "dropbox": {
+        "title": "Dropbox caches",
+        "paths": (
+            "~/Library/Caches/com.dropbox.Dropbox/",
+            "~/Library/Application Support/Dropbox/Cache/",
+        ),
+        "protected_patterns": (
+            "~/Dropbox/*",
+            "*/.dropbox/*",
+            "*/Application Support/Dropbox/info.json",
+            "*/Application Support/Dropbox/config.dbx",
+        ),
+    },
+    "linear": {
+        "title": "Linear caches",
+        "paths": (
+            "~/Library/Application Support/Linear/Cache/",
+            "~/Library/Application Support/Linear/Code Cache/",
+            "~/Library/Application Support/Linear/GPUCache/",
+            "~/Library/Application Support/Linear/Service Worker/CacheStorage/",
+            "~/Library/Caches/com.linear.macOS/",
+        ),
+        "protected_patterns": (
+            "*/Cookies*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Preferences",
+        ),
+    },
+    "sketch": {
+        "title": "Sketch caches",
+        "paths": (
+            "~/Library/Caches/com.bohemiancoding.sketch3/",
+            "~/Library/Application Support/com.bohemiancoding.sketch3/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/com.bohemiancoding.sketch3/Plugins/*",
+            "*/Application Support/com.bohemiancoding.sketch3/Libraries/*",
+            "*/Application Support/com.bohemiancoding.sketch3/*.license",
+        ),
+    },
+    "zeplin": {
+        "title": "Zeplin caches",
+        "paths": (
+            "~/Library/Application Support/Zeplin/Cache/",
+            "~/Library/Application Support/Zeplin/Code Cache/",
+            "~/Library/Application Support/Zeplin/GPUCache/",
+            "~/Library/Caches/io.zeplin.osx/",
+        ),
+        "protected_patterns": (
+            "*/Cookies*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Preferences",
+        ),
+    },
+    "vlc": {
+        "title": "VLC media player caches",
+        "paths": (
+            "~/Library/Caches/org.videolan.vlc/",
+            "~/Library/Application Support/org.videolan.vlc/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/org.videolan.vlc/vlcrc",
+            "*/Application Support/org.videolan.vlc/bookmarks.*",
+            "*/Application Support/org.videolan.vlc/playlists/*",
+        ),
+    },
+    "handbrake": {
+        "title": "HandBrake caches",
+        "paths": (
+            "~/Library/Caches/fr.handbrake.HandBrake/",
+            "~/Library/Application Support/HandBrake/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/HandBrake/UserPresets.plist",
+            "*/Application Support/HandBrake/Queue.plist",
+            "*/Application Support/HandBrake/*.plist",
+        ),
+    },
+    "appleMusic": {
+        "title": "Apple Music caches",
+        "paths": (
+            "~/Library/Caches/com.apple.Music/",
+            "~/Library/Application Support/Music/",
+        ),
+        "protected_patterns": (
+            "~/Music/Music Library.musiclibrary/*",
+            "~/Music/Music/*",
+            "*/Application Support/Music/*.itl",
+            "*/Application Support/Music/Media/*",
+        ),
+    },
+    "podcasts": {
+        "title": "Podcasts app caches",
+        "paths": (
+            "~/Library/Caches/com.apple.podcasts/",
+            "~/Library/Containers/com.apple.podcasts/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.apple.podcasts/Data/Documents/*",
+            "*/Containers/com.apple.podcasts/Data/Library/Preferences/*",
+        ),
+    },
+    "reddit": {
+        "title": "Reddit caches",
+        "paths": (
+            "~/Library/Application Support/Reddit/Cache/",
+            "~/Library/Application Support/Reddit/Code Cache/",
+            "~/Library/Application Support/Reddit/GPUCache/",
+            "~/Library/Caches/com.reddit.Reddit/",
+        ),
+        "protected_patterns": (
+            "*/Cookies*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Preferences",
+        ),
+    },
+    "googleDrive": {
+        "title": "Google Drive caches",
+        "paths": (
+            "~/Library/Caches/com.google.GoogleDrive/",
+            "~/Library/Application Support/Google/DriveFS/",
+        ),
+        "protected_patterns": (
+            "~/Google Drive/*",
+            "~/Library/CloudStorage/GoogleDrive*/*",
+            "*/Application Support/Google/DriveFS/*.db",
+            "*/Application Support/Google/DriveFS/settings*",
+        ),
+    },
+    "onedrive": {
+        "title": "OneDrive caches",
+        "paths": (
+            "~/Library/Caches/com.microsoft.OneDrive/",
+            "~/Library/Containers/com.microsoft.OneDrive-mac/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "~/OneDrive - *",
+            "~/OneDrive/*",
+            "*/Containers/com.microsoft.OneDrive-mac/Data/Library/Preferences/*",
+        ),
+    },
+    "todoist": {
+        "title": "Todoist caches",
+        "paths": (
+            "~/Library/Application Support/Todoist/Cache/",
+            "~/Library/Application Support/Todoist/Code Cache/",
+            "~/Library/Application Support/Todoist/GPUCache/",
+            "~/Library/Caches/com.todoist.mac.Todoist/",
+        ),
+        "protected_patterns": (
+            "*/Cookies*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+            "*/Preferences",
+        ),
+    },
+    "things": {
+        "title": "Things 3 caches",
+        "paths": (
+            "~/Library/Containers/com.culturedcode.ThingsMac/Data/Library/Caches/",
+            "~/Library/Caches/com.culturedcode.ThingsMac/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.culturedcode.ThingsMac/Data/Documents/*",
+            "*/Containers/com.culturedcode.ThingsMac/Data/Library/Application Support/*",
+            "*/Containers/com.culturedcode.ThingsMac/Data/Library/Preferences/*",
+        ),
+    },
+    "iterm2": {
+        "title": "iTerm2 caches",
+        "paths": (
+            "~/Library/Caches/com.googlecode.iterm2/",
+            "~/Library/Application Support/iTerm2/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/iTerm2/com.googlecode.iterm2.plist",
+            "*/Application Support/iTerm2/DynamicProfiles/*",
+            "*/Application Support/iTerm2/Scripts/*",
+            "*/Application Support/iTerm2/Sources/*",
+        ),
+    },
+    "qq": {
+        "title": "QQ caches",
+        "paths": (
+            "~/Library/Containers/com.tencent.qq/Data/Library/Caches/",
+            "~/Library/Caches/com.tencent.qq/",
+            "~/Library/Application Support/QQ/caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.tencent.qq/Data/Documents/*",
+            "*/Containers/com.tencent.qq/Data/Library/Preferences/*",
+            "*/Application Support/QQ/Users/*/Msg/*",
+        ),
+    },
+    "dingTalk": {
+        "title": "DingTalk caches",
+        "paths": (
+            "~/Library/Caches/com.alibaba.DingTalkMac/",
+            "~/Library/Application Support/DingTalk/cache/",
+            "~/Library/Containers/com.alibaba.DingTalkMac/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/DingTalk/users/*",
+            "*/Containers/com.alibaba.DingTalkMac/Data/Documents/*",
+            "*/Containers/com.alibaba.DingTalkMac/Data/Library/Preferences/*",
+        ),
+    },
+    "feishu": {
+        "title": "Feishu caches",
+        "paths": (
+            "~/Library/Caches/com.bytedance.lark/",
+            "~/Library/Caches/com.bytedance.feishu/",
+            "~/Library/Application Support/Lark/Cache/",
+            "~/Library/Application Support/Lark/Code Cache/",
+            "~/Library/Application Support/Lark/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Lark/Local Storage/*",
+            "*/Application Support/Lark/IndexedDB/*",
+            "*/Application Support/Lark/Cookies*",
+            "*/Application Support/Lark/Preferences",
+            "*/Application Support/Lark/user_data/*",
+        ),
+    },
+    "evernote": {
+        "title": "Evernote caches",
+        "paths": (
+            "~/Library/Caches/com.evernote.Evernote/",
+            "~/Library/Containers/com.evernote.Evernote/Data/Library/Caches/",
+            "~/Library/Application Support/Evernote/Cache/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.evernote.Evernote/Data/Library/Application Support/*",
+            "*/Containers/com.evernote.Evernote/Data/Documents/*",
+            "*/Application Support/Evernote/Accounts/*",
+        ),
+    },
+    "youdaoNote": {
+        "title": "Youdao Note caches",
+        "paths": (
+            "~/Library/Caches/com.youdao.YoudaoNote/",
+            "~/Library/Containers/com.youdao.YoudaoNote/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.youdao.YoudaoNote/Data/Documents/*",
+            "*/Containers/com.youdao.YoudaoNote/Data/Library/Application Support/*",
+            "*/Containers/com.youdao.YoudaoNote/Data/Library/Preferences/*",
+        ),
+    },
+    "warp": {
+        "title": "Warp caches",
+        "paths": (
+            "~/Library/Caches/dev.warp.Warp-Stable/",
+            "~/Library/Application Support/dev.warp.Warp-Stable/Cache/",
+            "~/Library/Application Support/dev.warp.Warp-Stable/Code Cache/",
+            "~/Library/Application Support/dev.warp.Warp-Stable/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/dev.warp.Warp-Stable/settings.json",
+            "*/Application Support/dev.warp.Warp-Stable/Preferences",
+            "*/Application Support/dev.warp.Warp-Stable/Local Storage/*",
+            "*/Application Support/dev.warp.Warp-Stable/IndexedDB/*",
+            "*/.warp/*",
+        ),
+    },
+    "tablePlus": {
+        "title": "TablePlus caches",
+        "paths": (
+            "~/Library/Caches/com.tinyapp.TablePlus/",
+            "~/Library/Application Support/com.tinyapp.TablePlus/Cache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/com.tinyapp.TablePlus/Connections/*",
+            "*/Application Support/com.tinyapp.TablePlus/*.plist",
+            "*/Application Support/com.tinyapp.TablePlus/License",
+        ),
+    },
+    "torBrowser": {
+        "title": "Tor Browser caches",
+        "paths": (
+            "~/Library/Application Support/TorBrowser-Data/Browser/Caches/",
+            "~/Library/Caches/org.mozilla.torproject.torbrowser/",
+        ),
+        "protected_patterns": (
+            "*/TorBrowser-Data/Browser/profile.default/bookmarks.*",
+            "*/TorBrowser-Data/Browser/profile.default/logins.json",
+            "*/TorBrowser-Data/Browser/profile.default/prefs.js",
+            "*/TorBrowser-Data/Browser/profile.default/extensions/*",
+        ),
+    },
+    "mega": {
+        "title": "MEGA caches",
+        "paths": (
+            "~/Library/Caches/mega.mac/",
+            "~/Library/Application Support/MEGA/Cache/",
+        ),
+        "protected_patterns": (
+            "~/MEGA/*",
+            "*/Application Support/MEGA/mega.cfg",
+            "*/Application Support/MEGA/mega_encrypted_cfg.bin",
+        ),
+    },
+    "sync": {
+        "title": "Sync.com caches",
+        "paths": (
+            "~/Library/Caches/com.sync.desktop/",
+            "~/Library/Application Support/Sync/Cache/",
+        ),
+        "protected_patterns": (
+            "~/Sync/*",
+            "*/Application Support/Sync/Sync Preferences",
+            "*/Application Support/Sync/config*",
+        ),
+    },
+    "webex": {
+        "title": "Webex caches",
+        "paths": (
+            "~/Library/Caches/com.cisco.webex.meetings/",
+            "~/Library/Application Support/Cisco/Webex/Cache/",
+            "~/Library/Application Support/WebEx Folder/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Cisco/Webex/Preferences",
+            "*/Application Support/WebEx Folder/Recording/*",
+            "*/Application Support/WebEx Folder/Meeting Data/*",
+        ),
+    },
+    "blender": {
+        "title": "Blender caches",
+        "paths": (
+            "~/Library/Caches/blenderfoundation/blender/",
+            "~/Library/Application Support/Blender/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Blender/*/config/*",
+            "*/Application Support/Blender/*/scripts/*",
+            "*/Application Support/Blender/*/datafiles/*",
+            "*.blend",
+        ),
+    },
+    "affinity": {
+        "title": "Affinity caches",
+        "paths": (
+            "~/Library/Caches/com.seriflabs.affinityphoto/",
+            "~/Library/Caches/com.seriflabs.affinitydesigner/",
+            "~/Library/Caches/com.seriflabs.affinitypublisher/",
+        ),
+        "protected_patterns": (
+            "~/Library/Application Support/Affinity Photo/*",
+            "~/Library/Application Support/Affinity Designer/*",
+            "~/Library/Application Support/Affinity Publisher/*",
+            "*.afphoto",
+            "*.afdesign",
+            "*.afpub",
+        ),
+    },
+    "alfred": {
+        "title": "Alfred caches",
+        "paths": (
+            "~/Library/Caches/com.runningwithcrayons.Alfred/",
+            "~/Library/Caches/com.runningwithcrayons.Alfred-Preferences/",
+        ),
+        "protected_patterns": (
+            "~/Library/Application Support/Alfred/*",
+            "*/Application Support/Alfred/Alfred.alfredpreferences/*",
+            "*/Application Support/Alfred/settings.json",
+            "*/Application Support/Alfred/workflows/*",
+        ),
+    },
+    "notionCalendar": {
+        "title": "Notion Calendar caches",
+        "paths": (
+            "~/Library/Caches/notion-calendar/",
+            "~/Library/Application Support/Notion Calendar/Cache/",
+            "~/Library/Application Support/Notion Calendar/Code Cache/",
+            "~/Library/Application Support/Notion Calendar/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Notion Calendar/Local Storage/*",
+            "*/Application Support/Notion Calendar/IndexedDB/*",
+            "*/Application Support/Notion Calendar/Cookies*",
+            "*/Application Support/Notion Calendar/Preferences",
+        ),
+    },
 }
