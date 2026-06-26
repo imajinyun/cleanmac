@@ -732,6 +732,31 @@ def test_clean_execute_fail_fast_stops_on_item_failure() -> None:
         assert (root / "Users/tester/Downloads/download.bin").exists()
 
 
+def test_clean_execute_protected_path_failure_is_fail_closed() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        (root / "Users/tester/Downloads/partial.crdownload").write_text("partial", encoding="utf-8")
+
+        def protected_delete(path: Path, **kwargs: Any) -> Path | None:
+            raise RuntimeError(f"Refusing to delete protected path: {path}")
+
+        with mock.patch.object(cleancli, "delete_path", side_effect=protected_delete):
+            with pytest.raises(RuntimeError, match="Refusing to delete protected path"):
+                cleancli.clean(
+                    [cleancli.CATEGORY_BY_KEY["downloads"]],
+                    root=root,
+                    home=home,
+                    execute=True,
+                    risk_policy="default",
+                    delete_mode="trash",
+                    fail_fast=False,
+                    operation_log=str(root / "logs" / "operations.jsonl"),
+                )
+
+        assert (root / "Users/tester/Downloads/download.bin").exists()
+        assert (root / "Users/tester/Downloads/partial.crdownload").exists()
+
+
 def test_clean_safety_gate_exposes_single_fail_fast_flag() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
