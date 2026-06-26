@@ -1321,4 +1321,203 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Application Support/Notion Calendar/Preferences",
         ),
     },
+    "hopper": {
+        "title": "Hopper Disassembler caches",
+        "paths": (
+            "~/Library/Caches/com.cryptic-apps.hopper-web-4/",
+            "~/Library/Application Support/Hopper/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Hopper/Licenses/*",
+            "*/Application Support/Hopper/*.license",
+            "*.hopper",
+        ),
+    },
+    "charles": {
+        "title": "Charles Proxy caches",
+        "paths": (
+            "~/Library/Caches/com.xk72.charles/",
+            "~/Library/Application Support/Charles/cache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Charles/charles.config",
+            "*/Application Support/Charles/ca.crt",
+            "*/Application Support/Charles/ca.key",
+            "*/Application Support/Charles/Licenses/*",
+        ),
+    },
+    "proxyman": {
+        "title": "Proxyman caches",
+        "paths": (
+            "~/Library/Caches/com.namndev.proxyman.mac/",
+            "~/Library/Containers/com.namndev.proxyman.mac/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.namndev.proxyman.mac/Data/Documents/*",
+            "*/Containers/com.namndev.proxyman.mac/Data/Library/Preferences/*",
+            "*/Application Support/Proxyman/Licenses/*",
+            "*.proxyman",
+        ),
+    },
+    "parallels": {
+        "title": "Parallels Desktop caches",
+        "paths": (
+            "~/Library/Caches/com.parallels.desktop.console/",
+            "~/Library/Application Support/Parallels/Cache/",
+            "/Library/Caches/Parallels/",
+        ),
+        "protected_patterns": (
+            "*.pvm",
+            "*.hdd",
+            "*/Parallels/*.pvm",
+            "~/Parallels/*",
+            "*/Application Support/Parallels/licenses.*",
+            "*/Application Support/Parallels/settings/*",
+        ),
+    },
+    "vmwareFusion": {
+        "title": "VMware Fusion caches",
+        "paths": (
+            "~/Library/Caches/com.vmware.fusion/",
+            "~/Library/Application Support/VMware Fusion/",
+        ),
+        "protected_patterns": (
+            "*.vmwarevm",
+            "*.vmdk",
+            "~/Virtual Machines.localized/*",
+            "*/Application Support/VMware Fusion/License*",
+            "*/Application Support/VMware Fusion/preferences",
+        ),
+    },
+    "canva": {
+        "title": "Canva caches",
+        "paths": (
+            "~/Library/Caches/com.canva.CanvaDesktop/",
+            "~/Library/Application Support/Canva/Cache/",
+            "~/Library/Application Support/Canva/Code Cache/",
+            "~/Library/Application Support/Canva/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Canva/Local Storage/*",
+            "*/Application Support/Canva/IndexedDB/*",
+            "*/Application Support/Canva/Cookies*",
+            "*/Application Support/Canva/Preferences",
+        ),
+    },
+    "principle": {
+        "title": "Principle caches",
+        "paths": (
+            "~/Library/Caches/com.danielhooper.principle/",
+            "~/Library/Application Support/Principle/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Principle/License*",
+            "*.principle",
+        ),
+    },
+    "framer": {
+        "title": "Framer caches",
+        "paths": (
+            "~/Library/Caches/com.framer.desktop/",
+            "~/Library/Application Support/Framer/Cache/",
+            "~/Library/Application Support/Framer/Code Cache/",
+            "~/Library/Application Support/Framer/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Framer/Local Storage/*",
+            "*/Application Support/Framer/IndexedDB/*",
+            "*/Application Support/Framer/Cookies*",
+            "*/Application Support/Framer/Preferences",
+            "*/Application Support/Framer/projects/*",
+        ),
+    },
+    "imovie": {
+        "title": "iMovie caches",
+        "paths": (
+            "~/Library/Caches/com.apple.iMovieApp/",
+            "~/Library/Containers/com.apple.iMovieApp/Data/Library/Caches/",
+            "~/Library/Application Support/iMovie/Render Files/",
+            "~/Movies/iMovie Library.imovielibrary/Render Files/",
+        ),
+        "protected_patterns": (
+            "*.imovielibrary/*",
+            "~//Movies/iMovie Library.imovielibrary/*",
+            "*/Containers/com.apple.iMovieApp/Data/Documents/*",
+            "~/Movies/*.mp4",
+            "~/Movies/*.mov",
+        ),
+    },
+    "finalCutPro": {
+        "title": "Final Cut Pro caches",
+        "paths": (
+            "~/Library/Caches/com.apple.FinalCut/",
+            "~/Library/Containers/com.apple.FinalCut/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*.fcpbundle/*",
+            "*/Containers/com.apple.FinalCut/Data/Documents/*",
+            "~/Movies/*",
+        ),
+    },
+    "logicPro": {
+        "title": "Logic Pro caches",
+        "paths": (
+            "~/Library/Caches/com.apple.logic10/",
+            "~/Library/Application Support/Logic/Cache/",
+        ),
+        "protected_patterns": (
+            "*.logicx",
+            "~/Music/*",
+            "*/Application Support/Logic/Sampler Instruments/*",
+            "*/Application Support/Logic/Plug-In Settings/*",
+            "*/Application Support/Logic/License*",
+        ),
+    },
+    "bear": {
+        "title": "Bear caches",
+        "paths": (
+            "~/Library/Caches/net.shinyfrog.bear/",
+            "~/Library/Containers/net.shinyfrog.bear/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/net.shinyfrog.bear/Data/Documents/*",
+            "*/Containers/net.shinyfrog.bear/Data/Library/Application Support/*",
+            "*/Containers/net.shinyfrog.bear/Data/Library/Preferences/*",
+        ),
+    },
+    "ulysses": {
+        "title": "Ulysses caches",
+        "paths": (
+            "~/Library/Caches/com.soulmen.ulysses.mac/",
+            "~/Library/Containers/com.soulmen.ulysses.mac/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.soulmen.ulysses.mac/Data/Documents/*",
+            "*/Containers/com.soulmen.ulysses.mac/Data/Library/Application Support/*",
+            "*/Containers/com.soulmen.ulysses.mac/Data/Library/Preferences/*",
+        ),
+    },
+    "fantastical": {
+        "title": "Fantastical caches",
+        "paths": (
+            "~/Library/Caches/com.flexibits.fantastical2.mac/",
+            "~/Library/Containers/com.flexibits.fantastical2.mac/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.flexibits.fantastical2.mac/Data/Library/Preferences/*",
+            "*/Containers/com.flexibits.fantastical2.mac/Data/Documents/*",
+        ),
+    },
+    "rectangle": {
+        "title": "Rectangle caches",
+        "paths": (
+            "~/Library/Caches/com.knollsoft.Rectangle/",
+            "~/Library/Containers/com.knollsoft.Rectangle/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.knollsoft.Rectangle/Data/Library/Preferences/*",
+            "*/Application Support/Rectangle/com.knollsoft.Rectangle.plist",
+            "*/Application Support/Rectangle/Shortcuts.plist",
+        ),
+    },
 }

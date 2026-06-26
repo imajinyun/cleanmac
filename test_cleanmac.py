@@ -281,6 +281,57 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Notion Calendar/Cache").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Notion Calendar/Code Cache").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Notion Calendar/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.cryptic-apps.hopper-web-4").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Hopper/Licenses").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.xk72.charles").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Charles/cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Charles/Licenses").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.namndev.proxyman.mac").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.namndev.proxyman.mac/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.namndev.proxyman.mac/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.parallels.desktop.console").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Parallels/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Parallels/settings").mkdir(parents=True)
+        (root / "Users/tester/Parallels").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.vmware.fusion").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/VMware Fusion").mkdir(parents=True)
+        (root / "Users/tester/Virtual Machines.localized").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.canva.CanvaDesktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Canva/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Canva/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Canva/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.danielhooper.principle").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Principle").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.framer.desktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Framer/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Framer/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Framer/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Framer/projects").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.apple.iMovieApp").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.apple.iMovieApp/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.apple.iMovieApp/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/iMovie/Render Files").mkdir(parents=True)
+        (root / "Users/tester/Movies/iMovie Library.imovielibrary/Render Files").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.apple.FinalCut").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.apple.FinalCut/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.apple.FinalCut/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.apple.logic10").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Logic/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Logic/Sampler Instruments").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/net.shinyfrog.bear").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/net.shinyfrog.bear/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/net.shinyfrog.bear/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.soulmen.ulysses.mac").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.soulmen.ulysses.mac/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.soulmen.ulysses.mac/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.flexibits.fantastical2.mac").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.flexibits.fantastical2.mac/Data/Library/Caches").mkdir(
+            parents=True
+        )
+        (root / "Users/tester/Library/Containers/com.flexibits.fantastical2.mac/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.knollsoft.Rectangle").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.knollsoft.Rectangle/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Rectangle").mkdir(parents=True)
 
         (root / "Users/tester/.Trash/old.tmp").write_text("trash")
         (root / "Users/tester/Downloads/download.bin").write_text("download")
@@ -717,6 +768,94 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Application Support/Notion Calendar/Preferences").write_text(
             "notion-calendar-prefs"
         )
+        (root / "Users/tester/Library/Caches/com.cryptic-apps.hopper-web-4/cache.bin").write_text("hopper-cache")
+        (root / "Users/tester/Library/Application Support/Hopper/Licenses/license.key").write_text("hopper-license")
+        (root / "Users/tester/Documents/project.hopper").write_text("hopper-project")
+        (root / "Users/tester/Library/Caches/com.xk72.charles/cache.bin").write_text("charles-cache")
+        (root / "Users/tester/Library/Application Support/Charles/cache/cache.bin").write_text("charles-cache-2")
+        (root / "Users/tester/Library/Application Support/Charles/charles.config").write_text("charles-config")
+        (root / "Users/tester/Library/Application Support/Charles/ca.crt").write_text("charles-ca-crt")
+        (root / "Users/tester/Library/Application Support/Charles/Licenses/license").write_text("charles-license")
+        (root / "Users/tester/Library/Caches/com.namndev.proxyman.mac/cache.bin").write_text("proxyman-cache")
+        (root / "Users/tester/Library/Containers/com.namndev.proxyman.mac/Data/Library/Caches/cache.bin").write_text(
+            "proxyman-cache-2"
+        )
+        (
+            root / "Users/tester/Library/Containers/com.namndev.proxyman.mac/Data/Documents/workspace.proxyman"
+        ).write_text("proxyman-workspace")
+        (root / "Users/tester/Library/Caches/com.parallels.desktop.console/cache.bin").write_text("parallels-cache")
+        (root / "Users/tester/Library/Application Support/Parallels/Cache/cache.bin").write_text("parallels-cache-2")
+        (root / "Users/tester/Library/Application Support/Parallels/settings/licenses.xml").write_text(
+            "parallels-license"
+        )
+        (root / "Users/tester/Parallels/Windows 11.pvm").write_text("parallels-vm")
+        (root / "Users/tester/Library/Caches/com.vmware.fusion/cache.bin").write_text("vmware-cache")
+        (root / "Users/tester/Library/Application Support/VMware Fusion/preferences").write_text("vmware-prefs")
+        (root / "Users/tester/Virtual Machines.localized/Windows 11.vmwarevm").write_text("vmware-vm")
+        (root / "Users/tester/Library/Caches/com.canva.CanvaDesktop/cache.bin").write_text("canva-cache")
+        (root / "Users/tester/Library/Application Support/Canva/Cache/cache.bin").write_text("canva-cache-2")
+        (root / "Users/tester/Library/Application Support/Canva/Code Cache/cache.bin").write_text("canva-code-cache")
+        (root / "Users/tester/Library/Application Support/Canva/GPUCache/cache.bin").write_text("canva-gpu-cache")
+        (root / "Users/tester/Library/Application Support/Canva/Preferences").write_text("canva-prefs")
+        (root / "Users/tester/Library/Caches/com.danielhooper.principle/cache.bin").write_text("principle-cache")
+        (root / "Users/tester/Library/Application Support/Principle/License").write_text("principle-license")
+        (root / "Users/tester/Documents/animation.principle").write_text("principle-project")
+        (root / "Users/tester/Library/Caches/com.framer.desktop/cache.bin").write_text("framer-cache")
+        (root / "Users/tester/Library/Application Support/Framer/Cache/cache.bin").write_text("framer-cache-2")
+        (root / "Users/tester/Library/Application Support/Framer/Code Cache/cache.bin").write_text("framer-code-cache")
+        (root / "Users/tester/Library/Application Support/Framer/GPUCache/cache.bin").write_text("framer-gpu-cache")
+        (root / "Users/tester/Library/Application Support/Framer/projects/project.framer").write_text("framer-project")
+        (root / "Users/tester/Library/Caches/com.apple.iMovieApp/cache.bin").write_text("imovie-cache")
+        (root / "Users/tester/Library/Containers/com.apple.iMovieApp/Data/Library/Caches/cache.bin").write_text(
+            "imovie-cache-2"
+        )
+        (root / "Users/tester/Library/Application Support/iMovie/Render Files/render.mov").write_text("imovie-render")
+        (root / "Users/tester/Movies/iMovie Library.imovielibrary/Render Files/cache.bin").write_text(
+            "imovie-library-render"
+        )
+        (root / "Users/tester/Library/Containers/com.apple.iMovieApp/Data/Documents/project.imovieproj").write_text(
+            "imovie-project"
+        )
+        (root / "Users/tester/Library/Caches/com.apple.FinalCut/cache.bin").write_text("finalcut-cache")
+        (root / "Users/tester/Library/Containers/com.apple.FinalCut/Data/Library/Caches/cache.bin").write_text(
+            "finalcut-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.apple.FinalCut/Data/Documents/library.fcpbundle").write_text(
+            "finalcut-library"
+        )
+        (root / "Users/tester/Library/Caches/com.apple.logic10/cache.bin").write_text("logic-cache")
+        (root / "Users/tester/Library/Application Support/Logic/Cache/cache.bin").write_text("logic-cache-2")
+        (root / "Users/tester/Library/Application Support/Logic/Sampler Instruments/sampler.exs").write_text(
+            "logic-instrument"
+        )
+        (root / "Users/tester/Music/project.logicx").write_text("logic-project")
+        (root / "Users/tester/Library/Caches/net.shinyfrog.bear/cache.bin").write_text("bear-cache")
+        (root / "Users/tester/Library/Containers/net.shinyfrog.bear/Data/Library/Caches/cache.bin").write_text(
+            "bear-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/net.shinyfrog.bear/Data/Documents/notes.db").write_text("bear-notes")
+        (root / "Users/tester/Library/Caches/com.soulmen.ulysses.mac/cache.bin").write_text("ulysses-cache")
+        (root / "Users/tester/Library/Containers/com.soulmen.ulysses.mac/Data/Library/Caches/cache.bin").write_text(
+            "ulysses-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.soulmen.ulysses.mac/Data/Documents/library.ulysses").write_text(
+            "ulysses-library"
+        )
+        (root / "Users/tester/Library/Caches/com.flexibits.fantastical2.mac/cache.bin").write_text("fantastical-cache")
+        (
+            root / "Users/tester/Library/Containers/com.flexibits.fantastical2.mac/Data/Library/Caches/cache.bin"
+        ).write_text("fantastical-cache-2")
+        (root / "Users/tester/Library/Containers/com.flexibits.fantastical2.mac/Data/Documents/calendar.db").write_text(
+            "fantastical-data"
+        )
+        (root / "Users/tester/Library/Caches/com.knollsoft.Rectangle/cache.bin").write_text("rectangle-cache")
+        (root / "Users/tester/Library/Containers/com.knollsoft.Rectangle/Data/Library/Caches/cache.bin").write_text(
+            "rectangle-cache-2"
+        )
+        (root / "Users/tester/Library/Application Support/Rectangle/com.knollsoft.Rectangle.plist").write_text(
+            "rectangle-prefs"
+        )
+        (root / "Users/tester/Library/Application Support/Rectangle/Shortcuts.plist").write_text("rectangle-shortcuts")
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb").write_text(
             "windsurf-state"
@@ -2897,6 +3036,246 @@ class CleanMacCLITests(unittest.TestCase):
             )
             self.assertNotIn(
                 str(root / "Users/tester/Library/Application Support/Notion Calendar/Preferences"),
+                candidate_paths,
+            )
+
+    def test_round5_app_cache_expansion_covers_dev_tools_media_and_design_apps(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "hopper,charles,proxyman,parallels,vmwareFusion,canva,principle,framer,"
+                    "imovie,finalCutPro,logicPro,bear,ulysses,fantastical,rectangle",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.cryptic-apps.hopper-web-4/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.xk72.charles/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Charles/cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.namndev.proxyman.mac/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.namndev.proxyman.mac/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.parallels.desktop.console/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Parallels/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.vmware.fusion/cache.bin"), paths)
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.canva.CanvaDesktop/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Canva/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.danielhooper.principle/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.framer.desktop/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Framer/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.apple.iMovieApp/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.apple.iMovieApp/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/iMovie/Render Files/render.mov"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.apple.FinalCut/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.apple.FinalCut/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.apple.logic10/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Logic/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/net.shinyfrog.bear/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/net.shinyfrog.bear/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.soulmen.ulysses.mac/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.soulmen.ulysses.mac/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.flexibits.fantastical2.mac/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(
+                    root
+                    / "Users/tester/Library/Containers/com.flexibits.fantastical2.mac/Data/Library/Caches/cache.bin"
+                ),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.knollsoft.Rectangle/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.knollsoft.Rectangle/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+
+    def test_round5_app_cache_rules_preserve_user_data_for_new_categories(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "hopper,charles,proxyman,parallels,vmwareFusion,canva,principle,framer,"
+                    "imovie,finalCutPro,logicPro,bear,ulysses,fantastical,rectangle",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Hopper/Licenses/license.key"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Documents/project.hopper"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Charles/charles.config"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Charles/ca.crt"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Charles/Licenses/license"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(
+                    root / "Users/tester/Library/Containers/com.namndev.proxyman.mac/Data/Documents/workspace.proxyman"
+                ),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Parallels/Windows 11.pvm"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Parallels/settings/licenses.xml"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Virtual Machines.localized/Windows 11.vmwarevm"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/VMware Fusion/preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Canva/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Principle/License"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Documents/animation.principle"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Framer/projects/project.framer"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.apple.iMovieApp/Data/Documents/project.imovieproj"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.apple.FinalCut/Data/Documents/library.fcpbundle"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Music/project.logicx"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Logic/Sampler Instruments/sampler.exs"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/net.shinyfrog.bear/Data/Documents/notes.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.soulmen.ulysses.mac/Data/Documents/library.ulysses"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.flexibits.fantastical2.mac/Data/Documents/calendar.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Rectangle/com.knollsoft.Rectangle.plist"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Rectangle/Shortcuts.plist"),
                 candidate_paths,
             )
 
