@@ -14,6 +14,9 @@ cleanmac is an **AI-first cleanup execution kernel**, not a GUI/TUI cleaner that
 ## 🚀 TL;DR
 
 ```bash
+# 🧹 One-command convenience wrapper (dry-run preview → confirm → Trash)
+./scripts/quick_clean.sh developer
+
 # 🧪 Safe preview
 python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 10
 
