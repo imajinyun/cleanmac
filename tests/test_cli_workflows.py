@@ -707,7 +707,9 @@ def test_open_reports_special_finder_targets() -> None:
         report = json.loads(result.stdout)
         targets = {row["category"]: row for row in report["targets"]}
 
+        assert report["schema"] == "cleanmac.open.v1"
         assert report["dry_run"] is True
+        assert len(report["targets"]) == 4
         assert targets["terminal"]["special_case"] is True
         assert targets["terminal"]["path"].endswith("/private/var/log/asl")
         assert ".CleanMacAppLogLinks" in targets["userAppLogs"]["path"]
