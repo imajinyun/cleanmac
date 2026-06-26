@@ -58,6 +58,43 @@ def test_cleanmac_sensitive_path_library_covers_credentials_dev_ai_and_vpn_data(
         assert protection.should_protect_data(path), str(path)
 
 
+def test_cleanmac_hardening_protection_categories_are_covered() -> None:
+    home = Path("/Users/tester")
+    protected_paths = (
+        home / "Library/Keychains/login.keychain-db",
+        home / "Library/Application Support/com.apple.TCC/TCC.db",
+        home / "Library/Preferences/SystemConfiguration/preferences.plist",
+        home / "Library/Preferences/com.apple.wifi.known-networks.plist",
+        home / "Library/Input Methods/Squirrel.app",
+        home / "Library/Keyboard Layouts/Custom.keylayout",
+        home / "Library/Application Support/Rime/default.custom.yaml",
+        home / ".config/karabiner/karabiner.json",
+        home / "Library/Application Support/1Password/1Password.sqlite",
+        home / "Library/Application Support/Bitwarden/data.json",
+        home / "Library/Application Support/Dashlane/session.json",
+        home / "Library/Application Support/LastPass/vault.json",
+        home / "Library/Application Support/JetBrains/IntelliJIdea/options/ide.general.xml",
+        home / "Library/Application Support/Insomnia/insomnia.Request.db",
+        home / ".claude.json",
+        home / ".cursor/mcp.json",
+        home / ".ollama/id_ed25519",
+        home / "Library/Application Support/Cursor/User/globalStorage/state.vscdb",
+        home / "Library/Application Support/ChatGPT/Local Storage/leveldb/000003.log",
+    )
+
+    for path in protected_paths:
+        assert protection.should_protect_data(path), str(path)
+
+    assert protection.should_protect_bundle("com.apple.someNewSystemAgent")
+    assert protection.should_protect_bundle("com.apple.mail")
+    assert protection.should_protect_bundle("com.bitwarden.desktop")
+    assert protection.is_critical_system_component(Path("/Library/Keychains/login.keychain-db"))
+    assert protection.should_protect_path(home / "Library/Messages/chat.db")
+    assert protection.official_uninstaller_vendor(name="Jamf Self Service") == "Jamf"
+    assert protection.official_uninstaller_vendor(bundle_id="com.sentinelone.SentinelAgent") == "SentinelOne"
+    assert protection.official_uninstaller_vendor(name="ESET Endpoint Security") == "ESET"
+
+
 def test_extended_app_cache_categories_select_regenerable_caches_and_preserve_credentials() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
