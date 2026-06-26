@@ -1,4 +1,4 @@
-.PHONY: format lint type-check coverage quality-check local-test pytest-parity-test pytest-test pytest-governance-smoke pytest-no-unittest-regression-smoke pytest-ai-host-smoke build-check package-smoke script-smoke bundle-audit-smoke macos-smoke real-macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke governance-integrity-smoke zero-resident-audit-smoke no-disturbance-smoke ai-first-release-checklist-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke open-source-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke no-cache-check docker-test no-cache-docker-test release-check no-cache-release-check
+.PHONY: format lint type-check coverage quality-check local-test pytest-parity-test pytest-test pytest-governance-smoke pytest-no-unittest-regression-smoke pytest-ai-host-smoke clean-test-artifacts build-check package-smoke script-smoke quick-clean-smoke bundle-audit-smoke macos-smoke real-macos-smoke security-smoke dependency-audit-smoke docs-smoke governance-smoke governance-integrity-smoke zero-resident-audit-smoke no-disturbance-smoke ai-first-release-checklist-smoke ai-governance-smoke ai-contract-smoke governed-execution-smoke open-source-smoke mcp-smoke mcp-meta-index-smoke mcp-resource-index-smoke mcp-prompt-index-smoke mcp-tool-index-smoke mcp-surface-audit-smoke ai-host-smoke ai-robustness-smoke distribution-smoke homebrew-formula-smoke release-artifacts-smoke release-readiness-contract-smoke release-readiness-smoke release-diagnostics-smoke release-rehearsal-smoke release-promotion-smoke release-rollback-smoke release-post-publish-smoke release-post-publish-result-smoke release-post-publish-evidence-template-smoke no-cache-check docker-test no-cache-docker-test release-check no-cache-release-check
 
 DOCKER_IMAGE ?= debian:bookworm-slim
 SANDBOX_MOUNT ?= $(abspath ..)
@@ -9,6 +9,16 @@ DOCKER_RUN_FLAGS ?=
 PYTEST_SAFE_TARGETS := tests/test_release_readiness.py tests/test_release_orchestration.py tests/test_release_artifacts.py tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_ops.py tests/test_security_scan.py
 PYTEST_AI_HOST_TARGETS := tests/test_ai_runbook.py tests/test_ai_host_policy.py tests/test_ai_self_test.py tests/test_ai_decision_matrix.py tests/test_ai_governance.py tests/test_ai_host_evidence.py tests/test_ai_readiness.py tests/test_ai_host_scenarios.py tests/test_ai_eval.py tests/test_mcp_server.py
 PYTEST_AI_ROBUSTNESS_TARGETS := tests/test_ai_versioning.py tests/test_mcp_protocol.py tests/test_ai_concurrency.py tests/test_ai_policy.py tests/test_ai_host_integration.py tests/test_ai_contract.py tests/test_ai_errors.py tests/test_ai_idempotency.py tests/test_ai_runbook.py tests/test_ai_host_policy.py tests/test_ai_self_test.py tests/test_ai_decision_matrix.py tests/test_ai_governance.py tests/test_ai_host_evidence.py tests/test_ai_readiness.py tests/test_ai_trace_persistence.py
+
+clean-test-artifacts:
+	[ ! -e .coverage ] || /bin/rm -f .coverage; \
+	find . -maxdepth 1 -type f -name '.coverage.*' -delete; \
+	[ ! -e .pytest_cache ] || /bin/rm -R .pytest_cache; \
+	[ ! -e .mypy_cache ] || /bin/rm -R .mypy_cache; \
+	[ ! -e .ruff_cache ] || /bin/rm -R .ruff_cache; \
+	[ ! -e cleanmac.egg-info ] || /bin/rm -R cleanmac.egg-info; \
+	[ ! -e __pycache__ ] || /bin/rm -R __pycache__; \
+	find cleancli tests scripts -type d -name __pycache__ -prune -exec /bin/rm -R {} + 2>/dev/null || true
 
 format:
 	tmpdir=$$(mktemp -d); \
@@ -30,7 +40,7 @@ lint:
 
 type-check:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[dev]'; \
@@ -39,7 +49,7 @@ type-check:
 coverage:
 	set -e; \
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -55,7 +65,7 @@ pytest-test: pytest-parity-test
 
 pytest-parity-test:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -63,7 +73,7 @@ pytest-parity-test:
 
 pytest-ai-host-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -77,13 +87,13 @@ pytest-governance-smoke: pytest-no-unittest-regression-smoke
 
 build-check:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m build --wheel --sdist --outdir "$$tmpdir/dist"; \
 	$(PYTHON) -m twine check "$$tmpdir"/dist/*
 
 package-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install -e .; \
 	"$$tmpdir/venv/bin/cleanmac" --json capabilities >"$$tmpdir/capabilities.json"; \
@@ -92,9 +102,12 @@ package-smoke:
 script-smoke:
 	$(PYTHON) -c 'import json, subprocess, sys; report=json.loads(subprocess.check_output([sys.executable, "cleanmac.py", "--json", "clean", "scripts", "--categories", "trash,systemLogs"], text=True)); validation=report["template_validation"]; assert report["schema"] == "cleanmac.scripts.v1"; assert validation["schema"] == "cleanmac.command-template-validation.v1"; assert validation["valid"], validation["violations"]; assert validation["template_count"] > 0; assert validation["destructive_template_count"] > 0; assert validation["violation_count"] == 0'
 
+quick-clean-smoke:
+	$(PYTHON) -c 'from pathlib import Path; import os, subprocess, sys; p=Path("scripts/quick_clean.sh"); assert p.is_file(), "quick_clean.sh missing"; assert os.access(p, os.X_OK), "quick_clean.sh not executable"; text=p.read_text(encoding="utf-8"); assert "set -euo pipefail" in text; assert "--delete-mode trash" in text, "must default to trash mode"; assert "--allow-live-root" in text, "must pass live-root gate"; assert "--max-delete-mb" in text, "must compute safety budget"; assert "Proceed" in text, "must prompt for confirmation"; assert "DRY-RUN" not in text.split("read -r")[0] if "read -r" in text else True, "dry-run must precede confirmation"; rc=subprocess.run(["bash", "-n", str(p)]).returncode; assert rc == 0, f"syntax check failed: {rc}"; print("quick-clean-smoke passed")'
+
 bundle-audit-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -111,7 +124,7 @@ macos-smoke:
 		test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink \
 		tests.test_sudo_guard -v
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -119,7 +132,7 @@ macos-smoke:
 
 real-macos-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -197,7 +210,7 @@ ai-host-smoke:
 
 ai-robustness-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -205,7 +218,7 @@ ai-robustness-smoke:
 
 distribution-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/build-venv"; \
 	"$$tmpdir/build-venv/bin/python" -m pip install --upgrade pip wheel build; \
 	"$$tmpdir/build-venv/bin/python" -m build --wheel --sdist --outdir "$$tmpdir/dist"; \
