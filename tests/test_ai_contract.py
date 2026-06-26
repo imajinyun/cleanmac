@@ -16,6 +16,7 @@ from cleancli.core import render_ai_recommended_workflow as render_core_ai_recom
 from cleancli.core import render_ai_safety_chain_contract as render_core_ai_safety_chain_contract
 from cleancli.core import render_ai_tool_contract as render_core_ai_tool_contract
 from tests.helpers import make_sandbox, run_cli
+from tests.test_review_selection import run_cli_unchecked
 
 
 def test_ai_tool_contract_is_owned_outside_core_and_reexported() -> None:
@@ -288,3 +289,123 @@ def test_ai_policy_simulator_reports_missing_and_satisfied_guards() -> None:
         assert satisfied_report["plan_freshness"]["fresh"] is True
         assert satisfied_report["missing_requirements"] == []
         assert satisfied_report["blocking_reasons"] == []
+
+
+def test_ai_originated_plan_requires_conservative_execute_guards() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_file = root / "ai-plan.json"
+        operation_log = root / "logs" / "ai-operations.jsonl"
+        plan_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "plan",
+            "--categories",
+            "downloads",
+            "--max-items",
+            "10",
+            "--max-delete-mb",
+            "5",
+            "--ai-origin",
+        )
+        plan_file.write_text(plan_result.stdout, encoding="utf-8")
+
+        dry_run = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "run",
+            "--plan-file",
+            str(plan_file),
+            "--require-plan-context",
+            "--delete-mode",
+            "trash",
+        )
+        dry_report = json.loads(dry_run.stdout)
+        token = dry_report["ai_confirmation_summary"]["confirmation_token"]
+        dry_ledger = dry_report["ai_execution_ledger"]
+        candidate = root / "Users/tester/Downloads/download.bin"
+
+        assert dry_ledger["schema"] == "cleanmac.ai-execution-ledger.v1"
+        assert dry_ledger["phase"] == "clean-dry-run"
+        assert dry_ledger["plan"]["ai_originated"] is True
+        assert dry_ledger["plan"]["context_required"] is True
+        assert dry_ledger["confirmation"]["token"] == token
+        assert dry_ledger["confirmation"]["token_validated"] is False
+        assert dry_ledger["safe_chain_complete"] is False
+
+        guard_cases = [
+            (
+                [
+                    "--require-plan-context",
+                    "--delete-mode",
+                    "permanent",
+                    "--operation-log",
+                    str(operation_log),
+                    "--require-confirmation-token",
+                    "--confirmation-token",
+                    token,
+                ],
+                "AI-originated plan requires --delete-mode trash",
+            ),
+            (
+                [
+                    "--require-plan-context",
+                    "--delete-mode",
+                    "trash",
+                    "--require-confirmation-token",
+                    "--confirmation-token",
+                    token,
+                ],
+                "AI-originated plan requires --operation-log",
+            ),
+            (
+                [
+                    "--require-plan-context",
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    str(operation_log),
+                    "--confirmation-token",
+                    token,
+                ],
+                "AI-originated plan requires --require-confirmation-token",
+            ),
+            (
+                [
+                    "--delete-mode",
+                    "trash",
+                    "--operation-log",
+                    str(operation_log),
+                    "--require-confirmation-token",
+                    "--confirmation-token",
+                    token,
+                ],
+                "AI-originated plan requires --require-plan-context",
+            ),
+        ]
+        for guard_args, expected_error in guard_cases:
+            result = run_cli_unchecked(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "clean",
+                "run",
+                "--plan-file",
+                str(plan_file),
+                "--execute",
+                "--yes",
+                *guard_args,
+            )
+            assert result.returncode != 0
+            assert expected_error in result.stderr
+            assert candidate.exists()
