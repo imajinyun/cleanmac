@@ -930,9 +930,14 @@ def test_links_remove_dry_run_preserves_existing_link_directory() -> None:
         report = json.loads(result.stdout)
 
         assert report["dry_run"] is True
+        assert report["destructive"] is False
         assert report["mode"] == "remove"
-        assert report["removed"][0]["existed_before"] is True
-        assert report["removed"][0]["removed"] is False
+        assert report["mappings"] == []
+        removed = report["removed"][0]
+        assert removed["kind"] == "logs"
+        assert removed["link_dir"] == str(link_dir.resolve())
+        assert removed["existed_before"] is True
+        assert removed["removed"] is False
         assert link_dir.exists()
 
 
