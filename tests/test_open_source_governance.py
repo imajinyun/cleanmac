@@ -158,6 +158,40 @@ def test_pyproject_exposes_open_source_ai_first_metadata() -> None:
     assert "pip-audit>=" in pyproject
 
 
+def test_distribution_release_governance_files_are_pinned() -> None:
+    release = (PROJECT_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    manifest_script = (PROJECT_ROOT / "scripts/generate_release_manifest.py").read_text(encoding="utf-8")
+    homebrew_script = (PROJECT_ROOT / "scripts/generate_homebrew_formula.py").read_text(encoding="utf-8")
+
+    assert "Generate release manifest and SHA256SUMS" in release
+    assert "scripts/generate_sbom.py --output release-assets/SBOM.json" in release
+    assert "scripts/generate_homebrew_formula.py" in release
+    assert "scripts/generate_release_manifest.py --dist-dir dist --assets-dir release-assets" in release
+    assert "cleanmac.release-artifact-manifest.v1" in release
+    assert "Verify governed release evidence" in release
+    assert "needs: verify-release-artifacts" in release
+    assert "attest-build-provenance" in release
+    assert "pypa/gh-action-pypi-publish" in release
+    assert "id-token: write" in release
+    assert "attestations: write" in release
+    for artifact in (
+        "release-assets/SBOM.json",
+        "release-assets/SHA256SUMS",
+        "release-assets/ARTIFACT-MANIFEST.json",
+        "release-assets/RELEASE-EVIDENCE.json",
+        "release-assets/RELEASE-PROMOTION-DECISION.json",
+        "release-assets/RELEASE-ROLLBACK-PLAN.json",
+        "release-assets/cleanmac.rb",
+    ):
+        assert artifact in release
+
+    assert "write_release_artifact_outputs" in manifest_script
+    assert "write_release_evidence_bundle_output" in manifest_script
+    assert "RELEASE-POST-PUBLISH-EVIDENCE.example.json" in manifest_script
+    assert "render_homebrew_formula" in homebrew_script
+    assert "github.com/cleanmac/cleanmac/archive/refs/tags" in homebrew_script
+
+
 def test_project_files_do_not_contain_removed_product_references() -> None:
     forbidden = ("clean" + "me", "Clean" + " Me", "clean" + " me", "mo" + "le", "MO" + "LE")
     local_developer_path = "/" + "users" + "/" + "bytedance"
