@@ -5,6 +5,8 @@ import os
 import time
 from pathlib import Path
 
+import pytest
+
 import cleancli.core as cleancli
 from tests.helpers import make_sandbox, run_cli
 from tests.test_review_selection import run_cli_unchecked
@@ -723,24 +725,39 @@ def test_open_reports_special_finder_targets() -> None:
         assert targets["trash"]["open_supported"] is True
 
 
-def test_profiles_expand_to_safe_category_and_budget_defaults() -> None:
+@pytest.mark.parametrize(
+    ("profile", "expected_categories", "expected_risk_policy", "expected_max_delete_mb"),
+    [
+        ("safe", {"trash", "downloads", "userCache", "userLogs"}, "strict", 1024.0),
+        (
+            "developer",
+            {"xcode", "nodePackageCaches", "pythonPackageCaches", "goBuildCaches"},
+            "default",
+            4096.0,
+        ),
+        ("browser", {"chrome", "firefox"}, "strict", 2048.0),
+    ],
+)
+def test_profiles_expand_to_safe_category_and_budget_defaults(
+    profile: str,
+    expected_categories: set[str],
+    expected_risk_policy: str,
+    expected_max_delete_mb: float,
+) -> None:
     tmp, root, home = make_sandbox()
     with tmp:
         profiles = json.loads(run_cli("--json", "profiles").stdout)
         report = json.loads(
-            run_cli("--root", str(root), "--home", str(home), "--json", "clean", "plan", "--profile", "safe").stdout
+            run_cli("--root", str(root), "--home", str(home), "--json", "clean", "plan", "--profile", profile).stdout
         )
 
         assert profiles["schema"] == "cleanmac.profiles.v1"
-        assert "safe" in {profile["name"] for profile in profiles["profiles"]}
-        assert report["risk_policy"] == "strict"
-        assert report["max_delete_mb"] == 1024.0
-        assert {row["key"] for row in report["selected_categories"]} == {
-            "trash",
-            "downloads",
-            "userCache",
-            "userLogs",
-        }
+        profiles_by_name = {row["name"]: row for row in profiles["profiles"]}
+        assert profile in profiles_by_name
+        assert profiles_by_name[profile]["delete_mode"] == "trash"
+        assert report["risk_policy"] == expected_risk_policy
+        assert report["max_delete_mb"] == expected_max_delete_mb
+        assert {row["key"] for row in report["selected_categories"]} == expected_categories
 
 
 def test_profiles_and_links_expose_safe_metadata_contracts() -> None:
