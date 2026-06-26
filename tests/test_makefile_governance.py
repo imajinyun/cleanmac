@@ -400,6 +400,9 @@ def test_pytest_governance_closeout_documents_remaining_unittest_backlog() -> No
     next_rounds = (PROJECT_ROOT / "docs/superpowers/plans/2026-06-25-pytest-governance-next-20-rounds.md").read_text(
         encoding="utf-8"
     )
+    rounds_118_137 = (PROJECT_ROOT / "docs/superpowers/plans/2026-06-26-pytest-governance-rounds-118-137.md").read_text(
+        encoding="utf-8"
+    )
     makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
     scanned_files = [
         path
@@ -417,9 +420,14 @@ def test_pytest_governance_closeout_documents_remaining_unittest_backlog() -> No
 
     assert unittest_backlog == ["test_cleanmac.py"]
     assert "2026-06-25-pytest-governance-next-20-rounds.md" in closeout
+    assert "2026-06-26-pytest-governance-rounds-118-137.md" in closeout
     assert "Round 38-57" in closeout
+    assert "Round 118-137" in closeout
     assert next_rounds.count("- [x] Commit with `test(pytest):") == 20
     assert not [line for line in next_rounds.splitlines() if line.startswith("- [ ]")]
+    assert rounds_118_137.count("- [x] Commit with `test(pytest):") == 20
+    assert not [line for line in rounds_118_137.splitlines() if line.startswith("- [ ]")]
+    assert "tests/test_open_source_governance.py" in closeout
     assert "`test_cleanmac.py` is the only intentional large unittest backlog" in closeout
     assert "`tests/test_makefile_governance.py` intentionally contains" in closeout
     assert "`tests/test_clean_execution.py`" in closeout
