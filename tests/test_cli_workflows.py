@@ -835,7 +835,25 @@ def test_links_reports_symbolic_link_mappings() -> None:
 
         assert report["dry_run"] is True
         assert report["mode"] == "create-update"
-        assert {row["kind"] for row in report["mappings"]} == {"logs", "cache"}
+        mappings = {(row["kind"], row["container"]): row for row in report["mappings"]}
+        expected = {
+            "logs": (
+                root / "Users/tester/Library/Containers/com.example/Data/Library/Logs",
+                root / "Users/tester/.CleanMacAppLogLinks/com.example",
+            ),
+            "cache": (
+                root / "Users/tester/Library/Containers/com.example/Data/Library/Caches",
+                root / "Users/tester/.CleanMacAppCacheLinks/com.example",
+            ),
+        }
+
+        assert {("logs", "com.example"), ("cache", "com.example")}.issubset(mappings)
+        for kind, (source, link_path) in expected.items():
+            mapping = mappings[(kind, "com.example")]
+            assert mapping["source"] == str(source.resolve())
+            assert mapping["link_dir"] == str(link_path.parent.resolve())
+            assert mapping["link_path"] == str(link_path.parent.resolve() / link_path.name)
+            assert mapping["status"] == "planned"
         assert not (root / "Users/tester/.CleanMacAppLogLinks").exists()
 
 
