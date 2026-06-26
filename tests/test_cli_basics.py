@@ -281,6 +281,21 @@ def test_capabilities_json_exposes_open_source_gap_governance_todo() -> None:
     assert gap_todo["items"][-1]["id"] == "p2-privacy-scope-parity"
 
 
+def test_doctor_reports_environment_and_full_disk_access_guidance() -> None:
+    result = run_cli("--json", "doctor")
+    report = json.loads(result.stdout)
+
+    assert report["schema"] == "cleanmac.doctor.v1"
+    assert report["destructive"] is False
+    assert "platform" in report
+    assert "python" in report
+    assert "full_disk_access" in report["checks"]
+    assert "live_root_execution" in report["checks"]
+    assert "private_path_policy" in report["checks"]
+    assert "lsof_available" in report["checks"]
+    assert "getconf_available" in report["checks"]
+
+
 def test_capabilities_json_exposes_governance_integrity_contract() -> None:
     result = run_cli("--json", "capabilities")
     report = json.loads(result.stdout)
