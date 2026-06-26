@@ -1,4 +1,8 @@
-```markdown
+---
+name: cleanmac
+description: cleanmac development patterns and pytest migration workflows for the AI-first, zero-resident macOS cleanup CLI. Use when working on cleanmac test governance, unittest-to-pytest migration, Makefile validation targets, or repository workflow conventions.
+---
+
 # cleanmac Development Patterns
 
 > Auto-generated skill from repository analysis
@@ -120,4 +124,3 @@ This skill teaches the core development conventions and workflows used in the `c
 | /migrate-unittest-to-pytest    | Migrate test files from unittest to pytest-native style         |
 | /update-pytest-governance      | Expand or update pytest governance test coverage                |
 | /document-governance-plan      | Create or update documentation for test migration/governance    |
-```
