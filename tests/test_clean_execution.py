@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
+import pytest
+
 import cleancli.core as cleancli
 from cleancli.ai_versioning import validate_contract_payload
 from tests.helpers import make_sandbox, run_cli
@@ -701,6 +703,33 @@ def test_clean_execute_records_item_failures_and_continues_by_default() -> None:
         assert not (root / "Users/tester/Downloads/partial.crdownload").exists()
         assert {record["status"] for record in records} == {"failed", "deleted"}
         assert len(deleted) == 1
+
+
+def test_clean_execute_fail_fast_stops_on_item_failure() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        (root / "Users/tester/Downloads/partial.crdownload").write_text("partial", encoding="utf-8")
+        original_delete_path = cleancli.delete_path
+
+        def flaky_delete(path: Path, **kwargs: Any) -> Path | None:
+            if path.name == "download.bin":
+                raise PermissionError("Operation not permitted")
+            return original_delete_path(path, **kwargs)
+
+        with mock.patch.object(cleancli, "delete_path", side_effect=flaky_delete):
+            with pytest.raises(PermissionError):
+                cleancli.clean(
+                    [cleancli.CATEGORY_BY_KEY["downloads"]],
+                    root=root,
+                    home=home,
+                    execute=True,
+                    risk_policy="default",
+                    delete_mode="trash",
+                    fail_fast=True,
+                    operation_log=str(root / "logs" / "operations.jsonl"),
+                )
+
+        assert (root / "Users/tester/Downloads/download.bin").exists()
 
 
 def test_clean_safety_gate_exposes_single_fail_fast_flag() -> None:
