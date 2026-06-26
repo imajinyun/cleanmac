@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from cleancli.ai_contract import (
     render_ai_entrypoint_contract,
     render_ai_intent_hints,
@@ -13,6 +15,7 @@ from cleancli.core import render_ai_intent_hints as render_core_ai_intent_hints
 from cleancli.core import render_ai_recommended_workflow as render_core_ai_recommended_workflow
 from cleancli.core import render_ai_safety_chain_contract as render_core_ai_safety_chain_contract
 from cleancli.core import render_ai_tool_contract as render_core_ai_tool_contract
+from tests.helpers import make_sandbox, run_cli
 
 
 def test_ai_tool_contract_is_owned_outside_core_and_reexported() -> None:
@@ -209,3 +212,79 @@ def test_ai_safety_chain_contract_covers_non_bypassable_execute_path() -> None:
     assert validation["valid"], validation
     gate_validation = validate_contract_payload("cleanmac.execute-gate.v1", gate)
     assert gate_validation["valid"], gate_validation
+
+
+def test_ai_policy_simulator_reports_missing_and_satisfied_guards() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_file = root / "ai-plan.json"
+        plan_result = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "plan",
+            "--categories",
+            "downloads",
+            "--ai-origin",
+        )
+        plan = json.loads(plan_result.stdout)
+        plan_file.write_text(plan_result.stdout, encoding="utf-8")
+
+        assert plan["schema"] == "cleanmac.plan.v1"
+        assert "generated_at" in plan
+        assert "expires_at" in plan
+        assert len(plan["candidate_fingerprints"]) > 0
+
+        missing = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "policy-simulate",
+            "--plan-file",
+            str(plan_file),
+            "--execute",
+        )
+        missing_report = json.loads(missing.stdout)
+        blocking_codes = {row["code"] for row in missing_report["blocking_reasons"]}
+
+        assert missing_report["schema"] == "cleanmac.ai-policy-simulation.v1"
+        assert missing_report["allowed"] is False
+        assert "--delete-mode trash" in missing_report["missing_requirements"]
+        assert "--operation-log" in missing_report["missing_requirements"]
+        assert "--require-plan-context" in missing_report["missing_requirements"]
+        assert "AI_ORIGIN_REQUIRES_TRASH" in blocking_codes
+        assert missing_report["safe_to_auto_retry"] is False
+        assert missing_report["retry_requires_user_confirmation"] is True
+
+        satisfied = run_cli(
+            "--root",
+            str(root),
+            "--home",
+            str(home),
+            "--json",
+            "clean",
+            "policy-simulate",
+            "--plan-file",
+            str(plan_file),
+            "--execute",
+            "--delete-mode",
+            "trash",
+            "--operation-log",
+            str(root / "operations.jsonl"),
+            "--require-plan-context",
+            "--require-confirmation-token",
+            "--confirmation-token",
+            "cleanmac-confirm-test",
+        )
+        satisfied_report = json.loads(satisfied.stdout)
+
+        assert satisfied_report["allowed"] is True, satisfied_report["missing_requirements"]
+        assert satisfied_report["plan_freshness"]["fresh"] is True
+        assert satisfied_report["missing_requirements"] == []
+        assert satisfied_report["blocking_reasons"] == []
