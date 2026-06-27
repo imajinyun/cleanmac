@@ -855,7 +855,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `userPrefs` | ⚙️ 偏好设置 | critical | ❌ | `~/Library/Preferences/` |
 | `docRev` | 📄 文档版本 | critical | ❌ | `/.DocumentRevisions-V100/` |
 
-其他应用专用分类：`groupContainerCaches`、`androidStudio`、`jetbrains`、`vscode`、`docker`、`chrome`、`firefox`、`slack`、`zoom`、`teams`、`nodePackageCaches`、`pythonPackageCaches`、`goBuildCaches`。系统/深层分类：`rotate_log_once`（日志轮转）、`deviceFirmware`（固件缓存）、`appleSiliconCaches`（Rosetta/M1 缓存）。治理：`official_uninstaller_vendor` 检测 CrowdStrike 等官方卸载器。
+其他应用专用分类：`groupContainerCaches`、`androidStudio`、`jetbrains`、`vscode`、`docker`、`chrome`、`firefox`、`slack`、`zoom`、`teams`、`nodePackageCaches`、`pythonPackageCaches`、`goBuildCaches`。系统/深层分类：`rotate_log_once`（日志轮转）、`deviceFirmware`（固件缓存）、`appleSiliconCaches`（Rosetta/M1 缓存）、`iosBackups`（iOS 设备备份）、`fontCache`（字体注册表缓存）、`inputMethodCache`（输入法缓存）、`spotlightCache`（Spotlight 索引缓存）、`printQueue`（打印队列池）、`quickLookCache`（QuickLook 缩略图缓存）。分析类分类：`duplicateFiles`（重复文件检测）、`largeFiles`（大文件审计）、`oldFiles`（过期文件审计）。治理：`official_uninstaller_vendor` 检测 CrowdStrike 等官方卸载器。
 
 ---
 

@@ -94,6 +94,30 @@ def render_ai_error_taxonomy() -> list[dict[str, Any]]:
             "retryable_after_fix": False,
             "suggested_next_action": "inspect_error_message_and_return_control_to_user",
         },
+        {
+            "code": "TRASH_OPERATION_FAILED",
+            "category": "trash_failure",
+            "retryable_after_fix": True,
+            "suggested_next_action": "check_trash_directory_permissions_and_retry_with_permanent_or_different_trash_root",
+        },
+        {
+            "code": "PROTECTED_PATH_REJECTED",
+            "category": "path_protection",
+            "retryable_after_fix": False,
+            "suggested_next_action": "verify_path_is_not_system_or_sensitive_data_then_narrow_scope",
+        },
+        {
+            "code": "SYMLINK_DETECTED",
+            "category": "symlink_safety",
+            "retryable_after_fix": False,
+            "suggested_next_action": "resolve_symlinks_and_verify_target_before_retrying_with_explicit_approval",
+        },
+        {
+            "code": "HARDLINK_REPLACEMENT_FAILED",
+            "category": "deduplication_failure",
+            "retryable_after_fix": True,
+            "suggested_next_action": "retry_with_trash_delete_mode_or_check_filesystem_hardlink_support",
+        },
     ]
     retry_policy = {
         "CLI_ARGUMENT_ERROR": {
@@ -166,6 +190,26 @@ def render_ai_error_taxonomy() -> list[dict[str, Any]]:
             "requires_user_visible_summary": True,
             "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_capabilities",)),
         },
+        "TRASH_OPERATION_FAILED": {
+            "safe_to_auto_retry": False,
+            "requires_user_visible_summary": True,
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_policy_simulate", "cleanmac_dry_run_plan")),
+        },
+        "PROTECTED_PATH_REJECTED": {
+            "safe_to_auto_retry": False,
+            "requires_user_visible_summary": True,
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_capabilities", "cleanmac_inspect")),
+        },
+        "SYMLINK_DETECTED": {
+            "safe_to_auto_retry": False,
+            "requires_user_visible_summary": True,
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_inspect",)),
+        },
+        "HARDLINK_REPLACEMENT_FAILED": {
+            "safe_to_auto_retry": False,
+            "requires_user_visible_summary": True,
+            "next_allowed_tools": next_allowed_tools_for_block(("cleanmac_dry_run_plan", "cleanmac_policy_simulate")),
+        },
     }
     for entry in entries:
         entry.update(retry_policy[str(entry["code"])])
@@ -210,6 +254,18 @@ def classify_cli_error(message: str, *, exit_code: int) -> dict[str, Any]:
         code = "LIVE_ROOT_REFUSED"
     elif "without --yes" in message:
         code = "USER_CONFIRMATION_REQUIRED"
+    elif (
+        "Trash root is a symlink" in message
+        or "trash" in message.lower()
+        and ("failed" in message.lower() or "cannot" in message.lower())
+    ):
+        code = "TRASH_OPERATION_FAILED"
+    elif "Protected path" in message or "critical path" in message.lower():
+        code = "PROTECTED_PATH_REJECTED"
+    elif "symlink" in message.lower() and ("reject" in message.lower() or "unsafe" in message.lower()):
+        code = "SYMLINK_DETECTED"
+    elif "hardlink" in message.lower() and "fail" in message.lower():
+        code = "HARDLINK_REPLACEMENT_FAILED"
     else:
         code = "EXECUTION_REFUSED"
     taxonomy = AI_ERROR_TAXONOMY_BY_CODE[code]
@@ -235,6 +291,10 @@ def render_ai_error_report(message: str, *, argv: Sequence[str], exit_code: int)
         "CONFIRMATION_TOKEN_REQUIRED": [["cleanmac", "--json", "clean", "run", "--plan-file", "<plan.json>"]],
         "CONFIRMATION_TOKEN_MISMATCH": [["cleanmac", "--json", "clean", "run", "--plan-file", "<plan.json>"]],
         "USER_CONFIRMATION_REQUIRED": [["cleanmac", "--json", "clean", "run", "--plan-file", "<plan.json>"]],
+        "TRASH_OPERATION_FAILED": [["cleanmac", "--json", "policy-simulate", "--plan-file", "<plan.json>"]],
+        "PROTECTED_PATH_REJECTED": [["cleanmac", "--json", "capabilities"]],
+        "SYMLINK_DETECTED": [["cleanmac", "--json", "inspect", "--categories", "trash"]],
+        "HARDLINK_REPLACEMENT_FAILED": [["cleanmac", "--json", "clean", "plan", "--delete-mode", "trash"]],
     }.get(str(classification["code"]), [["cleanmac", "--json", "capabilities"]])
     return {
         "schema": "cleanmac.ai-error.v1",

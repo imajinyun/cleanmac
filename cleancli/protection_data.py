@@ -1718,4 +1718,240 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*.snagproj",
         ),
     },
+    "obs": {
+        "title": "OBS Studio caches",
+        "paths": (
+            "~/Library/Application Support/obs-studio/plugin_config/obs-browser/Cache/",
+            "~/Library/Caches/com.obsproject.obs-studio/",
+        ),
+        "protected_patterns": (
+            "*/obs-studio/basic/scenes/*",
+            "*/obs-studio/basic/profiles/*",
+            "*.json",
+        ),
+    },
+    "davinciResolve": {
+        "title": "DaVinci Resolve caches",
+        "paths": (
+            "~/Library/Caches/Blackmagic Design/DaVinci Resolve/",
+            "~/Library/Application Support/Blackmagic Design/DaVinci Resolve/CacheClip/",
+        ),
+        "protected_patterns": (
+            "*.drp",
+            "*.drt",
+        ),
+    },
+    "audacity": {
+        "title": "Audacity caches",
+        "paths": (
+            "~/Library/Application Support/audacity/AutoSave/",
+            "~/Library/Caches/org.audacityteam.audacity/",
+        ),
+        "protected_patterns": (
+            "*.aup3",
+            "*.aup",
+        ),
+    },
+    "ableton": {
+        "title": "Ableton Live caches",
+        "paths": (
+            "~/Library/Caches/Ableton/",
+            "~/Music/Ableton/User Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*.als",
+            "*.adg",
+            "*.alp",
+        ),
+    },
+    "camtasia": {
+        "title": "Camtasia caches",
+        "paths": (
+            "~/Library/Caches/com.techsmith.camtasia2024/",
+            "~/Library/Containers/com.techsmith.camtasia2024/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*.cmproj",
+            "*.trec",
+        ),
+    },
+    "screenflow": {
+        "title": "ScreenFlow caches",
+        "paths": (
+            "~/Library/Caches/net.telestream.screenflow*/",
+            "~/Library/Application Support/Telestream/ScreenFlow/Cache/",
+        ),
+        "protected_patterns": ("*.screenflow",),
+    },
+    "lightroom": {
+        "title": "Adobe Lightroom caches",
+        "paths": (
+            "~/Library/Caches/Adobe/Lightroom/",
+            "~/Library/Application Support/Adobe/Lightroom/Camera Raw/Cache/",
+        ),
+        "protected_patterns": (
+            "*.lrcat",
+            "*.lrcat-journal",
+        ),
+    },
+    "photoshop": {
+        "title": "Adobe Photoshop caches",
+        "paths": (
+            "~/Library/Caches/Adobe/Photoshop/",
+            "~/Library/Caches/com.adobe.Photoshop/",
+        ),
+        "protected_patterns": (
+            "*.psd",
+            "*.psb",
+        ),
+    },
+    "illustrator": {
+        "title": "Adobe Illustrator caches",
+        "paths": (
+            "~/Library/Caches/Adobe/Illustrator/",
+            "~/Library/Caches/com.adobe.illustrator/",
+        ),
+        "protected_patterns": (
+            "*.ai",
+            "*.eps",
+        ),
+    },
+    "rhinoceros": {
+        "title": "Rhinoceros 3D caches",
+        "paths": (
+            "~/Library/Caches/com.mcneel.rhinoceros/",
+            "~/Library/Application Support/McNeel/Rhinoceros/*/AutoSave/",
+        ),
+        "protected_patterns": (
+            "*.3dm",
+            "*.3dmbak",
+        ),
+    },
+    "sketchup": {
+        "title": "SketchUp caches",
+        "paths": (
+            "~/Library/Caches/com.sketchup.SketchUp*/",
+            "~/Library/Application Support/SketchUp */SketchUp/Cache/",
+        ),
+        "protected_patterns": (
+            "*.skp",
+            "*.skb",
+        ),
+    },
+    "procreate": {
+        "title": "Procreate caches",
+        "paths": (
+            "~/Library/Containers/com.savageinteractive.procreate/Data/Library/Caches/",
+            "~/Library/Containers/com.savageinteractive.procreate.dreams/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.savageinteractive.procreate*/Data/Documents/*",
+            "*.procreate",
+        ),
+    },
+    "rekordbox": {
+        "title": "rekordbox caches",
+        "paths": (
+            "~/Library/Caches/com.pioneerdj.rekordbox/",
+            "~/Library/Application Support/Pioneer/rekordbox/share/",
+        ),
+        "protected_patterns": (
+            "*/rekordbox/*.db",
+            "*.xml",
+        ),
+    },
+    "reasonStudios": {
+        "title": "Reason Studios caches",
+        "paths": (
+            "~/Library/Caches/se.propellerhead.reason/",
+            "~/Library/Application Support/Reason/Cache/",
+        ),
+        "protected_patterns": (
+            "*.reason",
+            "*.repatch",
+        ),
+    },
+    "adobeCreativeCloud": {
+        "title": "Adobe Creative Cloud caches",
+        "paths": (
+            "~/Library/Caches/Adobe/Creative Cloud/",
+            "~/Library/Application Support/Adobe/CEF/cef_cache/",
+        ),
+        "protected_patterns": (
+            "*/Adobe/OOBE/*",
+            "*/Adobe/Creative Cloud Libraries/*",
+        ),
+    },
+    "dBeaver": {
+        "title": "DBeaver caches",
+        "paths": (
+            "~/Library/Caches/org.jkiss.dbeaver.core/",
+            "~/Library/Application Support/DBeaverData/workspace6/.metadata/",
+        ),
+        "protected_patterns": (
+            "*/DBeaverData/Configuration/*",
+            "*/DBeaverData/workspace6/General/*",
+            "*/DBeaverData/drivers/*",
+            "*.dbeaver",
+            "*.sql",
+        ),
+    },
+    "datagrip": {
+        "title": "DataGrip caches",
+        "paths": (
+            "~/Library/Caches/JetBrains/DataGrip*/",
+            "~/Library/Logs/JetBrains/DataGrip*/",
+        ),
+        "protected_patterns": (
+            "*/JetBrains/DataGrip*/options/*",
+            "*/JetBrains/DataGrip*/consoles/*",
+            "*.sql",
+        ),
+    },
+    "redisInsight": {
+        "title": "Redis Insight caches",
+        "paths": (
+            "~/Library/Application Support/Redis Insight/Cache/",
+            "~/Library/Caches/com.redis.RedisInsight/",
+        ),
+        "protected_patterns": (
+            "*/Redis Insight/rdi_storage/*",
+            "*/Redis Insight/settings/*",
+            "*.rdb",
+        ),
+    },
+    "robo3t": {
+        "title": "Robo 3T / Studio 3T caches",
+        "paths": (
+            "~/Library/Caches/3T Software Ltd/",
+            "~/Library/Caches/org.robomongo.robomongo/",
+        ),
+        "protected_patterns": (
+            "*/3T Software Ltd/Studio 3T/connections/*",
+            "*/robomongo/config/*",
+            "*.json",
+            "*.bson",
+        ),
+    },
+    "wireshark": {
+        "title": "Wireshark caches",
+        "paths": (
+            "~/Library/Caches/org.wireshark.Wireshark/",
+            "~/Library/Application Support/Wireshark/cache/",
+        ),
+        "protected_patterns": (
+            "*/Wireshark/profiles/*",
+            "*/Wireshark/plugins/*",
+            "*.pcap",
+            "*.pcapng",
+        ),
+    },
+    "kap": {
+        "title": "Kap screen recorder caches",
+        "paths": (
+            "~/Library/Caches/com.wulkano.kap/",
+            "~/Library/Application Support/Kap/Cache/",
+        ),
+        "protected_patterns": ("*/Kap/plugins/*",),
+    },
 }

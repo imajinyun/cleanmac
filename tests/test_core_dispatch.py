@@ -5,13 +5,14 @@ import io
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import cleancli.core as cleancli
 from cleancli.release_artifacts import build_release_artifact_manifest
 
 
-def run_main_json(*args: str) -> dict[str, object]:
+def run_main_json(*args: str) -> dict[str, Any]:
     stdout = io.StringIO()
     with contextlib.redirect_stdout(stdout):
         exit_code = cleancli.main(["--json", *args])
