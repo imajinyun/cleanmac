@@ -1153,6 +1153,195 @@ CATEGORIES: tuple[Category, ...] = (
         process_guard="Snagit",
     ),
     Category(
+        "obs",
+        APP_CLEANUP_RULES["obs"]["title"],
+        APP_CLEANUP_RULES["obs"]["paths"],
+        "Deletes OBS Studio regenerable caches while preserving scenes, profiles, and plugins.",
+        risk="medium",
+        advanced=True,
+        process_guard="OBS",
+    ),
+    Category(
+        "davinciResolve",
+        APP_CLEANUP_RULES["davinciResolve"]["title"],
+        APP_CLEANUP_RULES["davinciResolve"]["paths"],
+        "Deletes DaVinci Resolve regenerable cache clips while preserving projects and databases.",
+        risk="medium",
+        advanced=True,
+        process_guard="DaVinci Resolve",
+    ),
+    Category(
+        "audacity",
+        APP_CLEANUP_RULES["audacity"]["title"],
+        APP_CLEANUP_RULES["audacity"]["paths"],
+        "Deletes Audacity regenerable caches while preserving projects and plugin configuration.",
+        risk="medium",
+        advanced=True,
+        process_guard="Audacity",
+    ),
+    Category(
+        "ableton",
+        APP_CLEANUP_RULES["ableton"]["title"],
+        APP_CLEANUP_RULES["ableton"]["paths"],
+        "Deletes Ableton Live regenerable caches while preserving projects, packs, and presets.",
+        risk="medium",
+        advanced=True,
+        process_guard="Live",
+    ),
+    Category(
+        "camtasia",
+        APP_CLEANUP_RULES["camtasia"]["title"],
+        APP_CLEANUP_RULES["camtasia"]["paths"],
+        "Deletes Camtasia regenerable caches while preserving projects and recordings.",
+        risk="medium",
+        advanced=True,
+        process_guard="Camtasia",
+    ),
+    Category(
+        "screenflow",
+        APP_CLEANUP_RULES["screenflow"]["title"],
+        APP_CLEANUP_RULES["screenflow"]["paths"],
+        "Deletes ScreenFlow regenerable caches while preserving projects and recordings.",
+        risk="medium",
+        advanced=True,
+        process_guard="ScreenFlow",
+    ),
+    Category(
+        "lightroom",
+        APP_CLEANUP_RULES["lightroom"]["title"],
+        APP_CLEANUP_RULES["lightroom"]["paths"],
+        "Deletes Adobe Lightroom regenerable previews and cache while preserving catalogs and presets.",
+        risk="medium",
+        advanced=True,
+        process_guard="Lightroom",
+    ),
+    Category(
+        "photoshop",
+        APP_CLEANUP_RULES["photoshop"]["title"],
+        APP_CLEANUP_RULES["photoshop"]["paths"],
+        "Deletes Adobe Photoshop regenerable caches while preserving brushes, actions, and settings.",
+        risk="medium",
+        advanced=True,
+        process_guard="Photoshop",
+    ),
+    Category(
+        "illustrator",
+        APP_CLEANUP_RULES["illustrator"]["title"],
+        APP_CLEANUP_RULES["illustrator"]["paths"],
+        "Deletes Adobe Illustrator regenerable caches while preserving presets and settings.",
+        risk="medium",
+        advanced=True,
+        process_guard="Illustrator",
+    ),
+    Category(
+        "rhinoceros",
+        APP_CLEANUP_RULES["rhinoceros"]["title"],
+        APP_CLEANUP_RULES["rhinoceros"]["paths"],
+        "Deletes Rhinoceros 3D regenerable caches while preserving models and plugins.",
+        risk="medium",
+        advanced=True,
+        process_guard="Rhinoceros",
+    ),
+    Category(
+        "sketchup",
+        APP_CLEANUP_RULES["sketchup"]["title"],
+        APP_CLEANUP_RULES["sketchup"]["paths"],
+        "Deletes SketchUp regenerable caches while preserving models, components, and styles.",
+        risk="medium",
+        advanced=True,
+        process_guard="SketchUp",
+    ),
+    Category(
+        "procreate",
+        APP_CLEANUP_RULES["procreate"]["title"],
+        APP_CLEANUP_RULES["procreate"]["paths"],
+        "Deletes Procreate regenerable caches while preserving artwork files and documents.",
+        risk="medium",
+        advanced=True,
+        process_guard="Procreate",
+    ),
+    Category(
+        "rekordbox",
+        APP_CLEANUP_RULES["rekordbox"]["title"],
+        APP_CLEANUP_RULES["rekordbox"]["paths"],
+        "Deletes rekordbox regenerable caches while preserving playlists and database.",
+        risk="medium",
+        advanced=True,
+        process_guard="rekordbox",
+    ),
+    Category(
+        "reasonStudios",
+        APP_CLEANUP_RULES["reasonStudios"]["title"],
+        APP_CLEANUP_RULES["reasonStudios"]["paths"],
+        "Deletes Reason Studios regenerable caches while preserving songs, patches, and templates.",
+        risk="medium",
+        advanced=True,
+        process_guard="Reason",
+    ),
+    Category(
+        "adobeCreativeCloud",
+        APP_CLEANUP_RULES["adobeCreativeCloud"]["title"],
+        APP_CLEANUP_RULES["adobeCreativeCloud"]["paths"],
+        "Deletes Adobe Creative Cloud regenerable caches while preserving fonts, libraries, and preferences.",
+        risk="medium",
+        advanced=True,
+        process_guard="Creative Cloud",
+    ),
+    Category(
+        "kap",
+        APP_CLEANUP_RULES["kap"]["title"],
+        APP_CLEANUP_RULES["kap"]["paths"],
+        "Deletes Kap screen recorder regenerable caches while preserving plugins and preferences.",
+        risk="medium",
+        advanced=True,
+        process_guard="Kap",
+    ),
+    Category(
+        "dBeaver",
+        APP_CLEANUP_RULES["dBeaver"]["title"],
+        APP_CLEANUP_RULES["dBeaver"]["paths"],
+        "Deletes DBeaver regenerable caches while preserving connections, drivers, and SQL scripts.",
+        risk="medium",
+        advanced=True,
+        process_guard="DBeaver",
+    ),
+    Category(
+        "datagrip",
+        APP_CLEANUP_RULES["datagrip"]["title"],
+        APP_CLEANUP_RULES["datagrip"]["paths"],
+        "Deletes DataGrip regenerable caches while preserving projects, data sources, and console scripts.",
+        risk="medium",
+        advanced=True,
+        process_guard="DataGrip",
+    ),
+    Category(
+        "redisInsight",
+        APP_CLEANUP_RULES["redisInsight"]["title"],
+        APP_CLEANUP_RULES["redisInsight"]["paths"],
+        "Deletes Redis Insight regenerable caches while preserving database connections and settings.",
+        risk="medium",
+        advanced=True,
+        process_guard="Redis Insight",
+    ),
+    Category(
+        "robo3t",
+        APP_CLEANUP_RULES["robo3t"]["title"],
+        APP_CLEANUP_RULES["robo3t"]["paths"],
+        "Deletes Robo 3T / Studio 3T regenerable caches while preserving connections and queries.",
+        risk="medium",
+        advanced=True,
+        process_guard="Studio 3T",
+    ),
+    Category(
+        "wireshark",
+        APP_CLEANUP_RULES["wireshark"]["title"],
+        APP_CLEANUP_RULES["wireshark"]["paths"],
+        "Deletes Wireshark regenerable caches while preserving profiles, plugins, and capture files.",
+        risk="medium",
+        advanced=True,
+        process_guard="Wireshark",
+    ),
+    Category(
         "userCache",
         "User caches",
         ("~/Library/Caches/",),
@@ -1369,6 +1558,192 @@ CATEGORIES: tuple[Category, ...] = (
         provider="darwin-user-cache",
         default_older_than_days=7,
         default_exclude_patterns=("*.sqlite", "*.sqlite-shm", "*.sqlite-wal", "*.db", "*.plist"),
+    ),
+    Category(
+        "oldFiles",
+        "Old files in Downloads and Desktop",
+        (
+            "~/Downloads/",
+            "~/Desktop/",
+        ),
+        "Cleans files older than the configured threshold from Downloads and Desktop. Excludes documents, images, and project files by default.",
+        risk="medium",
+        advanced=True,
+        default_older_than_days=30,
+        default_min_size_mb=0,
+        default_include_patterns=(
+            "*.tmp",
+            "*.temp",
+            "*.crdownload",
+            "*.part",
+            "*.dmg",
+            "*.pkg",
+            "*.zip",
+            "*.tar.gz",
+            "*.tgz",
+        ),
+        default_exclude_patterns=(
+            "*.docx",
+            "*.xlsx",
+            "*.pptx",
+            "*.pdf",
+            "*.key",
+            "*.pages",
+            "*.numbers",
+            "*.psd",
+            "*.sketch",
+        ),
+    ),
+    Category(
+        "installerPackages",
+        "Installer packages and disk images",
+        (
+            "~/Downloads/",
+            "~/Desktop/",
+            "~/Library/Caches/Homebrew/downloads/",
+        ),
+        "Removes installer disk images (.dmg), packages (.pkg, .ipa), and archive installers from Downloads, Desktop, and Homebrew cache.",
+        risk="medium",
+        advanced=True,
+        default_min_size_mb=0,
+        default_include_patterns=("*.dmg", "*.pkg", "*.ipa", "*.iso", "*.img"),
+    ),
+    Category(
+        "projectArtifacts",
+        "Project build artifacts and dependency caches",
+        (
+            "~/Projects/",
+            "~/GitHub/",
+            "~/dev/",
+            "~/code/",
+            "~/work/",
+        ),
+        "Cleans build artifacts and dependency caches from common project directories: node_modules, target, dist, build, .build, venv, __pycache__, and more.",
+        risk="medium",
+        advanced=True,
+        default_older_than_days=7,
+        default_include_patterns=(
+            "node_modules",
+            "target",
+            "dist",
+            "build",
+            ".build",
+            "venv",
+            ".venv",
+            "__pycache__",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            ".gradle",
+            ".next",
+            ".nuxt",
+            ".cache",
+            "Pods",
+            "DerivedData",
+            ".dart_tool",
+            "CMakeFiles",
+            "cmake-build-",
+            "bazel-",
+            "buck-out",
+            "_build",
+            "deps",
+        ),
+        default_exclude_patterns=("*.env", "*.env.*", ".git", ".svn"),
+    ),
+    Category(
+        "largeFiles",
+        "Large files scan across user directories",
+        (
+            "~/Downloads/",
+            "~/Desktop/",
+            "~/Documents/",
+            "~/Movies/",
+            "~/Music/",
+            "~/Pictures/",
+        ),
+        "Discovers and optionally removes files larger than the configured threshold across common user directories. Default threshold: 100 MB. Always review before deletion.",
+        risk="high",
+        advanced=True,
+        default_min_size_mb=100,
+    ),
+    Category(
+        "duplicateFiles",
+        "Duplicate file detection across user directories",
+        (
+            "~/Downloads/",
+            "~/Desktop/",
+            "~/Documents/",
+            "~/Movies/",
+            "~/Music/",
+            "~/Pictures/",
+        ),
+        "Finds files with identical content using SHA-256 hashing. Groups duplicates by content hash and keeps one copy per group. Always review before deletion.",
+        risk="high",
+        advanced=True,
+        default_min_size_mb=1,
+    ),
+    Category(
+        "iosBackups",
+        "iOS device backups and sync data",
+        ("~/Library/Application Support/MobileSync/Backup/",),
+        "Removes old iOS device backups stored locally by Finder or iTunes. Each backup can occupy tens of gigabytes. Review before deletion to avoid data loss.",
+        risk="high",
+        advanced=True,
+    ),
+    Category(
+        "fontCache",
+        "Font registry and font cache files",
+        (
+            "~/Library/Caches/com.apple.FontRegistry/",
+            "~/Library/Caches/ATS/",
+        ),
+        "Clears macOS font registry caches. Safe to remove; macOS rebuilds caches automatically when needed.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "inputMethodCache",
+        "Input method editor caches",
+        (
+            "~/Library/Caches/com.apple.inputmethod.EmojiFunctionRowItem/",
+            "~/Library/Caches/com.apple.KeyboardViewer/",
+        ),
+        "Clears input method and keyboard caches. Safe to remove; macOS regenerates them on next use.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "spotlightCache",
+        "Spotlight metadata caches",
+        (
+            "~/Library/Caches/Metadata/",
+            "~/Library/Metadata/",
+        ),
+        "Removes Spotlight metadata caches. Spotlight reindexes as needed. These can grow large on volumes with many files.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "printQueue",
+        "Print queue and printer cache files",
+        (
+            "~/Library/Printers/",
+            "~/Library/Caches/Print/",
+        ),
+        "Clears printer queues and printer driver caches. Stuck print jobs and orphaned spool files can be safely removed.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "quickLookCache",
+        "Quick Look thumbnail and preview caches",
+        (
+            "~/Library/Caches/com.apple.QuickLookDaemon/",
+            "~/Library/Application Support/Quick Look/",
+        ),
+        "Clears Quick Look thumbnail and preview caches. Safe to remove; Quick Look regenerates thumbnails on demand.",
+        risk="low",
+        advanced=True,
     ),
 )
 
@@ -1624,6 +1999,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     analyze_tree.add_argument("--top", type=int, default=20)
     analyze_tree.add_argument("--min-size-mb", type=int, default=0)
 
+    analyze_duplicates = subparsers.add_parser("analyze-duplicates", help=argparse.SUPPRESS)
+    analyze_duplicates.add_argument("--path", default="~", help="Directory to scan for duplicates.")
+    analyze_duplicates.add_argument("--min-size-mb", type=int, default=1)
+    analyze_duplicates.add_argument("--max-groups", type=int, default=50)
+
     diagnose_cmd = subparsers.add_parser("diagnose", help="Analyze cleanup categories and emit recommendations.")
     add_category_flags(diagnose_cmd, default_scope="all")
     diagnose_cmd.add_argument("--log-threshold-mb", type=int, default=100)
@@ -1693,9 +2073,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     clean_cmd.add_argument(
         "--delete-mode",
-        choices=("permanent", "trash"),
+        choices=("permanent", "trash", "hardlink"),
         default="permanent",
-        help="Delete permanently or move candidates to the user's Trash for recovery.",
+        help="Delete permanently, move to Trash, or replace duplicate files with hard links (duplicateFiles only).",
     )
     clean_cmd.add_argument(
         "--operation-log",
@@ -4039,6 +4419,29 @@ def rows_by_category(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]
     return output
 
 
+def rows_by_file_type(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    output: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        path_str = str(row.get("path", ""))
+        suffix = Path(path_str).suffix.lower().lstrip(".") or "(no extension)"
+        current = output.setdefault(suffix, {"count": 0, "bytes": 0, "human": human_size(0)})
+        current["count"] = int(current["count"]) + 1
+        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
+        current["human"] = human_size(int(current["bytes"]))
+    return output
+
+
+def rows_by_parent_directory(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    output: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        parent = str(row.get("parent", "(unknown)"))
+        current = output.setdefault(parent, {"count": 0, "bytes": 0, "human": human_size(0)})
+        current["count"] = int(current["count"]) + 1
+        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
+        current["human"] = human_size(int(current["bytes"]))
+    return output
+
+
 def inspect_items(
     categories: list[Category],
     *,
@@ -4267,6 +4670,15 @@ def delete_path(path: Path, *, root: Path, home: Path, delete_mode: str) -> Path
     )
 
 
+def hardlink_replace(dup_path: Path, *, keep_path: Path, root: Path, home: Path, dry_run: bool = False) -> Path | None:
+    return delete_ops.hardlink_replace(
+        dup_path,
+        policy=delete_policy_for_context(root=root, home=home),
+        target=keep_path,
+        dry_run=dry_run,
+    )
+
+
 def remove_path(path: Path, *, root: Path, home: Path) -> None:
     delete_path(path, root=root, home=home, delete_mode="permanent")
 
@@ -4311,6 +4723,29 @@ def append_deletion_log(
     )
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(line + "\n")
+    return display_path(log_path)
+
+
+def batch_append_deletion_log(
+    *,
+    root: Path,
+    home: Path,
+    entries: list[dict[str, Any]],
+) -> str:
+    if not entries:
+        return display_path(deletion_log_path_for_context(root=root, home=home))
+    log_path = deletion_log_path_for_context(root=root, home=home)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    lines_out = []
+    for entry in entries:
+        size_text = "unknown" if entry.get("bytes_value") is None else str(entry["bytes_value"])
+        detail = str(entry.get("detail", "")).replace("\t", " ")
+        lines_out.append(
+            "\t".join([now, str(entry["mode"]), size_text, str(entry["status"]), str(entry["path"]), detail])
+        )
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines_out) + "\n")
     return display_path(log_path)
 
 
@@ -4549,6 +4984,102 @@ def analyze_tree(path: Path, *, root: Path, home: Path, depth: int, top: int, mi
     }
 
 
+def find_duplicate_files(
+    paths: Sequence[Path],
+    *,
+    root: Path,
+    home: Path,
+    min_size_mb: int = 1,
+    recursive: bool = True,
+) -> dict[str, Any]:
+    import hashlib
+
+    min_bytes = max(min_size_mb, 0) * 1024 * 1024
+    size_groups: dict[int, list[Path]] = {}
+
+    for base_path in paths:
+        scan_path = Path(remap_path(str(base_path), root=root, home=home))
+        if not scan_path.exists():
+            continue
+        for current_root, _dirs, files in os.walk(scan_path, followlinks=False):
+            current = Path(current_root)
+            for name in files:
+                child = current / name
+                if child.is_symlink():
+                    continue
+                try:
+                    size = child.lstat().st_size
+                except OSError:
+                    continue
+                if size < min_bytes:
+                    continue
+                size_groups.setdefault(size, []).append(child)
+            if not recursive:
+                break
+
+    hash_groups: dict[str, list[dict[str, Any]]] = {}
+    total_duplicates = 0
+    wasted_bytes = 0
+
+    for size, file_list in size_groups.items():
+        if len(file_list) < 2:
+            continue
+        for file_path in file_list:
+            try:
+                h = hashlib.sha256()
+                with open(file_path, "rb") as f:
+                    while True:
+                        chunk = f.read(65536)
+                        if not chunk:
+                            break
+                        h.update(chunk)
+                digest = h.hexdigest()
+                if digest not in hash_groups:
+                    hash_groups[digest] = []
+                hash_groups[digest].append(
+                    {
+                        "path": display_path(file_path),
+                        "bytes": size,
+                        "human": human_size(size),
+                    }
+                )
+            except OSError:
+                continue
+
+    groups: list[dict[str, Any]] = []
+    for digest, dup_file_list in hash_groups.items():
+        dup_files: list[dict[str, Any]] = dup_file_list  # type: ignore[assignment]
+        if len(dup_files) < 2:
+            continue
+        group_size = dup_files[0]["bytes"]
+        wasted = group_size * (len(dup_files) - 1)
+        total_duplicates += len(dup_files) - 1
+        wasted_bytes += wasted
+        groups.append(
+            {
+                "hash": digest,
+                "file_count": len(dup_files),
+                "bytes_per_file": group_size,
+                "wasted_bytes": wasted,
+                "wasted_human": human_size(wasted),
+                "files": dup_files,
+            }
+        )
+
+    groups.sort(key=lambda g: (g["wasted_bytes"], g["hash"]), reverse=True)
+
+    return {
+        "schema": "cleanmac.duplicate-files.v1",
+        "destructive": False,
+        "min_size_mb": min_size_mb,
+        "total_groups": len(groups),
+        "total_duplicate_files": total_duplicates,
+        "wasted_bytes": wasted_bytes,
+        "wasted_human": human_size(wasted_bytes),
+        "groups": groups,
+    }
+
+
 def render_software(action: str, *, app: str | None, root: Path, home: Path) -> dict[str, Any]:
     app_dirs = [provider_base(root, "/Applications"), remap_home(root=root, home=home) / "Applications"]
     apps: list[dict[str, Any]] = []
@@ -4783,6 +5314,17 @@ def candidate_counts_by_category(candidate_rows: Sequence[dict[str, Any]]) -> di
         key = str(row["category"])
         counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def candidate_bytes_by_category(candidate_rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    totals: dict[str, dict[str, Any]] = {}
+    for row in candidate_rows:
+        key = str(row["category"])
+        current = totals.setdefault(key, {"count": 0, "bytes": 0, "human": human_size(0)})
+        current["count"] = int(current["count"]) + 1
+        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
+        current["human"] = human_size(int(current["bytes"]))
+    return totals
 
 
 def command_group_inventory() -> dict[str, Any]:
@@ -5419,6 +5961,7 @@ def render_pre_clean_report(
     high_risk = selected_high_risk_categories(categories)
     yes_required = categories_requiring_yes(categories, risk_policy)
     candidate_counts = candidate_counts_by_category(inspect_report["items"])  # type: ignore[arg-type]
+    candidate_totals = candidate_bytes_by_category(inspect_report["items"])  # type: ignore[arg-type]
     return {
         "phase": "pre-clean",
         "summary": {
@@ -5459,6 +6002,8 @@ def render_pre_clean_report(
                 "bytes": row["bytes"],
                 "human": row["human"],
                 "candidate_count": candidate_counts.get(str(row["key"]), 0),
+                "candidate_bytes": candidate_totals.get(str(row["key"]), {}).get("bytes", 0),
+                "candidate_human": candidate_totals.get(str(row["key"]), {}).get("human", human_size(0)),
                 "risk": row["risk"],
             }
             for row in analysis_report["categories"]
@@ -6514,7 +7059,28 @@ def clean(
         if isinstance(review_selection, dict)
         else None
     )
+    dup_candidates: dict[str, dict[str, Any]] = {}
+    dup_categories = [c for c in categories if c.key == "duplicateFiles"]
+    if dup_categories:
+        dup_category = dup_categories[0]
+        dup_scan_paths = [Path(p) for p in dup_category.paths]
+        effective_min = max(
+            effective_min_size_mb(dup_category, min_size_mb),
+            dup_category.default_min_size_mb,
+        )
+        dup_result = find_duplicate_files(dup_scan_paths, root=root, home=home, min_size_mb=effective_min)
+        for group in dup_result["groups"]:
+            keep_path = group["files"][0]["path"]
+            for file_info in group["files"][1:]:
+                dup_candidates[file_info["path"]] = {
+                    "duplicate_group_hash": group["hash"],
+                    "duplicate_group_size": group["bytes_per_file"],
+                    "duplicate_group_file_count": group["file_count"],
+                    "duplicate_keep_path": keep_path,
+                }
     for target in resolve_targets(categories, root=root, home=home):
+        if target.category == "duplicateFiles":
+            continue
         category = CATEGORY_BY_KEY[target.category]
         min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
         for entry in clean_candidate_entries(target):
@@ -6601,6 +7167,69 @@ def clean(
                         "recommended_next_action": "review-default-selection-before-trash-execution"
                         if default_selected
                         else "manual-review-required",
+                    },
+                }
+            )
+    if dup_candidates:
+        dup_category = CATEGORY_BY_KEY["duplicateFiles"]
+        for dup_path, dup_meta in dup_candidates.items():
+            entry = Path(dup_path)
+            try:
+                assert_safe_to_delete(entry, root=root, home=home)
+            except Exception:
+                continue
+            reason = filter_reason(
+                dup_category,
+                entry,
+                root=root,
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                older_than_days=older_than_days,
+                name_regex=name_regex,
+                bundle_allowlist=bundle_allowlist,
+                bundle_blocklist=bundle_blocklist,
+            )
+            if reason:
+                continue
+            display_entry = display_path(entry)
+            if review_selected_paths is not None and display_entry not in review_selected_paths:
+                continue
+            size = path_size_bytes(entry)
+            rows.append(
+                {
+                    "category": "duplicateFiles",
+                    "parent": display_path(entry.parent),
+                    "path": display_entry,
+                    **path_interaction_metadata(entry),
+                    "bytes": size,
+                    "human": human_size(size),
+                    "bundle_id": bundle_id_for_path(entry),
+                    "delete_mode": delete_mode,
+                    "trash_path": None,
+                    "deleted": False,
+                    "risk": dup_category.risk,
+                    "default_selected": True,
+                    "protected": False,
+                    "duplicate_group_hash": dup_meta["duplicate_group_hash"],
+                    "duplicate_group_size": dup_meta["duplicate_group_size"],
+                    "duplicate_group_file_count": dup_meta["duplicate_group_file_count"],
+                    "duplicate_keep_path": dup_meta["duplicate_keep_path"],
+                    "review_evidence": {
+                        "schema": "cleanmac.candidate-review-evidence.v1",
+                        "matched_rule": "clean.duplicateFiles.candidate",
+                        "match_reason": "duplicate-content-hash",
+                        "confidence": "high",
+                        "risk": dup_category.risk,
+                        "risk_reason": dup_category.description,
+                        "risk_explanation": f"SHA-256 hash matches {dup_meta['duplicate_group_file_count'] - 1} other file(s); one copy preserved at {dup_meta['duplicate_keep_path']}",
+                        "default_selected": True,
+                        "why_not_default": None,
+                        "protected": False,
+                        "delete_mode": delete_mode,
+                        "recovery": "Duplicate copies are safe to remove; one original copy is preserved per content group.",
+                        "contains_user_data": True,
+                        "shared_container": False,
+                        "recommended_next_action": "review-duplicate-group-before-deletion",
                     },
                 }
             )
@@ -6744,24 +7373,78 @@ def clean(
         for row in rows:
             path = Path(str(row["path"]))
             try:
-                if delete_mode == "trash":
+                is_dup = row.get("category") == "duplicateFiles" and "duplicate_keep_path" in row
+                if delete_mode == "hardlink":
+                    if not is_dup:
+                        row["deleted"] = False
+                        row["hardlinked"] = False
+                        row["status"] = "skipped"
+                        row["reason"] = "hardlink-mode-only-applies-to-duplicateFiles"
+                        append_deletion_log(
+                            root=root,
+                            home=home,
+                            mode=delete_mode,
+                            status="skipped",
+                            path=path,
+                            bytes_value=int(str(row["bytes"])),
+                            detail="hardlink-mode-only-applies-to-duplicateFiles",
+                        )
+                        operation_log_entries.append(
+                            operation_log_entry(
+                                session_id=session_id,
+                                command_text=command_text,
+                                action="skipped",
+                                row=row,
+                                delete_mode=delete_mode,
+                                root=root,
+                                home=home,
+                                ai_operation_audit=ai_operation_audit,
+                            )
+                        )
+                        continue
+                    keep_path = Path(str(row["duplicate_keep_path"]))
+                    result = hardlink_replace(path, keep_path=keep_path, root=root, home=home)
+                    row["hardlinked"] = result is not None
+                    row["deleted"] = result is not None
+                    row["status"] = "hardlinked" if result else "skipped"
+                    append_deletion_log(
+                        root=root,
+                        home=home,
+                        mode=delete_mode,
+                        status="hardlinked" if result else "skipped",
+                        path=path,
+                        bytes_value=int(str(row["bytes"])),
+                        detail=str(row["duplicate_keep_path"]),
+                    )
+                elif delete_mode == "trash":
                     trash_path = delete_path(path, root=root, home=home, delete_mode="trash")
                     if trash_path is None:
                         raise RuntimeError(f"Trash routing did not return a destination for: {path}")
                     row["trash_path"] = display_path(trash_path)
+                    row["deleted"] = True
+                    row["status"] = "deleted"
+                    append_deletion_log(
+                        root=root,
+                        home=home,
+                        mode=delete_mode,
+                        status="deleted",
+                        path=path,
+                        bytes_value=int(str(row["bytes"])),
+                        detail=str(row.get("trash_path") or ""),
+                    )
                 else:
                     delete_path(path, root=root, home=home, delete_mode="permanent")
-                row["deleted"] = True
-                row["status"] = "deleted"
-                append_deletion_log(
-                    root=root,
-                    home=home,
-                    mode=delete_mode,
-                    status="deleted",
-                    path=path,
-                    bytes_value=int(str(row["bytes"])),
-                    detail=str(row.get("trash_path") or ""),
-                )
+                    row["deleted"] = True
+                    row["status"] = "deleted"
+                    append_deletion_log(
+                        root=root,
+                        home=home,
+                        mode=delete_mode,
+                        status="deleted",
+                        path=path,
+                        bytes_value=int(str(row["bytes"])),
+                        detail=str(row.get("trash_path") or ""),
+                    )
             except Exception as exc:
                 row["deleted"] = False
                 row["status"] = "failed"
@@ -6881,6 +7564,7 @@ def clean(
         command_argv=command_argv,
         warnings=ai_confirmation_summary["warnings"],
     )
+    rows.sort(key=lambda row: (row_bytes(row), str(row["path"])), reverse=True)
     return {
         "schema": "cleanmac.clean.v1",
         "destructive": execute,
@@ -6919,7 +7603,11 @@ def clean(
         "total_bytes": candidate_bytes,
         "total_human": human_size(candidate_bytes),
         "by_category": rows_by_category(rows),
+        "by_file_type": rows_by_file_type(rows),
+        "by_parent_directory": rows_by_parent_directory(rows),
         "skipped_by_category": rows_by_category(skipped),
+        "skipped_by_file_type": rows_by_file_type(skipped),
+        "skipped_by_parent_directory": rows_by_parent_directory(skipped),
         "skipped_count": len(skipped),
         "deleted_count": sum(1 for row in rows if row.get("deleted")),
         "failed_count": sum(1 for row in rows if row.get("status") == "failed"),
@@ -7036,6 +7724,9 @@ def render_clean_plan(
         "yes_required_categories": pre_report["summary"]["yes_required_categories"],
         "pre_clean_report": pre_report,
         "candidate_fingerprints": candidate_fingerprints(pre_report["candidates"]),
+        "by_category": rows_by_category(pre_report["candidates"]),
+        "by_file_type": rows_by_file_type(pre_report["candidates"]),
+        "by_parent_directory": rows_by_parent_directory(pre_report["candidates"]),
         "replay_command": build_clean_command(category_keys, execute=False),
     }
 
@@ -9378,6 +10069,18 @@ def _main_impl(argv: Sequence[str]) -> int:
             ),
             args=args,
             command="analyze-tree",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "analyze-duplicates":
+        dup_result = find_duplicate_files([Path(args.path)], root=root, home=home, min_size_mb=args.min_size_mb)
+        dup_result["groups"] = dup_result["groups"][: max(args.max_groups, 0)]
+        emit_report(
+            dup_result,
+            args=args,
+            command="analyze-duplicates",
             root=root,
             home=home,
             argv=actual_argv,

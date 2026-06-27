@@ -299,6 +299,41 @@ def safe_sudo_remove(
     raise RuntimeError(f"Failed to sudo remove {target}: {reason}")
 
 
+def hardlink_replace(
+    path: str | os.PathLike[str],
+    *,
+    policy: DeletePolicy,
+    target: str | os.PathLike[str],
+    dry_run: bool = False,
+    operation_log: OperationLogHook | None = None,
+) -> Path | None:
+    """Replace path with a hardlink pointing to target.
+
+    Both files must reside on the same filesystem. The original path is
+    removed and replaced with a hard link sharing inode with target.
+    Returns the path on success (same inode as target), None on dry-run.
+    """
+    dup_path = validate_deletion_path(path, policy=policy)
+    target_path = validate_deletion_path(target, policy=policy)
+    if not dup_path.is_file() or dup_path.is_symlink():
+        raise RuntimeError(f"Hardlink source must be a regular file: {dup_path}")
+    if not target_path.is_file() or target_path.is_symlink():
+        raise RuntimeError(f"Hardlink target must be a regular file: {target_path}")
+    if dup_path.stat().st_ino == target_path.stat().st_ino:
+        if operation_log is not None:
+            operation_log("skipped", dup_path, "already-hardlinked")
+        return dup_path
+    if dry_run:
+        if operation_log is not None:
+            operation_log("dry-run", dup_path, f"hardlink:{target_path}")
+        return None
+    dup_path.unlink()
+    os.link(target_path, dup_path)
+    if operation_log is not None:
+        operation_log("hardlinked", dup_path, f"target:{target_path}")
+    return dup_path
+
+
 def delete_path(path: Path, *, policy: DeletePolicy, delete_mode: str, trash_root: Path | None = None) -> Path | None:
     if delete_mode == "trash":
         if trash_root is None:
