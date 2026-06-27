@@ -1520,4 +1520,202 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Application Support/Rectangle/Shortcuts.plist",
         ),
     },
+    "onePassword": {
+        "title": "1Password caches",
+        "paths": (
+            "~/Library/Caches/com.agilebits.onepassword7/",
+            "~/Library/Caches/com.agilebits.onepassword8/",
+            "~/Library/Containers/com.agilebits.onepassword7/Data/Library/Caches/",
+            "~/Library/Containers/com.agilebits.onepassword8/Data/Library/Caches/",
+            "~/Library/Group Containers/2BUA8C4S2C.com.1password/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Group Containers/2BUA8C4S2C.com.1password/Data/*",
+            "*/Containers/com.agilebits.onepassword*/Data/Documents/*",
+            "*/Containers/com.agilebits.onepassword*/Data/Library/Application Support/*",
+            "*/Application Support/1Password/*",
+            "*.opvault",
+            "*.1pif",
+        ),
+    },
+    "bitwarden": {
+        "title": "Bitwarden caches",
+        "paths": (
+            "~/Library/Caches/com.bitwarden.desktop/",
+            "~/Library/Application Support/Bitwarden/Cache/",
+            "~/Library/Application Support/Bitwarden/Code Cache/",
+            "~/Library/Application Support/Bitwarden/GPUCache/",
+            "~/Library/Containers/com.bitwarden.desktop/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Bitwarden/Local Storage/*",
+            "*/Application Support/Bitwarden/IndexedDB/*",
+            "*/Application Support/Bitwarden/data.json",
+            "*/Application Support/Bitwarden/Cookies*",
+            "~/Library/Application Support/Bitwarden/*.json",
+        ),
+    },
+    "dashlane": {
+        "title": "Dashlane caches",
+        "paths": (
+            "~/Library/Caches/com.dashlane.dashlanemacdesktop/",
+            "~/Library/Application Support/Dashlane/Cache/",
+            "~/Library/Application Support/Dashlane/Code Cache/",
+            "~/Library/Containers/com.dashlane.Dashlane/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Dashlane/Local Storage/*",
+            "*/Application Support/Dashlane/IndexedDB/*",
+            "*/Containers/com.dashlane.Dashlane/Data/Documents/*",
+            "*/Containers/com.dashlane.Dashlane/Data/Library/Application Support/*",
+        ),
+    },
+    "sequelAce": {
+        "title": "Sequel Ace caches",
+        "paths": (
+            "~/Library/Caches/com.sequel-ace.sequel-ace/",
+            "~/Library/Containers/com.sequel-ace.sequel-ace/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.sequel-ace.sequel-ace/Data/Documents/*",
+            "*/Containers/com.sequel-ace.sequel-ace/Data/Library/Application Support/*",
+            "*/Containers/com.sequel-ace.sequel-ace/Data/Library/Preferences/*",
+            "*.spf",
+        ),
+    },
+    "orbStack": {
+        "title": "OrbStack caches",
+        "paths": (
+            "~/Library/Caches/com.kdrag0n.MacVirt/",
+            "~/Library/Application Support/OrbStack/cache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/OrbStack/ssh-keys/*",
+            "*/Application Support/OrbStack/config*",
+            "*/Application Support/OrbStack/machines/*",
+            "*/Application Support/OrbStack/docker*",
+        ),
+    },
+    "transmit": {
+        "title": "Transmit caches",
+        "paths": (
+            "~/Library/Caches/com.panic.Transmit/",
+            "~/Library/Containers/com.panic.Transmit/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.panic.Transmit/Data/Documents/*",
+            "*/Containers/com.panic.Transmit/Data/Library/Application Support/*",
+            "*/Containers/com.panic.Transmit/Data/Library/Preferences/*",
+            "~/Library/Application Support/Transmit/*",
+            "*.transmitdoc",
+        ),
+    },
+    "nordVPN": {
+        "title": "NordVPN caches",
+        "paths": (
+            "~/Library/Caches/com.nordvpn.osx/",
+            "~/Library/Containers/com.nordvpn.osx-apple-auth/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.nordvpn.osx-apple-auth/Data/Library/Preferences/*",
+            "*/Application Support/NordVPN/*",
+            "~/Library/Application Support/NordVPN/*",
+        ),
+    },
+    "surfshark": {
+        "title": "Surfshark caches",
+        "paths": (
+            "~/Library/Caches/com.surfshark.vpn/",
+            "~/Library/Containers/com.surfshark.vpnclient.macos/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.surfshark.vpnclient.macos/Data/Library/Preferences/*",
+            "*/Containers/com.surfshark.vpnclient.macos/Data/Documents/*",
+            "*/Application Support/Surfshark/*",
+        ),
+    },
+    "grammarly": {
+        "title": "Grammarly caches",
+        "paths": (
+            "~/Library/Caches/com.grammarly.ProjectLlama/",
+            "~/Library/Application Support/Grammarly/Cache/",
+            "~/Library/Application Support/Grammarly/Code Cache/",
+            "~/Library/Application Support/Grammarly/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Application Support/Grammarly/Local Storage/*",
+            "*/Application Support/Grammarly/IndexedDB/*",
+            "*/Application Support/Grammarly/Cookies*",
+            "*/Application Support/Grammarly/Preferences",
+            "*/Application Support/Grammarly/user data/*",
+        ),
+    },
+    "mimestream": {
+        "title": "Mimestream caches",
+        "paths": (
+            "~/Library/Caches/com.mimestream.Mimestream/",
+            "~/Library/Containers/com.mimestream.Mimestream/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.mimestream.Mimestream/Data/Documents/*",
+            "*/Containers/com.mimestream.Mimestream/Data/Library/Application Support/*",
+            "*/Containers/com.mimestream.Mimestream/Data/Library/Preferences/*",
+        ),
+    },
+    "reeder": {
+        "title": "Reeder caches",
+        "paths": (
+            "~/Library/Caches/com.reederapp.feedly.macOS/",
+            "~/Library/Containers/com.reederapp.feedly.macOS/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.reederapp.feedly.macOS/Data/Documents/*",
+            "*/Containers/com.reederapp.feedly.macOS/Data/Library/Application Support/*",
+            "*/Containers/com.reederapp.feedly.macOS/Data/Library/Preferences/*",
+        ),
+    },
+    "kindle": {
+        "title": "Kindle caches",
+        "paths": (
+            "~/Library/Caches/com.amazon.Kindle/",
+            "~/Library/Containers/com.amazon.Lassen/Data/Library/Caches/",
+            "~/Library/Application Support/Kindle/Cache/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.amazon.Lassen/Data/Documents/*",
+            "*/Application Support/Kindle/My Kindle Content/*",
+            "~/Library/Application Support/Kindle/*",
+            "*.azw3",
+            "*.epub",
+            "*.mobi",
+        ),
+    },
+    "cleanShot": {
+        "title": "CleanShot X caches",
+        "paths": (
+            "~/Library/Caches/pl.maketheweb.cleanshotx/",
+            "~/Library/Containers/pl.maketheweb.cleanshotx/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/pl.maketheweb.cleanshotx/Data/Documents/*",
+            "*/Containers/pl.maketheweb.cleanshotx/Data/Library/Application Support/*",
+            "*/Containers/pl.maketheweb.cleanshotx/Data/Library/Preferences/*",
+            "~/Pictures/CleanShot/*",
+            "~/Desktop/CleanShot*",
+        ),
+    },
+    "snagit": {
+        "title": "Snagit caches",
+        "paths": (
+            "~/Library/Caches/com.TechSmith.Snagit2024/",
+            "~/Library/Containers/com.TechSmith.Snagit2024/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.TechSmith.Snagit2024/Data/Documents/*",
+            "*/Containers/com.TechSmith.Snagit2024/Data/Library/Application Support/*",
+            "*/Containers/com.TechSmith.Snagit2024/Data/Library/Preferences/*",
+            "*/Application Support/TechSmith/Snagit/*",
+            "*.snagproj",
+        ),
+    },
 }

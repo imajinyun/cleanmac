@@ -332,6 +332,56 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Caches/com.knollsoft.Rectangle").mkdir(parents=True)
         (root / "Users/tester/Library/Containers/com.knollsoft.Rectangle/Data/Library/Caches").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Rectangle").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.agilebits.onepassword8").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.agilebits.onepassword8/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Group Containers/2BUA8C4S2C.com.1password/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Group Containers/2BUA8C4S2C.com.1password/Data").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/1Password").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.bitwarden.desktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Bitwarden/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Bitwarden/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Bitwarden/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.bitwarden.desktop/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.dashlane.dashlanemacdesktop").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Dashlane/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.dashlane.Dashlane/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.dashlane.Dashlane/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.sequel-ace.sequel-ace").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.sequel-ace.sequel-ace/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.sequel-ace.sequel-ace/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.kdrag0n.MacVirt").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/OrbStack/cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/OrbStack/ssh-keys").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.panic.Transmit").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.panic.Transmit/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.panic.Transmit/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.nordvpn.osx").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.nordvpn.osx-apple-auth/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.surfshark.vpn").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.surfshark.vpnclient.macos/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.surfshark.vpnclient.macos/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.grammarly.ProjectLlama").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Grammarly/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Grammarly/Code Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Grammarly/GPUCache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Grammarly/Local Storage").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.mimestream.Mimestream").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.mimestream.Mimestream/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.mimestream.Mimestream/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.reederapp.feedly.macOS").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.reederapp.feedly.macOS/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.reederapp.feedly.macOS/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.amazon.Kindle").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.amazon.Lassen/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Kindle/Cache").mkdir(parents=True)
+        (root / "Users/tester/Library/Application Support/Kindle/My Kindle Content").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/pl.maketheweb.cleanshotx").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/pl.maketheweb.cleanshotx/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/pl.maketheweb.cleanshotx/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Pictures/CleanShot").mkdir(parents=True)
+        (root / "Users/tester/Library/Caches/com.TechSmith.Snagit2024").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Library/Caches").mkdir(parents=True)
+        (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Documents").mkdir(parents=True)
 
         (root / "Users/tester/.Trash/old.tmp").write_text("trash")
         (root / "Users/tester/Downloads/download.bin").write_text("download")
@@ -856,6 +906,108 @@ class CleanMacCLITests(unittest.TestCase):
             "rectangle-prefs"
         )
         (root / "Users/tester/Library/Application Support/Rectangle/Shortcuts.plist").write_text("rectangle-shortcuts")
+        (root / "Users/tester/Library/Caches/com.agilebits.onepassword8/cache.bin").write_text("onepassword-cache")
+        (root / "Users/tester/Library/Containers/com.agilebits.onepassword8/Data/Library/Caches/cache.bin").write_text(
+            "onepassword-cache-2"
+        )
+        (root / "Users/tester/Library/Group Containers/2BUA8C4S2C.com.1password/Library/Caches/cache.bin").write_text(
+            "onepassword-group-cache"
+        )
+        (root / "Users/tester/Library/Group Containers/2BUA8C4S2C.com.1password/Data/b5.sqlite").write_text(
+            "onepassword-vault"
+        )
+        (root / "Users/tester/Library/Application Support/1Password/1Password.sqlite").write_text(
+            "onepassword-app-data"
+        )
+        (root / "Users/tester/Library/Caches/com.bitwarden.desktop/cache.bin").write_text("bitwarden-cache")
+        (root / "Users/tester/Library/Application Support/Bitwarden/Cache/cache.bin").write_text("bitwarden-cache-2")
+        (root / "Users/tester/Library/Application Support/Bitwarden/Code Cache/cache.bin").write_text(
+            "bitwarden-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Bitwarden/data.json").write_text("bitwarden-data")
+        (root / "Users/tester/Library/Containers/com.bitwarden.desktop/Data/Library/Caches/cache.bin").write_text(
+            "bitwarden-cache-3"
+        )
+        (root / "Users/tester/Library/Caches/com.dashlane.dashlanemacdesktop/cache.bin").write_text("dashlane-cache")
+        (root / "Users/tester/Library/Application Support/Dashlane/Cache/cache.bin").write_text("dashlane-cache-2")
+        (root / "Users/tester/Library/Containers/com.dashlane.Dashlane/Data/Library/Caches/cache.bin").write_text(
+            "dashlane-cache-3"
+        )
+        (root / "Users/tester/Library/Containers/com.dashlane.Dashlane/Data/Documents/vault.db").write_text(
+            "dashlane-vault"
+        )
+        (root / "Users/tester/Library/Caches/com.sequel-ace.sequel-ace/cache.bin").write_text("sequelace-cache")
+        (root / "Users/tester/Library/Containers/com.sequel-ace.sequel-ace/Data/Library/Caches/cache.bin").write_text(
+            "sequelace-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.sequel-ace.sequel-ace/Data/Documents/favorites.spf").write_text(
+            "sequelace-favorites"
+        )
+        (root / "Users/tester/Library/Caches/com.kdrag0n.MacVirt/cache.bin").write_text("orbstack-cache")
+        (root / "Users/tester/Library/Application Support/OrbStack/cache/cache.bin").write_text("orbstack-cache-2")
+        (root / "Users/tester/Library/Application Support/OrbStack/ssh-keys/id_rsa").write_text("orbstack-key")
+        (root / "Users/tester/Library/Caches/com.panic.Transmit/cache.bin").write_text("transmit-cache")
+        (root / "Users/tester/Library/Containers/com.panic.Transmit/Data/Library/Caches/cache.bin").write_text(
+            "transmit-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.panic.Transmit/Data/Documents/favorites.transmitdoc").write_text(
+            "transmit-favorites"
+        )
+        (root / "Users/tester/Library/Caches/com.nordvpn.osx/cache.bin").write_text("nordvpn-cache")
+        (root / "Users/tester/Library/Containers/com.nordvpn.osx-apple-auth/Data/Library/Caches/cache.bin").write_text(
+            "nordvpn-cache-2"
+        )
+        (root / "Users/tester/Library/Caches/com.surfshark.vpn/cache.bin").write_text("surfshark-cache")
+        (
+            root / "Users/tester/Library/Containers/com.surfshark.vpnclient.macos/Data/Library/Caches/cache.bin"
+        ).write_text("surfshark-cache-2")
+        (root / "Users/tester/Library/Containers/com.surfshark.vpnclient.macos/Data/Documents/config.bin").write_text(
+            "surfshark-config"
+        )
+        (root / "Users/tester/Library/Caches/com.grammarly.ProjectLlama/cache.bin").write_text("grammarly-cache")
+        (root / "Users/tester/Library/Application Support/Grammarly/Cache/cache.bin").write_text("grammarly-cache-2")
+        (root / "Users/tester/Library/Application Support/Grammarly/Code Cache/cache.bin").write_text(
+            "grammarly-code-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Grammarly/GPUCache/cache.bin").write_text(
+            "grammarly-gpu-cache"
+        )
+        (root / "Users/tester/Library/Application Support/Grammarly/Preferences").write_text("grammarly-prefs")
+        (root / "Users/tester/Library/Caches/com.mimestream.Mimestream/cache.bin").write_text("mimestream-cache")
+        (root / "Users/tester/Library/Containers/com.mimestream.Mimestream/Data/Library/Caches/cache.bin").write_text(
+            "mimestream-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.mimestream.Mimestream/Data/Documents/mail.db").write_text(
+            "mimestream-mail"
+        )
+        (root / "Users/tester/Library/Caches/com.reederapp.feedly.macOS/cache.bin").write_text("reeder-cache")
+        (root / "Users/tester/Library/Containers/com.reederapp.feedly.macOS/Data/Library/Caches/cache.bin").write_text(
+            "reeder-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.reederapp.feedly.macOS/Data/Documents/feeds.db").write_text(
+            "reeder-feeds"
+        )
+        (root / "Users/tester/Library/Caches/com.amazon.Kindle/cache.bin").write_text("kindle-cache")
+        (root / "Users/tester/Library/Containers/com.amazon.Lassen/Data/Library/Caches/cache.bin").write_text(
+            "kindle-cache-2"
+        )
+        (root / "Users/tester/Library/Application Support/Kindle/Cache/cache.bin").write_text("kindle-cache-3")
+        (root / "Users/tester/Library/Application Support/Kindle/My Kindle Content/book.azw3").write_text("kindle-book")
+        (root / "Users/tester/Library/Caches/pl.maketheweb.cleanshotx/cache.bin").write_text("cleanshot-cache")
+        (root / "Users/tester/Library/Containers/pl.maketheweb.cleanshotx/Data/Library/Caches/cache.bin").write_text(
+            "cleanshot-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/pl.maketheweb.cleanshotx/Data/Documents/settings.json").write_text(
+            "cleanshot-settings"
+        )
+        (root / "Users/tester/Pictures/CleanShot/screenshot.png").write_text("cleanshot-image")
+        (root / "Users/tester/Library/Caches/com.TechSmith.Snagit2024/cache.bin").write_text("snagit-cache")
+        (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Library/Caches/cache.bin").write_text(
+            "snagit-cache-2"
+        )
+        (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Documents/library.snagproj").write_text(
+            "snagit-library"
+        )
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb").write_text(
             "windsurf-state"
@@ -3276,6 +3428,239 @@ class CleanMacCLITests(unittest.TestCase):
             )
             self.assertNotIn(
                 str(root / "Users/tester/Library/Application Support/Rectangle/Shortcuts.plist"),
+                candidate_paths,
+            )
+
+    def test_round6_app_cache_expansion_covers_security_devtools_and_productivity_apps(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "onePassword,bitwarden,dashlane,sequelAce,orbStack,transmit,nordVPN,surfshark,"
+                    "grammarly,mimestream,reeder,kindle,cleanShot,snagit",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.agilebits.onepassword8/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.agilebits.onepassword8/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Group Containers/2BUA8C4S2C.com.1password/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.bitwarden.desktop/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Bitwarden/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Bitwarden/Code Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.bitwarden.desktop/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.dashlane.dashlanemacdesktop/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Application Support/Dashlane/Cache/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.dashlane.Dashlane/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.sequel-ace.sequel-ace/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.sequel-ace.sequel-ace/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.kdrag0n.MacVirt/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/OrbStack/cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.panic.Transmit/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.panic.Transmit/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.nordvpn.osx/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.nordvpn.osx-apple-auth/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.surfshark.vpn/cache.bin"), paths)
+            self.assertIn(
+                str(
+                    root / "Users/tester/Library/Containers/com.surfshark.vpnclient.macos/Data/Library/Caches/cache.bin"
+                ),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.grammarly.ProjectLlama/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Grammarly/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Grammarly/Code Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Grammarly/GPUCache/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.mimestream.Mimestream/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.mimestream.Mimestream/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/com.reederapp.feedly.macOS/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.reederapp.feedly.macOS/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.amazon.Kindle/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.amazon.Lassen/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Application Support/Kindle/Cache/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/pl.maketheweb.cleanshotx/cache.bin"),
+                paths,
+            )
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/pl.maketheweb.cleanshotx/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+            self.assertIn(str(root / "Users/tester/Library/Caches/com.TechSmith.Snagit2024/cache.bin"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Library/Caches/cache.bin"),
+                paths,
+            )
+
+    def test_round6_app_cache_rules_preserve_user_data_for_new_categories(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "onePassword,bitwarden,dashlane,sequelAce,orbStack,transmit,nordVPN,surfshark,"
+                    "grammarly,mimestream,reeder,kindle,cleanShot,snagit",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Group Containers/2BUA8C4S2C.com.1password/Data/b5.sqlite"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/1Password/1Password.sqlite"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Bitwarden/data.json"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.dashlane.Dashlane/Data/Documents/vault.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.sequel-ace.sequel-ace/Data/Documents/favorites.spf"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/OrbStack/ssh-keys/id_rsa"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.panic.Transmit/Data/Documents/favorites.transmitdoc"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.surfshark.vpnclient.macos/Data/Documents/config.bin"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Grammarly/Preferences"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.mimestream.Mimestream/Data/Documents/mail.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.reederapp.feedly.macOS/Data/Documents/feeds.db"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Application Support/Kindle/My Kindle Content/book.azw3"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/pl.maketheweb.cleanshotx/Data/Documents/settings.json"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Pictures/CleanShot/screenshot.png"),
+                candidate_paths,
+            )
+            self.assertNotIn(
+                str(root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Documents/library.snagproj"),
                 candidate_paths,
             )
 
