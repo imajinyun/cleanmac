@@ -382,6 +382,13 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Caches/com.TechSmith.Snagit2024").mkdir(parents=True)
         (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Library/Caches").mkdir(parents=True)
         (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Documents").mkdir(parents=True)
+        (root / "Users/tester/Desktop").mkdir(parents=True)
+        (root / "Users/tester/Projects/my-app/node_modules/lodash").mkdir(parents=True)
+        (root / "Users/tester/Projects/my-app/dist").mkdir(parents=True)
+        (root / "Users/tester/Projects/my-app/build").mkdir(parents=True)
+        (root / "Users/tester/Projects/rust-app/target/debug").mkdir(parents=True)
+        (root / "Users/tester/Projects/py-app/.venv/bin").mkdir(parents=True)
+        (root / "Users/tester/GitHub/web-app/node_modules/react").mkdir(parents=True)
 
         (root / "Users/tester/.Trash/old.tmp").write_text("trash")
         (root / "Users/tester/Downloads/download.bin").write_text("download")
@@ -1008,6 +1015,21 @@ class CleanMacCLITests(unittest.TestCase):
         (root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Documents/library.snagproj").write_text(
             "snagit-library"
         )
+        (root / "Users/tester/Downloads/old-installer.dmg").write_text("dmg-content")
+        (root / "Users/tester/Downloads/app-package.pkg").write_text("pkg-content")
+        (root / "Users/tester/Desktop/archive.tmp").write_text("tmp-content")
+        (root / "Users/tester/Desktop/important.pdf").write_text("pdf-content")
+        (root / "Users/tester/Projects/my-app/node_modules/lodash/index.js").write_text("js")
+        (root / "Users/tester/Projects/my-app/dist/bundle.js").write_text("bundle")
+        (root / "Users/tester/Projects/my-app/build/output.o").write_text("object")
+        (root / "Users/tester/Projects/rust-app/target/debug/app").write_text("rust-binary")
+        (root / "Users/tester/Projects/py-app/.venv/bin/python").write_text("python-bin")
+        (root / "Users/tester/GitHub/web-app/node_modules/react/index.js").write_text("react")
+        (root / "Users/tester/Library/Caches/Homebrew/downloads/old-formula--1.0.pkg").write_text("brew-cache")
+        (root / "Users/tester/Documents/large-document.pdf").write_text("pdf-content")
+        (root / "Users/tester/Movies/big-movie.mp4").write_text("movie-content")
+        (root / "Users/tester/Music/large-album.flac").write_text("music-content")
+        (root / "Users/tester/Pictures/huge-photo.raw").write_text("photo-content")
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage").mkdir(parents=True)
         (root / "Users/tester/Library/Application Support/Windsurf/User/globalStorage/state.vscdb").write_text(
             "windsurf-state"
@@ -2222,7 +2244,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIsNone(report["post_clean_report"])
             self.assertEqual(pre["phase"], "pre-clean")
             self.assertEqual(pre["summary"]["selected_category_count"], 2)
-            self.assertEqual(pre["summary"]["candidate_count"], 3)
+            self.assertEqual(pre["summary"]["candidate_count"], 5)
             self.assertGreater(pre["summary"]["estimated_reclaimable_bytes"], 0)
             self.assertEqual(pre["summary"]["high_risk_categories"], ["downloads"])
             self.assertEqual(
@@ -2281,9 +2303,9 @@ class CleanMacCLITests(unittest.TestCase):
             preservation = {row["path"]: row for row in post["target_preservation"]}
 
             self.assertFalse(report["dry_run"])
-            self.assertEqual(report["pre_clean_report"]["summary"]["candidate_count"], 3)
+            self.assertEqual(report["pre_clean_report"]["summary"]["candidate_count"], 5)
             self.assertEqual(post["phase"], "post-clean")
-            self.assertEqual(post["summary"]["deleted_item_count"], 3)
+            self.assertEqual(post["summary"]["deleted_item_count"], 5)
             self.assertEqual(post["summary"]["remaining_reclaimable_bytes"], 0)
             self.assertGreater(deltas["trash"]["reclaimed_bytes"], 0)
             self.assertGreater(deltas["downloads"]["reclaimed_bytes"], 0)
@@ -3663,6 +3685,1027 @@ class CleanMacCLITests(unittest.TestCase):
                 str(root / "Users/tester/Library/Containers/com.TechSmith.Snagit2024/Data/Documents/library.snagproj"),
                 candidate_paths,
             )
+
+    def test_old_files_category_covers_stale_downloads_and_desktop_files(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "oldFiles",
+                    "--older-than-days",
+                    "0",
+                    "--min-size-mb",
+                    "0",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(str(root / "Users/tester/Downloads/old-installer.dmg"), paths)
+            self.assertIn(str(root / "Users/tester/Downloads/app-package.pkg"), paths)
+            self.assertIn(str(root / "Users/tester/Desktop/archive.tmp"), paths)
+
+    def test_old_files_category_preserves_documents_and_important_files(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "oldFiles",
+                    "--older-than-days",
+                    "0",
+                    "--min-size-mb",
+                    "0",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(str(root / "Users/tester/Desktop/important.pdf"), candidate_paths)
+
+    def test_installer_packages_category_covers_dmg_pkg_and_homebrew_cache(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "installerPackages",
+                    "--min-size-mb",
+                    "0",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(str(root / "Users/tester/Downloads/old-installer.dmg"), paths)
+            self.assertIn(str(root / "Users/tester/Downloads/app-package.pkg"), paths)
+            self.assertIn(
+                str(root / "Users/tester/Library/Caches/Homebrew/downloads/old-formula--1.0.pkg"),
+                paths,
+            )
+
+    def test_installer_packages_category_skips_non_installer_files(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "installerPackages",
+                    "--min-size-mb",
+                    "0",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(str(root / "Users/tester/Downloads/download.bin"), candidate_paths)
+            self.assertNotIn(str(root / "Users/tester/Desktop/important.pdf"), candidate_paths)
+
+    def test_project_artifacts_category_covers_node_modules_target_and_venv(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "projectArtifacts",
+                    "--older-than-days",
+                    "0",
+                    "--recursive",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(str(root / "Users/tester/Projects/my-app/node_modules"), paths)
+            self.assertIn(str(root / "Users/tester/Projects/my-app/dist"), paths)
+            self.assertIn(str(root / "Users/tester/Projects/my-app/build"), paths)
+            self.assertIn(str(root / "Users/tester/Projects/rust-app/target"), paths)
+            self.assertIn(str(root / "Users/tester/Projects/py-app/.venv"), paths)
+            self.assertIn(str(root / "Users/tester/GitHub/web-app/node_modules"), paths)
+
+    def test_project_artifacts_category_preserves_source_files(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "projectArtifacts",
+                    "--older-than-days",
+                    "0",
+                    "--recursive",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            candidate_paths = {row["path"] for row in report["items"]}
+
+            self.assertNotIn(str(root / "Users/tester/Projects/my-app"), candidate_paths)
+
+    def test_large_files_category_scans_common_user_directories(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            large_file = root / "Users/tester/Documents/large-document.pdf"
+            large_file.write_bytes(b"x" * (2 * 1024 * 1024))
+            movie_file = root / "Users/tester/Movies/big-movie.mp4"
+            movie_file.write_bytes(b"x" * (3 * 1024 * 1024))
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "largeFiles",
+                    "--min-size-mb",
+                    "1",
+                    "--recursive",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            paths = {row["path"] for row in report["items"]}
+
+            self.assertIn(str(root / "Users/tester/Documents/large-document.pdf"), paths)
+            self.assertIn(str(root / "Users/tester/Movies/big-movie.mp4"), paths)
+
+    def test_large_files_category_respects_min_size_threshold(self) -> None:
+        tmp, root, home = self.make_sandbox()
+        with tmp:
+            original_test_mode = os.environ.get("CLEANMAC_TEST_MODE")
+            os.environ["CLEANMAC_TEST_MODE"] = "1"
+            try:
+                result = self.run_cli(
+                    "--root",
+                    str(root),
+                    "--home",
+                    str(home),
+                    "--json",
+                    "clean",
+                    "inspect",
+                    "--limit",
+                    "500",
+                    "--categories",
+                    "largeFiles",
+                    "--min-size-mb",
+                    "500",
+                    "--recursive",
+                )
+            finally:
+                if original_test_mode is None:
+                    os.environ.pop("CLEANMAC_TEST_MODE", None)
+                else:
+                    os.environ["CLEANMAC_TEST_MODE"] = original_test_mode
+            report = json.loads(result.stdout)
+            self.assertEqual(len(report["items"]), 0)
+
+    def test_large_files_category_sorted_by_size_descending(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            small = b"S" * (2 * 1024 * 1024)
+            medium = b"M" * (5 * 1024 * 1024)
+            large = b"L" * (10 * 1024 * 1024)
+            (downloads / "small.bin").write_bytes(small)
+            (downloads / "medium.bin").write_bytes(medium)
+            (downloads / "large.bin").write_bytes(large)
+
+            report = clean(
+                [CATEGORY_BY_KEY["largeFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                min_size_mb=1,
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "largeFiles"],
+            )
+
+            large_items = [item for item in report["items"] if item["category"] == "largeFiles"]
+            self.assertGreaterEqual(len(large_items), 3)
+            sizes = [item["bytes"] for item in large_items]
+            self.assertEqual(sizes, sorted(sizes, reverse=True))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_large_files_execute_removes_large_files(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            large = b"X" * (10 * 1024 * 1024)
+            (downloads / "big.bin").write_bytes(large)
+
+            report = clean(
+                [CATEGORY_BY_KEY["largeFiles"]],
+                root=root,
+                home=home,
+                execute=True,
+                risk_policy="default",
+                delete_mode="permanent",
+                min_size_mb=5,
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "largeFiles", "--execute"],
+            )
+
+            large_items = [item for item in report["items"] if item["category"] == "largeFiles"]
+            self.assertEqual(len(large_items), 1)
+            self.assertTrue(large_items[0]["deleted"])
+            self.assertFalse((downloads / "big.bin").exists())
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_large_files_empty_directory_produces_no_candidates(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            (root / "Users/tester/Downloads").mkdir(parents=True)
+
+            report = clean(
+                [CATEGORY_BY_KEY["largeFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "largeFiles"],
+            )
+
+            large_items = [item for item in report["items"] if item["category"] == "largeFiles"]
+            self.assertEqual(len(large_items), 0)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_ios_backups_category_scans_mobilesync_directory(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            backup_dir = root / "Users/tester/Library/Application Support/MobileSync/Backup/00000000-000000000000000"
+            backup_dir.mkdir(parents=True)
+            (backup_dir / "Manifest.db").write_bytes(b"x" * 1024)
+            (backup_dir / "00" / "001234abcdef").parent.mkdir(parents=True)
+            (backup_dir / "00" / "001234abcdef").write_bytes(b"y" * 2048)
+
+            report = clean(
+                [CATEGORY_BY_KEY["iosBackups"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "iosBackups"],
+            )
+
+            ios_items = [item for item in report["items"] if item["category"] == "iosBackups"]
+            self.assertGreaterEqual(len(ios_items), 1)
+            self.assertTrue(all(item["risk"] == "high" for item in ios_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_font_cache_category_scans_font_registry(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            font_cache = root / "Users/tester/Library/Caches/com.apple.FontRegistry"
+            font_cache.mkdir(parents=True)
+            (font_cache / "font.cache").write_bytes(b"cache-data")
+
+            report = clean(
+                [CATEGORY_BY_KEY["fontCache"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "fontCache"],
+            )
+
+            font_items = [item for item in report["items"] if item["category"] == "fontCache"]
+            self.assertGreaterEqual(len(font_items), 1)
+            self.assertTrue(all(item["risk"] == "low" for item in font_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_input_method_cache_category_scans_keyboard_caches(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            im_cache = root / "Users/tester/Library/Caches/com.apple.KeyboardViewer"
+            im_cache.mkdir(parents=True)
+            (im_cache / "keyboard.cache").write_bytes(b"kb-data")
+
+            report = clean(
+                [CATEGORY_BY_KEY["inputMethodCache"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "inputMethodCache"],
+            )
+
+            im_items = [item for item in report["items"] if item["category"] == "inputMethodCache"]
+            self.assertGreaterEqual(len(im_items), 1)
+            self.assertTrue(all(item["risk"] == "low" for item in im_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_spotlight_cache_category_scans_metadata(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            spot_cache = root / "Users/tester/Library/Caches/Metadata"
+            spot_cache.mkdir(parents=True)
+            (spot_cache / "com.apple.metadata.mdworker").write_bytes(b"md-data")
+
+            report = clean(
+                [CATEGORY_BY_KEY["spotlightCache"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "spotlightCache"],
+            )
+
+            spot_items = [item for item in report["items"] if item["category"] == "spotlightCache"]
+            self.assertGreaterEqual(len(spot_items), 1)
+            self.assertTrue(all(item["risk"] == "medium" for item in spot_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_print_queue_category_scans_printer_caches(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            print_dir = root / "Users/tester/Library/Printers"
+            print_dir.mkdir(parents=True)
+            (print_dir / "job001.spool").write_bytes(b"spool-data")
+
+            report = clean(
+                [CATEGORY_BY_KEY["printQueue"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "printQueue"],
+            )
+
+            print_items = [item for item in report["items"] if item["category"] == "printQueue"]
+            self.assertGreaterEqual(len(print_items), 1)
+            self.assertTrue(all(item["risk"] == "low" for item in print_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_quicklook_cache_category_scans_thumbnails(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            ql_cache = root / "Users/tester/Library/Caches/com.apple.QuickLookDaemon"
+            ql_cache.mkdir(parents=True)
+            (ql_cache / "thumbnails.cache").write_bytes(b"ql-data")
+
+            report = clean(
+                [CATEGORY_BY_KEY["quickLookCache"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "quickLookCache"],
+            )
+
+            ql_items = [item for item in report["items"] if item["category"] == "quickLookCache"]
+            self.assertGreaterEqual(len(ql_items), 1)
+            self.assertTrue(all(item["risk"] == "low" for item in ql_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_detection_groups_identical_content(self) -> None:
+        import tempfile
+
+        from cleancli.core import find_duplicate_files
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            (root / "Users/tester/Downloads").mkdir(parents=True)
+            (root / "Users/tester/Desktop").mkdir(parents=True)
+            (root / "Users/tester/Documents").mkdir(parents=True)
+
+            dup_content = b"duplicate-content-" + (b"x" * 2048)
+            (root / "Users/tester/Downloads/file-a.bin").write_bytes(dup_content)
+            (root / "Users/tester/Desktop/file-b.bin").write_bytes(dup_content)
+            (root / "Users/tester/Documents/unique.bin").write_bytes(b"unique-content-" + (b"y" * 2048))
+
+            result = find_duplicate_files(
+                [Path("~/Downloads/"), Path("~/Desktop/"), Path("~/Documents/")],
+                root=root,
+                home=home,
+                min_size_mb=0,
+            )
+
+        self.assertEqual(result["schema"], "cleanmac.duplicate-files.v1")
+        self.assertFalse(result["destructive"])
+        self.assertEqual(result["total_groups"], 1)
+        self.assertEqual(result["total_duplicate_files"], 1)
+        self.assertEqual(len(result["groups"]), 1)
+        group = result["groups"][0]
+        self.assertEqual(group["file_count"], 2)
+        self.assertEqual(len(group["files"]), 2)
+
+    def test_duplicate_files_detection_skips_small_files(self) -> None:
+        import tempfile
+
+        from cleancli.core import find_duplicate_files
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            (root / "Users/tester/Downloads").mkdir(parents=True)
+            (root / "Users/tester/Downloads/small-a.txt").write_text("same")
+            (root / "Users/tester/Downloads/small-b.txt").write_text("same")
+
+            result = find_duplicate_files(
+                [Path("~/Downloads/")],
+                root=root,
+                home=home,
+                min_size_mb=1,
+            )
+
+            self.assertEqual(result["total_groups"], 0)
+            self.assertEqual(result["total_duplicate_files"], 0)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_category_integrates_with_clean_dry_run(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            large_content = b"x" * (2 * 1024 * 1024)
+            (downloads / "copy-a.bin").write_bytes(large_content)
+            (downloads / "copy-b.bin").write_bytes(large_content)
+            (downloads / "copy-c.bin").write_bytes(large_content)
+            (downloads / "unique.bin").write_bytes(b"unique" * 500000)
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "duplicateFiles"],
+            )
+
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertEqual(len(dup_items), 2)
+            self.assertTrue(all(item.get("duplicate_group_hash") for item in dup_items))
+            self.assertTrue(all(item.get("duplicate_keep_path") for item in dup_items))
+            self.assertTrue(report["dry_run"])
+            self.assertTrue(all(not item["deleted"] for item in dup_items))
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_execute_removes_duplicates_and_keeps_one(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            large_content = b"y" * (2 * 1024 * 1024)
+            (downloads / "a.bin").write_bytes(large_content)
+            (downloads / "b.bin").write_bytes(large_content)
+            (downloads / "c.bin").write_bytes(large_content)
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"]],
+                root=root,
+                home=home,
+                execute=True,
+                risk_policy="default",
+                delete_mode="permanent",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "duplicateFiles", "--execute"],
+            )
+
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertEqual(len(dup_items), 2)
+            self.assertEqual(sum(1 for item in dup_items if item["deleted"]), 2)
+            remaining = list(downloads.iterdir())
+            self.assertEqual(len(remaining), 1)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_category_respects_min_size_threshold(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            small = b"small" * 100
+            large = b"L" * (5 * 1024 * 1024)
+            (downloads / "small-a.txt").write_bytes(small)
+            (downloads / "small-b.txt").write_bytes(small)
+            (downloads / "large-a.bin").write_bytes(large)
+            (downloads / "large-b.bin").write_bytes(large)
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                min_size_mb=2,
+                command_argv=["clean", "--categories", "duplicateFiles", "--min-size-mb", "2"],
+            )
+
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertEqual(len(dup_items), 1)
+            self.assertTrue("large" in dup_items[0]["path"])
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_pre_clean_report_category_preview_includes_candidate_bytes(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, render_pre_clean_report
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            (downloads / "large1.bin").write_bytes(b"x" * (150 * 1024 * 1024))
+            (downloads / "large2.bin").write_bytes(b"y" * (120 * 1024 * 1024))
+
+            report = render_pre_clean_report(
+                [CATEGORY_BY_KEY["largeFiles"]],
+                root=root,
+                home=home,
+                risk_policy="default",
+            )
+
+            preview = report["category_preview"]
+            lf = next(c for c in preview if c["key"] == "largeFiles")
+            self.assertEqual(lf["candidate_count"], 2)
+            self.assertIn("candidate_bytes", lf)
+            self.assertGreater(lf["candidate_bytes"], 0)
+            self.assertIn("candidate_human", lf)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_clean_report_groups_items_by_parent_directory(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+            desktop = root / "Users/tester/Desktop"
+            desktop.mkdir(parents=True)
+
+            content = b"x" * (110 * 1024 * 1024)
+            (downloads / "big1.iso").write_bytes(content)
+            (downloads / "big2.dmg").write_bytes(content)
+            (desktop / "big3.zip").write_bytes(content)
+
+            report = clean(
+                [CATEGORY_BY_KEY["largeFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                command_argv=["clean", "--categories", "largeFiles"],
+            )
+
+            self.assertIn("by_parent_directory", report)
+            by_dir = report["by_parent_directory"]
+            dl_key = next(k for k in by_dir if "Downloads" in k)
+            self.assertEqual(by_dir[dl_key]["count"], 2)
+            dt_key = next(k for k in by_dir if "Desktop" in k)
+            self.assertEqual(by_dir[dt_key]["count"], 1)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_clean_report_groups_items_by_file_type(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            (downloads / "video1.mp4").write_bytes(b"v" * (200 * 1024 * 1024))
+            (downloads / "video2.mp4").write_bytes(b"v" * (150 * 1024 * 1024))
+            (downloads / "archive.zip").write_bytes(b"z" * (120 * 1024 * 1024))
+            (downloads / "data.dmg").write_bytes(b"d" * (110 * 1024 * 1024))
+            (downloads / "noextfile").write_bytes(b"x" * (105 * 1024 * 1024))
+
+            report = clean(
+                [CATEGORY_BY_KEY["largeFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                command_argv=["clean", "--categories", "largeFiles"],
+            )
+
+            self.assertIn("by_file_type", report)
+            ft = report["by_file_type"]
+            self.assertIn("mp4", ft)
+            self.assertEqual(ft["mp4"]["count"], 2)
+            self.assertIn("zip", ft)
+            self.assertEqual(ft["zip"]["count"], 1)
+            self.assertIn("dmg", ft)
+            self.assertIn("(no extension)", ft)
+            self.assertEqual(ft["(no extension)"]["count"], 1)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_empty_directory_produces_no_candidates(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            (root / "Users/tester/Downloads").mkdir(parents=True)
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"]],
+                root=root,
+                home=home,
+                execute=False,
+                risk_policy="default",
+                delete_mode="trash",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "duplicateFiles"],
+            )
+
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertEqual(len(dup_items), 0)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_hardlink_mode_replaces_duplicates_with_hardlinks(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            large_content = b"x" * (2 * 1024 * 1024)
+            (downloads / "a.bin").write_bytes(large_content)
+            (downloads / "b.bin").write_bytes(large_content)
+            (downloads / "c.bin").write_bytes(large_content)
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"]],
+                root=root,
+                home=home,
+                execute=True,
+                risk_policy="default",
+                delete_mode="hardlink",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "duplicateFiles", "--execute", "--delete-mode", "hardlink"],
+            )
+
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertEqual(len(dup_items), 2)
+            self.assertEqual(sum(1 for item in dup_items if item.get("hardlinked")), 2)
+            self.assertEqual(sum(1 for item in dup_items if item.get("status") == "hardlinked"), 2)
+            remaining = sorted(p.name for p in downloads.iterdir())
+            self.assertEqual(remaining, ["a.bin", "b.bin", "c.bin"])
+            inodes = {p.stat().st_ino for p in downloads.iterdir()}
+            self.assertEqual(len(inodes), 1)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_hardlink_mode_skips_non_dup_categories(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+            logs_dir = root / "Users/tester/Library/logs"
+            logs_dir.mkdir(parents=True)
+            (logs_dir / "app.log").write_bytes(b"log data" * 1000)
+
+            large_content = b"x" * (2 * 1024 * 1024)
+            (downloads / "a.bin").write_bytes(large_content)
+            (downloads / "b.bin").write_bytes(large_content)
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"], CATEGORY_BY_KEY["userLogs"]],
+                root=root,
+                home=home,
+                execute=True,
+                risk_policy="default",
+                delete_mode="hardlink",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=[
+                    "clean",
+                    "--categories",
+                    "duplicateFiles,userLogs",
+                    "--execute",
+                    "--delete-mode",
+                    "hardlink",
+                ],
+            )
+
+            log_items = [item for item in report["items"] if item["category"] == "userLogs"]
+            for item in log_items:
+                self.assertEqual(item["status"], "skipped")
+                self.assertEqual(item["reason"], "hardlink-mode-only-applies-to-duplicateFiles")
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertGreaterEqual(len(dup_items), 1)
+            self.assertEqual(sum(1 for item in dup_items if item.get("hardlinked")), len(dup_items))
+            self.assertTrue((logs_dir / "app.log").exists())
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
+
+    def test_duplicate_files_hardlink_already_linked_is_skipped(self) -> None:
+        import tempfile
+
+        from cleancli.core import CATEGORY_BY_KEY, clean
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmp_dir)
+            home = Path("/Users/tester")
+            downloads = root / "Users/tester/Downloads"
+            downloads.mkdir(parents=True)
+
+            large_content = b"z" * (2 * 1024 * 1024)
+            (downloads / "a.bin").write_bytes(large_content)
+            import os
+
+            os.link(downloads / "a.bin", downloads / "b.bin")
+
+            report = clean(
+                [CATEGORY_BY_KEY["duplicateFiles"]],
+                root=root,
+                home=home,
+                execute=True,
+                risk_policy="default",
+                delete_mode="hardlink",
+                operation_log=str(root / "ops.jsonl"),
+                command_argv=["clean", "--categories", "duplicateFiles", "--execute", "--delete-mode", "hardlink"],
+            )
+
+            dup_items = [item for item in report["items"] if item["category"] == "duplicateFiles"]
+            self.assertEqual(len(dup_items), 1)
+            inodes = {p.stat().st_ino for p in downloads.iterdir()}
+            self.assertEqual(len(inodes), 1)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_dir)
 
     def test_software_uninstall_plan_routes_official_uninstallers(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -5418,12 +6461,12 @@ class CleanMacCLITests(unittest.TestCase):
             deleted = [row for row in report["items"] if row.get("status") == "deleted"]
 
             self.assertEqual(report["failed_count"], 1)
-            self.assertEqual(report["deleted_count"], 1)
+            self.assertEqual(report["deleted_count"], 3)
             self.assertEqual(failed[0]["reason"], "permission-denied")
             self.assertTrue((root / "Users/tester/Downloads/download.bin").exists())
             self.assertFalse((root / "Users/tester/Downloads/partial.crdownload").exists())
             self.assertEqual({record["status"] for record in records}, {"failed", "deleted"})
-            self.assertEqual(len(deleted), 1)
+            self.assertEqual(len(deleted), 3)
 
     def test_clean_execute_fail_fast_stops_on_item_failure(self) -> None:
         tmp, root, home = self.make_sandbox()

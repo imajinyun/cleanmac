@@ -5,6 +5,7 @@ import plistlib
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from cleancli.ai_versioning import validate_contract_payload
 from tests.helpers import CLI, PROJECT_ROOT, make_sandbox, run_cli
@@ -20,7 +21,7 @@ def run_cli_unchecked(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def write_review_selection(root: Path, home: Path, categories: str) -> tuple[Path, Path, dict[str, object]]:
+def write_review_selection(root: Path, home: Path, categories: str) -> tuple[Path, Path, dict[str, Any]]:
     plan_file = root / "plan.json"
     selection_file = root / "selection.json"
     plan_result = run_cli(

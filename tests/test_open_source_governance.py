@@ -64,7 +64,7 @@ def test_open_source_security_and_ci_governance_are_pinned() -> None:
     assert "README\\.md" not in gitleaks
     assert "README\\.CN" not in gitleaks
 
-    uses_lines = []
+    uses_lines: list[str] = []
     for workflow in (PROJECT_ROOT / ".github/workflows").glob("*.yml"):
         uses_lines.extend(
             line.strip()

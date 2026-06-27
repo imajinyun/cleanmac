@@ -863,7 +863,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `userPrefs` | ⚙️ Preferences | critical | ❌ | `~/Library/Preferences/` |
 | `docRev` | 📄 Doc revisions | critical | ❌ | `/.DocumentRevisions-V100/` |
 
-Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `jetbrains`, `vscode`, `docker`, `chrome`, `firefox`, `slack`, `zoom`, `teams`, `nodePackageCaches`, `pythonPackageCaches`, `goBuildCaches`. System/deep categories: `rotate_log_once` (log rotation), `deviceFirmware` (firmware caches), `appleSiliconCaches` (Rosetta/M1 caches). Governance: `official_uninstaller_vendor` detects CrowdStrike, etc.
+Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `jetbrains`, `vscode`, `docker`, `chrome`, `firefox`, `slack`, `zoom`, `teams`, `nodePackageCaches`, `pythonPackageCaches`, `goBuildCaches`. System/deep categories: `rotate_log_once` (log rotation), `deviceFirmware` (firmware caches), `appleSiliconCaches` (Rosetta/M1 caches), `iosBackups` (iOS device backups), `fontCache` (font registry caches), `inputMethodCache` (input method caches), `spotlightCache` (Spotlight index caches), `printQueue` (printer queue spool), `quickLookCache` (QuickLook thumbnail caches). Analysis categories: `duplicateFiles` (duplicate file detection), `largeFiles` (large file audit), `oldFiles` (stale file audit). Governance: `official_uninstaller_vendor` detects CrowdStrike, etc.
 
 ---
 

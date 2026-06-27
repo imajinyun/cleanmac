@@ -607,6 +607,47 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema({}),
         "argv_template": ["cleanmac", "--json", "ai-host-policy"],
     },
+    {
+        "name": "cleanmac_analyze_duplicates",
+        "description": "Scan user directories for duplicate files based on SHA-256 content hashing. Returns groups of identical files with per-group size, file count, and recommended keep-path. Read-only operation — no files are modified or deleted. Always review duplicate groups before any removal or hardlink replacement.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "min_size_mb": integer_schema("Minimum file size in MiB to consider for duplicate detection."),
+            }
+        ),
+        "argv_template": ["cleanmac", "--json", "clean", "plan", "--categories", "duplicateFiles"],
+    },
+    {
+        "name": "cleanmac_analyze_large_files",
+        "description": "Discover large files across common user directories (Downloads, Desktop, Documents, Movies, Music, Pictures). Results are grouped by file type and sorted by size. Read-only operation — useful for identifying disk space hogs before deciding on cleanup or archival.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "min_size_mb": integer_schema("Minimum file size in MiB to report."),
+                "max_items": integer_schema("Maximum number of large files to return."),
+            }
+        ),
+        "argv_template": ["cleanmac", "--json", "clean", "plan", "--categories", "largeFiles"],
+    },
+    {
+        "name": "cleanmac_analyze_old_files",
+        "description": "Find files older than a configurable age threshold across user directories. Results are grouped by parent directory. Read-only operation — useful for identifying stale data before archival or deletion review.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "older_than_days": number_schema("Only report files older than this many days."),
+                "min_size_mb": integer_schema("Minimum file size in MiB to report."),
+            }
+        ),
+        "argv_template": ["cleanmac", "--json", "clean", "plan", "--categories", "oldFiles"],
+    },
 )
 
 
@@ -1291,4 +1332,18 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         return ["cleanmac", "--json", "ai-governance-advice"]
     if name == "cleanmac_ai_host_policy":
         return ["cleanmac", "--json", "ai-host-policy"]
+    if name == "cleanmac_analyze_duplicates":
+        argv = ["cleanmac", "--json", "clean", "plan", "--categories", "duplicateFiles"]
+        append_option(argv, args, "min_size_mb", "--min-size-mb")
+        return argv
+    if name == "cleanmac_analyze_large_files":
+        argv = ["cleanmac", "--json", "clean", "plan", "--categories", "largeFiles"]
+        append_option(argv, args, "min_size_mb", "--min-size-mb")
+        append_option(argv, args, "max_items", "--max-items")
+        return argv
+    if name == "cleanmac_analyze_old_files":
+        argv = ["cleanmac", "--json", "clean", "plan", "--categories", "oldFiles"]
+        append_option(argv, args, "older_than_days", "--older-than-days")
+        append_option(argv, args, "min_size_mb", "--min-size-mb")
+        return argv
     raise ValueError(f"Unknown cleanmac AI tool: {name}")

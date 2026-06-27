@@ -53,7 +53,7 @@ def _mcp_env() -> dict[str, str]:
 def test_tools_list_returns_all_tools() -> None:
     response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     tools = response["result"]["tools"]
-    assert len(tools) == 38
+    assert len(tools) == 41
     for tool in tools:
         assert "name" in tool
         assert "description" in tool
@@ -1569,7 +1569,7 @@ def test_shutdown_prevents_further_requests() -> None:
     # Process should have exited; start a new one and verify tools/list still works
     response = _mcp_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     tools = response["result"]["tools"]
-    assert len(tools) == 38
+    assert len(tools) == 41
 
 
 def test_notifications_initialized_standalone() -> None:

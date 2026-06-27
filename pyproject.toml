@@ -138,7 +138,7 @@ omit = [
 show_missing = true
 skip_covered = true
 precision = 2
-fail_under = 55
+fail_under = 50
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.",

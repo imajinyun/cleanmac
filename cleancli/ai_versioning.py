@@ -101,6 +101,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.command-template-validation.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.completion-script.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.diagnose.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.duplicate-files.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.distribution-governance.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.doctor.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.inspect.v1", 1, "cleancli.core", "stable"),

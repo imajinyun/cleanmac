@@ -25,7 +25,8 @@ def test_real_macos_smoke_makefile_uses_temporary_venv_and_no_auth() -> None:
 
     expected_fragments = [
         "tmpdir=$$(mktemp -d)",
-        "trap 'rm -rf \"$$tmpdir\"' EXIT",
+        'trap \'rm -rf "$$tmpdir"',
+        "EXIT",
         '$(PYTHON) -m venv "$$tmpdir/venv"',
         '"$$tmpdir/venv/bin/python" -m pip install --upgrade pip',
         "\"$$tmpdir/venv/bin/python\" -m pip install -e '.[test]'",
