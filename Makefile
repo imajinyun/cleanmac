@@ -345,7 +345,7 @@ docker-test:
 		-v "$(SANDBOX_MOUNT):/work:ro" \
 		-w "/work/cleanmac" \
 		$(DOCKER_IMAGE) \
-		sh -lc 'apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-venv make >/dev/null && cp -r /work/cleanmac /tmp/cleanmac && cd /tmp/cleanmac && python3 -m venv /tmp/cleanmac-venv && /tmp/cleanmac-venv/bin/python -m pip install --upgrade pip >/dev/null && /tmp/cleanmac-venv/bin/python -m pip install -e ".[test]" >/dev/null && PYTHONDONTWRITEBYTECODE=1 /tmp/cleanmac-venv/bin/python -m unittest -v'
+		sh -lc 'apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-venv make >/dev/null && cp -r /work/cleanmac /tmp/cleanmac && cd /tmp/cleanmac && python3 -m venv /tmp/cleanmac-venv && /tmp/cleanmac-venv/bin/python -m pip install --upgrade pip >/dev/null && /tmp/cleanmac-venv/bin/python -m pip install -e ".[test]" >/dev/null && PYTHONDONTWRITEBYTECODE=1 /tmp/cleanmac-venv/bin/python -m unittest -v && /tmp/cleanmac-venv/bin/python -m pytest -q tests/ && rm -rf /tmp/cleanmac /tmp/cleanmac-venv'
 
 no-cache-docker-test:
 	DOCKER_RUN_FLAGS="--pull=always" $(MAKE) docker-test

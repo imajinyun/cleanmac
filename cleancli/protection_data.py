@@ -1954,4 +1954,142 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         ),
         "protected_patterns": ("*/Kap/plugins/*",),
     },
+    "notionEnhancer": {
+        "title": "Notion Enhancer caches",
+        "paths": (
+            "~/Library/Caches/notion-enhancer/",
+            "~/Library/Application Support/notion-enhancer/cache/",
+        ),
+    },
+    "logiOptions": {
+        "title": "Logi Options+ caches",
+        "paths": (
+            "~/Library/Caches/com.logi.OptionsPlus/",
+            "~/Library/Application Support/Logitech/Logishrd/",
+        ),
+        "protected_patterns": (
+            "*/Logitech/OptionsPlus/settings.json",
+            "*/Logitech/OptionsPlus/devices/*",
+        ),
+    },
+    "elgatoControl": {
+        "title": "Elgato Control Center caches",
+        "paths": ("~/Library/Caches/com.elgato.ControlCenter/",),
+    },
+    "microsoftRemoteDesktop": {
+        "title": "Microsoft Remote Desktop caches",
+        "paths": (
+            "~/Library/Caches/com.microsoft.rdc.macos/",
+            "~/Library/Containers/com.microsoft.rdc.mac/Data/Library/Caches/",
+        ),
+        "protected_patterns": (
+            "*/Microsoft Remote Desktop/books/*",
+            "*/Group Containers/UBF8T346G9.com.microsoft.rdc/*",
+        ),
+    },
+    "cyberduck": {
+        "title": "Cyberduck caches",
+        "paths": (
+            "~/Library/Caches/ch.sudo.cyberduck/",
+            "~/Library/Application Support/Cyberduck/Cache/",
+        ),
+        "protected_patterns": (
+            "*/Cyberduck/Bookmarks.plist",
+            "*/Cyberduck/Profiles/*",
+        ),
+    },
+    "alDente": {
+        "title": "AlDente battery manager caches",
+        "paths": (
+            "~/Library/Caches/com.apphousekitchen.aldente-pro/",
+            "~/Library/Containers/com.apphousekitchen.aldente-pro/Data/Library/Caches/",
+        ),
+    },
+    "iStatMenus": {
+        "title": "iStat Menus caches",
+        "paths": ("~/Library/Caches/com.bjango.istatmenusstatus/",),
+        "protected_patterns": (
+            "*/iStat Menus/Config.plist",
+            "*/iStat Menus/Sensors/*",
+        ),
+    },
+    "bartender": {
+        "title": "Bartender menu bar caches",
+        "paths": ("~/Library/Caches/com.surteesstudios.Bartender/",),
+    },
+    "hazel": {
+        "title": "Hazel file automation caches",
+        "paths": ("~/Library/Caches/com.noodlesoft.HazelHelper/",),
+        "protected_patterns": (
+            "*/Hazel/Rules/*",
+            "*/Hazel/Rules.plist",
+        ),
+    },
+    "betterTouchTool": {
+        "title": "BetterTouchTool caches",
+        "paths": ("~/Library/Caches/com.hegenberg.BetterTouchTool/",),
+        "protected_patterns": (
+            "*/BetterTouchTool/*.bttdata",
+            "*/BetterTouchTool/License*",
+        ),
+    },
+    "karabiner": {
+        "title": "Karabiner-Elements caches",
+        "paths": (
+            "~/Library/Caches/org.pqrs.Karabiner-Elements/",
+            "~/.karabiner.d/cache/",
+        ),
+        "protected_patterns": (
+            "*/karabiner/karabiner.json",
+            "*/Karabiner-Elements/assets/*",
+            "*/Karabiner-Elements/complex_modifications/*",
+        ),
+    },
+    "quicksilver": {
+        "title": "Quicksilver launcher caches",
+        "paths": ("~/Library/Caches/com.blacktree.Quicksilver/",),
+        "protected_patterns": ("*/Quicksilver/Plug-ins/*", "*/Quicksilver/Triggers.plist"),
+    },
+    "microsoftOutlook": {
+        "title": "Microsoft Outlook caches",
+        "paths": (
+            "~/Library/Containers/com.microsoft.Outlook/Data/Library/Caches/",
+            "~/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles/Cache/",
+        ),
+        "protected_patterns": (
+            "*/Outlook/Outlook 15 Profiles/*/Data/*",
+            "*/Outlook/Outlook 15 Profiles/Main Profile/Identity*",
+        ),
+    },
+    "soundSource": {
+        "title": "SoundSource caches",
+        "paths": ("~/Library/Caches/com.rogueamoeba.soundsource/",),
+    },
+    "audioHijack": {
+        "title": "Audio Hijack caches",
+        "paths": ("~/Library/Caches/com.rogueamoeba.audiohijack/",),
+        "protected_patterns": ("*/Audio Hijack/*.ahsession",),
+    },
+    "displayLink": {
+        "title": "DisplayLink Manager caches",
+        "paths": ("~/Library/Caches/com.displaylink.displaylinkmanager/",),
+    },
+    "corsairIcue": {
+        "title": "Corsair iCUE caches",
+        "paths": ("~/Library/Caches/com.corsair.icue/",),
+        "protected_patterns": ("*/iCUE/Profiles/*",),
+    },
+    "razerSynapse": {
+        "title": "Razer Synapse caches",
+        "paths": ("~/Library/Caches/com.razer.synapse2/",),
+        "protected_patterns": ("*/Razer Synapse/Profiles/*",),
+    },
+    "folx": {
+        "title": "Folx download manager caches",
+        "paths": (
+            "~/Library/Caches/com.eltima.Folx3/",
+            "~/Library/Application Support/Eltima/Folx3/Cache/",
+        ),
+        "protected_patterns": ("*/Folx3/Downloads/*", "*/Folx3/Tags/*"),
+    },
 }
