@@ -76,8 +76,11 @@ ipython_config.py
 .env.*
 !.env.example
 .harness
+.aiflow
 docs/*
 !docs/doc
+!docs/reference
+!docs/reference/**
 
 # IDE / editor metadata
 .idea/
