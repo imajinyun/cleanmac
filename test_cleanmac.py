@@ -4972,8 +4972,13 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn(old_daemon, by_path)
             self.assertIn(old_helper, by_path)
             self.assertNotIn(installed_cache_path, by_path)
-            self.assertTrue(by_path[old_cache]["default_selected"])
+            self.assertFalse(by_path[old_cache]["default_selected"])
+            self.assertEqual(
+                by_path[old_cache]["suppression_reason"],
+                "possible app installed outside indexed application directories",
+            )
             self.assertFalse(by_path[old_daemon]["default_selected"])
+            self.assertTrue(by_path[old_daemon]["known_helper_only_bundle"])
             self.assertEqual(by_path[old_helper]["risk"], "critical")
             for candidate in report["candidates"]:
                 self.assertTrue(candidate["id"].startswith("orphan:"))
@@ -4985,6 +4990,8 @@ class CleanMacCLITests(unittest.TestCase):
                 self.assertEqual(evidence["matched_rule"], candidate["matched_rule"])
                 self.assertEqual(evidence["risk"], candidate["risk"])
                 self.assertEqual(evidence["default_selected"], candidate["default_selected"])
+                self.assertEqual(evidence["confidence_reason"], candidate["confidence_reason"])
+                self.assertEqual(evidence["suppression_reason"], candidate["suppression_reason"])
                 self.assertEqual(evidence["protected"], candidate["protected"])
                 self.assertEqual(evidence["delete_mode"], "trash")
                 self.assertTrue(evidence["recommended_next_action"])

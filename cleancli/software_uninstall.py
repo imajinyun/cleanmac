@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import shlex
+import subprocess
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
+from time import monotonic
 from typing import Any
 from urllib.parse import quote
 
@@ -267,6 +269,8 @@ def _candidate_review_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
         "matched_rule": candidate.get("matched_rule"),
         "match_reason": candidate.get("match_reason"),
         "confidence": candidate.get("confidence"),
+        "confidence_reason": candidate.get("confidence_reason"),
+        "suppression_reason": candidate.get("suppression_reason"),
         "risk": candidate.get("risk"),
         "risk_reason": candidate.get("risk_reason"),
         "risk_explanation": candidate.get("risk_explanation"),
@@ -302,6 +306,8 @@ def _candidate_discovery_evidence(
         "match_source": candidate.get("match_reason"),
         "matched_rule": candidate.get("matched_rule"),
         "confidence": candidate.get("confidence"),
+        "confidence_reason": candidate.get("confidence_reason"),
+        "suppression_reason": candidate.get("suppression_reason"),
         "risk": candidate.get("risk"),
         "installed_app_present": installed_app_present,
         "deletion_eligibility": {
@@ -523,6 +529,67 @@ def _installed_bundle_ids(*, root: Path, home: Path) -> set[str]:
     return {str(app.get("bundle_id")) for app in list_apps(root=root, home=home) if app.get("bundle_id")}
 
 
+def _running_process_names() -> set[str]:
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "comm="],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=1,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    if result.returncode != 0:
+        return set()
+    return {Path(line.strip()).name for line in result.stdout.splitlines() if line.strip()}
+
+
+def _process_hint_running(name: str | None, *, running_processes: set[str]) -> bool:
+    if not name:
+        return False
+    return name in running_processes
+
+
+def _orphan_default_selected(candidate: dict[str, Any], *, requested_default: bool) -> bool:
+    if not requested_default:
+        return False
+    if candidate.get("active_process_hint"):
+        return False
+    if candidate.get("possible_installed_outside_indexed_app_dirs"):
+        return False
+    if candidate.get("contains_user_data") and candidate.get("confidence") == "medium":
+        return False
+    return True
+
+
+def _orphan_confidence_reason(*, bundle_id: str | None, match_reason: str, kind: str) -> str:
+    if match_reason == "missing-installed-bundle-id" and bundle_id:
+        return "Bundle-like identifier was found in a known app-support location but no installed app bundle currently exposes that identifier in indexed app directories."
+    if match_reason == "missing-installed-app-name":
+        return "Application Support entry name does not match an installed application bundle name."
+    return f"{kind} matched orphan scan rule {match_reason}."
+
+
+def _orphan_suppression_reason(candidate: dict[str, Any]) -> str | None:
+    if candidate.get("protected"):
+        return "protected by bundle/path safety policy"
+    if candidate.get("active_process_hint"):
+        return "active process hint suggests the app or helper may still be present"
+    if candidate.get("known_helper_only_bundle"):
+        return "known helper-only bundle requires vendor/app review"
+    if candidate.get("possible_installed_outside_indexed_app_dirs"):
+        return "possible app installed outside indexed application directories"
+    if candidate.get("group_container_naming_ambiguous"):
+        return "group container naming ambiguity requires explicit review"
+    if candidate.get("shared_container"):
+        return "system/vendor shared container requires explicit review"
+    if candidate.get("contains_user_data") and candidate.get("confidence") == "medium":
+        return "medium-confidence user-data candidate requires explicit review"
+    return None
+
+
 def _orphan_candidate(
     path: Path,
     *,
@@ -533,7 +600,9 @@ def _orphan_candidate(
     risk: str,
     default_selected: bool,
     home_root: Path,
+    running_processes: set[str] | None = None,
 ) -> dict[str, Any]:
+    process_names = running_processes or set()
     app_owner = _app_owner(bundle_id=bundle_id, vendor=None)
     candidate = _candidate(
         path,
@@ -552,11 +621,35 @@ def _orphan_candidate(
     candidate["bundle_id"] = bundle_id
     candidate["app_name_hint"] = app_name_hint
     candidate["installed_app_present"] = False
+    candidate["active_process_hint"] = _process_hint_running(
+        app_name_hint, running_processes=process_names
+    ) or _process_hint_running(bundle_id, running_processes=process_names)
+    candidate["known_helper_only_bundle"] = kind in {"launch-agent", "launch-daemon", "privileged-helper"}
+    candidate["group_container_naming_ambiguous"] = kind == "group-container"
+    candidate["possible_installed_outside_indexed_app_dirs"] = (
+        bool(bundle_id) and kind in {"preferences", "cache", "logs", "saved-state"}
+    )
+    candidate["confidence_reason"] = _orphan_confidence_reason(
+        bundle_id=bundle_id,
+        match_reason=match_reason,
+        kind=kind,
+    )
+    candidate["suppression_reason"] = _orphan_suppression_reason(candidate)
+    candidate["default_selected"] = _orphan_default_selected(candidate, requested_default=default_selected)
+    candidate["why_not_default"] = _why_not_default(
+        default_selected=bool(candidate["default_selected"]),
+        protected=bool(candidate.get("protected")),
+        risk=str(candidate.get("risk") or "medium"),
+        confidence=str(candidate.get("confidence") or "medium"),
+    )
+    if candidate["suppression_reason"] and not candidate["default_selected"]:
+        candidate["why_not_default"] = candidate["suppression_reason"]
     candidate["recommended_next_action"] = (
         "review-orphan-before-trash-execution" if candidate["default_selected"] else "manual-review-required"
     )
     candidate = _attach_review_evidence(candidate)
     candidate["review_evidence"]["recommended_next_action"] = candidate["recommended_next_action"]
+    _attach_discovery_evidence(candidate, app_identity=None, installed_app_present=False)
     return candidate
 
 
@@ -579,9 +672,19 @@ def _looks_like_bundle_id(value: str | None) -> bool:
     return lowered.startswith(("com.", "org.", "net.", "io."))
 
 
-def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
+def find_software_orphans(
+    *,
+    root: Path,
+    home: Path,
+    limit: int | None = 100,
+    max_scan_entries: int | None = None,
+    summary_only: bool = False,
+) -> dict[str, Any]:
+    scan_started = monotonic()
     home_root = _home_root(root, home)
     installed_bundle_ids = _installed_bundle_ids(root=root, home=home)
+    installed_app_dirs = {Path(str(app["path"])).stem.lower() for app in list_apps(root=root, home=home)}
+    running_processes = _running_process_names()
     scan_roots = [
         _display_path(home_root / "Library/Preferences"),
         _display_path(home_root / "Library/Caches"),
@@ -598,6 +701,19 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
         _display_path(_system_path(root, "/Library/PrivilegedHelperTools")),
     ]
     candidates: list[dict[str, Any]] = []
+    scanned_entry_count = 0
+    scan_truncated = False
+
+    def scan_budget_available() -> bool:
+        return max_scan_entries is None or scanned_entry_count < max_scan_entries
+
+    def note_scanned_entry() -> bool:
+        nonlocal scanned_entry_count, scan_truncated
+        if not scan_budget_available():
+            scan_truncated = True
+            return False
+        scanned_entry_count += 1
+        return True
 
     bundle_scans = [
         (home_root / "Library/Preferences", "*.plist", "preferences", "medium", True, _bundle_id_from_plist),
@@ -637,6 +753,8 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
         if not base.exists():
             continue
         for path in sorted(base.glob(pattern)):
+            if not note_scanned_entry():
+                break
             if not (path.exists() or path.is_symlink()):
                 continue
             bundle_id = bundle_id_func(path)
@@ -656,15 +774,19 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
                     risk=risk,
                     default_selected=default_selected,
                     home_root=home_root,
+                    running_processes=running_processes,
                 )
             )
+        if scan_truncated:
+            break
 
     support_root = home_root / "Library/Application Support"
-    app_dirs = {Path(str(app["path"])).stem.lower() for app in list_apps(root=root, home=home)}
-    if support_root.exists():
+    if not scan_truncated and support_root.exists():
         for path in sorted(child for child in support_root.iterdir() if child.exists() or child.is_symlink()):
+            if not note_scanned_entry():
+                break
             app_name_hint = path.name
-            if app_name_hint.lower() in app_dirs:
+            if app_name_hint.lower() in installed_app_dirs:
                 continue
             if protection.should_protect_path(path):
                 continue
@@ -678,12 +800,15 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
                     risk="medium",
                     default_selected=False,
                     home_root=home_root,
+                    running_processes=running_processes,
                 )
             )
 
     group_root = home_root / "Library/Group Containers"
-    if group_root.exists():
+    if not scan_truncated and group_root.exists():
         for path in sorted(child for child in group_root.iterdir() if child.exists() or child.is_symlink()):
+            if not note_scanned_entry():
+                break
             bundle_id = protection.bundle_id_for_path(path)
             if not bundle_id or bundle_id.startswith("com.apple.") or bundle_id in installed_bundle_ids:
                 continue
@@ -697,6 +822,7 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
                     risk="critical",
                     default_selected=False,
                     home_root=home_root,
+                    running_processes=running_processes,
                 )
             )
 
@@ -706,11 +832,42 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
     candidates = list(deduped.values())
     type_counts: dict[str, int] = {}
     risk_counts: dict[str, int] = {}
+    confidence_counts: dict[str, int] = {}
+    default_policy_counts = {"default_selected": 0, "manual_review_required": 0, "protected": 0}
     for candidate in candidates:
         leftover_type = str(candidate.get("leftover_type") or "unknown")
         risk = str(candidate.get("risk") or "unknown")
+        confidence = str(candidate.get("confidence") or "unknown")
         type_counts[leftover_type] = type_counts.get(leftover_type, 0) + 1
         risk_counts[risk] = risk_counts.get(risk, 0) + 1
+        confidence_counts[confidence] = confidence_counts.get(confidence, 0) + 1
+        if candidate.get("protected"):
+            default_policy_counts["protected"] += 1
+        elif candidate.get("default_selected"):
+            default_policy_counts["default_selected"] += 1
+        else:
+            default_policy_counts["manual_review_required"] += 1
+    normalized_limit = max(limit, 0) if limit is not None else len(candidates)
+    shown_candidates = [] if summary_only else candidates[:normalized_limit]
+    truncated = summary_only or len(shown_candidates) < len(candidates) or scan_truncated
+    scan_duration_ms = int((monotonic() - scan_started) * 1000)
+    summary = {
+        "schema": "cleanmac.software-orphan-summary.v1",
+        "candidate_count": len(candidates),
+        "shown_candidate_count": len(shown_candidates),
+        "default_selected_count": sum(1 for item in candidates if item.get("default_selected")),
+        "estimated_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
+        "candidate_count_by_confidence": dict(sorted(confidence_counts.items())),
+        "candidate_count_by_default_policy": default_policy_counts,
+        "leftover_type_counts": dict(sorted(type_counts.items())),
+        "risk_counts": dict(sorted(risk_counts.items())),
+        "scan_duration_ms": scan_duration_ms,
+        "scanned_entry_count": scanned_entry_count,
+        "scan_truncated": scan_truncated,
+        "truncated": truncated,
+        "summary_only": summary_only,
+        "next_review_command": ["cleanmac", "--json", "review", "--input-file", "<software-orphans-report.json>"],
+    }
     return {
         "schema": "cleanmac.software-orphans.v1",
         "destructive": False,
@@ -723,11 +880,22 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
         "candidate_count": len(candidates),
         "default_selected_count": sum(1 for item in candidates if item.get("default_selected")),
         "estimated_bytes": sum(int(item.get("bytes") or 0) for item in candidates),
+        "scan_duration_ms": scan_duration_ms,
+        "scanned_entry_count": scanned_entry_count,
+        "max_scan_entries": max_scan_entries,
+        "scan_truncated": scan_truncated,
+        "limit": limit,
+        "summary_only": summary_only,
+        "shown_candidate_count": len(shown_candidates),
+        "truncated": truncated,
         "leftover_type_counts": dict(sorted(type_counts.items())),
         "risk_counts": dict(sorted(risk_counts.items())),
+        "candidate_count_by_confidence": dict(sorted(confidence_counts.items())),
+        "candidate_count_by_default_policy": default_policy_counts,
         "safe_to_auto_execute": False,
         "recommended_next_action": "review-orphans-before-any-trash-execution" if candidates else "no_orphans_found",
-        "candidates": candidates,
+        "summary": summary,
+        "candidates": shown_candidates,
     }
 
 
@@ -988,7 +1156,16 @@ def execute_software_uninstall(
     }
 
 
-def render_software(action: str, *, app: str | None, root: Path, home: Path) -> dict[str, Any]:
+def render_software(
+    action: str,
+    *,
+    app: str | None,
+    root: Path,
+    home: Path,
+    limit: int | None = 100,
+    max_scan_entries: int | None = None,
+    summary_only: bool = False,
+) -> dict[str, Any]:
     startup_locations = [
         "~/Library/LaunchAgents/",
         "/Library/LaunchAgents/",
@@ -1008,7 +1185,13 @@ def render_software(action: str, *, app: str | None, root: Path, home: Path) -> 
     if action == "uninstall-plan":
         return plan_software_uninstall(app, root=root, home=home)
     if action == "orphans":
-        return find_software_orphans(root=root, home=home)
+        return find_software_orphans(
+            root=root,
+            home=home,
+            limit=limit,
+            max_scan_entries=max_scan_entries,
+            summary_only=summary_only,
+        )
     return {
         "schema": "cleanmac.software.v1",
         "action": action,

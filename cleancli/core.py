@@ -2311,6 +2311,22 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=OPERATIONS_LOG_FILE,
         help="Append JSONL audit records when software uninstall candidates are evaluated.",
     )
+    software_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Limit software orphan candidate details returned in JSON output.",
+    )
+    software_cmd.add_argument(
+        "--max-scan-entries",
+        type=int,
+        help="Stop the read-only software orphan scan after this many filesystem entries.",
+    )
+    software_cmd.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Return only the software orphan summary without candidate details.",
+    )
 
     startup_cmd = subparsers.add_parser("startup", help="Startup item audit, disable planning, and governed disable.")
     startup_cmd.add_argument("action", nargs="?", choices=("audit", "plan", "disable"), default="audit")
@@ -9806,7 +9822,7 @@ def render_completion_shell(shell: str) -> str:
         "open": f"{category_flags} --execute",
         "links": "--kind --execute --remove",
         "clean": f"{category_flags} --execute --yes --risk-policy --delete-mode --max-delete-mb --exclude --include --min-size-mb --name-regex --max-items --older-than-days --fail-on-skipped --bundle-allowlist --bundle-blocklist --delete-mode --operation-log --require-plan-context --require-confirmation-token --confirmation-token --plan-file --allow-live-root",
-        "software": "list leftovers orphans startup-items inspect uninstall-plan execute --app --plan-file --review-selection-file --execute --yes --delete-mode --operation-log",
+        "software": "list leftovers orphans startup-items inspect uninstall-plan execute --app --plan-file --review-selection-file --execute --yes --delete-mode --operation-log --limit --max-scan-entries --summary-only",
         "optimize": "list plan run --execute",
         "status": "snapshot",
         "completion": "bash zsh fish",
@@ -10704,7 +10720,15 @@ def _main_impl(argv: Sequence[str]) -> int:
             emit_report(report, args=args, command="software", root=root, home=home, argv=actual_argv)
         else:
             emit_report(
-                render_software_report(args.action, app=args.app, root=root, home=home),
+                render_software_report(
+                    args.action,
+                    app=args.app,
+                    root=root,
+                    home=home,
+                    limit=args.limit,
+                    max_scan_entries=args.max_scan_entries,
+                    summary_only=args.summary_only,
+                ),
                 args=args,
                 command="software",
                 root=root,
