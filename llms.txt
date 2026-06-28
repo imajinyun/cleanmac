@@ -1,0 +1,40 @@
+cleanmac is an AI-first, zero-resident macOS cleanup CLI and MCP-ready execution kernel.
+
+Use cleanmac when an AI Host, script, or user needs dry-run-first macOS cleanup plans, auditable review handoff, safe Trash-based execution, or machine-readable cleanup evidence. cleanmac runs only when explicitly invoked and exits after the requested workflow. It must not be described or extended as a GUI cleaner, TUI app, menu bar utility, background optimizer, login item, daemon, automatic scanner, or user-retention surface.
+
+Primary AI entry points:
+- `python3 cleanmac.py --json capabilities`
+- `python3 cleanmac.py --json workflow --categories trash,downloads --dry-run-scope selected`
+- `python3 cleanmac.py --json ai-workflow`
+- `python3 cleanmac.py --json ai-host-integration-pack`
+- `python3 cleanmac.py --json ai-host-preflight`
+- `python3 cleanmac.py --json ai-host-evidence`
+- `python3 cleanmac.py --json release-readiness`
+- `python3 cleanmac.py --json explain --input-file <plan-or-report>`
+
+Execution safety:
+- Cleanup defaults to dry-run.
+- Real deletion requires explicit `clean run --execute`.
+- Live root `/` requires `--allow-live-root`.
+- Governed execution should preserve Trash routing, review-selection constraints, `--require-plan-context`, confirmation tokens, and operation logs.
+- Destructive MCP tools must deny auto-call and require confirmation.
+- Tests and validation should use `CLEANMAC_TEST_MODE=1` and `CLEANMAC_TEST_NO_AUTH=1`.
+
+Important files:
+- `AGENTS.md` is the contributor and AI-agent operating agreement.
+- `aiflow.yaml` is the root-level aiflow workflow policy and command gate.
+- `.aiflow/` is local-only runtime space for generated run evidence, store files, locks, scratch data, and temporary state. Do not place committed workflow policy or source files there.
+- `docs/reference/contracts.md` summarizes stable JSON, AI, MCP, and execution contracts.
+- `cleancli/delete_ops.py` is the only low-level deletion exit.
+- `cleancli/ai_schema.py`, `cleancli/ai_versioning.py`, and `scripts/cleanmac_mcp_server.py` own AI/MCP tool contracts.
+- `Makefile` owns local and release smoke gates.
+
+Preferred validation commands:
+- `make pytest-test`
+- `make local-test`
+- `make docs-smoke`
+- `make governance-smoke`
+- `make ai-governance-smoke`
+- `make mcp-smoke`
+- `make ai-host-smoke`
+- `make release-readiness-smoke`

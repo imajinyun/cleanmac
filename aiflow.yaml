@@ -1,27 +1,150 @@
 name: cleanmac
 root: .
 language: python
+store_path: .aiflow/store.json
+
+workspace:
+  root: .
+  scratch_dir: .aiflow/workspace
+  allow_write: true
+  include_globs:
+    - "*.py"
+    - "cleancli/*"
+    - "cleancli/**/*.py"
+    - "scripts/*"
+    - "tests/*"
+    - "test_cleanmac.py"
+    - "pyproject.toml"
+    - "Makefile"
+    - "aiflow.yaml"
+    - "AGENTS.md"
+    - "README.md"
+    - "README.CN.md"
+    - "CONTRIBUTING.md"
+    - "SECURITY.md"
+    - "llms.txt"
+    - "docs/doc/*"
+    - "docs/reference/*"
+    - "docs/superpowers/plans/*"
+    - ".github/*"
+    - ".github/workflows/*"
+  exclude_globs:
+    - ".git"
+    - ".git/*"
+    - ".harness"
+    - ".harness/*"
+    - ".aiflow"
+    - ".aiflow/*"
+    - ".venv"
+    - ".venv/*"
+    - "build"
+    - "build/*"
+    - "dist"
+    - "dist/*"
+    - "*.egg-info"
+    - "*.egg-info/*"
+    - "__pycache__"
+    - "__pycache__/*"
+    - ".pytest_cache"
+    - ".pytest_cache/*"
+    - ".mypy_cache"
+    - ".mypy_cache/*"
+    - ".ruff_cache"
+    - ".ruff_cache/*"
 
 commands:
   allowlist:
+    - git diff
+    - git status
+    - python3 cleanmac.py --json capabilities
+    - python3 cleanmac.py --json ai-host-integration-pack
+    - python3 cleanmac.py --json release-readiness
     - python3 -m pytest
+    - make lint
     - make pytest-test
     - make local-test
     - make quality-check
+    - make docs-smoke
+    - make governance-smoke
+    - make ai-governance-smoke
+    - make mcp-smoke
+    - make ai-host-smoke
+    - make release-readiness-smoke
+    - make open-source-smoke
+  format:
+    - make format
   test:
     - make pytest-test
+    - make local-test
+  vet:
+    - make lint
+    - make docs-smoke
+    - make governance-smoke
+  release:
+    - make quality-check
+    - make release-readiness-smoke
+    - make ai-governance-smoke
+    - make mcp-smoke
+    - make ai-host-smoke
+    - make open-source-smoke
 
 acceptance:
   criteria:
-    - pytest-safe release tests use pytest-native assertions
-    - make pytest-test passes
+    - cleanmac remains an AI-first zero-resident CLI with no GUI, TUI, daemon, login item, or unsolicited scan loop
+    - destructive cleanup remains dry-run-first and gated by review, confirmation token, Trash routing, plan context, and operation log evidence
+    - pytest-safe release tests and local no-auth validation pass from temporary virtual environments
+    - AI/MCP contracts, schema registry, host integration pack, and governance advice remain machine-verifiable
+    - release readiness gates cover docs, governance, MCP surface, AI host safety, package metadata, and open-source supply-chain evidence
+    - validation-only profile preserves scoped diffs for source, tests, docs, or governance configuration without requiring a Builder repair agent
   required_commands:
     - make pytest-test
+    - make local-test
+    - make docs-smoke
+    - make governance-smoke
+    - make ai-governance-smoke
+    - make mcp-smoke
+    - make ai-host-smoke
+    - make release-readiness-smoke
+  required_files:
+    - aiflow.yaml
+    - AGENTS.md
+    - README.md
+    - docs/doc/README.md
+    - docs/reference/contracts.md
+    - llms.txt
+  test_selection:
+    enabled: true
+    changed_files_command: git diff --name-only HEAD
   require_review: false
   require_clean_diff: false
   require_fix_diff: false
+  diff_command: git diff --stat
 
 permissions:
   require_plan_approval: false
   allow_commit: false
   allow_push: false
+  max_fix_attempts: 1
+  require_command_approval: true
+
+security:
+  redact_secrets: true
+  max_patch_bytes: 262144
+  secret_patterns:
+    - CLEANMAC_.*TOKEN
+    - CLEANMAC_.*SECRET
+    - API_KEY
+    - GITHUB_TOKEN
+    - PYPI_TOKEN
+  network:
+    mode: audit
+    allowed_hosts:
+      - pypi.org
+      - files.pythonhosted.org
+      - github.com
+
+mcp:
+  cleanmac:
+    command: python3
+    args:
+      - scripts/cleanmac_mcp_server.py
