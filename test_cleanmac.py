@@ -2010,7 +2010,8 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertFalse(software["destructive"])
             self.assertEqual(software["uninstall_plan"]["app"], "Demo")
             self.assertEqual(optimize["schema"], "cleanmac.optimize.v1")
-            self.assertFalse(optimize["execution_supported"])
+            self.assertTrue(optimize["dry_run"])
+            self.assertFalse(optimize["destructive"])
             self.assertEqual(status["schema"], "cleanmac.status.snapshot.v1")
             self.assertIn("disk", status)
 
@@ -7764,7 +7765,7 @@ class CleanMacCLITests(unittest.TestCase):
                 ),
                 (
                     ["optimize", "run", "--execute"],
-                    lambda report: report["schema"] == "cleanmac.optimize.v1" and not report["execution_supported"],
+                    lambda report: report["schema"] == "cleanmac.optimize.v1" and not report["destructive"],
                 ),
                 (
                     ["analyze", "categories", "--categories", "trash"],

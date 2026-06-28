@@ -411,7 +411,7 @@ def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
             (["privacy", "inspect", "--scope", "cache"], "cleanmac.privacy-inspect.v1", {"dry_run": True}),
             (["privacy", "plan", "--scope", "credentials"], "cleanmac.privacy-plan.v1", {"dry_run": True}),
             (["optimize", "list"], "cleanmac.optimize.v1", {"destructive": False}),
-            (["optimize", "run", "--execute"], "cleanmac.optimize.v1", {"execution_supported": False}),
+            (["optimize", "run", "--execute"], "cleanmac.optimize.v1", {"destructive": False}),
             (["analyze", "categories", "--categories", "trash"], "cleanmac.analyze.v1", {"dry_run": True}),
             (["analyze", "scan", "--path", "/Users/tester", "--depth", "1"], "cleanmac.analyze-tree.v1", {}),
             (["status", "snapshot"], "cleanmac.status.snapshot.v1", {"destructive": False}),
@@ -673,7 +673,8 @@ def test_software_optimize_and_status_grouped_commands_are_safe() -> None:
         assert software["destructive"] is False
         assert software["uninstall_plan"]["app"] == "Demo"
         assert optimize["schema"] == "cleanmac.optimize.v1"
-        assert optimize["execution_supported"] is False
+        assert optimize["dry_run"] is True
+        assert optimize["destructive"] is False
         assert status["schema"] == "cleanmac.status.snapshot.v1"
         assert "disk" in status
 

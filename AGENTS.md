@@ -27,13 +27,18 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 - `cleancli/protection.py`: Protection-policy logic, including bundle/container/group-container decisions, sensitive-data protection, official uninstaller vendor matching, and protected descendant checks.
 - `cleancli/scripts.py` / `cleancli/governance.py`: Script templates, automation boundaries, command-template safety validation, and governance reports.
 - `cleancli/workflow.py`: Fixed safe workflows and automation playbooks; never place destructive cleanup in the default workflow path.
-- `cleancli/software.py`: Software inventory, startup items, leftovers, and uninstall-plan capabilities.
-- `cleancli/analyze.py`, `cleancli/status.py`, `cleancli/optimize.py`, `cleancli/finder.py`: Read-only analysis, status, maintenance planning, and Finder preview capabilities.
+- `cleancli/software.py`: Software inventory, startup items, leftovers, iOS backups, and uninstall-plan capabilities.
+- `cleancli/purge.py`: Project artifact discovery — scans project roots for build/dependency directories (node_modules, target, venv, dist, etc.) and reports reclaimable space. Read-only; no deletion.
+- `cleancli/analyze.py`, `cleancli/status.py`, `cleancli/optimize.py`, `cleancli/finder.py`: Read-only analysis, status snapshots, system maintenance execution (cache refresh, index rebuild, service restart), and Finder preview capabilities. Optimize tasks are non-destructive; privileged tasks are sudo-gated.
+- `cleancli/progress.py`: Progress bar rendering for clean scan and execution phases — renders stderr progress with categories, counts, and elapsed time. Read-only UI helper; no deletion logic.
 - `scripts/test.sh`: Default local test entry point; enables no-auth/test-mode and stubs `sudo`, `osascript`, `launchctl`, and `rm`.
-- `tests/`: Incident-driven regression tests covering delete safety, path safety, Trash fail-closed behavior, sudo guards, Group Containers, operation logs, script governance, and app protection.
+- `tests/`: Incident-driven regression tests covering delete safety, path safety, Trash fail-closed behavior, sudo guards, Group Containers, operation logs, script governance, app protection, purge discovery, optimize execution, iOS backup enumeration, status snapshots, self-update, and AI/MCP schema contracts.
 - `tests/data/dangerous_paths.txt`: High-risk path fixture data; append new dangerous paths here and keep the related tests passing.
 - `scripts/cleanmac_mcp_server.py`: MCP stdio server entry point (JSON-RPC 2.0).
+- `scripts/install.sh`: One-liner install script — creates a venv, installs cleanmac via pip + GitHub fallback, and adds shell PATH integration.
+- `scripts/generate_homebrew_formula.py`: Homebrew formula generator for cleanmac release distribution.
 - `cleancli/ai_schema.py`: AI tool definitions, schema validation, and provider-format exports.
+- `cleancli/ai_versioning.py`: AI schema registry, versioned contract declarations, and schema-registry index exports.
 - `cleancli/ai_readiness.py`: AI readiness checks.
 - `cleancli/ai_runbook.py`: AI runbook and invocation patterns.
 - `cleancli/ai_decision.py`: AI tool decision matrix.
@@ -186,6 +191,28 @@ python3 -m unittest tests.test_script_governance -v
 make script-smoke
 make governance-smoke
 ```
+### `cleancli/purge.py`
+
+Responsibility: project artifact discovery across configurable project roots. Scans for build/dependency directories (node_modules, target, venv, dist, etc.) and reports reclaimable space per project. Read-only — no deletion.
+
+Run after changes:
+
+```bash
+python3 -m pytest tests/test_purge.py -v
+make pytest-test
+```
+
+### `cleancli/optimize.py`
+
+Responsibility: system maintenance task execution (cache refresh, index rebuild, service restart). All tasks are non-destructive; privileged tasks are sudo-gated and test-mode blocked.
+
+Run after changes:
+
+```bash
+python3 -m pytest tests/test_optimize.py -v
+make local-test
+```
+
 
 ### 📦 Package, CI, release, and supply chain
 
