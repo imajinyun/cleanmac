@@ -68,6 +68,7 @@ from cleancli.governance import (
     render_product_surface_policy,
     render_runtime_lifecycle_policy,
     render_software_discovery_governance,
+    render_xcode_ios_governance,
     render_zero_resident_audit,
     render_zero_resident_contract,
 )
@@ -2108,6 +2109,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "software-discovery-governance",
         help="Emit read-only software discovery closure governance checks.",
     )
+    subparsers.add_parser(
+        "xcode-ios-governance",
+        help="Emit read-only Xcode and iOS cleanup governance checks.",
+    )
     subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
@@ -2854,6 +2859,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-evidence",
         "governance-integrity",
         "software-discovery-governance",
+        "xcode-ios-governance",
         "mcp-surface-audit",
         "mcp-destructive-tool-governance",
         "operation-log-explainability",
@@ -10277,6 +10283,16 @@ def _main_impl(argv: Sequence[str]) -> int:
             render_software_discovery_governance(),
             args=args,
             command="software-discovery-governance",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "xcode-ios-governance":
+        emit_report(
+            render_xcode_ios_governance(),
+            args=args,
+            command="xcode-ios-governance",
             root=root,
             home=home,
             argv=actual_argv,
