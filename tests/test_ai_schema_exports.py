@@ -6,7 +6,7 @@ from typing import Any
 from cleancli import ai_schema, ai_versioning
 from tests.helpers import run_cli
 
-EXPECTED_TOOL_COUNT = 38
+EXPECTED_TOOL_COUNT = 44
 
 
 def load_ai_tools(format_name: str | None = None) -> dict[str, Any]:

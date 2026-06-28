@@ -25,7 +25,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import Any, NoReturn
 from urllib.parse import quote
 
 from cleancli import ai_schema, delete_ops, protection
@@ -74,8 +74,9 @@ from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.mcp_tools import render_mcp_destructive_tool_governance
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
-from cleancli.progress import ProgressBar
+from cleancli.progress import make_execute_progress, make_scan_progress
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
+from cleancli.purge import find_project_artifacts, render_purge_human
 from cleancli.release_artifacts import (
     HOMEBREW_TAP,
     REQUIRED_RELEASE_ASSET_NAMES,
@@ -1773,8 +1774,11 @@ CATEGORIES: tuple[Category, ...] = (
             "~/Downloads/",
             "~/Desktop/",
             "~/Library/Caches/Homebrew/downloads/",
+            "~/Library/Application Support/com.apple.sharedfilelist/",
+            "~/Library/Mail Downloads/",
+            "~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads/",
         ),
-        "Removes installer disk images (.dmg), packages (.pkg, .ipa), and archive installers from Downloads, Desktop, and Homebrew cache.",
+        "Removes installer disk images (.dmg), packages (.pkg, .ipa), and archive installers from Downloads, Desktop, Homebrew cache, and Mail downloads.",
         risk="medium",
         advanced=True,
         default_min_size_mb=0,
@@ -1969,6 +1973,12 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
         "commands": ["permissions"],
         "flat_command_aliases": [],
     },
+    "purge": {
+        "title": "项目清理 / Purge",
+        "description": "Find and clean project build artifacts such as node_modules, target, venv, and dist directories.",
+        "commands": ["purge"],
+        "flat_command_aliases": [],
+    },
     "tools": {
         "title": "工具语义计划 / Tool semantic plans",
         "description": "Read-only semantic cleanup plans for external tools; never executes tool prune commands.",
@@ -1983,7 +1993,7 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
     },
     "optimize": {
         "title": "优化 / Optimize",
-        "description": "System maintenance task inventory and dry-run execution planning.",
+        "description": "System maintenance tasks: cache rebuilds, service restarts, network reset, index rebuild, and log cleanup.",
         "commands": ["optimize list", "optimize plan", "optimize run"],
         "flat_command_aliases": ["doctor", "workflow"],
     },
@@ -2268,7 +2278,16 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     software_cmd.add_argument(
         "action",
         nargs="?",
-        choices=("list", "leftovers", "orphans", "startup-items", "inspect", "uninstall-plan", "execute"),
+        choices=(
+            "list",
+            "leftovers",
+            "orphans",
+            "startup-items",
+            "inspect",
+            "uninstall-plan",
+            "execute",
+            "ios-backups",
+        ),
         default="list",
     )
     software_cmd.add_argument("--app", help="Application name or bundle id for uninstall planning.")
@@ -2346,6 +2365,22 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Preflight category permissions, Full Disk Access hints, and live-root execution requirements.",
     )
     add_category_flags(permissions_cmd, default_scope="all")
+
+    purge_cmd = subparsers.add_parser(
+        "purge",
+        help="Find and clean project build artifacts such as node_modules, target, and venv directories.",
+    )
+    purge_cmd.add_argument(
+        "--paths",
+        help="Comma-separated list of directories to scan. Defaults to ~/Projects, ~/GitHub, ~/dev, ~/code, ~/work.",
+    )
+    purge_cmd.add_argument(
+        "--recent-days",
+        type=int,
+        default=7,
+        help="Projects modified within this many days are skipped by default.",
+    )
+    purge_cmd.add_argument("--max-items", type=int, default=100)
 
     tool_plan_cmd = subparsers.add_parser(
         "tool-plan",
@@ -2432,6 +2467,24 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         choices=("bash", "zsh", "fish"),
         default="bash",
         help="Target shell type (bash|zsh|fish). Default: bash",
+    )
+
+    update_cmd = subparsers.add_parser(
+        "update",
+        help="Update cleanmac to the latest version via pip.",
+    )
+    update_cmd.add_argument(
+        "--version",
+        help="Install a specific version instead of the latest.",
+    )
+    update_cmd.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Check what would be installed without making changes.",
+    )
+    update_cmd.add_argument(
+        "--pip-args",
+        help="Extra arguments to pass to pip install.",
     )
 
     ai_tools_cmd = subparsers.add_parser(
@@ -2762,8 +2815,10 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "startup",
         "privacy",
         "optimize",
+        "purge",
         "status",
         "completion",
+        "update",
         "ai-tools",
         "ai-readiness",
         "ai-runbook",
@@ -3375,8 +3430,10 @@ def render_capabilities() -> dict[str, Any]:
             "tool-execute",
             "review",
             "optimize",
+            "purge",
             "status",
             "completion",
+            "update",
             "ai-tools",
             "ai-readiness",
             "ai-runbook",
@@ -5314,48 +5371,288 @@ def render_software(action: str, *, app: str | None, root: Path, home: Path) -> 
 
 
 def optimize_tasks() -> list[dict[str, Any]]:
-    return [
-        {
-            "key": "quicklook-cache",
-            "title": "Quick Look cache refresh",
-            "command": "qlmanage -r cache",
-            "requires_privilege": False,
-            "destructive": False,
-        },
-        {
-            "key": "launchservices-metadata",
-            "title": "LaunchServices metadata rebuild",
-            "command": "lsregister rebuild",
-            "requires_privilege": False,
-            "destructive": False,
-        },
-        {
-            "key": "spotlight-review",
-            "title": "Spotlight index status review",
-            "command": "mdutil -s /",
-            "requires_privilege": False,
-            "destructive": False,
-        },
-    ]
+    from cleancli.optimize import list_optimize_tasks
+
+    return list_optimize_tasks()
 
 
-def render_optimize(action: str, *, execute: bool) -> dict[str, Any]:
-    tasks = optimize_tasks()
-    return {
-        "schema": "cleanmac.optimize.v1",
-        "action": action,
-        "destructive": False,
-        "dry_run": True,
-        "execute_requested": execute,
-        "execution_supported": False,
-        "message": "Optimize commands are currently exposed as a dry-run task plan only.",
-        "tasks": tasks,
-    }
+def render_optimize(
+    action: str, *, execute: bool, test_mode: bool = False, sudo_available: bool = False
+) -> dict[str, Any]:
+    from cleancli.optimize import execute_optimize_tasks
+
+    return execute_optimize_tasks(
+        action=action,
+        execute=execute,
+        test_mode=test_mode,
+        sudo_available=sudo_available,
+    )
+
+
+def enumerate_ios_backups(*, home: Path) -> list[dict[str, Any]]:
+    """Enumerate iOS device backups stored locally by Finder/iTunes."""
+    backup_root = home / "Library" / "Application Support" / "MobileSync" / "Backup"
+    backups: list[dict[str, Any]] = []
+
+    if not backup_root.is_dir():
+        return backups
+
+    try:
+        entries = sorted(backup_root.iterdir())
+    except (OSError, PermissionError):
+        return backups
+
+    for backup_dir in entries:
+        if not backup_dir.is_dir():
+            continue
+        udid = backup_dir.name
+        info_plist = backup_dir / "Info.plist"
+        manifest_plist = backup_dir / "Manifest.plist"
+
+        device_name = None
+        product_type = None
+        product_version = None
+        last_backup_date = None
+        backup_size = 0
+        is_encrypted = False
+
+        try:
+            backup_size = sum(f.stat().st_size for f in backup_dir.rglob("*") if f.is_file() and not f.is_symlink())
+        except (OSError, PermissionError):
+            pass
+
+        if info_plist.exists():
+            import subprocess
+
+            def _plist_value(path: Path, key: str) -> str | None:
+                result = subprocess.run(
+                    ["/usr/libexec/PlistBuddy", "-c", f"Print :{key}", str(path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+                return None
+
+            device_name = _plist_value(info_plist, "Device Name")
+            product_type = _plist_value(info_plist, "Product Type")
+            product_version = _plist_value(info_plist, "Product Version")
+            date_str = _plist_value(info_plist, "Last Backup Date")
+            if date_str:
+                last_backup_date = date_str
+
+        if manifest_plist.exists():
+            import subprocess
+
+            result = subprocess.run(
+                ["/usr/libexec/PlistBuddy", "-c", "Print :IsEncrypted", str(manifest_plist)],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                is_encrypted = result.stdout.strip().lower() in {"true", "yes", "1"}
+
+        backups.append(
+            {
+                "udid": udid,
+                "device_name": device_name,
+                "product_type": product_type,
+                "product_version": product_version,
+                "last_backup_date": last_backup_date,
+                "size_bytes": backup_size,
+                "size_human": human_size(backup_size),
+                "encrypted": is_encrypted,
+                "path": display_path(backup_dir),
+            }
+        )
+
+    return sorted(backups, key=lambda b: b["size_bytes"], reverse=True)
+
+
+def _get_memory_info() -> dict[str, Any] | None:
+    """Get memory usage info on macOS using vm_stat and sysctl."""
+    try:
+        import subprocess
+
+        # Total memory
+        total_result = subprocess.run(
+            ["sysctl", "-n", "hw.memsize"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if total_result.returncode != 0:
+            return None
+        total_bytes = int(total_result.stdout.strip())
+
+        # Page size
+        page_result = subprocess.run(
+            ["sysctl", "-n", "hw.pagesize"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        page_size = int(page_result.stdout.strip()) if page_result.returncode == 0 else 4096
+
+        # VM stats
+        vm_result = subprocess.run(
+            ["vm_stat"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if vm_result.returncode != 0:
+            return None
+
+        pages_free = 0
+        pages_active = 0
+        pages_inactive = 0
+        pages_wired = 0
+        pages_compressed = 0
+
+        for line in vm_result.stdout.splitlines():
+            line = line.strip()
+            if "Pages free:" in line:
+                pages_free = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages active:" in line:
+                pages_active = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages inactive:" in line:
+                pages_inactive = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages wired down:" in line:
+                pages_wired = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages occupied by compressor:" in line:
+                pages_compressed = int(line.split(":")[1].strip().rstrip("."))
+
+        used_bytes = (pages_active + pages_wired + pages_compressed) * page_size
+        free_bytes = pages_free * page_size
+        cached_bytes = pages_inactive * page_size
+
+        return {
+            "total_bytes": total_bytes,
+            "used_bytes": used_bytes,
+            "free_bytes": free_bytes,
+            "cached_bytes": cached_bytes,
+            "total_human": human_size(total_bytes),
+            "used_human": human_size(used_bytes),
+            "free_human": human_size(free_bytes),
+            "cached_human": human_size(cached_bytes),
+            "used_percent": round(used_bytes / total_bytes * 100, 1) if total_bytes > 0 else 0,
+        }
+    except Exception:
+        return None
+
+
+def _get_cpu_info() -> dict[str, Any] | None:
+    """Get CPU info on macOS."""
+    try:
+        import subprocess
+
+        brand_result = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        core_result = subprocess.run(
+            ["sysctl", "-n", "hw.physicalcpu"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        logical_result = subprocess.run(
+            ["sysctl", "-n", "hw.logicalcpu"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        return {
+            "brand": brand_result.stdout.strip() if brand_result.returncode == 0 else None,
+            "physical_cores": int(core_result.stdout.strip()) if core_result.returncode == 0 else None,
+            "logical_cores": int(logical_result.stdout.strip()) if logical_result.returncode == 0 else None,
+        }
+    except Exception:
+        return None
+
+
+def _get_uptime() -> str | None:
+    """Get system uptime."""
+    try:
+        import subprocess
+
+        result = subprocess.run(["uptime"], capture_output=True, text=True, timeout=2)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def _get_battery_info() -> dict[str, Any] | None:
+    """Get battery info on macOS laptops."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["pmset", "-g", "batt"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode != 0:
+            return None
+        output = result.stdout.strip()
+        if "No adapter" in output or "Battery" not in output:
+            return None
+        # Parse: -InternalBattery-0 (id=...)	97%; charging; 2:34 remaining present: true
+        parts = output.split("	")
+        if len(parts) < 2:
+            return None
+        battery_str = parts[1]
+        percent = None
+        status = None
+        time_remaining = None
+        for segment in battery_str.split(";"):
+            segment = segment.strip()
+            if "%" in segment:
+                percent = int(segment.rstrip("%"))
+            elif "remaining" in segment or "charging" in segment or "discharging" in segment:
+                if "remaining" in segment:
+                    time_remaining = segment.split(" remaining")[0].strip()
+                    status = "discharging"
+                else:
+                    status = segment
+        return {
+            "percent": percent,
+            "status": status,
+            "time_remaining": time_remaining,
+            "raw": battery_str,
+        }
+    except Exception:
+        return None
 
 
 def render_status_snapshot(*, root: Path) -> dict[str, Any]:
     disk = shutil.disk_usage(root if root.exists() else Path("/"))
     loadavg = os.getloadavg() if hasattr(os, "getloadavg") else (None, None, None)
+    memory = _get_memory_info()
+    cpu = _get_cpu_info()
+    battery = _get_battery_info()
+    uptime = _get_uptime()
+
+    available = ["load_average", "disk"]
+    if memory:
+        available.append("memory")
+    if cpu:
+        available.append("cpu")
+    if battery:
+        available.append("battery")
+    if uptime:
+        available.append("uptime")
+
+    deferred = ["gpu", "network", "temperature", "fan", "processes"]
+
     return {
         "schema": "cleanmac.status.snapshot.v1",
         "destructive": False,
@@ -5369,9 +5666,14 @@ def render_status_snapshot(*, root: Path) -> dict[str, Any]:
             "total_human": human_size(disk.total),
             "used_human": human_size(disk.used),
             "free_human": human_size(disk.free),
+            "used_percent": round(disk.used / disk.total * 100, 1) if disk.total > 0 else 0,
         },
-        "metrics_available": ["load_average", "disk"],
-        "metrics_deferred": ["gpu", "network", "battery", "temperature", "fan", "processes"],
+        "memory": memory,
+        "cpu": cpu,
+        "battery": battery,
+        "uptime": uptime,
+        "metrics_available": available,
+        "metrics_deferred": deferred,
     }
 
 
@@ -7252,12 +7554,10 @@ def clean(
                     "duplicate_keep_path": keep_path,
                 }
     resolved_targets = resolve_targets(categories, root=root, home=home)
-    _scan_bar = (
-        ProgressBar(len([t for t in resolved_targets if t.category != "duplicateFiles"]), label="Scanning")
-        if progress_enabled
-        else None
-    )
-    _scan_tick = lambda n=1: _scan_bar.update(n) if _scan_bar else None
+    _scan_total = len([t for t in resolved_targets if t.category != "duplicateFiles"])
+    _scan_cb = make_scan_progress(_scan_total, enabled=progress_enabled)
+    _scan_bar = getattr(_scan_cb, "_bar", None)
+    _scan_tick = _scan_cb
     for target in resolved_targets:
         if target.category == "duplicateFiles":
             _scan_tick()
@@ -7554,12 +7854,9 @@ def clean(
                 f"Refusing to execute cleanup because operation log preflight failed: {operation_log_status['error']}"
             )
     if execute:
-        _exec_bar = (
-            ProgressBar(len(rows), label="Cleaning")
-            if progress_enabled
-            else None
-        )
-        _exec_tick = lambda n=1: _exec_bar.update(n) if _exec_bar else None
+        _exec_cb = make_execute_progress(len(rows), enabled=progress_enabled)
+        _exec_bar = getattr(_exec_cb, "_bar", None)
+        _exec_tick = _exec_cb
         for row in rows:
             path = Path(str(row["path"]))
             try:
@@ -9977,6 +10274,82 @@ def _main_impl(argv: Sequence[str]) -> int:
         else:
             print(script)
         return 0
+    if args.command == "update":
+        import subprocess as _subprocess
+        import sys as _sys
+
+        current_version = VERSION
+        target_version = args.version or "latest"
+        dry_run = getattr(args, "dry_run", False)
+        pip_args = getattr(args, "pip_args", "") or ""
+        package_spec = f"cleanmac=={args.version}" if args.version else "cleanmac"
+
+        if dry_run:
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "schema": "cleanmac.update.v1",
+                            "current_version": current_version,
+                            "target_version": target_version,
+                            "dry_run": True,
+                            "status": "checking",
+                            "package_spec": package_spec,
+                        },
+                        indent=2,
+                    )
+                )
+            else:
+                print(f"Current version: {current_version}")
+                print(f"Target: {target_version}")
+                print("Run without --dry-run to apply the update.")
+            return 0
+
+        pip_cmd = [_sys.executable, "-m", "pip", "install", "--upgrade", package_spec]
+        if pip_args:
+            pip_cmd.extend(pip_args.split())
+
+        if not args.json:
+            print(f"Updating cleanmac from {current_version}...")
+
+        result = _subprocess.run(pip_cmd, capture_output=True, text=True)
+        success = result.returncode == 0
+        new_version = current_version
+        if success:
+            try:
+                check = _subprocess.run(
+                    [_sys.executable, "-c", "import importlib.metadata; print(importlib.metadata.version('cleanmac'))"],
+                    capture_output=True,
+                    text=True,
+                )
+                if check.returncode == 0:
+                    new_version = check.stdout.strip()
+            except Exception:
+                pass
+
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "schema": "cleanmac.update.v1",
+                        "current_version": current_version,
+                        "new_version": new_version,
+                        "target_version": target_version,
+                        "success": success,
+                        "output": result.stdout.strip() or None,
+                        "error": result.stderr.strip() or None,
+                    },
+                    indent=2,
+                )
+            )
+            return 0 if success else 1
+        else:
+            if success:
+                print(f"Updated cleanmac: {current_version} -> {new_version}")
+            else:
+                print(f"Update failed: {result.stderr.strip()}")
+                _sys.exit(1)
+        return 0
     if args.command == "ai-tools":
         if args.format == "openai":
             report = ai_schema.render_openai_functions()
@@ -10317,14 +10690,27 @@ def _main_impl(argv: Sequence[str]) -> int:
                 )
             emit_report(report, args=args, command="software", root=root, home=home, argv=actual_argv)
             return 0
-        emit_report(
-            render_software_report(args.action, app=args.app, root=root, home=home),
-            args=args,
-            command="software",
-            root=root,
-            home=home,
-            argv=actual_argv,
-        )
+        if args.action == "ios-backups":
+            backups = enumerate_ios_backups(home=home)
+            report = {
+                "schema": "cleanmac.software-ios-backups.v1",
+                "action": "ios-backups",
+                "destructive": False,
+                "backup_count": len(backups),
+                "total_bytes": sum(b["size_bytes"] for b in backups),
+                "total_human": human_size(sum(b["size_bytes"] for b in backups)),
+                "backups": backups,
+            }
+            emit_report(report, args=args, command="software", root=root, home=home, argv=actual_argv)
+        else:
+            emit_report(
+                render_software_report(args.action, app=args.app, root=root, home=home),
+                args=args,
+                command="software",
+                root=root,
+                home=home,
+                argv=actual_argv,
+            )
         return 0
     if args.command == "startup":
         if args.action == "disable":
@@ -10471,6 +10857,20 @@ def _main_impl(argv: Sequence[str]) -> int:
             argv=actual_argv,
         )
         return 0
+    if args.command == "purge":
+        scan_roots = None
+        if args.paths:
+            scan_roots = tuple(p.strip() for p in args.paths.split(",") if p.strip())
+        report = find_project_artifacts(
+            scan_roots=scan_roots,
+            recent_days=args.recent_days,
+            home=home,
+        )
+        if getattr(args, "json", False):
+            emit_report(report, args=args, command="purge", root=root, home=home, argv=actual_argv)
+        else:
+            print(render_purge_human(report))
+        return 0
     if args.command == "tool-plan":
         emit_report(
             render_tool_plan(args.tool, root=root, home=home),
@@ -10482,14 +10882,20 @@ def _main_impl(argv: Sequence[str]) -> int:
         )
         return 0
     if args.command == "optimize":
-        emit_report(
-            render_optimize(args.action, execute=args.execute),
-            args=args,
-            command="optimize",
-            root=root,
-            home=home,
-            argv=actual_argv,
+        from cleancli.optimize import render_optimize_human
+
+        test_mode = bool(os.environ.get("CLEANMAC_TEST_MODE"))
+        sudo_available = not test_mode and run_text_command(["sudo", "-n", "true"], timeout=1) is not None
+        report = render_optimize(
+            args.action,
+            execute=args.execute,
+            test_mode=test_mode,
+            sudo_available=sudo_available,
         )
+        if getattr(args, "json", False):
+            emit_report(report, args=args, command="optimize", root=root, home=home, argv=actual_argv)
+        else:
+            print(render_optimize_human(report))
         return 0
     if args.command == "status":
         emit_report(
