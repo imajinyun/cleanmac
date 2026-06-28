@@ -25,7 +25,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, Callable, NoReturn
 from urllib.parse import quote
 
 from cleancli import ai_schema, delete_ops, protection
@@ -74,6 +74,7 @@ from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.mcp_tools import render_mcp_destructive_tool_governance
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
+from cleancli.progress import ProgressBar
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
 from cleancli.release_artifacts import (
     HOMEBREW_TAP,
@@ -7206,6 +7207,7 @@ def clean(
     ai_originated_plan: bool = False,
     review_selection: dict[str, Any] | None = None,
     command_argv: Sequence[str] = (),
+    progress_enabled: bool = False,
 ) -> dict[str, Any]:
     timer_start = debug_timer_start("clean", root=root, home=home)
     session_id = datetime.now(timezone.utc).strftime("cleanmac-%Y%m%dT%H%M%S%fZ")
@@ -7249,8 +7251,16 @@ def clean(
                     "duplicate_group_file_count": group["file_count"],
                     "duplicate_keep_path": keep_path,
                 }
-    for target in resolve_targets(categories, root=root, home=home):
+    resolved_targets = resolve_targets(categories, root=root, home=home)
+    _scan_bar = (
+        ProgressBar(len([t for t in resolved_targets if t.category != "duplicateFiles"]), label="Scanning")
+        if progress_enabled
+        else None
+    )
+    _scan_tick = lambda n=1: _scan_bar.update(n) if _scan_bar else None
+    for target in resolved_targets:
         if target.category == "duplicateFiles":
+            _scan_tick()
             continue
         category = CATEGORY_BY_KEY[target.category]
         min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
@@ -7341,6 +7351,7 @@ def clean(
                     },
                 }
             )
+            _scan_tick()
     if dup_candidates:
         dup_category = CATEGORY_BY_KEY["duplicateFiles"]
         for dup_path, dup_meta in dup_candidates.items():
@@ -7404,6 +7415,8 @@ def clean(
                     },
                 }
             )
+    if _scan_bar:
+        _scan_bar.close()
     candidate_bytes = sum(row_bytes(row) for row in rows)
     max_delete_bytes = None if max_delete_mb is None else int(max_delete_mb * 1024 * 1024)
     safety_gate = {
@@ -7541,6 +7554,12 @@ def clean(
                 f"Refusing to execute cleanup because operation log preflight failed: {operation_log_status['error']}"
             )
     if execute:
+        _exec_bar = (
+            ProgressBar(len(rows), label="Cleaning")
+            if progress_enabled
+            else None
+        )
+        _exec_tick = lambda n=1: _exec_bar.update(n) if _exec_bar else None
         for row in rows:
             path = Path(str(row["path"]))
             try:
@@ -7657,6 +7676,9 @@ def clean(
                     ai_operation_audit=ai_operation_audit,
                 )
             )
+            _exec_tick()
+        if _exec_bar:
+            _exec_bar.close()
     elapsed_ms = debug_timer_end("clean", timer_start, root=root, home=home)
     operation_log_path = (
         append_operation_log(operation_log, operation_log_entries, root=root, home=home, rotate=False)
@@ -10633,6 +10655,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             ai_originated_plan=bool(plan_metadata and plan_metadata.get("ai_origin")),
             review_selection=review_selection,
             command_argv=original_argv,
+            progress_enabled=not args.json and not getattr(args, "quiet", False),
         )
         if plan_metadata:
             report["plan_metadata"] = plan_metadata
