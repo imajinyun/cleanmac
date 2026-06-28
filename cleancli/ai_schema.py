@@ -590,6 +590,46 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "argv_template": ["cleanmac", "--json", "optimize", "{action}"],
     },
     {
+        "name": "cleanmac_purge",
+        "description": "Scan project directories for build artifacts and dependency caches (node_modules, target, venv, dist, etc.) and report reclaimable space grouped by project. Read-only discovery — no files are deleted. Projects modified within the recent-days window are skipped by default.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "recent_days": integer_schema("Skip projects modified within this many days."),
+                "scan_roots": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Custom scan root directories. Defaults to ~/Projects, ~/GitHub, ~/dev, ~/code, ~/work.",
+                },
+            }
+        ),
+        "argv_template": ["cleanmac", "--json", "purge"],
+    },
+    {
+        "name": "cleanmac_update_check",
+        "description": "Check for cleanmac updates via pip without installing anything. Reports current version, target version, and whether an update is available. Read-only operation — no packages are modified.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema(
+            {
+                "version": string_schema("Specific version to check for, or latest if omitted."),
+            }
+        ),
+        "argv_template": ["cleanmac", "--json", "update", "--dry-run"],
+    },
+    {
+        "name": "cleanmac_software_ios_backups",
+        "description": "Enumerate locally stored iOS device backups from Finder/iTunes. Returns backup size, device name, product type, iOS version, and encryption status for each backup. Read-only operation — no backups are modified or deleted.",
+        "risk": "readonly",
+        "auto_call_allowed": True,
+        "requires_confirmation": False,
+        "parameters": object_schema({}),
+        "argv_template": ["cleanmac", "--json", "software", "ios-backups"],
+    },
+    {
         "name": "cleanmac_ai_governance_advice",
         "description": "Return governance advice for safe large-model and AI-host cleanmac tool calling, including auto-call boundaries, required host controls, and anti-patterns.",
         "risk": "readonly",
@@ -806,6 +846,12 @@ def representative_args(name: str) -> dict[str, Any]:
         return {"kind": "logs"}
     if name == "cleanmac_optimize":
         return {"action": "list"}
+    if name == "cleanmac_purge":
+        return {"recent_days": 7}
+    if name == "cleanmac_update_check":
+        return {}
+    if name == "cleanmac_software_ios_backups":
+        return {}
     return {}
 
 
@@ -1328,6 +1374,18 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
         if args.get("execute"):
             argv.append("--execute")
         return argv
+    if name == "cleanmac_purge":
+        argv = ["cleanmac", "--json", "purge"]
+        append_option(argv, args, "recent_days", "--recent-days")
+        if args.get("scan_roots"):
+            argv.extend(["--scan-roots", ",".join(args["scan_roots"])])
+        return argv
+    if name == "cleanmac_update_check":
+        argv = ["cleanmac", "--json", "update", "--dry-run"]
+        append_option(argv, args, "version", "--version")
+        return argv
+    if name == "cleanmac_software_ios_backups":
+        return ["cleanmac", "--json", "software", "ios-backups"]
     if name == "cleanmac_ai_governance_advice":
         return ["cleanmac", "--json", "ai-governance-advice"]
     if name == "cleanmac_ai_host_policy":

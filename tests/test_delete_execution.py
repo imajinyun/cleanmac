@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
-
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from unittest import mock
 

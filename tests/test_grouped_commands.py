@@ -288,7 +288,8 @@ class TestGroupedSafeCommands:
         report = json.loads(result.stdout)
 
         assert report["schema"] == "cleanmac.optimize.v1"
-        assert report["execution_supported"] is False
+        assert report["dry_run"] is True
+        assert report["destructive"] is False
 
     def test_status_snapshot_works(self) -> None:
         tmp, root, home = make_sandbox()
