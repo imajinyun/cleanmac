@@ -105,6 +105,7 @@ script-smoke:
 
 quick-clean-smoke:
 	$(PYTHON) -c 'from pathlib import Path; import os, subprocess, sys; p=Path("scripts/quick_clean.sh"); assert p.is_file(), "quick_clean.sh missing"; assert os.access(p, os.X_OK), "quick_clean.sh not executable"; text=p.read_text(encoding="utf-8"); assert "set -euo pipefail" in text; assert "--delete-mode trash" in text, "must default to trash mode"; assert "--allow-live-root" in text, "must pass live-root gate"; assert "--max-delete-mb" in text, "must compute safety budget"; assert "Proceed" in text, "must prompt for confirmation"; assert "DRY-RUN" not in text.split("read -r")[0] if "read -r" in text else True, "dry-run must precede confirmation"; rc=subprocess.run(["bash", "-n", str(p)]).returncode; assert rc == 0, f"syntax check failed: {rc}"; print("quick-clean-smoke passed")'
+	$(PYTHON) -m unittest tests.test_quick_clean_script -v
 
 bundle-audit-smoke:
 	tmpdir=$$(mktemp -d); \

@@ -38,23 +38,51 @@ echo "Delete : Trash (recoverable)"
 echo ""
 
 # Step 1: compute the budget from a JSON dry-run
-BUDGET_MB="$("$PYTHON_BIN" -c "
-import json, subprocess, math, sys
-args = [sys.executable, 'cleanmac.py', '--json', 'clean']
-args += $(printf "'%s' " "${PROFILE_ARG[@]+"${PROFILE_ARG[@]}"}")
-args += $(printf "'%s' " "${CATEGORIES_ARG[@]+"${CATEGORIES_ARG[@]}"}")
-args += ['--max-items', '10000', '--allow-live-root']
+BUDGET_ARGS=(cleanmac.py --json clean)
+if ((${#PROFILE_ARG[@]})); then
+  BUDGET_ARGS+=("${PROFILE_ARG[@]}")
+fi
+if ((${#CATEGORIES_ARG[@]})); then
+  BUDGET_ARGS+=("${CATEGORIES_ARG[@]}")
+fi
+BUDGET_ARGS+=(--max-items 10000 --allow-live-root)
+BUDGET_MB="$("$PYTHON_BIN" -c '
+import json
+import math
+import subprocess
+import sys
+
+fallback_mb = 4096
+args = [sys.executable, *sys.argv[1:]]
+
+
+def numeric(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 try:
-    out = subprocess.check_output(args, text=True)
-    d = json.loads(out)
-    total = d.get('pre_clean_report', {}).get('candidate_total_bytes', 0)
-    mb = max(4, int(math.ceil(total / 1024 / 1024 * 1.2)))
-    print(mb)
-except Exception as e:
-    print('4096', file=sys.stderr)
-    print('4096')
-    sys.exit(0)
-" 2>/dev/null)"
+    completed = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip().splitlines()
+        tail = detail[-1] if detail else "no output"
+        raise RuntimeError(f"dry-run exited {completed.returncode}: {tail}")
+    data = json.loads(completed.stdout)
+    pre_report = data.get("pre_clean_report") if isinstance(data, dict) else None
+    safety_gate = data.get("safety_gate") if isinstance(data, dict) else None
+    total = pre_report.get("candidate_total_bytes") if isinstance(pre_report, dict) else None
+    if not numeric(total):
+        total = safety_gate.get("candidate_bytes") if isinstance(safety_gate, dict) else None
+    if not numeric(total):
+        raise KeyError("dry-run JSON did not include candidate bytes")
+    budget_mb = max(4, int(math.ceil(float(total) / 1024 / 1024 * 1.2)))
+    print(budget_mb)
+except Exception as exc:
+    print(
+        f"Warning: dynamic budget calculation failed ({exc}); using fallback budget {fallback_mb} MB.",
+        file=sys.stderr,
+    )
+    print(fallback_mb)
+' "${BUDGET_ARGS[@]}")"
 
 # Step 2: show human-readable dry-run
 echo "--- Dry-run preview ---"
