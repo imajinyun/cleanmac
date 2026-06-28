@@ -40,6 +40,7 @@ def test_core_main_ai_dispatches_are_covered_in_process() -> None:
         (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
         (("governance-integrity",), "cleanmac.governance-integrity.v1"),
         (("software-discovery-governance",), "cleanmac.software-discovery-governance.v1"),
+        (("xcode-ios-governance",), "cleanmac.xcode-ios-governance.v1"),
         (("zero-resident",), "cleanmac.zero-resident.v1"),
         (("product-surface-drift-audit",), "cleanmac.product-surface-drift-audit.v1"),
         (("ai-first-release-checklist",), "cleanmac.ai-first-release-checklist.v1"),
@@ -81,6 +82,7 @@ def test_core_main_release_readiness_dispatches_in_process() -> None:
     assert governance_integrity["stop_reason"] == ""
     assert ["make", "governance-integrity-smoke"] in governance_integrity["remediation_commands"]
     assert "cleanmac.geo-discoverability-policy.v1" in governance_integrity["governed_contracts"]
+    assert "cleanmac.xcode-ios-governance.v1" in governance_integrity["governed_contracts"]
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)

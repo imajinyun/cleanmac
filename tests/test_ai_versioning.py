@@ -33,6 +33,7 @@ class TestAISchemaRegistry:
         assert "cleanmac.release-readiness.v1" in names
         assert "cleanmac.geo-discoverability-policy.v1" in names
         assert "cleanmac.governance-integrity.v1" in names
+        assert "cleanmac.xcode-ios-governance.v1" in names
         assert "cleanmac.zero-resident.v1" in names
         assert "cleanmac.product-surface-drift-audit.v1" in names
         assert "cleanmac.no-disturbance.v1" in names
@@ -104,6 +105,12 @@ class TestAISchemaRegistry:
             "software-discovery-governance",
         ]
         assert entries["cleanmac.software-discovery-governance.v1"]["release_critical"]
+        assert entries["cleanmac.xcode-ios-governance.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "xcode-ios-governance",
+        ]
+        assert entries["cleanmac.xcode-ios-governance.v1"]["release_critical"]
         assert entries["cleanmac.zero-resident.v1"]["producer_command"] == [
             "cleanmac",
             "--json",
@@ -260,6 +267,7 @@ class TestAISchemaRegistry:
         assert "json_schema" in entries["cleanmac.product-surface-drift-audit.v1"]
         assert entries["cleanmac.zero-resident.v1"]["release_critical"]
         assert entries["cleanmac.product-surface-drift-audit.v1"]["release_critical"]
+        assert entries["cleanmac.xcode-ios-governance.v1"]["release_critical"]
         assert entries["cleanmac.release-evidence.v1"]["release_critical"]
         assert entries["cleanmac.release-promotion-decision.v1"]["release_critical"]
         assert entries["cleanmac.release-post-publish-verification.v1"]["release_critical"]
@@ -745,6 +753,11 @@ class TestAISchemaRegistry:
             "p0-software-leftover-discovery",
             "p0-software-orphan-scan",
         ]
+        assert sample_payloads["cleanmac.xcode-ios-governance.v1"]["ready"] is True
+        assert sample_payloads["cleanmac.xcode-ios-governance.v1"]["in_progress_backlog_item_ids"] == [
+            "p0-xcode-ios-deep-cleanup"
+        ]
+        assert sample_payloads["cleanmac.xcode-ios-governance.v1"]["destructive_paths_absent"] is True
         assert (
             sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"]
             == "strengthen-ai-first-entrypoints"
