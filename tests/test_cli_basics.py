@@ -264,15 +264,18 @@ def test_capabilities_json_exposes_open_source_gap_governance_todo() -> None:
     assert gap_todo["items"][1]["id"] == "p0-software-orphan-scan"
     assert gap_todo["destructive"] is False
     assert gap_todo["dry_run"] is True
-    assert gap_todo["in_progress_count"] == 0
-    assert gap_todo["pending_count"] == 8
+    assert gap_todo["in_progress_count"] == 1
+    assert gap_todo["pending_count"] == 7
     assert gap_todo["landed_count"] == 2
+    assert gap_todo["items"][2]["id"] == "p0-xcode-ios-deep-cleanup"
+    assert gap_todo["items"][2]["status"] == "in_progress"
+    assert "cleanmac.xcode-ios-governance.v1" in gap_todo["items"][2]["landing_evidence"]["evidence_refs"]
     assert "resident monitoring" in gap_todo["non_goals"]
     assert "background cleanup automation" in gap_todo["non_goals"]
 
     statuses = {item["status"] for item in gap_todo["items"]}
     priorities = {item["priority"] for item in gap_todo["items"]}
-    assert statuses == {"landed", "pending"}
+    assert statuses == {"landed", "in_progress", "pending"}
     assert priorities == {"P0", "P1", "P2"}
     assert all(item["governance_action"] for item in gap_todo["items"])
     assert all(item["reference_projects"] for item in gap_todo["items"])
@@ -314,6 +317,7 @@ def test_capabilities_json_exposes_governance_integrity_contract() -> None:
     assert governance_integrity["readiness_score"]["level"] == "ready"
     assert "cleanmac.geo-discoverability-policy.v1" in governance_integrity["governed_contracts"]
     assert "cleanmac.ai-tool-contract.v1" in governance_integrity["governed_contracts"]
+    assert "cleanmac.xcode-ios-governance.v1" in governance_integrity["governed_contracts"]
 
     integrity_checks = {row["id"]: row for row in governance_integrity["checks"]}
     runtime_check = integrity_checks["boundary-runtime-lifecycle-single-source"]
@@ -321,6 +325,7 @@ def test_capabilities_json_exposes_governance_integrity_contract() -> None:
     assert ["make", "governance-integrity-smoke"] in runtime_check["remediation_commands"]
     assert integrity_checks["boundary-product-surface-single-source"]["passed"] is True
     assert integrity_checks["boundary-geo-policy-single-source"]["passed"] is True
+    assert integrity_checks["xcode-ios-governance-ready"]["passed"] is True
 
 
 @pytest.mark.parametrize(

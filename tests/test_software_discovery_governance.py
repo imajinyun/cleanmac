@@ -119,8 +119,8 @@ def test_software_discovery_governance_marks_backlog_items_landed() -> None:
     by_id = {item["id"]: item for item in gap_todo["items"]}
 
     assert gap_todo["landed_count"] == 2
-    assert gap_todo["in_progress_count"] == 0
-    assert gap_todo["pending_count"] == 8
+    assert gap_todo["in_progress_count"] == 1
+    assert gap_todo["pending_count"] == 7
     for item_id in ("p0-software-leftover-discovery", "p0-software-orphan-scan"):
         item = by_id[item_id]
         assert item["status"] == "landed"

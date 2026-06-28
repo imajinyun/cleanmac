@@ -1180,10 +1180,16 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("TUI parity", gap_todo["non_goals"])
         self.assertEqual(gap_todo["items"][0]["id"], "p0-software-leftover-discovery")
         self.assertEqual(gap_todo["items"][1]["id"], "p0-software-orphan-scan")
-        self.assertEqual(gap_todo["in_progress_count"], 0)
-        self.assertEqual(gap_todo["pending_count"], 8)
+        self.assertEqual(gap_todo["in_progress_count"], 1)
+        self.assertEqual(gap_todo["pending_count"], 7)
         self.assertEqual(gap_todo["landed_count"], 2)
-        self.assertEqual({item["status"] for item in gap_todo["items"]}, {"landed", "pending"})
+        self.assertEqual(gap_todo["items"][2]["id"], "p0-xcode-ios-deep-cleanup")
+        self.assertEqual(gap_todo["items"][2]["status"], "in_progress")
+        self.assertIn(
+            "cleanmac.xcode-ios-governance.v1",
+            gap_todo["items"][2]["landing_evidence"]["evidence_refs"],
+        )
+        self.assertEqual({item["status"] for item in gap_todo["items"]}, {"landed", "in_progress", "pending"})
         for item in gap_todo["items"][:2]:
             self.assertEqual(item["landing_evidence"]["state"], "landed")
             self.assertTrue(item["landing_evidence"]["release_gated"])
@@ -1240,9 +1246,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(integrity_checks["development-governance-todo-ordered"]["passed"])
         self.assertTrue(integrity_checks["open-source-gap-governance-todo-prioritized"]["passed"])
         self.assertTrue(integrity_checks["software-discovery-governance-ready"]["passed"])
+        self.assertTrue(integrity_checks["xcode-ios-governance-ready"]["passed"])
         self.assertIn("cleanmac.development-governance-todo.v1", governance_integrity["governed_contracts"])
         self.assertIn("cleanmac.open-source-gap-governance-todo.v1", governance_integrity["governed_contracts"])
         self.assertIn("cleanmac.software-discovery-governance.v1", governance_integrity["governed_contracts"])
+        self.assertIn("cleanmac.xcode-ios-governance.v1", governance_integrity["governed_contracts"])
         self.assertIn(["cleanmac", "--json", "governance-integrity"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-integrity-smoke"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-smoke"], governance_integrity["release_gate_commands"])
@@ -8027,6 +8035,8 @@ class CleanMacCLITests(unittest.TestCase):
             (("ai-host-integration-pack",), "cleanmac.ai-host-integration-pack.v1"),
             (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
             (("governance-integrity",), "cleanmac.governance-integrity.v1"),
+            (("software-discovery-governance",), "cleanmac.software-discovery-governance.v1"),
+            (("xcode-ios-governance",), "cleanmac.xcode-ios-governance.v1"),
             (("zero-resident",), "cleanmac.zero-resident.v1"),
             (("product-surface-drift-audit",), "cleanmac.product-surface-drift-audit.v1"),
             (("ai-first-release-checklist",), "cleanmac.ai-first-release-checklist.v1"),
@@ -8065,6 +8075,7 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertEqual(governance_integrity["stop_reason"], "")
         self.assertIn(["make", "governance-integrity-smoke"], governance_integrity["remediation_commands"])
         self.assertIn("cleanmac.geo-discoverability-policy.v1", governance_integrity["governed_contracts"])
+        self.assertIn("cleanmac.xcode-ios-governance.v1", governance_integrity["governed_contracts"])
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
