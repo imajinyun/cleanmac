@@ -94,28 +94,119 @@ def test_software_orphans_reports_read_only_leftovers_for_missing_apps() -> None
         assert report["dry_run"] is True
         assert report["status"] == "read-only-orphan-scan"
         assert report["safe_to_auto_execute"] is False
+        assert report["scan_duration_ms"] >= 0
+        assert report["shown_candidate_count"] == len(report["candidates"])
+        assert report["truncated"] is False
+        assert report["summary"]["schema"] == "cleanmac.software-orphan-summary.v1"
+        assert report["summary"]["candidate_count"] == report["candidate_count"]
+        assert report["summary"]["candidate_count_by_confidence"]["medium"] == report["candidate_count"]
+        assert report["summary"]["candidate_count_by_default_policy"]["default_selected"] == report["default_selected_count"]
+        assert report["summary"]["next_review_command"][:4] == ["cleanmac", "--json", "review", "--input-file"]
         assert old_cache in by_path
         assert old_daemon in by_path
         assert old_helper in by_path
         assert installed_cache_path not in by_path
-        assert by_path[old_cache]["default_selected"] is True
+        assert by_path[old_cache]["default_selected"] is False
+        assert by_path[old_cache]["suppression_reason"] == "possible app installed outside indexed application directories"
         assert by_path[old_daemon]["default_selected"] is False
+        assert by_path[old_daemon]["known_helper_only_bundle"] is True
         assert by_path[old_helper]["risk"] == "critical"
         for candidate in report["candidates"]:
             evidence = candidate["review_evidence"]
+            discovery = candidate["discovery_evidence"]
             assert candidate["id"].startswith("orphan:")
             assert candidate["matched_rule"].startswith("software-orphan.")
             assert candidate["installed_app_present"] is False
             assert candidate["delete_mode"] == "trash"
+            assert discovery["schema"] == "cleanmac.software-discovery-evidence.v1"
+            assert discovery["installed_app_present"] is False
+            assert discovery["candidate_id"] == candidate["id"]
+            assert discovery["candidate_path"] == candidate["path"]
+            assert discovery["deletion_eligibility"]["safe_to_auto_execute"] is False
+            assert discovery["deletion_eligibility"]["requires_review_selection"] is True
+            assert discovery["confidence_reason"] == candidate["confidence_reason"]
+            assert discovery["suppression_reason"] == candidate["suppression_reason"]
+            assert validate_contract_payload("cleanmac.software-discovery-evidence.v1", discovery)["valid"] is True
             assert evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
             assert evidence["matched_rule"] == candidate["matched_rule"]
             assert evidence["risk"] == candidate["risk"]
             assert evidence["default_selected"] == candidate["default_selected"]
+            assert evidence["confidence_reason"] == candidate["confidence_reason"]
+            assert evidence["suppression_reason"] == candidate["suppression_reason"]
             assert evidence["protected"] == candidate["protected"]
             assert evidence["delete_mode"] == "trash"
             assert evidence["recommended_next_action"]
             assert validate_contract_payload("cleanmac.candidate-review-evidence.v1", evidence)["valid"] is True
         assert validate_contract_payload("cleanmac.software-orphans.v1", report)["valid"] is True
+
+
+def test_software_orphans_supports_summary_and_scan_budgets() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        for index in range(5):
+            path = root / f"Users/tester/Library/Caches/com.example.old{index}"
+            path.mkdir(parents=True, exist_ok=True)
+            path.joinpath("cache.bin").write_text("orphan", encoding="utf-8")
+
+        limited = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "software",
+                "orphans",
+                "--limit",
+                "2",
+            ).stdout
+        )
+        summary_only = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "software",
+                "orphans",
+                "--summary-only",
+            ).stdout
+        )
+        scan_limited = json.loads(
+            run_cli(
+                "--root",
+                str(root),
+                "--home",
+                str(home),
+                "--json",
+                "software",
+                "orphans",
+                "--max-scan-entries",
+                "2",
+            ).stdout
+        )
+
+        assert limited["candidate_count"] >= 5
+        assert limited["shown_candidate_count"] == 2
+        assert len(limited["candidates"]) == 2
+        assert limited["truncated"] is True
+        assert limited["summary"]["truncated"] is True
+        assert limited["summary"]["shown_candidate_count"] == 2
+
+        assert summary_only["candidate_count"] == limited["candidate_count"]
+        assert summary_only["shown_candidate_count"] == 0
+        assert summary_only["candidates"] == []
+        assert summary_only["summary_only"] is True
+        assert summary_only["truncated"] is True
+
+        assert scan_limited["scan_truncated"] is True
+        assert scan_limited["scanned_entry_count"] == 2
+        assert scan_limited["candidate_count"] <= 2
+        assert scan_limited["summary"]["scan_truncated"] is True
+        assert validate_contract_payload("cleanmac.software-orphans.v1", limited)["valid"] is True
+        assert validate_contract_payload("cleanmac.software-orphans.v1", summary_only)["valid"] is True
+        assert validate_contract_payload("cleanmac.software-orphans.v1", scan_limited)["valid"] is True
 
 
 def test_software_uninstall_plan_blocks_official_uninstallers_with_structured_schema() -> None:

@@ -338,7 +338,13 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
-        "parameters": object_schema({}),
+        "parameters": object_schema(
+            {
+                "limit": integer_schema("Maximum orphan candidate details to return. Default CLI output is bounded."),
+                "max_scan_entries": integer_schema("Maximum filesystem entries to inspect before stopping the scan."),
+                "summary_only": bool_schema("Return summary contract fields without candidate details."),
+            }
+        ),
         "argv_template": ["cleanmac", "--json", "software", "orphans"],
     },
     {
@@ -1228,7 +1234,12 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
     if name == "cleanmac_software_leftovers":
         return ["cleanmac", "--json", "software", "leftovers"]
     if name == "cleanmac_software_orphans":
-        return ["cleanmac", "--json", "software", "orphans"]
+        argv = ["cleanmac", "--json", "software", "orphans"]
+        append_option(argv, args, "limit", "--limit")
+        append_option(argv, args, "max_scan_entries", "--max-scan-entries")
+        if args.get("summary_only"):
+            argv.append("--summary-only")
+        return argv
     if name == "cleanmac_software_startup_items":
         return ["cleanmac", "--json", "software", "startup-items"]
     if name == "cleanmac_software_uninstall_plan":
