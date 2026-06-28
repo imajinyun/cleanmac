@@ -51,6 +51,9 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
   `tests/test_ai_host_scenarios.py`, `tests/test_mcp_server.py`: AI/MCP-specific tests.
 - `.github/workflows/ci.yml`: Real CI with quality, smoke, macOS smoke, security/gitleaks, no-cache, Linux container smoke, MCP smoke, AI governance smoke, and AI host smoke checks.
 - `.github/workflows/release.yml`: Release build, `SHA256SUMS`, artifact attestation, wheel installation verification, and PyPI trusted publishing.
+- `aiflow.yaml`: root-level aiflow workflow policy for cleanmac. Keep this file in the repository root as the only committed aiflow workflow definition; it defines the workspace boundary, validation-only command groups, required acceptance gates, MCP stdio provider, command-approval policy, and local `.aiflow/` runtime store path.
+- `llms.txt`: LLM-facing project summary and safe AI entrypoint index.
+- `docs/reference/contracts.md`: machine-readable contract map for cleanup execution, AI/MCP, release evidence, and aiflow workflow policy.
 
 ## ⚙️ Common Commands
 
@@ -85,6 +88,16 @@ make distribution-smoke
 make release-artifacts-smoke
 make docker-test
 ```
+
+aiflow validation commands:
+
+```bash
+go run /Users/bytedance/Codes/go/src/github/aiflow/cmd/aiflow doctor -root .
+go run /Users/bytedance/Codes/go/src/github/aiflow/cmd/aiflow report -root . -fail-on-invalid
+go run /Users/bytedance/Codes/go/src/github/aiflow/cmd/aiflow advisory -root . -fail-on-not-ready
+```
+
+The cleanmac aiflow profile is validation-only: `require_fix_diff` stays false unless a Builder agent is configured. Keep `allow_commit` and `allow_push` false. `aiflow.yaml` belongs in the repository root. `.aiflow/` is only for locally generated run evidence, store files, locks, scratch data, and temporary state; never put committed workflow policy or source files under `.aiflow/`. Old `.harness/` state is historical runtime data and should not drive new governance decisions.
 
 Quality validation must use virtual environments for `ruff`, `mypy`, and `pytest`; do not rely on globally installed Python tools. `make lint`, `make type-check`, `make coverage`, `make quality-check`, and `make pytest-test` create temporary venvs or run through the workflow-provided `.venv/bin/python` and install the required extras before executing tools. Pytest validation must use `make pytest-test`; that target creates a temporary venv, installs the test extra, and runs pytest inside the venv. Never write validation virtual environments into the repository. Validation targets that create caches, coverage files, editable-install metadata, or bytecode must remove those leftovers before exiting; use `make clean-test-artifacts` for manual cleanup. If a release or environment-sensitive issue cannot be reproduced on the host, run the Docker validation path (`make docker-test` or `make no-cache-docker-test`) and report Docker availability if it cannot run locally.
 
