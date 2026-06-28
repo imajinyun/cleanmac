@@ -98,6 +98,12 @@ class TestAISchemaRegistry:
             "--json",
             "governance-integrity",
         ]
+        assert entries["cleanmac.software-discovery-governance.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "software-discovery-governance",
+        ]
+        assert entries["cleanmac.software-discovery-governance.v1"]["release_critical"]
         assert entries["cleanmac.zero-resident.v1"]["producer_command"] == [
             "cleanmac",
             "--json",
@@ -734,6 +740,11 @@ class TestAISchemaRegistry:
         assert sample_payloads["cleanmac.development-governance-todo.v1"]["landed_count"] == 25
         assert sample_payloads["cleanmac.development-governance-todo.v1"]["pending_count"] == 0
         assert sample_payloads["cleanmac.development-governance-todo.v1"]["status"] == "landed"
+        assert sample_payloads["cleanmac.software-discovery-governance.v1"]["ready"] is True
+        assert sample_payloads["cleanmac.software-discovery-governance.v1"]["landed_backlog_item_ids"] == [
+            "p0-software-leftover-discovery",
+            "p0-software-orphan-scan",
+        ]
         assert (
             sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"]
             == "strengthen-ai-first-entrypoints"
