@@ -281,6 +281,51 @@ def _candidate_review_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _candidate_discovery_evidence(
+    candidate: dict[str, Any], *, app_identity: dict[str, Any] | None, installed_app_present: bool
+) -> dict[str, Any]:
+    app = app_identity or {}
+    return {
+        "schema": "cleanmac.software-discovery-evidence.v1",
+        "app_identity": {
+            "name": app.get("name"),
+            "display_name": app.get("display_name"),
+            "bundle_id": app.get("bundle_id") or candidate.get("bundle_id"),
+            "path": app.get("path"),
+            "protected_from_uninstall": bool(app.get("protected_from_uninstall", False)),
+            "official_uninstaller_vendor": app.get("official_uninstaller_vendor"),
+        },
+        "candidate_id": candidate.get("id"),
+        "candidate_path": candidate.get("path"),
+        "path_role": candidate.get("kind"),
+        "leftover_type": candidate.get("leftover_type"),
+        "match_source": candidate.get("match_reason"),
+        "matched_rule": candidate.get("matched_rule"),
+        "confidence": candidate.get("confidence"),
+        "risk": candidate.get("risk"),
+        "installed_app_present": installed_app_present,
+        "deletion_eligibility": {
+            "delete_mode": candidate.get("delete_mode"),
+            "safe_to_auto_execute": False,
+            "requires_review_selection": True,
+            "default_selected": bool(candidate.get("default_selected")),
+            "protected": bool(candidate.get("protected")),
+            "why_not_default": candidate.get("why_not_default"),
+        },
+    }
+
+
+def _attach_discovery_evidence(
+    candidate: dict[str, Any], *, app_identity: dict[str, Any] | None, installed_app_present: bool
+) -> dict[str, Any]:
+    candidate["discovery_evidence"] = _candidate_discovery_evidence(
+        candidate,
+        app_identity=app_identity,
+        installed_app_present=installed_app_present,
+    )
+    return candidate
+
+
 def _attach_review_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
     candidate["review_evidence"] = _candidate_review_evidence(candidate)
     return candidate
@@ -689,6 +734,8 @@ def find_software_orphans(*, root: Path, home: Path) -> dict[str, Any]:
 def inspect_software_uninstall(app: str, *, root: Path, home: Path) -> dict[str, Any]:
     identity = _find_app(app, root=root, home=home)
     candidates = _candidate_paths(identity, root=root, home=home) if identity else []
+    for candidate in candidates:
+        _attach_discovery_evidence(candidate, app_identity=identity, installed_app_present=identity is not None)
     return {
         "schema": "cleanmac.software-inspect.v1",
         "destructive": False,
