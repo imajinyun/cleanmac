@@ -1180,6 +1180,17 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("TUI parity", gap_todo["non_goals"])
         self.assertEqual(gap_todo["items"][0]["id"], "p0-software-leftover-discovery")
         self.assertEqual(gap_todo["items"][1]["id"], "p0-software-orphan-scan")
+        self.assertEqual(gap_todo["in_progress_count"], 0)
+        self.assertEqual(gap_todo["pending_count"], 8)
+        self.assertEqual(gap_todo["landed_count"], 2)
+        self.assertEqual({item["status"] for item in gap_todo["items"]}, {"landed", "pending"})
+        for item in gap_todo["items"][:2]:
+            self.assertEqual(item["landing_evidence"]["state"], "landed")
+            self.assertTrue(item["landing_evidence"]["release_gated"])
+            self.assertIn(
+                "cleanmac.software-discovery-governance.v1",
+                item["landing_evidence"]["evidence_refs"],
+            )
         self.assertIn(
             ["make", "ai-first-release-checklist-smoke"],
             governance_todo["release_gate_commands"],
@@ -1227,7 +1238,11 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertTrue(integrity_checks["positioning-reuses-geo-summary"]["passed"])
         self.assertTrue(integrity_checks["ai-contract-geo-entrypoints-covered"]["passed"])
         self.assertTrue(integrity_checks["development-governance-todo-ordered"]["passed"])
+        self.assertTrue(integrity_checks["open-source-gap-governance-todo-prioritized"]["passed"])
+        self.assertTrue(integrity_checks["software-discovery-governance-ready"]["passed"])
         self.assertIn("cleanmac.development-governance-todo.v1", governance_integrity["governed_contracts"])
+        self.assertIn("cleanmac.open-source-gap-governance-todo.v1", governance_integrity["governed_contracts"])
+        self.assertIn("cleanmac.software-discovery-governance.v1", governance_integrity["governed_contracts"])
         self.assertIn(["cleanmac", "--json", "governance-integrity"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-integrity-smoke"], governance_integrity["release_gate_commands"])
         self.assertIn(["make", "governance-smoke"], governance_integrity["release_gate_commands"])

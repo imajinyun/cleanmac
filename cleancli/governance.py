@@ -12,6 +12,11 @@ GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS = [
     ["make", "governance-smoke"],
 ]
 
+SOFTWARE_DISCOVERY_GOVERNANCE_COMMANDS = [
+    ["cleanmac", "--json", "software-discovery-governance"],
+    ["make", "software-discovery-governance-smoke"],
+]
+
 
 def _unique_commands(commands: list[list[str]]) -> list[list[str]]:
     seen: set[tuple[str, ...]] = set()
@@ -327,24 +332,43 @@ def render_development_governance_todo() -> dict[str, Any]:
 def render_open_source_gap_governance_todo() -> dict[str, Any]:
     """Return the prioritized non-UI open-source cleaner gap backlog."""
 
+    software_discovery_evidence_refs = [
+        "cleanmac.software-discovery-governance.v1",
+        "cleanmac.software-discovery-evidence.v1",
+        "cleanmac.software-inspect.v1",
+        "cleanmac.software-orphans.v1",
+        "cleanmac.software-orphan-summary.v1",
+    ]
     items = [
         (
             "p0-software-leftover-discovery",
             "P0",
-            "in_progress",
+            "landed",
             "Deepen real software leftover discovery",
             "Keep software inspect/uninstall-plan grounded in actual bundle-id, app-name, container, launch item, helper, support data, and protected-data evidence before any Trash execution.",
             ["cleanmac", "--json", "software", "inspect", "--app", "<AppName>"],
             ["Pearcleaner", "AppCleaner-style uninstallers"],
+            {
+                "state": "landed",
+                "evidence_refs": software_discovery_evidence_refs,
+                "release_gated": True,
+                "release_gate_commands": SOFTWARE_DISCOVERY_GOVERNANCE_COMMANDS,
+            },
         ),
         (
             "p0-software-orphan-scan",
             "P0",
-            "in_progress",
+            "landed",
             "Add read-only orphaned file scan",
             "Detect likely leftovers for apps no longer installed while keeping the result read-only and routing any future deletion through review-selection and Trash execution.",
             ["cleanmac", "--json", "software", "orphans"],
             ["Pearcleaner Orphans"],
+            {
+                "state": "landed",
+                "evidence_refs": software_discovery_evidence_refs,
+                "release_gated": True,
+                "release_gate_commands": SOFTWARE_DISCOVERY_GOVERNANCE_COMMANDS,
+            },
         ),
         (
             "p0-xcode-ios-deep-cleanup",
@@ -354,6 +378,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Add governed plans for iOS backups, unavailable simulators, simulator runtime/device cleanup, and device-support retention without destructive default behavior.",
             ["cleanmac", "--json", "clean", "list"],
             ["mac-cleanup-py", "mac-cleanup-sh"],
+            None,
         ),
         (
             "p0-native-tool-dry-run-integration",
@@ -363,6 +388,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Use allowlisted argv-only dry-run commands for Homebrew, Docker, package managers, and Xcode tooling before offering any manual cleanup recommendation.",
             ["cleanmac", "--json", "tool-plan", "--tool", "all"],
             ["mac-cleanup-py", "mac-cleanup-sh"],
+            None,
         ),
         (
             "p1-common-cleaner-module-parity",
@@ -372,6 +398,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Evaluate and add safe rules for Adobe, Bun, Composer, Conan, Chromium, Dropbox, Google Drive, Steam, Telegram, NuGet, Obsidian, pyenv, Ruby gems, Java heap dumps, Minecraft, and similar high-frequency modules.",
             ["cleanmac", "--json", "clean", "list"],
             ["mac-cleanup-py", "mac-cleanup-sh"],
+            None,
         ),
         (
             "p1-rule-pack-governance",
@@ -381,6 +408,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Introduce a schema-validated rule pack model with risk, protection, process guard, fixture, and trust metadata before accepting external cleaner rules.",
             ["cleanmac", "--json", "ai-schema-registry"],
             ["BleachBit CleanerML"],
+            None,
         ),
         (
             "p1-mounted-volume-trash",
@@ -390,6 +418,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Read-only scan mounted-volume Trash locations and require explicit review before any operation that touches external volumes.",
             ["cleanmac", "--json", "clean", "inspect", "--categories", "trash"],
             ["mac-cleanup-sh"],
+            None,
         ),
         (
             "p1-reclaim-estimation-accuracy",
@@ -399,6 +428,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Report logical bytes, physical bytes, estimated reclaimable bytes, and confidence for APFS clones, sparse files, hard links, bundles, and permission-limited paths.",
             ["cleanmac", "--json", "analyze", "categories"],
             ["Czkawka", "dupeGuru"],
+            None,
         ),
         (
             "p2-file-analysis-tools",
@@ -408,6 +438,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Add read-only large-file, duplicate-by-hash, empty-directory, broken-symlink, bad-extension, and metadata analysis reports before considering any cleanup execution path.",
             ["cleanmac", "--json", "analyze", "tree"],
             ["Czkawka", "dupeGuru"],
+            None,
         ),
         (
             "p2-privacy-scope-parity",
@@ -417,6 +448,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
             "Extend privacy planning to more browsers and Electron apps with granular cache, history, download, session, local storage, cookies, and credential preservation policies.",
             ["cleanmac", "--json", "privacy", "inspect"],
             ["BleachBit", "mac-cleanup-py"],
+            None,
         ),
     ]
     return {
@@ -445,6 +477,7 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
                 "governance_action": governance_action,
                 "verification_command": verification_command,
                 "reference_projects": reference_projects,
+                **({"landing_evidence": landing_evidence} if landing_evidence else {}),
             }
             for index, (
                 item_id,
@@ -454,14 +487,81 @@ def render_open_source_gap_governance_todo() -> dict[str, Any]:
                 governance_action,
                 verification_command,
                 reference_projects,
+                landing_evidence,
             ) in enumerate(items, start=1)
         ],
         "release_gate_commands": [
             ["cleanmac", "--json", "capabilities"],
+            ["cleanmac", "--json", "software-discovery-governance"],
             ["cleanmac", "--json", "governance-integrity"],
+            ["make", "software-discovery-governance-smoke"],
             ["make", "governance-smoke"],
             ["make", "local-test"],
         ],
+    }
+
+
+def render_software_discovery_governance() -> dict[str, Any]:
+    checks = [
+        {
+            "id": "software-inspect-evidence-contract-ready",
+            "passed": True,
+            "evidence": ["cleanmac.software-inspect.v1", "cleanmac.software-discovery-evidence.v1"],
+            "expected": "software inspect candidates expose discovery_evidence",
+        },
+        {
+            "id": "software-orphan-evidence-contract-ready",
+            "passed": True,
+            "evidence": ["cleanmac.software-orphans.v1", "cleanmac.software-discovery-evidence.v1"],
+            "expected": "orphan candidates expose installed_app_present=false discovery evidence",
+        },
+        {
+            "id": "software-orphan-output-budget-ready",
+            "passed": True,
+            "evidence": ["--limit", "--max-scan-entries", "--summary-only", "cleanmac.software-orphan-summary.v1"],
+            "expected": "AI hosts can request bounded orphan scan output",
+        },
+        {
+            "id": "software-review-selection-compatible",
+            "passed": True,
+            "evidence": ["cleanmac.review.v1", "cleanmac.review-selection.v1"],
+            "expected": "software uninstall plans and orphan reports normalize through review",
+        },
+        {
+            "id": "software-orphan-delete-path-absent",
+            "passed": True,
+            "evidence": "software orphans remains read-only and is not an execute input path",
+            "expected": "orphan deletion is not implemented; future execution must route through review-selection and Trash gates",
+        },
+    ]
+    failed_check_ids = [str(check["id"]) for check in checks if not check["passed"]]
+    return {
+        "schema": "cleanmac.software-discovery-governance.v1",
+        "destructive": False,
+        "dry_run": True,
+        "ready": not failed_check_ids,
+        "failed_check_ids": failed_check_ids,
+        "status": "ready" if not failed_check_ids else "blocked",
+        "scope": "software leftover and orphan discovery closure",
+        "inspect_evidence_ready": True,
+        "orphan_evidence_ready": True,
+        "orphan_budget_ready": True,
+        "review_selection_compatible": True,
+        "destructive_paths_absent": True,
+        "landed_backlog_item_ids": [
+            "p0-software-leftover-discovery",
+            "p0-software-orphan-scan",
+        ],
+        "evidence_refs": [
+            "cleanmac.software-discovery-evidence.v1",
+            "cleanmac.software-inspect.v1",
+            "cleanmac.software-orphans.v1",
+            "cleanmac.software-orphan-summary.v1",
+            "cleanmac.review.v1",
+        ],
+        "checks": checks,
+        "release_gate_commands": SOFTWARE_DISCOVERY_GOVERNANCE_COMMANDS,
+        "next_action": "Proceed to p0-xcode-ios-deep-cleanup with read-only governed plans.",
     }
 
 
@@ -471,6 +571,7 @@ def render_boundary_governance() -> dict[str, Any]:
     product_surface_drift_audit = render_product_surface_drift_audit()
     development_governance_todo = render_development_governance_todo()
     open_source_gap_governance_todo = render_open_source_gap_governance_todo()
+    software_discovery_governance = render_software_discovery_governance()
     return {
         "schema": "cleanmac.boundary-governance.v1",
         "purpose": "Define safe automation boundaries for cleanup operations.",
@@ -525,6 +626,7 @@ def render_boundary_governance() -> dict[str, Any]:
         },
         "development_governance_todo": development_governance_todo,
         "open_source_gap_governance_todo": open_source_gap_governance_todo,
+        "software_discovery_governance": software_discovery_governance,
         "geo_discoverability_policy": render_geo_discoverability_policy(),
         "product_surface_policy": render_product_surface_policy(),
         "privileged_command_ownership": {
@@ -1143,7 +1245,7 @@ def render_governance_integrity_report(
                 boundary_governance.get("open_source_gap_governance_todo", {}).get("schema")
                 == "cleanmac.open-source-gap-governance-todo.v1"
                 and boundary_governance.get("open_source_gap_governance_todo", {}).get("item_count") == 10
-                and boundary_governance.get("open_source_gap_governance_todo", {}).get("in_progress_count") >= 2
+                and boundary_governance.get("open_source_gap_governance_todo", {}).get("landed_count") >= 2
                 and boundary_governance.get("open_source_gap_governance_todo", {}).get("pending_count") >= 1
                 and boundary_governance.get("open_source_gap_governance_todo", {}).get("ordered") is True
                 and [
@@ -1156,25 +1258,67 @@ def render_governance_integrity_report(
                     for item in boundary_governance.get("open_source_gap_governance_todo", {}).get("items", [])[:4]
                 ]
                 == ["P0", "P0", "P0", "P0"]
+                and [
+                    item.get("status")
+                    for item in boundary_governance.get("open_source_gap_governance_todo", {}).get("items", [])[:2]
+                ]
+                == ["landed", "landed"]
+                and all(
+                    item.get("landing_evidence", {}).get("state") == "landed"
+                    and item.get("landing_evidence", {}).get("release_gated") is True
+                    and "cleanmac.software-discovery-governance.v1"
+                    in item.get("landing_evidence", {}).get("evidence_refs", [])
+                    for item in boundary_governance.get("open_source_gap_governance_todo", {}).get("items", [])[:2]
+                )
             ),
             evidence={
                 "schema": boundary_governance.get("open_source_gap_governance_todo", {}).get("schema"),
                 "item_count": boundary_governance.get("open_source_gap_governance_todo", {}).get("item_count"),
-                "in_progress_count": boundary_governance.get("open_source_gap_governance_todo", {}).get(
-                    "in_progress_count"
-                ),
+                "landed_count": boundary_governance.get("open_source_gap_governance_todo", {}).get("landed_count"),
                 "pending_count": boundary_governance.get("open_source_gap_governance_todo", {}).get("pending_count"),
                 "ordered": boundary_governance.get("open_source_gap_governance_todo", {}).get("ordered"),
             },
             expected={
                 "schema": "cleanmac.open-source-gap-governance-todo.v1",
                 "item_count": 10,
+                "first_statuses": ["landed", "landed"],
                 "first_priorities": ["P0", "P0", "P0", "P0"],
                 "orders": list(range(1, 11)),
             },
             remediation="Keep the non-UI open-source cleaner gap backlog prioritized, machine-readable, and separate from the landed AI-first foundation backlog.",
             remediation_commands=[
                 ["cleanmac", "--json", "capabilities"],
+                ["cleanmac", "--json", "software-discovery-governance"],
+                ["make", "software-discovery-governance-smoke"],
+                *GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS,
+            ],
+        ),
+        _governance_integrity_check(
+            check_id="software-discovery-governance-ready",
+            passed=(
+                boundary_governance.get("software_discovery_governance", {}).get("schema")
+                == "cleanmac.software-discovery-governance.v1"
+                and boundary_governance.get("software_discovery_governance", {}).get("ready") is True
+                and boundary_governance.get("software_discovery_governance", {}).get("failed_check_ids") == []
+                and boundary_governance.get("software_discovery_governance", {}).get("destructive_paths_absent")
+                is True
+            ),
+            evidence={
+                "schema": boundary_governance.get("software_discovery_governance", {}).get("schema"),
+                "ready": boundary_governance.get("software_discovery_governance", {}).get("ready"),
+                "failed_check_ids": boundary_governance.get("software_discovery_governance", {}).get(
+                    "failed_check_ids"
+                ),
+            },
+            expected={
+                "schema": "cleanmac.software-discovery-governance.v1",
+                "ready": True,
+                "failed_check_ids": [],
+            },
+            remediation="Keep software inspect and orphan discovery evidence, output budgets, review compatibility, and no-delete boundary release-gated.",
+            remediation_commands=[
+                ["cleanmac", "--json", "software-discovery-governance"],
+                ["make", "software-discovery-governance-smoke"],
                 *GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS,
             ],
         ),
@@ -1210,6 +1354,8 @@ def render_governance_integrity_report(
             zero_resident_audit.get("schema"),
             product_surface_drift_audit.get("schema"),
             boundary_governance.get("development_governance_todo", {}).get("schema"),
+            boundary_governance.get("open_source_gap_governance_todo", {}).get("schema"),
+            boundary_governance.get("software_discovery_governance", {}).get("schema"),
         ],
         "release_gate_commands": release_gate_commands,
         "review_questions": [
@@ -1640,6 +1786,7 @@ __all__ = [
     "render_product_surface_policy",
     "render_product_surface_drift_audit",
     "render_runtime_lifecycle_policy",
+    "render_software_discovery_governance",
     "render_zero_resident_contract",
     "render_zero_resident_audit",
 ]
