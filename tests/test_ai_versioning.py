@@ -686,6 +686,33 @@ class TestAISchemaRegistry:
         assert validate_contract_payload("cleanmac.development-governance-todo.v1", development_governance_todo)[
             "valid"
         ]
+        software_discovery_evidence = {
+            "schema": "cleanmac.software-discovery-evidence.v1",
+            "app_identity": {
+                "name": "Example.app",
+                "display_name": "Example",
+                "bundle_id": "com.example.app",
+                "path": "/Applications/Example.app",
+                "protected_from_uninstall": False,
+            },
+            "candidate_id": "cache:/Users/tester/Library/Caches/com.example.app",
+            "candidate_path": "/Users/tester/Library/Caches/com.example.app",
+            "path_role": "cache",
+            "match_source": "bundle-id",
+            "matched_rule": "software-uninstall.cache.bundle-id",
+            "installed_app_present": True,
+            "deletion_eligibility": {
+                "delete_mode": "trash",
+                "safe_to_auto_execute": False,
+                "requires_review_selection": True,
+                "default_selected": True,
+                "protected": False,
+                "why_not_default": None,
+            },
+        }
+        assert validate_contract_payload(
+            "cleanmac.software-discovery-evidence.v1", software_discovery_evidence
+        )["valid"]
 
         samples = render_ai_contract_samples()
         assert samples["schema"] == "cleanmac.ai-contract-samples.v1"

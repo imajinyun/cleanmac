@@ -41,7 +41,18 @@ def test_software_inspect_reports_uninstall_candidates() -> None:
 
         assert report["schema"] == "cleanmac.software-inspect.v1"
         assert report["found"] is True
-        assert {"app-bundle", "cache"}.issubset({candidate["kind"] for candidate in report["candidates"]})
+        by_kind = {candidate["kind"]: candidate for candidate in report["candidates"]}
+        assert {"app-bundle", "cache"}.issubset(set(by_kind))
+        cache_evidence = by_kind["cache"]["discovery_evidence"]
+        assert cache_evidence["schema"] == "cleanmac.software-discovery-evidence.v1"
+        assert cache_evidence["app_identity"]["bundle_id"] == "com.example.app"
+        assert cache_evidence["match_source"] == "bundle-id"
+        assert cache_evidence["path_role"] == "cache"
+        assert cache_evidence["deletion_eligibility"]["delete_mode"] == "trash"
+        assert cache_evidence["deletion_eligibility"]["safe_to_auto_execute"] is False
+        assert cache_evidence["deletion_eligibility"]["requires_review_selection"] is True
+        assert cache_evidence["deletion_eligibility"]["protected"] is False
+        assert validate_contract_payload("cleanmac.software-discovery-evidence.v1", cache_evidence)["valid"] is True
         assert validate_contract_payload("cleanmac.software-inspect.v1", report)["valid"] is True
 
 
