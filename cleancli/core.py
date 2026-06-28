@@ -67,6 +67,7 @@ from cleancli.governance import (
     render_product_surface_drift_audit,
     render_product_surface_policy,
     render_runtime_lifecycle_policy,
+    render_software_discovery_governance,
     render_zero_resident_audit,
     render_zero_resident_contract,
 )
@@ -2103,6 +2104,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "governance-integrity",
         help="Emit governance contract integrity and drift checks.",
     )
+    subparsers.add_parser(
+        "software-discovery-governance",
+        help="Emit read-only software discovery closure governance checks.",
+    )
     subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
@@ -2848,6 +2853,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "ai-host-preflight",
         "ai-host-evidence",
         "governance-integrity",
+        "software-discovery-governance",
         "mcp-surface-audit",
         "mcp-destructive-tool-governance",
         "operation-log-explainability",
@@ -10261,6 +10267,16 @@ def _main_impl(argv: Sequence[str]) -> int:
             render_governance_integrity(),
             args=args,
             command="governance-integrity",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "software-discovery-governance":
+        emit_report(
+            render_software_discovery_governance(),
+            args=args,
+            command="software-discovery-governance",
             root=root,
             home=home,
             argv=actual_argv,

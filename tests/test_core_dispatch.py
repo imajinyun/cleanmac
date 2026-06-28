@@ -39,6 +39,7 @@ def test_core_main_ai_dispatches_are_covered_in_process() -> None:
         (("ai-host-integration-pack",), "cleanmac.ai-host-integration-pack.v1"),
         (("ai-host-preflight",), "cleanmac.ai-host-preflight.v1"),
         (("governance-integrity",), "cleanmac.governance-integrity.v1"),
+        (("software-discovery-governance",), "cleanmac.software-discovery-governance.v1"),
         (("zero-resident",), "cleanmac.zero-resident.v1"),
         (("product-surface-drift-audit",), "cleanmac.product-surface-drift-audit.v1"),
         (("ai-first-release-checklist",), "cleanmac.ai-first-release-checklist.v1"),
