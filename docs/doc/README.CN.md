@@ -672,7 +672,19 @@ python3 cleanmac.py --json software list
 python3 cleanmac.py --json software leftovers
 python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
+python3 cleanmac.py --json software ios-backups
 ```
+
+### `xcode-ios-candidates`
+
+```bash
+python3 cleanmac.py --json xcode-ios-candidates --summary-only
+python3 cleanmac.py --json xcode-ios-candidates --limit 50 --max-scan-entries 500
+```
+
+Xcode/iOS 候选证据返回 `cleanmac.xcode-ios-candidates.v1`。该命令只读，并输出 `candidate_count_by_path_role`、`candidate_count_by_default_policy`、`estimated_bytes_by_path_role`、`shown_candidate_count`、`truncated`、`scan_duration_ms` 和 `next_review_command` 等受预算约束的摘要字段。候选明细携带 `cleanmac.xcode-ios-governance.v1` 声明的同一组治理字段，包括 `path_role`、`tool_domain`、`regenerable`、`contains_user_data`、`release_artifact_risk`、`active_runtime_hint`、`retention_reason`、`default_selected`、`why_not_default` 和 `recommended_next_action`。
+
+该命令不会生成可执行清理计划。Xcode Archives、DeviceSupport、iOS backups 和 unavailable simulator devices 仍然永不默认选中；任何未来执行设计前都必须先通过 `cleanmac --json review --input-file <xcode-ios-candidates.json>` 审查。
 
 ### `startup`
 
@@ -880,6 +892,7 @@ make docs-smoke                                    # 文档校验
 make governance-smoke                              # 治理合约检查
 make governance-integrity-smoke                    # 治理完整性发布门禁
 make xcode-ios-governance-smoke                    # Xcode/iOS 只读治理门禁
+make xcode-ios-candidates-smoke                    # Xcode/iOS 只读候选证据
 make zero-resident-audit-smoke                     # 零常驻产品边界审计
 make no-disturbance-smoke                           # 不打扰静默默认门禁
 make ai-first-release-checklist-smoke              # AI-first 发布 checklist 门禁
@@ -932,6 +945,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `update-smoke` | 自更新检查冒烟测试 |
 | `ios-backups-smoke` | iOS 备份枚举冒烟测试 |
 | `xcode-ios-governance-smoke` | Xcode/iOS 只读治理合约 |
+| `xcode-ios-candidates-smoke` | Xcode/iOS 只读候选证据合约 |
 | `dependency-audit-smoke` | pip-audit + SBOM.json |
 | `docs-smoke` | README 覆盖检查 |
 | `governance-smoke` | 治理合约检查 |
@@ -962,7 +976,7 @@ make no-cache-release-check                        # 无缓存发布验证
 | `no-cache-docker-test` | Docker 测试（--pull=always） |
 | `release-check` | 全部门禁串联 |
 
-发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。`make governance-integrity-smoke` 会在 readiness 前校验治理完整性发布门禁，`make xcode-ios-governance-smoke` 校验 `cleanmac.xcode-ios-governance.v1`，确保 Xcode Archives、DeviceSupport、不可用模拟器和 iOS 备份在候选证据与保守选择策略完成前只进入只读治理。`make zero-resident-audit-smoke` 校验 `cleanmac.zero-resident-audit.v1`，`make no-disturbance-smoke` 校验 `cleanmac.no-disturbance.v1`，确认 AI-first 一次性 CLI 边界：无 GUI、无 TUI、无 daemon、无 login item、无主动扫描循环，并声明未调用时后台 CPU/内存为 0 的策略。`make ai-first-release-checklist-smoke` 校验 `cleanmac.ai-first-release-checklist.v1`，把 AI Host 入口、JSON 合约、治理完整性、零常驻证据、产品表面漂移与 MCP 表面 readiness 绑定为一个发布门禁。`make pytest-governance-smoke` 校验 pytest parity 使用显式 release-only 安全目标列表，而不是宽泛收集 `test_cleanmac.py tests`。`make release-readiness-contract-smoke` 校验发布 readiness contract 结构，`make release-readiness-smoke` 会在 `make release-check` 与 `make no-cache-release-check` 前校验只读 `cleanmac.release-readiness.v1` bundle。`make release-diagnostics-smoke` 会额外校验 `cleanmac.release-diagnostics.v1`、`cleanmac.release-evidence.v1` 和 `cleanmac.release-operator-summary.v1`。`make release-rehearsal-smoke`、`make release-promotion-smoke`、`make release-rollback-smoke`、`make release-post-publish-smoke`、`make release-post-publish-result-smoke`、`make release-post-publish-evidence-template-smoke` 覆盖 `cleanmac.release-rehearsal.v1`、`cleanmac.release-promotion-decision.v1`、`cleanmac.release-rollback-plan.v1`、`cleanmac.release-post-publish-verification.v1`、`cleanmac.release-post-publish-result.v1` 与 `cleanmac.release-post-publish-evidence-template.v1, `cleanmac.project-purge.v1`, `cleanmac.optimize.v1`, `cleanmac.status.snapshot.v1`, `cleanmac.update.v1`, `cleanmac.software-ios-backups.v1`, `cleanmac.xcode-ios-governance.v1``；CI 会把 `RELEASE-REHEARSAL.json`、`RELEASE-PROMOTION-DECISION.json`、`RELEASE-ROLLBACK-PLAN.json`、`RELEASE-POST-PUBLISH-VERIFICATION.json`、`RELEASE-POST-PUBLISH-RESULT.json`、`RELEASE-POST-PUBLISH-EVIDENCE.example.json` 随发布证据一起归档。
+发布产物验证会通过 `scripts/generate_release_manifest.py` 生成 `cleanmac.release-artifact-manifest.v1`。该 manifest 绑定 wheel/sdist、`SBOM.json`、`cleanmac.rb` 与 `SHA256SUMS`，确保本地 smoke 与 GitHub Actions 对 release candidate 使用同一套校验逻辑。`make governance-integrity-smoke` 会在 readiness 前校验治理完整性发布门禁，`make xcode-ios-governance-smoke` 校验 `cleanmac.xcode-ios-governance.v1`，`make xcode-ios-candidates-smoke` 校验 `cleanmac.xcode-ios-candidates.v1`，确保 Xcode Archives、DeviceSupport、不可用模拟器和 iOS 备份只进入只读候选证据与保守选择策略。`make zero-resident-audit-smoke` 校验 `cleanmac.zero-resident-audit.v1`，`make no-disturbance-smoke` 校验 `cleanmac.no-disturbance.v1`，确认 AI-first 一次性 CLI 边界：无 GUI、无 TUI、无 daemon、无 login item、无主动扫描循环，并声明未调用时后台 CPU/内存为 0 的策略。`make ai-first-release-checklist-smoke` 校验 `cleanmac.ai-first-release-checklist.v1`，把 AI Host 入口、JSON 合约、治理完整性、零常驻证据、产品表面漂移与 MCP 表面 readiness 绑定为一个发布门禁。`make pytest-governance-smoke` 校验 pytest parity 使用显式 release-only 安全目标列表，而不是宽泛收集 `test_cleanmac.py tests`。`make release-readiness-contract-smoke` 校验发布 readiness contract 结构，`make release-readiness-smoke` 会在 `make release-check` 与 `make no-cache-release-check` 前校验只读 `cleanmac.release-readiness.v1` bundle。`make release-diagnostics-smoke` 会额外校验 `cleanmac.release-diagnostics.v1`、`cleanmac.release-evidence.v1` 和 `cleanmac.release-operator-summary.v1`。`make release-rehearsal-smoke`、`make release-promotion-smoke`、`make release-rollback-smoke`、`make release-post-publish-smoke`、`make release-post-publish-result-smoke`、`make release-post-publish-evidence-template-smoke` 覆盖 `cleanmac.release-rehearsal.v1`、`cleanmac.release-promotion-decision.v1`、`cleanmac.release-rollback-plan.v1`、`cleanmac.release-post-publish-verification.v1`、`cleanmac.release-post-publish-result.v1` 与 `cleanmac.release-post-publish-evidence-template.v1, `cleanmac.project-purge.v1`, `cleanmac.optimize.v1`, `cleanmac.status.snapshot.v1`, `cleanmac.update.v1`, `cleanmac.software-ios-backups.v1`, `cleanmac.xcode-ios-governance.v1`, `cleanmac.xcode-ios-candidates.v1``；CI 会把 `RELEASE-REHEARSAL.json`、`RELEASE-PROMOTION-DECISION.json`、`RELEASE-ROLLBACK-PLAN.json`、`RELEASE-POST-PUBLISH-VERIFICATION.json`、`RELEASE-POST-PUBLISH-RESULT.json`、`RELEASE-POST-PUBLISH-EVIDENCE.example.json` 随发布证据一起归档。
 
 ### 🤖 CI 配置
 

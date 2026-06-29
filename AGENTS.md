@@ -63,6 +63,7 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 
 python3 cleanmac.py --json capabilities
 python3 cleanmac.py --json xcode-ios-governance
+python3 cleanmac.py --json xcode-ios-candidates --summary-only
 python3 cleanmac.py --json clean inspect --categories trash
 python3 cleanmac.py --json plan --categories trash --max-items 10
 python3 cleanmac.py --json validate-plan --plan-file /tmp/cleanmac-plan.json
@@ -80,6 +81,7 @@ make package-smoke
 make script-smoke
 make quick-clean-smoke
 make xcode-ios-governance-smoke
+make xcode-ios-candidates-smoke
 make docs-smoke
 make governance-smoke
 make ai-governance-smoke
