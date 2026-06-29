@@ -111,6 +111,15 @@ class TestAISchemaRegistry:
             "xcode-ios-governance",
         ]
         assert entries["cleanmac.xcode-ios-governance.v1"]["release_critical"]
+        assert entries["cleanmac.xcode-ios-candidates.v1"]["producer_command"] == [
+            "cleanmac",
+            "--json",
+            "xcode-ios-candidates",
+            "--summary-only",
+        ]
+        assert entries["cleanmac.xcode-ios-candidates.v1"]["release_critical"]
+        assert entries["cleanmac.xcode-ios-candidate.v1"]["module"] == "cleancli.xcode_ios"
+        assert "json_schema" in entries["cleanmac.xcode-ios-candidate.v1"]
         assert entries["cleanmac.zero-resident.v1"]["producer_command"] == [
             "cleanmac",
             "--json",
@@ -268,6 +277,8 @@ class TestAISchemaRegistry:
         assert entries["cleanmac.zero-resident.v1"]["release_critical"]
         assert entries["cleanmac.product-surface-drift-audit.v1"]["release_critical"]
         assert entries["cleanmac.xcode-ios-governance.v1"]["release_critical"]
+        assert entries["cleanmac.xcode-ios-candidates.v1"]["release_critical"]
+        assert "json_schema" in entries["cleanmac.xcode-ios-candidates.v1"]
         assert entries["cleanmac.release-evidence.v1"]["release_critical"]
         assert entries["cleanmac.release-promotion-decision.v1"]["release_critical"]
         assert entries["cleanmac.release-post-publish-verification.v1"]["release_critical"]
@@ -758,6 +769,11 @@ class TestAISchemaRegistry:
             "p0-xcode-ios-deep-cleanup"
         ]
         assert sample_payloads["cleanmac.xcode-ios-governance.v1"]["destructive_paths_absent"] is True
+        assert sample_payloads["cleanmac.xcode-ios-candidates.v1"]["destructive"] is False
+        assert sample_payloads["cleanmac.xcode-ios-candidates.v1"]["read_only"] is True
+        assert sample_payloads["cleanmac.xcode-ios-candidates.v1"]["candidates"][0]["path_role"] == (
+            "xcode_derived_data"
+        )
         assert (
             sample_payloads["cleanmac.development-governance-todo.v1"]["items"][0]["id"]
             == "strengthen-ai-first-entrypoints"

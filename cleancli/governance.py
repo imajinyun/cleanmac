@@ -6,6 +6,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from .xcode_ios import XCODE_IOS_EVIDENCE_FIELDS, XCODE_IOS_PATH_POLICIES
+
 GOVERNANCE_INTEGRITY_REMEDIATION_COMMANDS = [
     ["cleanmac", "--json", "governance-integrity"],
     ["make", "governance-integrity-smoke"],
@@ -19,6 +21,7 @@ SOFTWARE_DISCOVERY_GOVERNANCE_COMMANDS = [
 
 XCODE_IOS_GOVERNANCE_COMMANDS = [
     ["cleanmac", "--json", "xcode-ios-governance"],
+    ["cleanmac", "--json", "xcode-ios-candidates", "--summary-only"],
     ["make", "xcode-ios-governance-smoke"],
 ]
 
@@ -585,124 +588,8 @@ def render_software_discovery_governance() -> dict[str, Any]:
 def render_xcode_ios_governance() -> dict[str, Any]:
     """Return the read-only governance contract for Xcode and iOS cleanup depth."""
 
-    evidence_fields = [
-        "path_role",
-        "tool_domain",
-        "regenerable",
-        "contains_user_data",
-        "release_artifact_risk",
-        "active_runtime_hint",
-        "retention_reason",
-        "default_selected",
-        "why_not_default",
-        "recommended_next_action",
-    ]
-    path_policies: list[dict[str, Any]] = [
-        {
-            "path_role": "xcode_derived_data",
-            "category": "xcode",
-            "tool_domain": "xcode",
-            "regenerable": True,
-            "contains_user_data": False,
-            "release_artifact_risk": "low",
-            "active_runtime_hint": "xcode_build_activity_possible",
-            "retention_reason": "Build products are reproducible, but active Xcode builds should be avoided.",
-            "default_selected": True,
-            "why_not_default": None,
-            "recommended_next_action": "Allow only through dry-run, review-selection, Trash routing, and delete budget gates.",
-        },
-        {
-            "path_role": "xcode_module_cache",
-            "category": "xcode",
-            "tool_domain": "xcode",
-            "regenerable": True,
-            "contains_user_data": False,
-            "release_artifact_risk": "low",
-            "active_runtime_hint": "xcode_build_activity_possible",
-            "retention_reason": "Compiler module cache is reproducible after rebuild.",
-            "default_selected": True,
-            "why_not_default": None,
-            "recommended_next_action": "Allow only through dry-run, review-selection, Trash routing, and delete budget gates.",
-        },
-        {
-            "path_role": "core_simulator_cache",
-            "category": "xcode",
-            "tool_domain": "simulator",
-            "regenerable": True,
-            "contains_user_data": False,
-            "release_artifact_risk": "low",
-            "active_runtime_hint": "booted_simulator_possible",
-            "retention_reason": "Simulator caches are reproducible, but unavailable devices/runtimes must be inspected first.",
-            "default_selected": True,
-            "why_not_default": None,
-            "recommended_next_action": "Inspect unavailable simulator devices read-only before any future deletion workflow.",
-        },
-        {
-            "path_role": "xcode_products",
-            "category": "xcode",
-            "tool_domain": "xcode",
-            "regenerable": "unknown",
-            "contains_user_data": False,
-            "release_artifact_risk": "medium",
-            "active_runtime_hint": "xcode_build_activity_possible",
-            "retention_reason": "Products may include outputs the user expects to keep outside a reproducible build.",
-            "default_selected": False,
-            "why_not_default": "Not selected until the report can prove the product is reproducible.",
-            "recommended_next_action": "Show for review only; require explicit selection and Trash execution if implemented later.",
-        },
-        {
-            "path_role": "xcode_archives",
-            "category": "xcode",
-            "tool_domain": "xcode",
-            "regenerable": False,
-            "contains_user_data": False,
-            "release_artifact_risk": "high",
-            "active_runtime_hint": "release_evidence_possible",
-            "retention_reason": "Archives may be App Store, notarization, dSYM, or release evidence artifacts.",
-            "default_selected": False,
-            "why_not_default": "Archives are never default selected.",
-            "recommended_next_action": "Review individually; do not auto-select in cleanmac governed plans.",
-        },
-        {
-            "path_role": "device_support",
-            "category": "deviceFirmware",
-            "tool_domain": "xcode",
-            "regenerable": "partial",
-            "contains_user_data": False,
-            "release_artifact_risk": "medium",
-            "active_runtime_hint": "connected_device_os_possible",
-            "retention_reason": "Keep current devices and recent OS versions until retention rules are available.",
-            "default_selected": False,
-            "why_not_default": "Current/recent device support retention is not implemented yet.",
-            "recommended_next_action": "Report only; add current/recent OS retention before offering cleanup.",
-        },
-        {
-            "path_role": "ios_backup",
-            "category": "iosBackups",
-            "tool_domain": "ios",
-            "regenerable": False,
-            "contains_user_data": True,
-            "release_artifact_risk": "high",
-            "active_runtime_hint": "mobile_device_backup_possible",
-            "retention_reason": "MobileSync backups can contain user data and device recovery state.",
-            "default_selected": False,
-            "why_not_default": "iOS backups are never default selected.",
-            "recommended_next_action": "Enumerate backups read-only and require explicit user review outside this governance phase.",
-        },
-        {
-            "path_role": "unavailable_simulator_device",
-            "category": "xcode",
-            "tool_domain": "simulator",
-            "regenerable": "unknown",
-            "contains_user_data": "unknown",
-            "release_artifact_risk": "medium",
-            "active_runtime_hint": "simctl_unavailable_state",
-            "retention_reason": "Unavailable simulator devices require read-only simctl evidence before cleanup eligibility.",
-            "default_selected": False,
-            "why_not_default": "Unavailable simulator deletion is read-only governance only in this phase.",
-            "recommended_next_action": "Use xcrun simctl list devices unavailable as evidence; do not execute delete commands.",
-        },
-    ]
+    evidence_fields = list(XCODE_IOS_EVIDENCE_FIELDS)
+    path_policies = [dict(policy) for policy in XCODE_IOS_PATH_POLICIES]
     checks: list[dict[str, Any]] = [
         {
             "id": "xcode-ios-evidence-fields-declared",
@@ -767,6 +654,12 @@ def render_xcode_ios_governance() -> dict[str, Any]:
             "evidence": "No new Xcode/iOS delete command or low-level deletion path is introduced by this governance contract.",
             "expected": "future execution must route through plan, review-selection, validate-plan, require-plan-context, Trash, confirmation-token, and operation-log gates",
         },
+        {
+            "id": "xcode-ios-candidate-evidence-contract-ready",
+            "passed": True,
+            "evidence": ["cleanmac.xcode-ios-candidates.v1", "--limit", "--max-scan-entries", "--summary-only"],
+            "expected": "Xcode/iOS path roles expose bounded read-only candidate evidence before execution is considered",
+        },
     ]
     failed_check_ids = [str(check["id"]) for check in checks if not check["passed"]]
     return {
@@ -796,12 +689,14 @@ def render_xcode_ios_governance() -> dict[str, Any]:
         "read_only_surfaces": {
             "ios_backups": "cleanmac --json software ios-backups",
             "simulator_unavailable_devices": "xcrun simctl list devices unavailable",
+            "candidate_evidence": "cleanmac --json xcode-ios-candidates --summary-only",
             "tool_semantic_plan": "cleanmac --json tool-plan --tool xcode",
         },
         "destructive_paths_absent": True,
         "in_progress_backlog_item_ids": ["p0-xcode-ios-deep-cleanup"],
         "evidence_refs": [
             "cleanmac.xcode-ios-governance.v1",
+            "cleanmac.xcode-ios-candidates.v1",
             "cleanmac.software-ios-backups.v1",
             "cleanmac.tool-plan.v1",
             "cleanmac.review.v1",
@@ -809,7 +704,7 @@ def render_xcode_ios_governance() -> dict[str, Any]:
         ],
         "checks": checks,
         "release_gate_commands": XCODE_IOS_GOVERNANCE_COMMANDS,
-        "next_action": "Implement read-only candidate evidence emitters for each path role before expanding any Xcode/iOS cleanup execution.",
+        "next_action": "Review cleanmac.xcode-ios-candidates.v1 summary output, then normalize selected evidence through cleanmac.review.v1 before any future execution design.",
     }
 
 

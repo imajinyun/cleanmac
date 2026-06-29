@@ -41,6 +41,7 @@ def test_core_main_ai_dispatches_are_covered_in_process() -> None:
         (("governance-integrity",), "cleanmac.governance-integrity.v1"),
         (("software-discovery-governance",), "cleanmac.software-discovery-governance.v1"),
         (("xcode-ios-governance",), "cleanmac.xcode-ios-governance.v1"),
+        (("xcode-ios-candidates", "--summary-only", "--max-scan-entries", "0"), "cleanmac.xcode-ios-candidates.v1"),
         (("zero-resident",), "cleanmac.zero-resident.v1"),
         (("product-surface-drift-audit",), "cleanmac.product-surface-drift-audit.v1"),
         (("ai-first-release-checklist",), "cleanmac.ai-first-release-checklist.v1"),

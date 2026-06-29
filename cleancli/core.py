@@ -108,6 +108,7 @@ from cleancli.software_uninstall import render_software as render_software_repor
 from cleancli.startup import disable_startup_items, render_startup
 from cleancli.tool_adapters import TOOL_ADAPTER_CHOICES, execute_tool
 from cleancli.tool_adapters import render_tool_plan as render_tool_adapter_plan
+from cleancli.xcode_ios import render_xcode_ios_candidates
 
 VERSION = "0.1.0"
 
@@ -2113,6 +2114,13 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "xcode-ios-governance",
         help="Emit read-only Xcode and iOS cleanup governance checks.",
     )
+    xcode_ios_candidates_cmd = subparsers.add_parser(
+        "xcode-ios-candidates",
+        help="Emit bounded read-only Xcode and iOS candidate evidence.",
+    )
+    xcode_ios_candidates_cmd.add_argument("--limit", type=int, default=100)
+    xcode_ios_candidates_cmd.add_argument("--max-scan-entries", type=int, default=1000)
+    xcode_ios_candidates_cmd.add_argument("--summary-only", action="store_true")
     subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
@@ -2860,6 +2868,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "governance-integrity",
         "software-discovery-governance",
         "xcode-ios-governance",
+        "xcode-ios-candidates",
         "mcp-surface-audit",
         "mcp-destructive-tool-governance",
         "operation-log-explainability",
@@ -3477,6 +3486,9 @@ def render_capabilities() -> dict[str, Any]:
             "no-disturbance",
             "dependency-governance",
             "governance-integrity",
+            "software-discovery-governance",
+            "xcode-ios-governance",
+            "xcode-ios-candidates",
             "release-readiness",
             "ai-schema-registry",
             "ai-eval-pack",
@@ -10293,6 +10305,22 @@ def _main_impl(argv: Sequence[str]) -> int:
             render_xcode_ios_governance(),
             args=args,
             command="xcode-ios-governance",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "xcode-ios-candidates":
+        emit_report(
+            render_xcode_ios_candidates(
+                root=root,
+                home=home,
+                limit=args.limit,
+                max_scan_entries=args.max_scan_entries,
+                summary_only=args.summary_only,
+            ),
+            args=args,
+            command="xcode-ios-candidates",
             root=root,
             home=home,
             argv=actual_argv,
