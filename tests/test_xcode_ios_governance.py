@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import plistlib
+import subprocess
 from pathlib import Path
+from typing import Any
 
 from cleancli.ai_versioning import validate_contract_payload
 from tests.helpers import run_cli
@@ -11,6 +14,14 @@ def _write_fixture(root: Path, relative: str, content: str = "fixture") -> Path:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _write_plist(root: Path, relative: str, payload: dict[str, object]) -> Path:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as file:
+        plistlib.dump(payload, file)
     return path
 
 
@@ -104,7 +115,21 @@ def test_xcode_ios_candidates_emit_bounded_read_only_evidence(tmp_path: Path) ->
     _write_fixture(root, "Users/tester/Library/Developer/CoreSimulator/Caches/sim.cache", "sim")
     _write_fixture(root, "Users/tester/Library/Developer/Xcode/Archives/2026-06/App.xcarchive/info.plist", "archive")
     _write_fixture(root, "Users/tester/Library/Developer/Xcode/iOS DeviceSupport/17.5/symbols.db", "symbols")
-    _write_fixture(root, "Users/tester/Library/Application Support/MobileSync/Backup/device-1/Manifest.plist", "backup")
+    _write_plist(
+        root,
+        "Users/tester/Library/Application Support/MobileSync/Backup/device-1/Info.plist",
+        {
+            "Device Name": "Build iPhone",
+            "Product Type": "iPhone16,2",
+            "Product Version": "17.5",
+            "Last Backup Date": "2026-06-28 09:00:00 +0000",
+        },
+    )
+    _write_plist(
+        root,
+        "Users/tester/Library/Application Support/MobileSync/Backup/device-1/Manifest.plist",
+        {"IsEncrypted": True},
+    )
 
     report = json.loads(
         run_cli(
@@ -147,9 +172,16 @@ def test_xcode_ios_candidates_emit_bounded_read_only_evidence(tmp_path: Path) ->
     by_role = {candidate["path_role"]: candidate for candidate in report["candidates"]}
     assert by_role["xcode_derived_data"]["default_selected"] is True
     assert by_role["xcode_archives"]["default_selected"] is False
+    assert by_role["xcode_archives"]["path"].endswith("App.xcarchive")
     assert by_role["device_support"]["default_selected"] is False
+    assert by_role["device_support"]["platform"] == "ios"
+    assert by_role["device_support"]["device_os_version"] == "17.5"
     assert by_role["ios_backup"]["default_selected"] is False
     assert by_role["ios_backup"]["contains_user_data"] is True
+    assert by_role["ios_backup"]["device_name"] == "Build iPhone"
+    assert by_role["ios_backup"]["product_version"] == "17.5"
+    assert by_role["ios_backup"]["encrypted"] is True
+    assert by_role["ios_backup"]["backup_metadata_present"] is True
     assert "ios_backup" in report["never_default_selected_path_roles"]
 
 
@@ -184,6 +216,29 @@ def test_xcode_ios_candidates_summary_only_hides_candidate_details(tmp_path: Pat
         "--input-file",
         "<xcode-ios-candidates.json>",
     ]
+
+
+def test_xcode_ios_candidates_sandbox_scan_does_not_call_host_simctl(tmp_path: Path, monkeypatch: Any) -> None:
+    root = tmp_path / "root"
+    home = Path("/Users/tester")
+    _write_fixture(root, "Users/tester/Library/Developer/Xcode/DerivedData/App-a/cache.db")
+
+    def fail_run(*args, **kwargs):
+        raise AssertionError("sandbox xcode-ios-candidates must not call host xcrun")
+
+    monkeypatch.setattr(subprocess, "run", fail_run)
+
+    from cleancli.xcode_ios import render_xcode_ios_candidates
+
+    report = render_xcode_ios_candidates(
+        root=root,
+        home=home,
+        limit=10,
+        max_scan_entries=10,
+    )
+
+    assert report["candidate_count_by_path_role"] == {"xcode_derived_data": 1}
+    assert "unavailable_simulator_device" not in report["candidate_count_by_path_role"]
 
 
 def test_xcode_ios_candidates_normalize_through_review(tmp_path: Path) -> None:

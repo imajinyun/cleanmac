@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import plistlib
 from pathlib import Path
 
 import pytest
 
-from cleancli.core import enumerate_ios_backups
+from cleancli.xcode_ios import enumerate_ios_backups
 
 
 def test_enumerate_ios_backups_no_backup_dir(tmp_path: Path):
@@ -35,6 +36,33 @@ def test_enumerate_ios_backups_single_backup(tmp_path: Path):
     assert backups[0]["encrypted"] is False
     assert backups[0]["device_name"] is None
     assert backups[0]["product_type"] is None
+
+
+def test_enumerate_ios_backups_reads_plist_metadata(tmp_path: Path):
+    udid = "00008101-000A12345678901E"
+    backup_dir = tmp_path / "home" / "Library" / "Application Support" / "MobileSync" / "Backup" / udid
+    backup_dir.mkdir(parents=True)
+
+    with (backup_dir / "Info.plist").open("wb") as file:
+        plistlib.dump(
+            {
+                "Device Name": "Build iPhone",
+                "Product Type": "iPhone16,2",
+                "Product Version": "17.5",
+                "Last Backup Date": "2026-06-28 09:00:00 +0000",
+            },
+            file,
+        )
+    with (backup_dir / "Manifest.plist").open("wb") as file:
+        plistlib.dump({"IsEncrypted": True}, file)
+
+    backups = enumerate_ios_backups(home=tmp_path / "home")
+
+    assert len(backups) == 1
+    assert backups[0]["device_name"] == "Build iPhone"
+    assert backups[0]["product_type"] == "iPhone16,2"
+    assert backups[0]["product_version"] == "17.5"
+    assert backups[0]["encrypted"] is True
 
 
 def test_enumerate_ios_backups_multiple_sorted_by_size(tmp_path: Path):
