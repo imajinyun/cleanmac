@@ -125,6 +125,49 @@ def test_row_aggregation_groups_by_category_file_type_and_parent() -> None:
     assert by_parent["/trash"] == {"count": 1, "bytes": 5, "human": "5 B"}
 
 
+def test_path_interaction_metadata_builds_open_and_reveal_commands(tmp_path: Path) -> None:
+    path = tmp_path / "cache file.log"
+    path.write_text("data", encoding="utf-8")
+
+    metadata = scan.path_interaction_metadata(
+        path,
+        display_path=str,
+        shell_quote_command=lambda argv: " ".join(argv),
+    )
+
+    assert metadata["finder_url"].startswith("file://")
+    assert metadata["open_command"] == ["open", str(path)]
+    assert metadata["reveal_command"] == ["open", "-R", str(path)]
+    assert metadata["open_command_text"] == f"open {path}"
+    assert metadata["safe_to_open"] is True
+    assert metadata["open_supported"] is True
+
+
+def test_skipped_row_includes_interaction_metadata_and_size(tmp_path: Path) -> None:
+    parent = tmp_path / "cache"
+    parent.mkdir()
+    entry = parent / "skip.tmp"
+    entry.write_text("skip", encoding="utf-8")
+
+    row = scan.skipped_row(
+        "cache",
+        parent,
+        entry,
+        "excluded",
+        display_path=str,
+        shell_quote_command=lambda argv: " ".join(argv),
+        human_size=lambda size: f"{size} B",
+    )
+
+    assert row["category"] == "cache"
+    assert row["parent"] == str(parent)
+    assert row["path"] == str(entry)
+    assert row["reason"] == "excluded"
+    assert row["bytes"] == 4
+    assert row["human"] == "4 B"
+    assert row["reveal_command"] == ["open", "-R", str(entry)]
+
+
 def test_scan_inspect_items_builds_read_only_report(tmp_path: Path) -> None:
     root = tmp_path / "cache"
     root.mkdir()
