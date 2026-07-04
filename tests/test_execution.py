@@ -6,6 +6,8 @@ from cleancli.execution import (
     ExecuteBudgetError,
     build_ai_confirmation_summary,
     build_ai_execution_ledger,
+    build_operation_log_entry,
+    build_operation_log_explainability_fields,
     build_safety_gate,
     enforce_execute_budgets,
     row_bytes,
@@ -117,6 +119,64 @@ def test_build_ai_execution_ledger_marks_safe_chain_complete() -> None:
     assert ledger["operation_log"]["ready"] is True
     assert ledger["operation_log"]["entry_count"] == 3
     assert ledger["execution"]["trash_recoverable"] is True
+
+
+def test_build_operation_log_explainability_fields() -> None:
+    fields = build_operation_log_explainability_fields(
+        command_text="cleanmac.py clean run",
+        action="delete",
+        category="downloads",
+        path="/tmp/download.bin",
+        bytes_value=10,
+        human="10 B",
+        bundle_id=None,
+        delete_mode="trash",
+        trash_path="/tmp/.Trash/download.bin",
+        deleted=True,
+        status="deleted",
+        reason=None,
+        error=None,
+    )
+
+    assert fields["tool"] == "cleanmac.clean.run"
+    assert fields["parameters"]["category"] == "downloads"
+    assert fields["parameters"]["delete_mode"] == "trash"
+    assert fields["result"]["status"] == "deleted"
+    assert fields["result"]["deleted"] is True
+    assert fields["impact_scope"]["bytes"] == 10
+
+
+def test_build_operation_log_entry_preserves_candidate_evidence() -> None:
+    evidence = {"schema": "cleanmac.candidate-review-evidence.v1", "matched_rule": "clean.downloads.candidate"}
+    entry = build_operation_log_entry(
+        timestamp="2026-01-01T00:00:00+00:00",
+        session_id="session-1",
+        command_text="cleanmac.py clean run",
+        action="delete",
+        row={
+            "category": "downloads",
+            "path": "/tmp/download.bin",
+            "bytes": 10,
+            "human": "10 B",
+            "bundle_id": None,
+            "trash_path": "/tmp/.Trash/download.bin",
+            "deleted": True,
+            "status": "deleted",
+            "review_evidence": evidence,
+        },
+        delete_mode="trash",
+        root_text="/tmp/root",
+        home_text="/Users/tester",
+        ai_operation_audit={"schema": "cleanmac.operation-log-ai-audit.v1"},
+    )
+
+    assert entry["schema"] == "cleanmac.operation-log-entry.v1"
+    assert entry["timestamp"] == "2026-01-01T00:00:00+00:00"
+    assert entry["session_id"] == "session-1"
+    assert entry["root"] == "/tmp/root"
+    assert entry["home"] == "/Users/tester"
+    assert entry["ai"]["candidate_review_evidence"] == evidence
+    assert entry["result"]["action"] == "delete"
 
 
 def test_enforce_execute_budgets_is_noop_for_dry_run() -> None:
