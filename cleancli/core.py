@@ -103,6 +103,11 @@ from cleancli.review import (
     render_review_html,
     validate_review_selection,
 )
+from cleancli import scan
+from cleancli.execution import ExecuteBudgetError
+from cleancli.execution import build_safety_gate as build_execution_safety_gate
+from cleancli.execution import enforce_execute_budgets
+from cleancli.execution import row_bytes as execution_row_bytes
 from cleancli.software_uninstall import execute_software_uninstall
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import disable_startup_items, render_startup
@@ -4324,79 +4329,27 @@ def render_tool_plan(tool: str, *, root: Path, home: Path) -> dict[str, Any]:
 
 
 def path_size_bytes(path: Path) -> int:
-    try:
-        if not path.exists() and not path.is_symlink():
-            return 0
-        if path.is_symlink() or path.is_file():
-            return path.lstat().st_size
-        total = 0
-        for current_root, dirs, files in os.walk(path, followlinks=False):
-            current = Path(current_root)
-            for name in list(dirs):
-                child = current / name
-                try:
-                    total += child.lstat().st_size
-                    if child.is_symlink():
-                        dirs.remove(name)
-                except OSError:
-                    continue
-            for name in files:
-                try:
-                    total += (current / name).lstat().st_size
-                except OSError:
-                    continue
-        return total
-    except OSError:
-        return 0
+    return scan.path_size_bytes(path)
 
 
 def child_entries(path: Path) -> list[Path]:
-    if not path.exists() and not path.is_symlink():
-        return []
-    if path.is_symlink() or path.is_file():
-        return [path]
-    try:
-        return [path / name for name in os.listdir(path)]
-    except OSError:
-        return []
+    return scan.child_entries(path)
 
 
 def inspect_entries(path: Path, *, recursive: bool) -> list[tuple[Path, int]]:
-    direct = [(entry, 1) for entry in child_entries(path)]
-    if not recursive:
-        return direct
-    rows = list(direct)
-    for entry, _ in direct:
-        if not entry.is_dir() or entry.is_symlink():
-            continue
-        base_depth = len(entry.parts)
-        for current_root, dirs, files in os.walk(entry, followlinks=False):
-            current = Path(current_root)
-            depth = len(current.parts) - base_depth + 1
-            for name in list(dirs):
-                child = current / name
-                rows.append((child, depth + 1))
-                if child.is_symlink():
-                    dirs.remove(name)
-            for name in files:
-                rows.append((current / name, depth + 1))
-    return rows
+    return scan.inspect_entries(path, recursive=recursive)
 
 
 def candidate_entries(target: ResolvedTarget, *, recursive: bool) -> list[tuple[Path, int]]:
-    if target.delete_target:
-        return [(target.path, 0)] if target.matched else []
-    return inspect_entries(target.path, recursive=recursive)
+    return scan.candidate_entries(target, recursive=recursive)
 
 
 def clean_candidate_entries(target: ResolvedTarget) -> list[Path]:
-    if target.delete_target:
-        return [target.path] if target.matched else []
-    return child_entries(target.path)
+    return scan.clean_candidate_entries(target)
 
 
 def matches_exclude(path: Path, patterns: Sequence[str]) -> bool:
-    return protection.matches_pattern(path, patterns)
+    return scan.matches_exclude(path, patterns)
 
 
 def contains_protected_descendant(path: Path, patterns: Sequence[str]) -> bool:
@@ -4446,44 +4399,34 @@ def bundle_policy_reason(
 
 
 def matches_include(path: Path, patterns: Sequence[str]) -> bool:
-    if not patterns:
-        return True
-    return protection.matches_pattern(path, patterns)
+    return scan.matches_include(path, patterns)
 
 
 def effective_include_patterns(category: Category, include_patterns: Sequence[str]) -> tuple[str, ...]:
-    return tuple(include_patterns) if include_patterns else category.default_include_patterns
+    return scan.effective_include_patterns(category, include_patterns)
 
 
 def effective_exclude_patterns(category: Category, exclude_patterns: Sequence[str]) -> tuple[str, ...]:
-    return tuple(exclude_patterns) + category.default_exclude_patterns
+    return scan.effective_exclude_patterns(category, exclude_patterns)
 
 
 def effective_older_than_days(category: Category, older_than_days: float | None) -> float | None:
-    return older_than_days if older_than_days is not None else category.default_older_than_days
+    return scan.effective_older_than_days(category, older_than_days)
 
 
 def effective_min_size_mb(category: Category, min_size_mb: int) -> int:
-    return min_size_mb if min_size_mb > 0 else category.default_min_size_mb
+    return scan.effective_min_size_mb(category, min_size_mb)
 
 
 def matches_name_regex(path: Path, name_regex: str | None) -> bool:
-    if not name_regex:
-        return True
     try:
-        return re.search(name_regex, path.name) is not None
-    except re.error as exc:
-        raise SystemExit(f"Invalid --name-regex: {exc}") from exc
+        return scan.matches_name_regex(path, name_regex)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def is_old_enough(path: Path, older_than_days: float | None) -> bool:
-    if older_than_days is None:
-        return True
-    try:
-        age_seconds = time.time() - path.lstat().st_mtime
-    except OSError:
-        return False
-    return age_seconds >= max(older_than_days, 0) * 24 * 60 * 60
+    return scan.is_old_enough(path, older_than_days)
 
 
 def is_process_running_exact(name: str) -> bool:
@@ -4668,24 +4611,11 @@ def skipped_row(category: str, parent: Path, entry: Path, reason: str) -> dict[s
 
 
 def skipped_summary(skipped: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    by_reason: dict[str, int] = {}
-    total_bytes = 0
-    for row in skipped:
-        reason = str(row["reason"])
-        by_reason[reason] = by_reason.get(reason, 0) + 1
-        total_bytes += int(row.get("bytes", 0))
-    return {"count": len(skipped), "bytes": total_bytes, "human": human_size(total_bytes), "by_reason": by_reason}
+    return scan.skipped_summary(skipped, human_size=human_size)
 
 
 def rows_by_category(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    output: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        key = str(row["category"])
-        current = output.setdefault(key, {"count": 0, "bytes": 0, "human": human_size(0)})
-        current["count"] = int(current["count"]) + 1
-        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
-        current["human"] = human_size(int(current["bytes"]))
-    return output
+    return scan.rows_by_category(rows, human_size=human_size)
 
 
 def rows_by_file_type(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -4729,133 +4659,30 @@ def inspect_items(
     bundle_allowlist: Sequence[str] = (),
     bundle_blocklist: Sequence[str] = (),
 ) -> dict[str, Any]:
-    rows = []
-    skipped = []
-    for target in resolve_targets(categories, root=root, home=home):
-        category = CATEGORY_BY_KEY[target.category]
-        min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
-        for entry, depth in candidate_entries(target, recursive=recursive):
-            reason = filter_reason(
-                category,
-                entry,
-                root=root,
-                include_patterns=include_patterns,
-                exclude_patterns=exclude_patterns,
-                older_than_days=older_than_days,
-                name_regex=name_regex,
-                bundle_allowlist=bundle_allowlist,
-                bundle_blocklist=bundle_blocklist,
-            )
-            if reason:
-                skipped.append(skipped_row(target.category, target.path, entry, reason))
-                continue
-            size = path_size_bytes(entry)
-            if size < min_size_bytes:
-                skipped.append(skipped_row(target.category, target.path, entry, "below-min-size"))
-                continue
-            default_selected = not category.requires_privilege
-            rows.append(
-                {
-                    "category": target.category,
-                    "parent": display_path(target.path),
-                    "path": display_path(entry),
-                    **path_interaction_metadata(entry),
-                    "depth": depth,
-                    "bytes": size,
-                    "human": human_size(size),
-                    "risk": category.risk,
-                    "default_selected": default_selected,
-                    "protected": False,
-                    "delete_mode": "trash",
-                    "review_evidence": {
-                        "schema": "cleanmac.candidate-review-evidence.v1",
-                        "matched_rule": f"clean.{target.category}.candidate",
-                        "match_reason": target.category,
-                        "confidence": "medium",
-                        "risk": category.risk,
-                        "risk_reason": category.description,
-                        "risk_explanation": category.description,
-                        "default_selected": default_selected,
-                        "why_not_default": None
-                        if default_selected
-                        else "privileged category requires explicit review before execution",
-                        "protected": False,
-                        "delete_mode": "trash",
-                        "recovery": "Execution is gated and Trash-first when this candidate is executable.",
-                        "contains_user_data": category.full_disk_access or category.risk in {"high", "critical"},
-                        "shared_container": target.category == "groupContainerCaches",
-                        "recommended_next_action": "review-default-selection-before-trash-execution"
-                        if default_selected
-                        else "manual-review-required",
-                    },
-                }
-            )
-    if sort == "size-asc":
-        rows.sort(key=lambda row: (row_bytes(row), str(row["path"])))
-    elif sort == "path":
-        rows.sort(key=lambda row: str(row["path"]))
-    else:
-        rows.sort(key=lambda row: (row_bytes(row), str(row["path"])), reverse=True)
-    total_candidates = len(rows)
-    total_bytes = sum(row_bytes(row) for row in rows)
-    max_delete_bytes = None if max_delete_mb is None else int(max_delete_mb * 1024 * 1024)
-    budget_summary = {
-        "candidate_count": total_candidates,
-        "candidate_bytes": total_bytes,
-        "candidate_human": human_size(total_bytes),
-        "max_items": max_items,
-        "within_max_items": max_items is None or total_candidates <= max_items,
-        "max_delete_mb": max_delete_mb,
-        "max_delete_bytes": max_delete_bytes,
-        "within_max_delete_budget": max_delete_bytes is None or total_bytes <= max_delete_bytes,
-        "applies_to_execute": False,
-        "message": "inspect is non-destructive; use plan or clean to enforce these budgets before deletion.",
-    }
-    shown_rows = rows if limit < 0 else rows[:limit]
-    return {
-        "schema": "cleanmac.inspect.v1",
-        "destructive": False,
-        "dry_run": True,
-        "ai_summary": render_ai_summary(
-            categories,
-            phase="inspect",
-            total_bytes=total_bytes,
-            item_count=total_candidates,
-            skipped_count=len(skipped),
-            recommended_next_action="generate_plan" if total_candidates else "no_action",
-        ),
-        "total_candidates": total_candidates,
-        "shown_candidates": len(shown_rows),
-        "total_bytes": total_bytes,
-        "total_human": human_size(total_bytes),
-        "recursive": recursive,
-        "min_size_mb": min_size_mb,
-        "effective_category_defaults": {
-            category.key: {
-                "older_than_days": effective_older_than_days(category, older_than_days),
-                "min_size_mb": effective_min_size_mb(category, min_size_mb),
-                "include_patterns": list(effective_include_patterns(category, include_patterns)),
-                "exclude_patterns": list(effective_exclude_patterns(category, exclude_patterns)),
-            }
-            for category in categories
-        },
-        "sort": sort,
-        "include_patterns": list(include_patterns),
-        "exclude_patterns": list(exclude_patterns),
-        "older_than_days": older_than_days,
-        "name_regex": name_regex,
-        "bundle_allowlist": list(bundle_allowlist),
-        "bundle_blocklist": list(bundle_blocklist),
-        "max_delete_mb": max_delete_mb,
-        "max_items": max_items,
-        "budget_summary": budget_summary,
-        "by_category": rows_by_category(shown_rows),
-        "skipped_by_category": rows_by_category(skipped),
-        "skipped_count": len(skipped),
-        "skipped_summary": skipped_summary(skipped),
-        "skipped": skipped,
-        "items": shown_rows,
-    }
+    return scan.inspect_items(
+        categories,
+        targets=resolve_targets(categories, root=root, home=home),
+        category_by_key=CATEGORY_BY_KEY,
+        root=root,
+        limit=limit,
+        recursive=recursive,
+        min_size_mb=min_size_mb,
+        sort=sort,
+        include_patterns=include_patterns,
+        exclude_patterns=exclude_patterns,
+        older_than_days=older_than_days,
+        name_regex=name_regex,
+        max_delete_mb=max_delete_mb,
+        max_items=max_items,
+        bundle_allowlist=bundle_allowlist,
+        bundle_blocklist=bundle_blocklist,
+        display_path=display_path,
+        human_size=human_size,
+        path_interaction_metadata=path_interaction_metadata,
+        skipped_row=skipped_row,
+        filter_reason=filter_reason,
+        render_ai_summary=render_ai_summary,
+    )
 
 
 def remap_home(*, root: Path, home: Path) -> Path:
@@ -7516,99 +7343,33 @@ def clean(
     _scan_cb = make_scan_progress(_scan_total, enabled=progress_enabled)
     _scan_bar = getattr(_scan_cb, "_bar", None)
     _scan_tick = _scan_cb
+    normal_targets = [target for target in resolved_targets if target.category != "duplicateFiles"]
+    normal_rows, normal_skipped = scan.clean_candidate_rows(
+        targets=normal_targets,
+        category_by_key=CATEGORY_BY_KEY,
+        root=root,
+        include_patterns=include_patterns,
+        exclude_patterns=exclude_patterns,
+        older_than_days=older_than_days,
+        min_size_mb=min_size_mb,
+        name_regex=name_regex,
+        bundle_allowlist=bundle_allowlist,
+        bundle_blocklist=bundle_blocklist,
+        review_selected_paths=review_selected_paths,
+        delete_mode=delete_mode,
+        display_path=display_path,
+        human_size=human_size,
+        path_interaction_metadata=path_interaction_metadata,
+        skipped_row=skipped_row,
+        filter_reason=filter_reason,
+        assert_safe_to_delete=lambda entry: assert_safe_to_delete(entry, root=root, home=home),
+        bundle_id_for_path=bundle_id_for_path,
+        progress_tick=_scan_tick,
+    )
+    rows.extend(normal_rows)
+    skipped.extend(normal_skipped)
     for target in resolved_targets:
         if target.category == "duplicateFiles":
-            _scan_tick()
-            continue
-        category = CATEGORY_BY_KEY[target.category]
-        min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
-        for entry in clean_candidate_entries(target):
-            assert_safe_to_delete(entry, root=root, home=home)
-            reason = filter_reason(
-                category,
-                entry,
-                root=root,
-                include_patterns=include_patterns,
-                exclude_patterns=exclude_patterns,
-                older_than_days=older_than_days,
-                name_regex=name_regex,
-                bundle_allowlist=bundle_allowlist,
-                bundle_blocklist=bundle_blocklist,
-            )
-            if reason:
-                skipped_item = skipped_row(target.category, target.path, entry, reason)
-                skipped.append(skipped_item)
-                continue
-            display_entry = display_path(entry)
-            if review_selected_paths is not None and display_entry not in review_selected_paths:
-                skipped_item = skipped_row(target.category, target.path, entry, "not-in-review-selection")
-                skipped_item["review_evidence"] = {
-                    "schema": "cleanmac.candidate-review-evidence.v1",
-                    "matched_rule": f"clean.{target.category}.candidate",
-                    "match_reason": target.category,
-                    "confidence": "medium",
-                    "risk": category.risk,
-                    "risk_reason": category.description,
-                    "risk_explanation": category.description,
-                    "default_selected": not category.requires_privilege,
-                    "why_not_default": None
-                    if not category.requires_privilege
-                    else "privileged category requires explicit review before execution",
-                    "protected": False,
-                    "delete_mode": delete_mode,
-                    "recovery": "Execution is gated and Trash-first when this candidate is executable.",
-                    "contains_user_data": category.full_disk_access or category.risk in {"high", "critical"},
-                    "shared_container": target.category == "groupContainerCaches",
-                    "recommended_next_action": "review-default-selection-before-trash-execution"
-                    if not category.requires_privilege
-                    else "manual-review-required",
-                }
-                skipped.append(skipped_item)
-                continue
-            size = path_size_bytes(entry)
-            if size < min_size_bytes:
-                skipped_item = skipped_row(target.category, target.path, entry, "below-min-size")
-                skipped.append(skipped_item)
-                continue
-            default_selected = not category.requires_privilege
-            rows.append(
-                {
-                    "category": target.category,
-                    "parent": display_path(target.path),
-                    "path": display_entry,
-                    **path_interaction_metadata(entry),
-                    "bytes": size,
-                    "human": human_size(size),
-                    "bundle_id": bundle_id_for_path(entry),
-                    "delete_mode": delete_mode,
-                    "trash_path": None,
-                    "deleted": False,
-                    "risk": category.risk,
-                    "default_selected": default_selected,
-                    "protected": False,
-                    "review_evidence": {
-                        "schema": "cleanmac.candidate-review-evidence.v1",
-                        "matched_rule": f"clean.{target.category}.candidate",
-                        "match_reason": target.category,
-                        "confidence": "medium",
-                        "risk": category.risk,
-                        "risk_reason": category.description,
-                        "risk_explanation": category.description,
-                        "default_selected": default_selected,
-                        "why_not_default": None
-                        if default_selected
-                        else "privileged category requires explicit review before execution",
-                        "protected": False,
-                        "delete_mode": delete_mode,
-                        "recovery": "Execution is gated and Trash-first when this candidate is executable.",
-                        "contains_user_data": category.full_disk_access or category.risk in {"high", "critical"},
-                        "shared_container": target.category == "groupContainerCaches",
-                        "recommended_next_action": "review-default-selection-before-trash-execution"
-                        if default_selected
-                        else "manual-review-required",
-                    },
-                }
-            )
             _scan_tick()
     if dup_candidates:
         dup_category = CATEGORY_BY_KEY["duplicateFiles"]
@@ -7676,27 +7437,24 @@ def clean(
     if _scan_bar:
         _scan_bar.close()
     candidate_bytes = sum(row_bytes(row) for row in rows)
-    max_delete_bytes = None if max_delete_mb is None else int(max_delete_mb * 1024 * 1024)
-    safety_gate = {
-        "risk_policy": risk_policy,
-        "plan_file": plan_file,
-        "max_delete_mb": max_delete_mb,
-        "max_delete_bytes": max_delete_bytes,
-        "candidate_bytes": candidate_bytes,
-        "candidate_human": human_size(candidate_bytes),
-        "within_delete_budget": max_delete_bytes is None or candidate_bytes <= max_delete_bytes,
-        "fail_on_skipped": fail_on_skipped,
-        "fail_fast": fail_fast,
-        "skipped_count": len(skipped),
-        "max_items": max_items,
-        "within_max_items": max_items is None or len(rows) <= max_items,
-        "delete_mode": delete_mode,
-        "operation_log": operation_log,
-        "confirmation_token_required": require_confirmation_token,
-        "review_selection_applied": review_selection is not None,
-        "bundle_allowlist": list(bundle_allowlist),
-        "bundle_blocklist": list(bundle_blocklist),
-    }
+    safety_gate = build_execution_safety_gate(
+        risk_policy=risk_policy,
+        plan_file=plan_file,
+        max_delete_mb=max_delete_mb,
+        candidate_bytes=candidate_bytes,
+        candidate_count=len(rows),
+        skipped_count=len(skipped),
+        fail_on_skipped=fail_on_skipped,
+        fail_fast=fail_fast,
+        max_items=max_items,
+        delete_mode=delete_mode,
+        operation_log=operation_log,
+        confirmation_token_required=require_confirmation_token,
+        review_selection_applied=review_selection is not None,
+        bundle_allowlist=bundle_allowlist,
+        bundle_blocklist=bundle_blocklist,
+        human_size=human_size,
+    )
     confirmation_context = ai_confirmation_token_context(
         categories,
         root=root,
@@ -7774,16 +7532,19 @@ def clean(
                     },
                 }
             )
-    if execute and fail_on_skipped and skipped:
-        raise SystemExit(f"Refusing to execute cleanup because {len(skipped)} candidate(s) were skipped by filters.")
-    if execute and max_items is not None and len(rows) > max_items:
-        raise SystemExit(
-            f"Refusing to execute cleanup because candidate count {len(rows)} exceeds --max-items budget {max_items}."
+    try:
+        enforce_execute_budgets(
+            execute=execute,
+            fail_on_skipped=fail_on_skipped,
+            skipped_count=len(skipped),
+            candidate_count=len(rows),
+            candidate_bytes=candidate_bytes,
+            max_items=max_items,
+            max_delete_mb=max_delete_mb,
+            human_size=human_size,
         )
-    if execute and max_delete_bytes is not None and candidate_bytes > max_delete_bytes:
-        raise SystemExit(
-            f"Refusing to execute cleanup because candidate bytes exceed --max-delete-mb budget. Candidates: {human_size(candidate_bytes)}; budget: {human_size(max_delete_bytes)}"
-        )
+    except ExecuteBudgetError as exc:
+        raise SystemExit(str(exc)) from exc
     if execute and (require_confirmation_token or confirmation_token):
         if not confirmation_token:
             raise SystemExit("Refusing to execute cleanup because confirmation token is required.")
@@ -9687,7 +9448,7 @@ def human_size(size: int | None) -> str:
 
 
 def row_bytes(row: dict[str, Any]) -> int:
-    return int(row["bytes"])
+    return execution_row_bytes(row)
 
 
 def render_completion_shell(shell: str) -> str:
