@@ -4583,32 +4583,23 @@ def filter_reason(
 
 
 def path_interaction_metadata(path: Path) -> dict[str, Any]:
-    path_text = display_path(path)
-    absolute = path_text.startswith("/")
-    open_command = ["open", path_text]
-    reveal_command = ["open", "-R", path_text]
-    return {
-        "finder_url": f"file://{quote(path_text, safe='/')}" if absolute else None,
-        "open_command": open_command,
-        "open_command_text": shell_quote_command(open_command),
-        "reveal_command": reveal_command,
-        "reveal_command_text": shell_quote_command(reveal_command),
-        "safe_to_open": not path.is_symlink(),
-        "open_supported": True,
-    }
+    return scan.path_interaction_metadata(
+        path,
+        display_path=display_path,
+        shell_quote_command=shell_quote_command,
+    )
 
 
 def skipped_row(category: str, parent: Path, entry: Path, reason: str) -> dict[str, Any]:
-    size = path_size_bytes(entry)
-    return {
-        "category": category,
-        "parent": display_path(parent),
-        "path": display_path(entry),
-        **path_interaction_metadata(entry),
-        "reason": reason,
-        "bytes": size,
-        "human": human_size(size),
-    }
+    return scan.skipped_row(
+        category,
+        parent,
+        entry,
+        reason,
+        display_path=display_path,
+        shell_quote_command=shell_quote_command,
+        human_size=human_size,
+    )
 
 
 def skipped_summary(skipped: Sequence[dict[str, Any]]) -> dict[str, Any]:

@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
+from urllib.parse import quote
 
 from . import protection
 
@@ -229,6 +230,53 @@ def rows_by_parent_directory(
         current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
         current["human"] = human_size(int(current["bytes"]))
     return output
+
+
+def path_interaction_metadata(
+    path: Path,
+    *,
+    display_path: Callable[[Path | str], str],
+    shell_quote_command: Callable[[Sequence[str]], str],
+) -> dict[str, Any]:
+    path_text = display_path(path)
+    absolute = path_text.startswith("/")
+    open_command = ["open", path_text]
+    reveal_command = ["open", "-R", path_text]
+    return {
+        "finder_url": f"file://{quote(path_text, safe='/')}" if absolute else None,
+        "open_command": open_command,
+        "open_command_text": shell_quote_command(open_command),
+        "reveal_command": reveal_command,
+        "reveal_command_text": shell_quote_command(reveal_command),
+        "safe_to_open": not path.is_symlink(),
+        "open_supported": True,
+    }
+
+
+def skipped_row(
+    category: str,
+    parent: Path,
+    entry: Path,
+    reason: str,
+    *,
+    display_path: Callable[[Path | str], str],
+    shell_quote_command: Callable[[Sequence[str]], str],
+    human_size: Callable[[int | None], str],
+) -> dict[str, Any]:
+    size = path_size_bytes(entry)
+    return {
+        "category": category,
+        "parent": display_path(parent),
+        "path": display_path(entry),
+        **path_interaction_metadata(
+            entry,
+            display_path=display_path,
+            shell_quote_command=shell_quote_command,
+        ),
+        "reason": reason,
+        "bytes": size,
+        "human": human_size(size),
+    }
 
 
 def skipped_summary(
@@ -529,6 +577,8 @@ __all__ = [
         "rows_by_category",
         "rows_by_file_type",
         "rows_by_parent_directory",
+        "path_interaction_metadata",
+        "skipped_row",
         "skipped_summary",
         "inspect_items",
         "clean_candidate_rows",
