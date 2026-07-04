@@ -105,6 +105,26 @@ def test_scan_budget_summary_reports_limits() -> None:
     assert summary["applies_to_execute"] is False
 
 
+def test_row_aggregation_groups_by_category_file_type_and_parent() -> None:
+    rows = [
+        {"category": "downloads", "path": "/tmp/a.log", "parent": "/tmp", "bytes": 10},
+        {"category": "downloads", "path": "/tmp/b.LOG", "parent": "/tmp", "bytes": 20},
+        {"category": "trash", "path": "/trash/noext", "parent": "/trash", "bytes": 5},
+    ]
+    human = lambda size: f"{size} B"
+
+    by_category = scan.rows_by_category(rows, human_size=human)
+    by_type = scan.rows_by_file_type(rows, human_size=human)
+    by_parent = scan.rows_by_parent_directory(rows, human_size=human)
+
+    assert by_category["downloads"] == {"count": 2, "bytes": 30, "human": "30 B"}
+    assert by_category["trash"] == {"count": 1, "bytes": 5, "human": "5 B"}
+    assert by_type["log"] == {"count": 2, "bytes": 30, "human": "30 B"}
+    assert by_type["(no extension)"] == {"count": 1, "bytes": 5, "human": "5 B"}
+    assert by_parent["/tmp"] == {"count": 2, "bytes": 30, "human": "30 B"}
+    assert by_parent["/trash"] == {"count": 1, "bytes": 5, "human": "5 B"}
+
+
 def test_scan_inspect_items_builds_read_only_report(tmp_path: Path) -> None:
     root = tmp_path / "cache"
     root.mkdir()

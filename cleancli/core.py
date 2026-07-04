@@ -4620,26 +4620,11 @@ def rows_by_category(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]
 
 
 def rows_by_file_type(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    output: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        path_str = str(row.get("path", ""))
-        suffix = Path(path_str).suffix.lower().lstrip(".") or "(no extension)"
-        current = output.setdefault(suffix, {"count": 0, "bytes": 0, "human": human_size(0)})
-        current["count"] = int(current["count"]) + 1
-        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
-        current["human"] = human_size(int(current["bytes"]))
-    return output
+    return scan.rows_by_file_type(rows, human_size=human_size)
 
 
 def rows_by_parent_directory(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    output: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        parent = str(row.get("parent", "(unknown)"))
-        current = output.setdefault(parent, {"count": 0, "bytes": 0, "human": human_size(0)})
-        current["count"] = int(current["count"]) + 1
-        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
-        current["human"] = human_size(int(current["bytes"]))
-    return output
+    return scan.rows_by_parent_directory(rows, human_size=human_size)
 
 
 def inspect_items(

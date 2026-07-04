@@ -200,6 +200,37 @@ def rows_by_category(
     return output
 
 
+def rows_by_file_type(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    human_size: Callable[[int | None], str],
+) -> dict[str, dict[str, Any]]:
+    output: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        path_str = str(row.get("path", ""))
+        suffix = Path(path_str).suffix.lower().lstrip(".") or "(no extension)"
+        current = output.setdefault(suffix, {"count": 0, "bytes": 0, "human": human_size(0)})
+        current["count"] = int(current["count"]) + 1
+        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
+        current["human"] = human_size(int(current["bytes"]))
+    return output
+
+
+def rows_by_parent_directory(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    human_size: Callable[[int | None], str],
+) -> dict[str, dict[str, Any]]:
+    output: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        parent = str(row.get("parent", "(unknown)"))
+        current = output.setdefault(parent, {"count": 0, "bytes": 0, "human": human_size(0)})
+        current["count"] = int(current["count"]) + 1
+        current["bytes"] = int(current["bytes"]) + int(row.get("bytes", 0))
+        current["human"] = human_size(int(current["bytes"]))
+    return output
+
+
 def skipped_summary(
     skipped: Sequence[Mapping[str, Any]],
     *,
@@ -494,9 +525,11 @@ __all__ = [
     "effective_older_than_days",
     "effective_min_size_mb",
     "matches_name_regex",
-    "is_old_enough",
-    "rows_by_category",
-    "skipped_summary",
-    "inspect_items",
-    "clean_candidate_rows",
-]
+        "is_old_enough",
+        "rows_by_category",
+        "rows_by_file_type",
+        "rows_by_parent_directory",
+        "skipped_summary",
+        "inspect_items",
+        "clean_candidate_rows",
+    ]
