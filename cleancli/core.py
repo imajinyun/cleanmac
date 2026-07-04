@@ -108,7 +108,7 @@ from cleancli.software_uninstall import render_software as render_software_repor
 from cleancli.startup import disable_startup_items, render_startup
 from cleancli.tool_adapters import TOOL_ADAPTER_CHOICES, execute_tool
 from cleancli.tool_adapters import render_tool_plan as render_tool_adapter_plan
-from cleancli.xcode_ios import render_xcode_ios_candidates
+from cleancli.xcode_ios import enumerate_ios_backups, render_xcode_ios_candidates
 
 VERSION = "0.1.0"
 
@@ -5427,88 +5427,6 @@ def render_optimize(
         test_mode=test_mode,
         sudo_available=sudo_available,
     )
-
-
-def enumerate_ios_backups(*, home: Path) -> list[dict[str, Any]]:
-    """Enumerate iOS device backups stored locally by Finder/iTunes."""
-    backup_root = home / "Library" / "Application Support" / "MobileSync" / "Backup"
-    backups: list[dict[str, Any]] = []
-
-    if not backup_root.is_dir():
-        return backups
-
-    try:
-        entries = sorted(backup_root.iterdir())
-    except (OSError, PermissionError):
-        return backups
-
-    for backup_dir in entries:
-        if not backup_dir.is_dir():
-            continue
-        udid = backup_dir.name
-        info_plist = backup_dir / "Info.plist"
-        manifest_plist = backup_dir / "Manifest.plist"
-
-        device_name = None
-        product_type = None
-        product_version = None
-        last_backup_date = None
-        backup_size = 0
-        is_encrypted = False
-
-        try:
-            backup_size = sum(f.stat().st_size for f in backup_dir.rglob("*") if f.is_file() and not f.is_symlink())
-        except (OSError, PermissionError):
-            pass
-
-        if info_plist.exists():
-            import subprocess
-
-            def _plist_value(path: Path, key: str) -> str | None:
-                result = subprocess.run(
-                    ["/usr/libexec/PlistBuddy", "-c", f"Print :{key}", str(path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                if result.returncode == 0:
-                    return result.stdout.strip()
-                return None
-
-            device_name = _plist_value(info_plist, "Device Name")
-            product_type = _plist_value(info_plist, "Product Type")
-            product_version = _plist_value(info_plist, "Product Version")
-            date_str = _plist_value(info_plist, "Last Backup Date")
-            if date_str:
-                last_backup_date = date_str
-
-        if manifest_plist.exists():
-            import subprocess
-
-            result = subprocess.run(
-                ["/usr/libexec/PlistBuddy", "-c", "Print :IsEncrypted", str(manifest_plist)],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                is_encrypted = result.stdout.strip().lower() in {"true", "yes", "1"}
-
-        backups.append(
-            {
-                "udid": udid,
-                "device_name": device_name,
-                "product_type": product_type,
-                "product_version": product_version,
-                "last_backup_date": last_backup_date,
-                "size_bytes": backup_size,
-                "size_human": human_size(backup_size),
-                "encrypted": is_encrypted,
-                "path": display_path(backup_dir),
-            }
-        )
-
-    return sorted(backups, key=lambda b: b["size_bytes"], reverse=True)
 
 
 def _get_memory_info() -> dict[str, Any] | None:

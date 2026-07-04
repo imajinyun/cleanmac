@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import plistlib
 import subprocess
 import time
 from pathlib import Path
@@ -140,7 +141,6 @@ _ROLE_ROOTS: tuple[tuple[str, str], ...] = (
     ("device_support", "~/Library/Developer/Xcode/iOS DeviceSupport"),
     ("device_support", "~/Library/Developer/Xcode/watchOS DeviceSupport"),
     ("device_support", "~/Library/Developer/Xcode/tvOS DeviceSupport"),
-    ("ios_backup", "~/Library/Application Support/MobileSync/Backup"),
 )
 
 
@@ -169,6 +169,14 @@ def remap_path(pattern: str, *, root: Path, home: Path) -> Path:
     if expanded.is_absolute():
         return root / str(expanded).lstrip("/")
     return root / expanded
+
+
+def remap_home(*, root: Path, home: Path) -> Path:
+    if root == Path("/"):
+        return home
+    if home.is_absolute():
+        return root / str(home).lstrip("/")
+    return root / home
 
 
 def path_size_bytes(path: Path) -> int:
@@ -209,11 +217,112 @@ def _iter_role_entries(root_path: Path) -> list[Path]:
         return []
 
 
-def _device_support_retention(entry: Path) -> str:
+def _iter_archive_entries(root_path: Path) -> list[Path]:
+    if not root_path.exists():
+        return []
+    if not root_path.is_dir():
+        return [root_path]
+    archives: list[Path] = []
+    try:
+        roots = sorted(root_path.iterdir(), key=lambda path: path.name)
+    except OSError:
+        return []
+    for entry in roots:
+        if entry.suffix == ".xcarchive":
+            archives.append(entry)
+            continue
+        if not entry.is_dir():
+            continue
+        try:
+            archives.extend(
+                sorted(
+                    (child for child in entry.iterdir() if child.suffix == ".xcarchive"),
+                    key=lambda p: p.name,
+                )
+            )
+        except OSError:
+            continue
+    return archives
+
+
+def _read_plist(path: Path) -> dict[str, Any]:
+    try:
+        with path.open("rb") as file:
+            payload = plistlib.load(file)
+    except (OSError, plistlib.InvalidFileException, ValueError, TypeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def enumerate_ios_backups(*, home: Path) -> list[dict[str, Any]]:
+    """Enumerate local Finder/iTunes iOS backups without invoking external tools."""
+    backup_root = home / "Library" / "Application Support" / "MobileSync" / "Backup"
+    backups: list[dict[str, Any]] = []
+
+    if not backup_root.is_dir():
+        return backups
+
+    try:
+        entries = sorted(backup_root.iterdir())
+    except (OSError, PermissionError):
+        return backups
+
+    for backup_dir in entries:
+        if not backup_dir.is_dir():
+            continue
+
+        backup_size = 0
+        try:
+            backup_size = sum(
+                f.stat().st_size
+                for f in backup_dir.rglob("*")
+                if f.is_file() and not f.is_symlink()
+            )
+        except (OSError, PermissionError):
+            pass
+
+        info = _read_plist(backup_dir / "Info.plist")
+        manifest = _read_plist(backup_dir / "Manifest.plist")
+        last_backup_date = info.get("Last Backup Date")
+        if last_backup_date is not None:
+            last_backup_date = str(last_backup_date)
+
+        backups.append(
+            {
+                "udid": backup_dir.name,
+                "device_name": info.get("Device Name"),
+                "product_type": info.get("Product Type"),
+                "product_version": info.get("Product Version"),
+                "last_backup_date": last_backup_date,
+                "size_bytes": backup_size,
+                "size_human": human_size(backup_size),
+                "encrypted": bool(manifest.get("IsEncrypted", False)),
+                "path": display_path(backup_dir),
+            }
+        )
+
+    return sorted(backups, key=lambda b: b["size_bytes"], reverse=True)
+
+
+def _device_support_metadata(entry: Path, source: str) -> dict[str, Any]:
     version_text = entry.name
+    platform = "unknown"
+    if "iOS DeviceSupport" in source:
+        platform = "ios"
+    elif "watchOS DeviceSupport" in source:
+        platform = "watchos"
+    elif "tvOS DeviceSupport" in source:
+        platform = "tvos"
     if any(fragment in version_text.lower() for fragment in ("current", "latest")):
-        return "keep-current-device-support"
-    return "report-only-until-current-and-recent-os-retention-is-available"
+        retention_class = "keep-current-device-support"
+    else:
+        retention_class = "report-only-until-current-and-recent-os-retention-is-available"
+    return {
+        "platform": platform,
+        "device_os_version": version_text,
+        "retention_class": retention_class,
+        "suppression_reason": retention_class,
+    }
 
 
 def _candidate_id(path_role: str, path: Path) -> str:
@@ -260,9 +369,40 @@ def _candidate_from_path(path_role: str, path: Path, *, source: str) -> dict[str
         **policy,
     }
     if path_role == "device_support":
-        candidate["suppression_reason"] = _device_support_retention(path)
+        candidate.update(_device_support_metadata(path, source))
     if path_role in {"xcode_archives", "ios_backup", "unavailable_simulator_device"}:
         candidate["suppression_reason"] = policy["why_not_default"]
+    return candidate
+
+
+def _candidate_from_ios_backup(backup: dict[str, Any]) -> dict[str, Any]:
+    path = Path(str(backup["path"]))
+    candidate = _candidate_from_path(
+        "ios_backup",
+        path,
+        source="~/Library/Application Support/MobileSync/Backup",
+    )
+    size = int(backup.get("size_bytes") or 0)
+    candidate.update(
+        {
+            "path": str(backup["path"]),
+            "name": str(backup.get("device_name") or backup.get("udid") or path.name),
+            "bytes": size,
+            "human": human_size(size),
+            "size_bytes": size,
+            "size_human": human_size(size),
+            "udid": backup.get("udid"),
+            "device_name": backup.get("device_name"),
+            "product_type": backup.get("product_type"),
+            "product_version": backup.get("product_version"),
+            "last_backup_date": backup.get("last_backup_date"),
+            "encrypted": backup.get("encrypted", False),
+            "backup_metadata_present": any(
+                backup.get(field)
+                for field in ("device_name", "product_type", "product_version", "last_backup_date")
+            ),
+        }
+    )
     return candidate
 
 
@@ -278,19 +418,68 @@ def _parse_unavailable_simulator_lines(text: str) -> list[dict[str, str]]:
             continue
         if "(unavailable" not in line.lower():
             continue
-        rows.append({"name": line, "runtime": current_runtime})
+        rows.append(
+            {
+                "name": line,
+                "runtime": current_runtime,
+                "udid": "",
+                "state": "",
+                "availability_error": "",
+            }
+        )
     return rows
 
 
-def _unavailable_simulator_candidates(*, max_scan_entries: int | None) -> list[dict[str, Any]]:
-    command = ["xcrun", "simctl", "list", "devices", "unavailable"]
+def _parse_unavailable_simulator_json(text: str) -> list[dict[str, str]]:
+    try:
+        payload = __import__("json").loads(text)
+    except ValueError:
+        return []
+    devices = payload.get("devices") if isinstance(payload, dict) else None
+    if not isinstance(devices, dict):
+        return []
+    rows: list[dict[str, str]] = []
+    for runtime, items in devices.items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict) or item.get("isAvailable") is True:
+                continue
+            error = item.get("availabilityError") or item.get("availability") or ""
+            rows.append(
+                {
+                    "name": str(item.get("name") or item.get("udid") or "unknown simulator"),
+                    "runtime": str(runtime),
+                    "udid": str(item.get("udid") or ""),
+                    "state": str(item.get("state") or ""),
+                    "availability_error": str(error),
+                }
+            )
+    return rows
+
+
+def _unavailable_simulator_candidates(*, max_scan_entries: int | None, allow_host_tools: bool) -> list[dict[str, Any]]:
+    if not allow_host_tools:
+        return []
+    command = ["xcrun", "simctl", "list", "devices", "unavailable", "--json"]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=5)
     except (OSError, subprocess.SubprocessError):
         return []
     if result.returncode != 0:
-        return []
-    rows = _parse_unavailable_simulator_lines(result.stdout)
+        fallback = subprocess.run(
+            ["xcrun", "simctl", "list", "devices", "unavailable"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if fallback.returncode != 0:
+            return []
+        rows = _parse_unavailable_simulator_lines(fallback.stdout)
+    else:
+        rows = _parse_unavailable_simulator_json(result.stdout) or _parse_unavailable_simulator_lines(
+            result.stdout
+        )
     if max_scan_entries is not None:
         rows = rows[: max(max_scan_entries, 0)]
     policy = dict(_POLICY_BY_ROLE["unavailable_simulator_device"])
@@ -309,6 +498,9 @@ def _unavailable_simulator_candidates(*, max_scan_entries: int | None) -> list[d
                 "path": synthetic_path,
                 "name": name,
                 "runtime": runtime,
+                "udid": row.get("udid"),
+                "state": row.get("state"),
+                "availability_error": row.get("availability_error"),
                 "bytes": 0,
                 "human": human_size(0),
                 "size_bytes": 0,
@@ -326,13 +518,27 @@ def _scan_path_candidates(*, root: Path, home: Path, max_scan_entries: int | Non
     truncated = False
     for path_role, pattern in _ROLE_ROOTS:
         root_path = remap_path(pattern, root=root, home=home)
-        for entry in _iter_role_entries(root_path):
+        entries = (
+            _iter_archive_entries(root_path)
+            if path_role == "xcode_archives"
+            else _iter_role_entries(root_path)
+        )
+        for entry in entries:
             if max_scan_entries is not None and scanned_entries >= max(max_scan_entries, 0):
                 truncated = True
                 return candidates, truncated
             scanned_entries += 1
             candidates.append(_candidate_from_path(path_role, entry, source=pattern))
-    sim_candidates = _unavailable_simulator_candidates(max_scan_entries=max_scan_entries)
+    for backup in enumerate_ios_backups(home=remap_home(root=root, home=home)):
+        if max_scan_entries is not None and scanned_entries >= max(max_scan_entries, 0):
+            truncated = True
+            return candidates, truncated
+        scanned_entries += 1
+        candidates.append(_candidate_from_ios_backup(backup))
+    sim_candidates = _unavailable_simulator_candidates(
+        max_scan_entries=max_scan_entries,
+        allow_host_tools=root == Path("/"),
+    )
     if max_scan_entries is not None:
         remaining = max(max_scan_entries, 0) - scanned_entries
         if remaining < len(sim_candidates):
@@ -422,4 +628,3 @@ def render_xcode_ios_candidates(
         ],
         "candidates": shown_candidates,
     }
-
