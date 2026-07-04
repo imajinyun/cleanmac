@@ -105,6 +105,7 @@ from cleancli.review import (
 )
 from cleancli import scan
 from cleancli import duplicates
+from cleancli import logging_ops
 from cleancli.execution import ExecuteBudgetError
 from cleancli.execution import build_ai_confirmation_summary
 from cleancli.execution import build_ai_execution_ledger
@@ -4780,7 +4781,12 @@ def route_path_to_trash(path: Path, *, root: Path, home: Path) -> Path:
 
 
 def deletion_log_path_for_context(*, root: Path, home: Path) -> Path:
-    return log_path_for_context(DELETE_LOG_FILE, root=root, home=home)
+    return logging_ops.deletion_log_path_for_context(
+        root=root,
+        home=home,
+        delete_log_file=DELETE_LOG_FILE,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+    )
 
 
 def append_deletion_log(
@@ -4793,15 +4799,18 @@ def append_deletion_log(
     bytes_value: int | str | None,
     detail: str = "",
 ) -> str:
-    log_path = deletion_log_path_for_context(root=root, home=home)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    size_text = "unknown" if bytes_value is None else str(bytes_value)
-    line = "\t".join(
-        [datetime.now(timezone.utc).isoformat(), mode, size_text, status, str(path), detail.replace("\t", " ")]
+    return logging_ops.append_deletion_log(
+        root=root,
+        home=home,
+        delete_log_file=DELETE_LOG_FILE,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+        display_path=display_path,
+        mode=mode,
+        status=status,
+        path=path,
+        bytes_value=bytes_value,
+        detail=detail,
     )
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(line + "\n")
-    return display_path(log_path)
 
 
 def batch_append_deletion_log(
@@ -4810,89 +4819,65 @@ def batch_append_deletion_log(
     home: Path,
     entries: list[dict[str, Any]],
 ) -> str:
-    if not entries:
-        return display_path(deletion_log_path_for_context(root=root, home=home))
-    log_path = deletion_log_path_for_context(root=root, home=home)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    lines_out = []
-    for entry in entries:
-        size_text = "unknown" if entry.get("bytes_value") is None else str(entry["bytes_value"])
-        detail = str(entry.get("detail", "")).replace("\t", " ")
-        lines_out.append(
-            "\t".join([now, str(entry["mode"]), size_text, str(entry["status"]), str(entry["path"]), detail])
-        )
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write("\n".join(lines_out) + "\n")
-    return display_path(log_path)
+    return logging_ops.batch_append_deletion_log(
+        root=root,
+        home=home,
+        delete_log_file=DELETE_LOG_FILE,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+        display_path=display_path,
+        entries=entries,
+    )
 
 
 def log_path_for_context(path: str, *, root: Path, home: Path) -> Path:
-    if path.startswith("~/") or path == "~":
-        return Path(remap_path(path, root=root, home=home)).resolve(strict=False)
-    return Path(path).expanduser().resolve(strict=False)
+    return logging_ops.log_path_for_context(
+        path,
+        root=root,
+        home=home,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+    )
 
 
 def operation_log_path_for_context(path: str, *, root: Path, home: Path) -> Path:
-    if path.startswith("~/") or path == "~":
-        return Path(remap_path(path, root=root, home=home)).expanduser()
-    return Path(path).expanduser()
+    return logging_ops.operation_log_path_for_context(
+        path,
+        root=root,
+        home=home,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+    )
 
 
 def rotate_log_once(path: Path, *, max_bytes: int) -> bool:
-    if max_bytes <= 0 or not path.exists() or path.stat().st_size <= max_bytes:
-        return False
-    rotated = path.with_name(f"{path.name}.1")
-    delete_ops.remove_path_permanently(rotated)
-    path.rename(rotated)
-    return True
+    return logging_ops.rotate_log_once(path, max_bytes=max_bytes, remove_path=delete_ops.remove_path_permanently)
 
 
 def preflight_operation_log(path: str, *, root: Path, home: Path) -> dict[str, Any]:
-    log_path = operation_log_path_for_context(path, root=root, home=home)
-    try:
-        if log_path.parent.exists() and log_path.parent.is_symlink():
-            raise RuntimeError(f"Refusing to use symlinked operation log directory: {log_path.parent}")
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        if log_path.parent.is_symlink():
-            raise RuntimeError(f"Refusing to use symlinked operation log directory: {log_path.parent}")
-        if log_path.exists() and log_path.is_symlink():
-            raise RuntimeError(f"Refusing to use symlinked operation log file: {log_path}")
-        if log_path.exists() and log_path.is_dir():
-            raise RuntimeError(f"Refusing to use directory as operation log file: {log_path}")
-        rotated = rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
-        with log_path.open("a", encoding="utf-8"):
-            pass
-    except Exception as exc:
-        return {
-            "schema": "cleanmac.operation-log-status.v1",
-            "status": "failed",
-            "path": display_path(log_path),
-            "rotated": False,
-            "error": str(exc),
-        }
-    return {
-        "schema": "cleanmac.operation-log-status.v1",
-        "status": "ready",
-        "path": display_path(log_path),
-        "rotated": rotated,
-        "error": None,
-    }
+    return logging_ops.preflight_operation_log(
+        path,
+        root=root,
+        home=home,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+        display_path=display_path,
+        rotate_bytes=OPERATIONS_LOG_ROTATE_BYTES,
+        remove_path=delete_ops.remove_path_permanently,
+    )
 
 
 def append_operation_log(
     path: str, entries: Sequence[dict[str, Any]], *, root: Path, home: Path, rotate: bool = True
 ) -> str:
-    log_path = operation_log_path_for_context(path, root=root, home=home)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    if rotate:
-        rotate_log_once(log_path, max_bytes=OPERATIONS_LOG_ROTATE_BYTES)
-    with log_path.open("a", encoding="utf-8") as handle:
-        for entry in entries:
-            handle.write(
-                json.dumps(ensure_operation_log_explainability(entry), ensure_ascii=False, sort_keys=True) + "\n"
-            )
-    return display_path(log_path)
+    return logging_ops.append_operation_log(
+        path,
+        entries,
+        root=root,
+        home=home,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+        display_path=display_path,
+        rotate_bytes=OPERATIONS_LOG_ROTATE_BYTES,
+        remove_path=delete_ops.remove_path_permanently,
+        ensure_entry=ensure_operation_log_explainability,
+        rotate=rotate,
+    )
 
 
 def ensure_operation_log_explainability(entry: dict[str, Any]) -> dict[str, Any]:
