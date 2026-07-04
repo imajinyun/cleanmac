@@ -104,6 +104,7 @@ from cleancli.review import (
     validate_review_selection,
 )
 from cleancli import scan
+from cleancli import duplicates
 from cleancli.execution import ExecuteBudgetError
 from cleancli.execution import build_safety_gate as build_execution_safety_gate
 from cleancli.execution import enforce_execute_budgets
@@ -5088,92 +5089,16 @@ def find_duplicate_files(
     min_size_mb: int = 1,
     recursive: bool = True,
 ) -> dict[str, Any]:
-    import hashlib
-
-    min_bytes = max(min_size_mb, 0) * 1024 * 1024
-    size_groups: dict[int, list[Path]] = {}
-
-    for base_path in paths:
-        scan_path = Path(remap_path(str(base_path), root=root, home=home))
-        if not scan_path.exists():
-            continue
-        for current_root, _dirs, files in os.walk(scan_path, followlinks=False):
-            current = Path(current_root)
-            for name in files:
-                child = current / name
-                if child.is_symlink():
-                    continue
-                try:
-                    size = child.lstat().st_size
-                except OSError:
-                    continue
-                if size < min_bytes:
-                    continue
-                size_groups.setdefault(size, []).append(child)
-            if not recursive:
-                break
-
-    hash_groups: dict[str, list[dict[str, Any]]] = {}
-    total_duplicates = 0
-    wasted_bytes = 0
-
-    for size, file_list in size_groups.items():
-        if len(file_list) < 2:
-            continue
-        for file_path in file_list:
-            try:
-                h = hashlib.sha256()
-                with open(file_path, "rb") as f:
-                    while True:
-                        chunk = f.read(65536)
-                        if not chunk:
-                            break
-                        h.update(chunk)
-                digest = h.hexdigest()
-                if digest not in hash_groups:
-                    hash_groups[digest] = []
-                hash_groups[digest].append(
-                    {
-                        "path": display_path(file_path),
-                        "bytes": size,
-                        "human": human_size(size),
-                    }
-                )
-            except OSError:
-                continue
-
-    groups: list[dict[str, Any]] = []
-    for digest, dup_file_list in hash_groups.items():
-        dup_files: list[dict[str, Any]] = dup_file_list  # type: ignore[assignment]
-        if len(dup_files) < 2:
-            continue
-        group_size = dup_files[0]["bytes"]
-        wasted = group_size * (len(dup_files) - 1)
-        total_duplicates += len(dup_files) - 1
-        wasted_bytes += wasted
-        groups.append(
-            {
-                "hash": digest,
-                "file_count": len(dup_files),
-                "bytes_per_file": group_size,
-                "wasted_bytes": wasted,
-                "wasted_human": human_size(wasted),
-                "files": dup_files,
-            }
-        )
-
-    groups.sort(key=lambda g: (g["wasted_bytes"], g["hash"]), reverse=True)
-
-    return {
-        "schema": "cleanmac.duplicate-files.v1",
-        "destructive": False,
-        "min_size_mb": min_size_mb,
-        "total_groups": len(groups),
-        "total_duplicate_files": total_duplicates,
-        "wasted_bytes": wasted_bytes,
-        "wasted_human": human_size(wasted_bytes),
-        "groups": groups,
-    }
+    return duplicates.find_duplicate_files(
+        paths,
+        root=root,
+        home=home,
+        min_size_mb=min_size_mb,
+        recursive=recursive,
+        remap_path=lambda pattern: remap_path(pattern, root=root, home=home),
+        display_path=display_path,
+        human_size=human_size,
+    )
 
 
 def render_software(action: str, *, app: str | None, root: Path, home: Path) -> dict[str, Any]:
@@ -7329,15 +7254,7 @@ def clean(
             dup_category.default_min_size_mb,
         )
         dup_result = find_duplicate_files(dup_scan_paths, root=root, home=home, min_size_mb=effective_min)
-        for group in dup_result["groups"]:
-            keep_path = group["files"][0]["path"]
-            for file_info in group["files"][1:]:
-                dup_candidates[file_info["path"]] = {
-                    "duplicate_group_hash": group["hash"],
-                    "duplicate_group_size": group["bytes_per_file"],
-                    "duplicate_group_file_count": group["file_count"],
-                    "duplicate_keep_path": keep_path,
-                }
+        dup_candidates = duplicates.duplicate_candidates_from_result(dup_result)
     resolved_targets = resolve_targets(categories, root=root, home=home)
     _scan_total = len([t for t in resolved_targets if t.category != "duplicateFiles"])
     _scan_cb = make_scan_progress(_scan_total, enabled=progress_enabled)
@@ -7373,15 +7290,10 @@ def clean(
             _scan_tick()
     if dup_candidates:
         dup_category = CATEGORY_BY_KEY["duplicateFiles"]
-        for dup_path, dup_meta in dup_candidates.items():
-            entry = Path(dup_path)
-            try:
-                assert_safe_to_delete(entry, root=root, home=home)
-            except Exception:
-                continue
-            reason = filter_reason(
-                dup_category,
-                entry,
+        rows.extend(
+            duplicates.duplicate_candidate_rows(
+                dup_candidates=dup_candidates,
+                category=dup_category,
                 root=root,
                 include_patterns=include_patterns,
                 exclude_patterns=exclude_patterns,
@@ -7389,51 +7301,16 @@ def clean(
                 name_regex=name_regex,
                 bundle_allowlist=bundle_allowlist,
                 bundle_blocklist=bundle_blocklist,
+                review_selected_paths=review_selected_paths,
+                delete_mode=delete_mode,
+                display_path=display_path,
+                human_size=human_size,
+                path_interaction_metadata=path_interaction_metadata,
+                filter_reason=filter_reason,
+                assert_safe_to_delete=lambda entry: assert_safe_to_delete(entry, root=root, home=home),
+                bundle_id_for_path=bundle_id_for_path,
             )
-            if reason:
-                continue
-            display_entry = display_path(entry)
-            if review_selected_paths is not None and display_entry not in review_selected_paths:
-                continue
-            size = path_size_bytes(entry)
-            rows.append(
-                {
-                    "category": "duplicateFiles",
-                    "parent": display_path(entry.parent),
-                    "path": display_entry,
-                    **path_interaction_metadata(entry),
-                    "bytes": size,
-                    "human": human_size(size),
-                    "bundle_id": bundle_id_for_path(entry),
-                    "delete_mode": delete_mode,
-                    "trash_path": None,
-                    "deleted": False,
-                    "risk": dup_category.risk,
-                    "default_selected": True,
-                    "protected": False,
-                    "duplicate_group_hash": dup_meta["duplicate_group_hash"],
-                    "duplicate_group_size": dup_meta["duplicate_group_size"],
-                    "duplicate_group_file_count": dup_meta["duplicate_group_file_count"],
-                    "duplicate_keep_path": dup_meta["duplicate_keep_path"],
-                    "review_evidence": {
-                        "schema": "cleanmac.candidate-review-evidence.v1",
-                        "matched_rule": "clean.duplicateFiles.candidate",
-                        "match_reason": "duplicate-content-hash",
-                        "confidence": "high",
-                        "risk": dup_category.risk,
-                        "risk_reason": dup_category.description,
-                        "risk_explanation": f"SHA-256 hash matches {dup_meta['duplicate_group_file_count'] - 1} other file(s); one copy preserved at {dup_meta['duplicate_keep_path']}",
-                        "default_selected": True,
-                        "why_not_default": None,
-                        "protected": False,
-                        "delete_mode": delete_mode,
-                        "recovery": "Duplicate copies are safe to remove; one original copy is preserved per content group.",
-                        "contains_user_data": True,
-                        "shared_container": False,
-                        "recommended_next_action": "review-duplicate-group-before-deletion",
-                    },
-                }
-            )
+        )
     if _scan_bar:
         _scan_bar.close()
     candidate_bytes = sum(row_bytes(row) for row in rows)
