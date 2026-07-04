@@ -106,6 +106,8 @@ from cleancli.review import (
 from cleancli import scan
 from cleancli import duplicates
 from cleancli.execution import ExecuteBudgetError
+from cleancli.execution import build_ai_confirmation_summary
+from cleancli.execution import build_ai_execution_ledger
 from cleancli.execution import build_safety_gate as build_execution_safety_gate
 from cleancli.execution import enforce_execute_budgets
 from cleancli.execution import row_bytes as execution_row_bytes
@@ -6521,41 +6523,35 @@ def render_ai_confirmation_summary(
 ) -> dict[str, Any]:
     yes_required = categories_requiring_yes(categories, risk_policy)
     deleted_count = sum(1 for row in rows if row.get("deleted"))
-    effective_operation_log = operation_log_path or operation_log
-    return {
-        "schema": "cleanmac.ai-confirmation-summary.v1",
-        "requires_confirmation": not execute,
-        "recommended_confirmation_phrase": ai_schema.CONFIRMATION_PHRASE,
-        "confirmation_token": confirmation_token_value,
-        "confirmation_token_embedded": confirmation_token_value,
-        "confirmation_token_context": confirmation_token_context,
-        "confirmation_token_validated": confirmation_token_validated,
-        "recommended_next_action": "review_operation_log" if execute else "ask_user_confirmation",
-        "safe_to_auto_execute": False,
-        "delete_mode": delete_mode,
-        "operation_log": effective_operation_log,
-        "estimated_reclaimable_bytes": total_bytes,
-        "estimated_reclaimable_human": human_size(total_bytes),
-        "risk_level": highest_risk(categories),
-        "risk_policy": risk_policy,
-        "category_count": len(categories),
-        "selected_categories": [category.key for category in categories],
-        "item_count": len(rows),
-        "deleted_count": deleted_count,
-        "skipped_count": len(skipped),
-        "yes_required_categories": [category.key for category in yes_required],
-        "max_delete_mb": max_delete_mb,
-        "max_items": max_items,
-        "trash_recoverable": delete_mode == "trash",
-        "protected_bundle_policy_active": bool(pre_report["summary"].get("bundle_blocklist")),
-        "warnings": ai_confirmation_warnings(
+    return build_ai_confirmation_summary(
+        execute=execute,
+        confirmation_token_context=confirmation_token_context,
+        confirmation_token_value=confirmation_token_value,
+        confirmation_token_validated=confirmation_token_validated,
+        confirmation_phrase=ai_schema.CONFIRMATION_PHRASE,
+        delete_mode=delete_mode,
+        operation_log=operation_log,
+        operation_log_path=operation_log_path,
+        total_bytes=total_bytes,
+        item_count=len(rows),
+        deleted_count=deleted_count,
+        skipped_count=len(skipped),
+        risk_level=highest_risk(categories),
+        risk_policy=risk_policy,
+        category_keys=[category.key for category in categories],
+        yes_required_category_keys=[category.key for category in yes_required],
+        max_delete_mb=max_delete_mb,
+        max_items=max_items,
+        protected_bundle_policy_active=bool(pre_report["summary"].get("bundle_blocklist")),
+        warnings=ai_confirmation_warnings(
             categories,
             yes_required=yes_required,
             delete_mode=delete_mode,
             max_delete_mb=max_delete_mb,
             max_items=max_items,
         ),
-    }
+        human_size=human_size,
+    )
 
 
 def render_ai_execution_ledger(
@@ -6574,49 +6570,21 @@ def render_ai_execution_ledger(
     require_plan_context: bool,
     ai_originated_plan: bool,
 ) -> dict[str, Any]:
-    effective_operation_log = operation_log_path or operation_log
-    operation_log_ready = operation_log_status.get("status") in {"ready", "not-needed"}
-    plan_file = confirmation_token_context.get("plan_file")
-    plan_sha256 = confirmation_token_context.get("plan_sha256")
-    safe_chain_complete = bool(
-        execute
-        and delete_mode == "trash"
-        and effective_operation_log
-        and operation_log_status.get("status") == "ready"
-        and confirmation_token_required
-        and confirmation_token_validated
-        and (not plan_file or require_plan_context)
+    return build_ai_execution_ledger(
+        execute=execute,
+        confirmation_token_context=confirmation_token_context,
+        confirmation_token_value=confirmation_token_value,
+        confirmation_token_required=confirmation_token_required,
+        confirmation_token_validated=confirmation_token_validated,
+        operation_log=operation_log,
+        operation_log_path=operation_log_path,
+        operation_log_status=operation_log_status,
+        operation_session_id=operation_session_id,
+        operation_log_entry_count=operation_log_entry_count,
+        delete_mode=delete_mode,
+        require_plan_context=require_plan_context,
+        ai_originated_plan=ai_originated_plan,
     )
-    return {
-        "schema": "cleanmac.ai-execution-ledger.v1",
-        "phase": "clean-execute" if execute else "clean-dry-run",
-        "safe_chain_complete": safe_chain_complete,
-        "plan": {
-            "file": plan_file,
-            "sha256": plan_sha256,
-            "ai_originated": ai_originated_plan,
-            "context_required": require_plan_context,
-        },
-        "confirmation": {
-            "token_required": confirmation_token_required,
-            "token_validated": confirmation_token_validated,
-            "token": confirmation_token_value,
-        },
-        "operation_log": {
-            "path": effective_operation_log,
-            "status": operation_log_status.get("status"),
-            "ready": operation_log_ready,
-            "error": operation_log_status.get("error"),
-            "rotated": operation_log_status.get("rotated", False),
-            "entry_count": operation_log_entry_count,
-            "session_id": operation_session_id,
-        },
-        "execution": {
-            "delete_mode": delete_mode,
-            "destructive": execute,
-            "trash_recoverable": delete_mode == "trash",
-        },
-    }
 
 
 def operation_log_explainability_fields(
