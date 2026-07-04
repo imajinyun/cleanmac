@@ -46,7 +46,7 @@ if ((${#CATEGORIES_ARG[@]})); then
   BUDGET_ARGS+=("${CATEGORIES_ARG[@]}")
 fi
 BUDGET_ARGS+=(--max-items 10000 --allow-live-root)
-BUDGET_MB="$("$PYTHON_BIN" -c '
+BUDGET_OUTPUT="$("$PYTHON_BIN" -c '
 import json
 import math
 import subprocess
@@ -69,20 +69,44 @@ try:
     data = json.loads(completed.stdout)
     pre_report = data.get("pre_clean_report") if isinstance(data, dict) else None
     safety_gate = data.get("safety_gate") if isinstance(data, dict) else None
+    ai_confirmation = data.get("ai_confirmation_summary") if isinstance(data, dict) else None
     total = pre_report.get("candidate_total_bytes") if isinstance(pre_report, dict) else None
+    if not numeric(total):
+        summary = pre_report.get("summary") if isinstance(pre_report, dict) else None
+        total = summary.get("estimated_reclaimable_bytes") if isinstance(summary, dict) else None
     if not numeric(total):
         total = safety_gate.get("candidate_bytes") if isinstance(safety_gate, dict) else None
     if not numeric(total):
+        total = data.get("total_bytes") if isinstance(data, dict) else None
+    if not numeric(total):
+        total = (
+            ai_confirmation.get("estimated_reclaimable_bytes")
+            if isinstance(ai_confirmation, dict)
+            else None
+        )
+    if not numeric(total):
         raise KeyError("dry-run JSON did not include candidate bytes")
-    budget_mb = max(4, int(math.ceil(float(total) / 1024 / 1024 * 1.2)))
+    estimated_mb = int(math.ceil(float(total) / 1024 / 1024))
+    budget_mb = max(4, int(math.ceil(estimated_mb * 1.2)))
     print(budget_mb)
+    print(estimated_mb)
 except Exception as exc:
     print(
         f"Warning: dynamic budget calculation failed ({exc}); using fallback budget {fallback_mb} MB.",
         file=sys.stderr,
     )
     print(fallback_mb)
+    print(0)
 ' "${BUDGET_ARGS[@]}")"
+BUDGET_MB="$(printf "%s\n" "$BUDGET_OUTPUT" | sed -n '1p')"
+ESTIMATE_MB="$(printf "%s\n" "$BUDGET_OUTPUT" | sed -n '2p')"
+if [[ ! "$BUDGET_MB" =~ ^[0-9]+$ ]]; then
+  echo "Warning: invalid dynamic budget '$BUDGET_MB'; using fallback budget 4096 MB." >&2
+  BUDGET_MB=4096
+fi
+if [[ ! "$ESTIMATE_MB" =~ ^[0-9]+$ ]]; then
+  ESTIMATE_MB=0
+fi
 
 # Step 2: show human-readable dry-run
 echo "--- Dry-run preview ---"
@@ -95,6 +119,9 @@ echo "--- Dry-run preview ---"
 echo ""
 
 echo "Safety budget: ${BUDGET_MB} MB (20% margin over estimate)"
+if [[ "$ESTIMATE_MB" -gt 0 ]]; then
+  echo "Estimated candidates: ${ESTIMATE_MB} MB"
+fi
 echo ""
 
 # Step 3: ask for confirmation
@@ -103,6 +130,7 @@ case "$answer" in
   [yY]|[yY][eE][sS])
     echo ""
     echo "--- Executing (Trash mode) ---"
+    EXEC_OUTPUT="$(mktemp "${TMPDIR:-/tmp}/cleanmac-quick-clean.XXXXXX")"
     set +e
     "$PYTHON_BIN" cleanmac.py clean \
       ${PROFILE_ARG[@]+"${PROFILE_ARG[@]}"} \
@@ -111,9 +139,10 @@ case "$answer" in
       --execute --yes \
       --allow-live-root \
       --max-delete-mb "$BUDGET_MB" \
-      --delete-mode trash
+      --delete-mode trash >"$EXEC_OUTPUT" 2>&1
     EXIT_CODE=$?
     set -e
+    cat "$EXEC_OUTPUT"
 
     if [[ $EXIT_CODE -eq 0 ]]; then
       echo ""
@@ -121,12 +150,22 @@ case "$answer" in
     else
       echo ""
       echo "Cleanup exited with code $EXIT_CODE."
+      if grep -q -- "--max-delete-mb budget" "$EXEC_OUTPUT"; then
+        echo "Budget guidance:"
+        if [[ "$ESTIMATE_MB" -gt 0 ]]; then
+          echo "  - Estimated candidates : ${ESTIMATE_MB} MB"
+        fi
+        echo "  - Current budget       : ${BUDGET_MB} MB"
+        echo "  - Re-run dry-run and raise --max-delete-mb only after reviewing the candidate list."
+      fi
       echo "Common issues:"
       echo "  - Operation log write error: check ~/.cleanmac/ permissions"
       echo "  - Permission denied on paths: may need Full Disk Access"
       echo "  - Symlink Trash: Trash mode fails closed (safe)"
+      rm -f "$EXEC_OUTPUT"
       exit $EXIT_CODE
     fi
+    rm -f "$EXEC_OUTPUT"
     ;;
   *)
     echo ""
