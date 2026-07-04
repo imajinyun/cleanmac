@@ -115,7 +115,12 @@ from cleancli.execution import build_operation_log_explainability_fields
 from cleancli.execution import build_review_selection_audit
 from cleancli.execution import build_safety_gate as build_execution_safety_gate
 from cleancli.execution import enforce_execute_budgets
+from cleancli.execution import (
+    render_operation_log_explainability_contract as execution_render_operation_log_explainability_contract,
+)
 from cleancli.execution import row_bytes as execution_row_bytes
+from cleancli.execution import sample_operation_log_entry as execution_sample_operation_log_entry
+from cleancli.execution import validate_operation_log_explainability as execution_validate_operation_log_explainability
 from cleancli.software_uninstall import execute_software_uninstall
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import disable_startup_items, render_startup
@@ -6610,150 +6615,24 @@ def operation_log_explainability_fields(
 
 
 def sample_operation_log_entry() -> dict[str, Any]:
-    sample_row = {
-        "category": "downloads",
-        "path": "~/Downloads/example-cache.bin",
-        "bytes": 1024,
-        "human": "1.00 KB",
-        "bundle_id": None,
-        "trash_path": "~/.Trash/example-cache.bin",
-        "deleted": True,
-        "status": "deleted",
-        "reason": None,
-        "error": None,
-    }
-    return operation_log_entry(
-        session_id="cleanmac-sample-session",
-        command_text="cleanmac --json clean run --categories downloads --execute --yes --delete-mode trash --operation-log {operation_log}",
-        action="delete",
-        row=sample_row,
-        delete_mode="trash",
-        root=Path("/"),
-        home=Path("~"),
-        ai_operation_audit={
-            "schema": "cleanmac.operation-log-ai-audit.v1",
-            "originated_plan": True,
-            "plan_file": "{plan_file}",
-            "plan_sha256": "sample-plan-sha256",
-            "require_plan_context": True,
-            "confirmation_token_required": True,
-            "confirmation_token_validated": True,
-            "review_selection": None,
-        },
-    )
+    return execution_sample_operation_log_entry()
 
 
 def validate_operation_log_explainability(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     report = payload or render_operation_log_explainability_contract()
-    violations: list[dict[str, Any]] = []
-    if report.get("schema") != OPERATION_LOG_EXPLAINABILITY_SCHEMA:
-        violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
-    if report.get("destructive") is not False or report.get("dry_run") is not True:
-        violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
-    required_fields = {str(field) for field in report.get("required_entry_fields", []) if isinstance(field, str)}
-    if not OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS.issubset(required_fields):
-        violations.append({"code": "REQUIRED_ENTRY_FIELDS_MISSING", "path": "$.required_entry_fields"})
-    sample = report.get("sample_entry", {}) if isinstance(report.get("sample_entry"), dict) else {}
-    missing_sample_fields = sorted(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS - set(sample))
-    if missing_sample_fields:
-        violations.append(
-            {
-                "code": "SAMPLE_ENTRY_MISSING_FIELDS",
-                "path": "$.sample_entry",
-                "missing": missing_sample_fields,
-            }
-        )
-    for field in ("parameters", "result", "impact_scope"):
-        if not isinstance(sample.get(field), dict):
-            violations.append({"code": "SAMPLE_STRUCTURED_FIELD_INVALID", "path": f"$.sample_entry.{field}"})
-    if report.get("format") != "jsonl" or report.get("append_only") is not True:
-        violations.append({"code": "JSONL_APPEND_ONLY_REQUIRED", "path": "$"})
-    return {
-        "schema": "cleanmac.operation-log-explainability-validation.v1",
-        "valid": not violations,
-        "violation_count": len(violations),
-        "violations": violations,
-    }
+    return execution_validate_operation_log_explainability(
+        report,
+        schema_name=OPERATION_LOG_EXPLAINABILITY_SCHEMA,
+        required_entry_fields=set(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS),
+    )
 
 
 def render_operation_log_explainability_contract() -> dict[str, Any]:
-    checks = [
-        {
-            "id": "operation-log-jsonl-append-only",
-            "passed": True,
-            "evidence": "append_operation_log writes one JSON object per line",
-        },
-        {
-            "id": "operation-log-entry-has-timestamp-tool-parameters-result-impact",
-            "passed": True,
-            "evidence": "cleanmac.operation-log-entry.v1",
-        },
-        {
-            "id": "operation-log-ai-audit-embedded",
-            "passed": True,
-            "evidence": "cleanmac.operation-log-ai-audit.v1",
-        },
-        {
-            "id": "operation-log-preflight-fail-closed",
-            "passed": True,
-            "evidence": "cleanmac.operation-log-status.v1",
-        },
-    ]
-    for check in checks:
-        check["remediation_commands"] = [
-            ["cleanmac", "--json", "operation-log-explainability"],
-            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
-        ]
-    sample_entry = sample_operation_log_entry()
-    payload: dict[str, Any] = {
-        "schema": OPERATION_LOG_EXPLAINABILITY_SCHEMA,
-        "destructive": False,
-        "dry_run": True,
-        "ready": True,
-        "resource_uri": OPERATION_LOG_EXPLAINABILITY_URI,
-        "purpose": "Machine-readable contract that makes operation logs replayable and explainable by AI Hosts.",
-        "format": "jsonl",
-        "append_only": True,
-        "sensitive_data_policy": "local-operation-log-may-contain-user-paths-mcp-resources-redacted",
-        "required_entry_schema": "cleanmac.operation-log-entry.v1",
-        "required_entry_fields": sorted(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS),
-        "required_nested_fields": {
-            "parameters": ["command", "category", "path", "delete_mode"],
-            "result": ["action", "status", "deleted", "reason", "error", "trash_path"],
-            "impact_scope": ["category", "path", "bytes", "human", "bundle_id", "trash_path"],
-            "ai": [
-                "schema",
-                "originated_plan",
-                "plan_file",
-                "plan_sha256",
-                "require_plan_context",
-                "confirmation_token_required",
-                "confirmation_token_validated",
-                "review_selection",
-            ],
-        },
-        "sample_entry": sample_entry,
-        "checks": checks,
-        "failed_check_ids": [str(check["id"]) for check in checks if not check["passed"]],
-        "readiness_score": {
-            "passed": sum(1 for check in checks if check["passed"]),
-            "total": len(checks),
-            "level": "ready",
-        },
-        "release_gate_commands": [
-            ["cleanmac", "--json", "operation-log-explainability"],
-            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
-            ["make", "ai-host-smoke"],
-        ],
-    }
-    validation = validate_operation_log_explainability(payload)
-    payload["validation"] = validation
-    payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
-    readiness_score = payload["readiness_score"]
-    if isinstance(readiness_score, dict):
-        readiness_score["level"] = "ready" if payload["ready"] else "blocked"
-    return payload
-
+    return execution_render_operation_log_explainability_contract(
+        schema_name=OPERATION_LOG_EXPLAINABILITY_SCHEMA,
+        resource_uri=OPERATION_LOG_EXPLAINABILITY_URI,
+        required_entry_fields=set(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS),
+    )
 
 def _pyproject_list_value(text: str, key: str) -> list[str]:
     return runtime_contracts.pyproject_list_value(text, key)
