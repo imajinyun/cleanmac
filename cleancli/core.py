@@ -108,6 +108,8 @@ from cleancli import duplicates
 from cleancli.execution import ExecuteBudgetError
 from cleancli.execution import build_ai_confirmation_summary
 from cleancli.execution import build_ai_execution_ledger
+from cleancli.execution import build_operation_log_entry
+from cleancli.execution import build_operation_log_explainability_fields
 from cleancli.execution import build_safety_gate as build_execution_safety_gate
 from cleancli.execution import enforce_execute_budgets
 from cleancli.execution import row_bytes as execution_row_bytes
@@ -6603,34 +6605,21 @@ def operation_log_explainability_fields(
     reason: Any,
     error: Any,
 ) -> dict[str, Any]:
-    """Return AI-replayable fields required on every operation-log JSONL row."""
-
-    normalized_status = str(status or action)
-    return {
-        "tool": "cleanmac.clean.run",
-        "parameters": {
-            "command": command_text,
-            "category": category,
-            "path": path,
-            "delete_mode": delete_mode,
-        },
-        "result": {
-            "action": action,
-            "status": normalized_status,
-            "deleted": deleted,
-            "reason": reason,
-            "error": error,
-            "trash_path": trash_path,
-        },
-        "impact_scope": {
-            "category": category,
-            "path": path,
-            "bytes": bytes_value,
-            "human": human,
-            "bundle_id": bundle_id,
-            "trash_path": trash_path,
-        },
-    }
+    return build_operation_log_explainability_fields(
+        command_text=command_text,
+        action=action,
+        category=category,
+        path=path,
+        bytes_value=bytes_value,
+        human=human,
+        bundle_id=bundle_id,
+        delete_mode=delete_mode,
+        trash_path=trash_path,
+        deleted=deleted,
+        status=status,
+        reason=reason,
+        error=error,
+    )
 
 
 def sample_operation_log_entry() -> dict[str, Any]:
@@ -7075,48 +7064,17 @@ def operation_log_entry(
     home: Path,
     ai_operation_audit: dict[str, Any],
 ) -> dict[str, Any]:
-    explainability = operation_log_explainability_fields(
+    return build_operation_log_entry(
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        session_id=session_id,
         command_text=command_text,
         action=action,
-        category=str(row["category"]),
-        path=row["path"],
-        bytes_value=row["bytes"],
-        human=row["human"],
-        bundle_id=row.get("bundle_id"),
+        row=row,
         delete_mode=delete_mode,
-        trash_path=row.get("trash_path"),
-        deleted=bool(row.get("deleted")),
-        status=row.get("status", action),
-        reason=row.get("reason"),
-        error=row.get("error"),
+        root_text=display_path(root),
+        home_text=display_path(home),
+        ai_operation_audit=ai_operation_audit,
     )
-    return {
-        "schema": "cleanmac.operation-log-entry.v1",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "session_id": session_id,
-        "command": command_text,
-        **explainability,
-        "action": action,
-        "category": row["category"],
-        "path": row["path"],
-        "bytes": row["bytes"],
-        "human": row["human"],
-        "bundle_id": row.get("bundle_id"),
-        "delete_mode": delete_mode,
-        "trash_path": row.get("trash_path"),
-        "deleted": bool(row.get("deleted")),
-        "status": row.get("status", action),
-        "reason": row.get("reason"),
-        "error": row.get("error"),
-        "root": display_path(root),
-        "home": display_path(home),
-        "ai": {
-            **dict(ai_operation_audit),
-            "candidate_review_evidence": row.get("review_evidence")
-            if isinstance(row.get("review_evidence"), dict)
-            else None,
-        },
-    }
 
 
 def review_selection_audit(review_selection: dict[str, Any] | None) -> dict[str, Any] | None:

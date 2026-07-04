@@ -206,10 +206,114 @@ def build_ai_execution_ledger(
     }
 
 
+def build_operation_log_explainability_fields(
+    *,
+    command_text: str,
+    action: str,
+    category: str,
+    path: Any,
+    bytes_value: Any,
+    human: Any,
+    bundle_id: Any,
+    delete_mode: str,
+    trash_path: Any,
+    deleted: bool,
+    status: Any,
+    reason: Any,
+    error: Any,
+) -> dict[str, Any]:
+    """Return AI-replayable fields required on every operation-log JSONL row."""
+
+    normalized_status = str(status or action)
+    return {
+        "tool": "cleanmac.clean.run",
+        "parameters": {
+            "command": command_text,
+            "category": category,
+            "path": path,
+            "delete_mode": delete_mode,
+        },
+        "result": {
+            "action": action,
+            "status": normalized_status,
+            "deleted": deleted,
+            "reason": reason,
+            "error": error,
+            "trash_path": trash_path,
+        },
+        "impact_scope": {
+            "category": category,
+            "path": path,
+            "bytes": bytes_value,
+            "human": human,
+            "bundle_id": bundle_id,
+            "trash_path": trash_path,
+        },
+    }
+
+
+def build_operation_log_entry(
+    *,
+    timestamp: str,
+    session_id: str,
+    command_text: str,
+    action: str,
+    row: Mapping[str, Any],
+    delete_mode: str,
+    root_text: str,
+    home_text: str,
+    ai_operation_audit: Mapping[str, Any],
+) -> dict[str, Any]:
+    explainability = build_operation_log_explainability_fields(
+        command_text=command_text,
+        action=action,
+        category=str(row["category"]),
+        path=row["path"],
+        bytes_value=row["bytes"],
+        human=row["human"],
+        bundle_id=row.get("bundle_id"),
+        delete_mode=delete_mode,
+        trash_path=row.get("trash_path"),
+        deleted=bool(row.get("deleted")),
+        status=row.get("status", action),
+        reason=row.get("reason"),
+        error=row.get("error"),
+    )
+    return {
+        "schema": "cleanmac.operation-log-entry.v1",
+        "timestamp": timestamp,
+        "session_id": session_id,
+        "command": command_text,
+        **explainability,
+        "action": action,
+        "category": row["category"],
+        "path": row["path"],
+        "bytes": row["bytes"],
+        "human": row["human"],
+        "bundle_id": row.get("bundle_id"),
+        "delete_mode": delete_mode,
+        "trash_path": row.get("trash_path"),
+        "deleted": bool(row.get("deleted")),
+        "status": row.get("status", action),
+        "reason": row.get("reason"),
+        "error": row.get("error"),
+        "root": root_text,
+        "home": home_text,
+        "ai": {
+            **dict(ai_operation_audit),
+            "candidate_review_evidence": row.get("review_evidence")
+            if isinstance(row.get("review_evidence"), dict)
+            else None,
+        },
+    }
+
+
 __all__ = [
     "ExecuteBudgetError",
     "build_ai_confirmation_summary",
     "build_ai_execution_ledger",
+    "build_operation_log_entry",
+    "build_operation_log_explainability_fields",
     "build_safety_gate",
     "enforce_execute_budgets",
     "row_bytes",
