@@ -11,7 +11,9 @@ from cleancli.execution import (
     build_review_selection_audit,
     build_safety_gate,
     enforce_execute_budgets,
+    render_operation_log_explainability_contract,
     row_bytes,
+    validate_operation_log_explainability,
 )
 
 
@@ -208,6 +210,45 @@ def test_build_review_selection_audit_normalizes_selection() -> None:
 
 def test_build_review_selection_audit_ignores_missing_selection() -> None:
     assert build_review_selection_audit(None) is None
+
+
+def test_render_operation_log_explainability_contract_is_ready() -> None:
+    required = {"timestamp", "tool", "parameters", "result", "impact_scope"}
+    contract = render_operation_log_explainability_contract(
+        schema_name="cleanmac.operation-log-explainability.v1",
+        resource_uri="cleanmac://ai/operation-log-explainability",
+        required_entry_fields=required,
+    )
+
+    assert contract["schema"] == "cleanmac.operation-log-explainability.v1"
+    assert contract["destructive"] is False
+    assert contract["dry_run"] is True
+    assert contract["ready"] is True
+    assert required.issubset(set(contract["required_entry_fields"]))
+    assert contract["sample_entry"]["schema"] == "cleanmac.operation-log-entry.v1"
+    assert contract["validation"]["valid"] is True
+
+
+def test_validate_operation_log_explainability_reports_missing_fields() -> None:
+    result = validate_operation_log_explainability(
+        {
+            "schema": "cleanmac.operation-log-explainability.v1",
+            "destructive": False,
+            "dry_run": True,
+            "format": "jsonl",
+            "append_only": True,
+            "required_entry_fields": ["timestamp"],
+            "sample_entry": {},
+        },
+        schema_name="cleanmac.operation-log-explainability.v1",
+        required_entry_fields={"timestamp", "tool"},
+    )
+
+    assert result["valid"] is False
+    assert {violation["code"] for violation in result["violations"]} >= {
+        "REQUIRED_ENTRY_FIELDS_MISSING",
+        "SAMPLE_ENTRY_MISSING_FIELDS",
+    }
 
 
 def test_enforce_execute_budgets_is_noop_for_dry_run() -> None:

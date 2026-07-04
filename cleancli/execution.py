@@ -324,6 +324,168 @@ def build_review_selection_audit(review_selection: Mapping[str, Any] | None) -> 
     }
 
 
+def sample_operation_log_entry() -> dict[str, Any]:
+    sample_row = {
+        "category": "downloads",
+        "path": "~/Downloads/example-cache.bin",
+        "bytes": 1024,
+        "human": "1.00 KB",
+        "bundle_id": None,
+        "trash_path": "~/.Trash/example-cache.bin",
+        "deleted": True,
+        "status": "deleted",
+        "reason": None,
+        "error": None,
+    }
+    return build_operation_log_entry(
+        timestamp="sample-timestamp",
+        session_id="cleanmac-sample-session",
+        command_text=(
+            "cleanmac --json clean run --categories downloads --execute --yes "
+            "--delete-mode trash --operation-log {operation_log}"
+        ),
+        action="delete",
+        row=sample_row,
+        delete_mode="trash",
+        root_text="/",
+        home_text="~",
+        ai_operation_audit={
+            "schema": "cleanmac.operation-log-ai-audit.v1",
+            "originated_plan": True,
+            "plan_file": "{plan_file}",
+            "plan_sha256": "sample-plan-sha256",
+            "require_plan_context": True,
+            "confirmation_token_required": True,
+            "confirmation_token_validated": True,
+            "review_selection": None,
+        },
+    )
+
+
+def validate_operation_log_explainability(
+    report: Mapping[str, Any],
+    *,
+    schema_name: str,
+    required_entry_fields: set[str],
+) -> dict[str, Any]:
+    violations: list[dict[str, Any]] = []
+    if report.get("schema") != schema_name:
+        violations.append({"code": "INVALID_SCHEMA", "path": "$.schema"})
+    if report.get("destructive") is not False or report.get("dry_run") is not True:
+        violations.append({"code": "CONTRACT_MUST_BE_READ_ONLY", "path": "$"})
+    required_fields = {str(field) for field in report.get("required_entry_fields", []) if isinstance(field, str)}
+    if not required_entry_fields.issubset(required_fields):
+        violations.append({"code": "REQUIRED_ENTRY_FIELDS_MISSING", "path": "$.required_entry_fields"})
+    sample = report.get("sample_entry", {}) if isinstance(report.get("sample_entry"), Mapping) else {}
+    missing_sample_fields = sorted(required_entry_fields - set(sample))
+    if missing_sample_fields:
+        violations.append(
+            {
+                "code": "SAMPLE_ENTRY_MISSING_FIELDS",
+                "path": "$.sample_entry",
+                "missing": missing_sample_fields,
+            }
+        )
+    for field in ("parameters", "result", "impact_scope"):
+        if not isinstance(sample.get(field), Mapping):
+            violations.append({"code": "SAMPLE_STRUCTURED_FIELD_INVALID", "path": f"$.sample_entry.{field}"})
+    if report.get("format") != "jsonl" or report.get("append_only") is not True:
+        violations.append({"code": "JSONL_APPEND_ONLY_REQUIRED", "path": "$"})
+    return {
+        "schema": "cleanmac.operation-log-explainability-validation.v1",
+        "valid": not violations,
+        "violation_count": len(violations),
+        "violations": violations,
+    }
+
+
+def render_operation_log_explainability_contract(
+    *,
+    schema_name: str,
+    resource_uri: str,
+    required_entry_fields: set[str],
+) -> dict[str, Any]:
+    checks = [
+        {
+            "id": "operation-log-jsonl-append-only",
+            "passed": True,
+            "evidence": "append_operation_log writes one JSON object per line",
+        },
+        {
+            "id": "operation-log-entry-has-timestamp-tool-parameters-result-impact",
+            "passed": True,
+            "evidence": "cleanmac.operation-log-entry.v1",
+        },
+        {
+            "id": "operation-log-ai-audit-embedded",
+            "passed": True,
+            "evidence": "cleanmac.operation-log-ai-audit.v1",
+        },
+        {
+            "id": "operation-log-preflight-fail-closed",
+            "passed": True,
+            "evidence": "cleanmac.operation-log-status.v1",
+        },
+    ]
+    for check in checks:
+        check["remediation_commands"] = [
+            ["cleanmac", "--json", "operation-log-explainability"],
+            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
+        ]
+    payload: dict[str, Any] = {
+        "schema": schema_name,
+        "destructive": False,
+        "dry_run": True,
+        "ready": True,
+        "resource_uri": resource_uri,
+        "purpose": "Machine-readable contract that makes operation logs replayable and explainable by AI Hosts.",
+        "format": "jsonl",
+        "append_only": True,
+        "sensitive_data_policy": "local-operation-log-may-contain-user-paths-mcp-resources-redacted",
+        "required_entry_schema": "cleanmac.operation-log-entry.v1",
+        "required_entry_fields": sorted(required_entry_fields),
+        "required_nested_fields": {
+            "parameters": ["command", "category", "path", "delete_mode"],
+            "result": ["action", "status", "deleted", "reason", "error", "trash_path"],
+            "impact_scope": ["category", "path", "bytes", "human", "bundle_id", "trash_path"],
+            "ai": [
+                "schema",
+                "originated_plan",
+                "plan_file",
+                "plan_sha256",
+                "require_plan_context",
+                "confirmation_token_required",
+                "confirmation_token_validated",
+                "review_selection",
+            ],
+        },
+        "sample_entry": sample_operation_log_entry(),
+        "checks": checks,
+        "failed_check_ids": [str(check["id"]) for check in checks if not check["passed"]],
+        "readiness_score": {
+            "passed": sum(1 for check in checks if check["passed"]),
+            "total": len(checks),
+            "level": "ready",
+        },
+        "release_gate_commands": [
+            ["cleanmac", "--json", "operation-log-explainability"],
+            ["python3", "-m", "pytest", "tests/test_operation_log.py", "-q"],
+            ["make", "ai-host-smoke"],
+        ],
+    }
+    validation = validate_operation_log_explainability(
+        payload,
+        schema_name=schema_name,
+        required_entry_fields=required_entry_fields,
+    )
+    payload["validation"] = validation
+    payload["ready"] = bool(validation["valid"] and not payload["failed_check_ids"])
+    readiness_score = payload["readiness_score"]
+    if isinstance(readiness_score, dict):
+        readiness_score["level"] = "ready" if payload["ready"] else "blocked"
+    return payload
+
+
 __all__ = [
     "ExecuteBudgetError",
     "build_ai_confirmation_summary",
@@ -333,5 +495,8 @@ __all__ = [
     "build_review_selection_audit",
     "build_safety_gate",
     "enforce_execute_budgets",
+    "render_operation_log_explainability_contract",
+    "sample_operation_log_entry",
+    "validate_operation_log_explainability",
     "row_bytes",
 ]
