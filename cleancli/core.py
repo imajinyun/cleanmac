@@ -110,6 +110,7 @@ from cleancli.execution import build_ai_confirmation_summary
 from cleancli.execution import build_ai_execution_ledger
 from cleancli.execution import build_operation_log_entry
 from cleancli.execution import build_operation_log_explainability_fields
+from cleancli.execution import build_review_selection_audit
 from cleancli.execution import build_safety_gate as build_execution_safety_gate
 from cleancli.execution import enforce_execute_budgets
 from cleancli.execution import row_bytes as execution_row_bytes
@@ -7078,20 +7079,7 @@ def operation_log_entry(
 
 
 def review_selection_audit(review_selection: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not isinstance(review_selection, dict):
-        return None
-    return {
-        "schema": "cleanmac.operation-log-review-selection.v1",
-        "selection_file": review_selection.get("selection_file"),
-        "source_plan_file": review_selection.get("source_plan_file"),
-        "source_fingerprint": review_selection.get("source_fingerprint"),
-        "selected_count": review_selection.get("selected_count"),
-        "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
-        "selected_review_evidence": list(review_selection.get("selected_review_evidence", [])),
-        "validation_valid": review_selection.get("validation", {}).get("valid")
-        if isinstance(review_selection.get("validation"), dict)
-        else None,
-    }
+    return build_review_selection_audit(review_selection)
 
 
 def clean(

@@ -8,6 +8,7 @@ from cleancli.execution import (
     build_ai_execution_ledger,
     build_operation_log_entry,
     build_operation_log_explainability_fields,
+    build_review_selection_audit,
     build_safety_gate,
     enforce_execute_budgets,
     row_bytes,
@@ -177,6 +178,36 @@ def test_build_operation_log_entry_preserves_candidate_evidence() -> None:
     assert entry["home"] == "/Users/tester"
     assert entry["ai"]["candidate_review_evidence"] == evidence
     assert entry["result"]["action"] == "delete"
+
+
+def test_build_review_selection_audit_normalizes_selection() -> None:
+    evidence = {"schema": "cleanmac.candidate-review-evidence.v1"}
+    audit = build_review_selection_audit(
+        {
+            "selection_file": "/tmp/selection.json",
+            "source_plan_file": "/tmp/plan.json",
+            "source_fingerprint": {"sha256": "abc"},
+            "selected_count": 1,
+            "selected_item_ids": ("item-1",),
+            "selected_review_evidence": (evidence,),
+            "validation": {"valid": True},
+        }
+    )
+
+    assert audit == {
+        "schema": "cleanmac.operation-log-review-selection.v1",
+        "selection_file": "/tmp/selection.json",
+        "source_plan_file": "/tmp/plan.json",
+        "source_fingerprint": {"sha256": "abc"},
+        "selected_count": 1,
+        "selected_item_ids": ["item-1"],
+        "selected_review_evidence": [evidence],
+        "validation_valid": True,
+    }
+
+
+def test_build_review_selection_audit_ignores_missing_selection() -> None:
+    assert build_review_selection_audit(None) is None
 
 
 def test_enforce_execute_budgets_is_noop_for_dry_run() -> None:

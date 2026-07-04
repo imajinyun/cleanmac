@@ -308,12 +308,29 @@ def build_operation_log_entry(
     }
 
 
+def build_review_selection_audit(review_selection: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(review_selection, Mapping):
+        return None
+    validation = review_selection.get("validation")
+    return {
+        "schema": "cleanmac.operation-log-review-selection.v1",
+        "selection_file": review_selection.get("selection_file"),
+        "source_plan_file": review_selection.get("source_plan_file"),
+        "source_fingerprint": review_selection.get("source_fingerprint"),
+        "selected_count": review_selection.get("selected_count"),
+        "selected_item_ids": list(review_selection.get("selected_item_ids", [])),
+        "selected_review_evidence": list(review_selection.get("selected_review_evidence", [])),
+        "validation_valid": validation.get("valid") if isinstance(validation, Mapping) else None,
+    }
+
+
 __all__ = [
     "ExecuteBudgetError",
     "build_ai_confirmation_summary",
     "build_ai_execution_ledger",
     "build_operation_log_entry",
     "build_operation_log_explainability_fields",
+    "build_review_selection_audit",
     "build_safety_gate",
     "enforce_execute_budgets",
     "row_bytes",
