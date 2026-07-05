@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -148,6 +148,68 @@ def render_plan_freshness_report(
     }
 
 
+def build_clean_plan_payload(
+    *,
+    generated_at: datetime,
+    plan_max_age_seconds: int,
+    ai_origin: bool,
+    ai_summary: dict[str, Any],
+    ai_confirmation_summary: dict[str, Any],
+    category_keys: list[str],
+    selected_categories: list[dict[str, Any]],
+    risk_policy: str,
+    max_delete_mb: float | None,
+    include_patterns: list[str],
+    exclude_patterns: list[str],
+    older_than_days: float | None,
+    min_size_mb: int,
+    name_regex: str | None,
+    max_items: int | None,
+    root: str,
+    home: str,
+    pre_clean_report: dict[str, Any],
+    candidate_fingerprints: list[dict[str, Any]],
+    by_category: dict[str, dict[str, Any]],
+    by_file_type: dict[str, dict[str, Any]],
+    by_parent_directory: dict[str, dict[str, Any]],
+    replay_command: str | None,
+) -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.plan.v1",
+        "destructive": False,
+        "dry_run": True,
+        "generated_at": generated_at.isoformat(),
+        "expires_at": (generated_at + timedelta(seconds=plan_max_age_seconds)).isoformat(),
+        "plan_max_age_seconds": plan_max_age_seconds,
+        "ai_origin": ai_origin,
+        "ai_summary": ai_summary,
+        "ai_confirmation_summary": ai_confirmation_summary,
+        "categories": category_keys,
+        "selected_category_keys": category_keys,
+        "selected_categories": selected_categories,
+        "risk_policy": risk_policy,
+        "max_delete_mb": max_delete_mb,
+        "include_patterns": include_patterns,
+        "exclude_patterns": exclude_patterns,
+        "older_than_days": older_than_days,
+        "min_size_mb": min_size_mb,
+        "name_regex": name_regex,
+        "max_items": max_items,
+        "root": root,
+        "home": home,
+        "estimated_reclaimable_bytes": pre_clean_report["summary"]["estimated_reclaimable_bytes"],
+        "estimated_reclaimable_human": pre_clean_report["summary"]["estimated_reclaimable_human"],
+        "requires_yes_for_execute": pre_clean_report["summary"]["requires_yes_for_execute"],
+        "yes_required_categories": pre_clean_report["summary"]["yes_required_categories"],
+        "pre_clean_report": pre_clean_report,
+        "candidate_fingerprints": candidate_fingerprints,
+        "by_category": by_category,
+        "by_file_type": by_file_type,
+        "by_parent_directory": by_parent_directory,
+        "replay_command": replay_command,
+    }
+
+
 __all__ = [
     "normalize_plan_category_keys",
     "normalize_risk_policy",
@@ -155,4 +217,5 @@ __all__ = [
     "ensure_supported_plan_schema",
     "plan_schema_warnings",
     "render_plan_freshness_report",
+    "build_clean_plan_payload",
 ]
