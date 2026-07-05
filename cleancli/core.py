@@ -57,6 +57,7 @@ from cleancli.ai_versioning import (
     render_ai_schema_registry,
     validate_contract_payload,
 )
+from cleancli.auto_clean import DEFAULT_AUTO_CATEGORIES, render_auto_clean
 from cleancli.governance import (
     render_ai_first_release_checklist,
     render_boundary_governance,
@@ -2147,6 +2148,14 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
+    auto_cmd = subparsers.add_parser("auto", help="Run one-shot inspect-plan-validate-dry-run cleanup orchestration.")
+    auto_cmd.add_argument("--categories", help="Comma-separated category keys. Defaults to safe temp/dev caches.")
+    auto_cmd.add_argument("--execute", action="store_true", help="Execute cleanup after the dry-run orchestration.")
+    auto_cmd.add_argument("--older-than-days", type=float)
+    auto_cmd.add_argument("--max-delete-mb", type=float)
+    auto_cmd.add_argument("--max-items", type=int)
+    auto_cmd.add_argument("--allow-live-root", action="store_true")
+
     scripts = subparsers.add_parser("scripts", help="Print cleanup command templates for selected categories.")
     add_category_flags(scripts, default_scope="all")
     scripts.add_argument(
@@ -2892,6 +2901,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "software-discovery-governance",
         "xcode-ios-governance",
         "xcode-ios-candidates",
+        "auto",
         "mcp-surface-audit",
         "mcp-destructive-tool-governance",
         "operation-log-explainability",
@@ -7394,6 +7404,49 @@ def build_global_cli_command(
 
 def validate_clean_plan(plan_file: str, *, root: Path | None = None, home: Path | None = None) -> dict[str, Any]:
     plan = load_clean_plan(plan_file)
+    return _validate_clean_plan_metadata(plan, root=root, home=home)
+
+
+def _validate_clean_plan_payload(payload: dict[str, Any], *, root: Path | None = None, home: Path | None = None) -> dict[str, Any]:
+    schema_negotiation = negotiate_plan_schema(payload, allow_legacy_missing=True)
+    category_keys = normalize_plan_category_keys(payload.get("selected_category_keys"))
+    if not category_keys:
+        category_keys = normalize_plan_category_keys(payload.get("categories"))
+    if not category_keys:
+        category_keys = normalize_plan_category_keys(payload.get("selected_categories"))
+    plan = {
+        "path": "<memory>",
+        "source_schema": str(payload.get("schema")) if isinstance(payload.get("schema"), str) else "",
+        "schema_negotiation": schema_negotiation,
+        "category_keys": category_keys,
+        "risk_policy": normalize_risk_policy(payload.get("risk_policy")),
+        "max_delete_mb": payload.get("max_delete_mb") if isinstance(payload.get("max_delete_mb"), (int, float)) else None,
+        "exclude_patterns": normalize_plan_category_keys(payload.get("exclude_patterns")),
+        "include_patterns": normalize_plan_category_keys(payload.get("include_patterns")),
+        "older_than_days": payload.get("older_than_days")
+        if isinstance(payload.get("older_than_days"), (int, float))
+        else None,
+        "min_size_mb": payload.get("min_size_mb") if isinstance(payload.get("min_size_mb"), int) else None,
+        "name_regex": str(payload.get("name_regex")) if isinstance(payload.get("name_regex"), str) else None,
+        "max_items": payload.get("max_items") if isinstance(payload.get("max_items"), int) else None,
+        "root": str(payload.get("root")) if isinstance(payload.get("root"), str) else None,
+        "home": str(payload.get("home")) if isinstance(payload.get("home"), str) else None,
+        "ai_origin": payload.get("ai_origin") is True,
+        "generated_at": str(payload.get("generated_at")) if isinstance(payload.get("generated_at"), str) else None,
+        "expires_at": str(payload.get("expires_at")) if isinstance(payload.get("expires_at"), str) else None,
+        "plan_max_age_seconds": payload.get("plan_max_age_seconds")
+        if isinstance(payload.get("plan_max_age_seconds"), int)
+        else None,
+        "candidate_fingerprints": payload.get("candidate_fingerprints")
+        if isinstance(payload.get("candidate_fingerprints"), list)
+        else [],
+    }
+    return _validate_clean_plan_metadata(plan, root=root, home=home)
+
+
+def _validate_clean_plan_metadata(
+    plan: dict[str, Any], *, root: Path | None = None, home: Path | None = None
+) -> dict[str, Any]:
     schema_negotiation = plan["schema_negotiation"]
     unknown = [key for key in plan["category_keys"] if str(key) not in CATEGORY_BY_KEY]
     context_warnings = []
@@ -9858,6 +9911,37 @@ def _main_impl(argv: Sequence[str]) -> int:
         emit_report(
             render_status_snapshot(root=root), args=args, command="status", root=root, home=home, argv=actual_argv
         )
+        return 0
+
+    if args.command == "auto":
+        requested = parse_csv(args.categories) if args.categories else DEFAULT_AUTO_CATEGORIES
+        unknown = [key for key in requested if key not in CATEGORY_BY_KEY]
+        if unknown:
+            valid = ", ".join(category.key for category in CATEGORIES)
+            raise SystemExit(f"Unknown category: {', '.join(unknown)}. Valid categories: {valid}")
+        categories = [CATEGORY_BY_KEY[key] for key in requested]
+        if args.execute and root == Path("/") and not args.allow_live_root:
+            raise SystemExit(
+                "Refusing to execute auto cleanup against live root '/'. Use --root with a sandbox, or pass --allow-live-root after reviewing dry-run output."
+            )
+        report = render_auto_clean(
+            categories=categories,
+            root=root,
+            home=home,
+            execute=args.execute,
+            older_than_days=args.older_than_days,
+            max_delete_mb=args.max_delete_mb,
+            max_items=args.max_items,
+            inspect_items=inspect_items,
+            render_clean_plan=render_clean_plan,
+            validate_clean_plan_payload=lambda payload, root_path, home_path: _validate_clean_plan_payload(
+                payload,
+                root=root_path,
+                home=home_path,
+            ),
+            clean=clean,
+        )
+        emit_report(report, args=args, command="auto", root=root, home=home, argv=actual_argv)
         return 0
 
     categories = select_categories(args)
