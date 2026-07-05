@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 
@@ -59,6 +62,64 @@ def build_safety_gate(
         "bundle_allowlist": list(bundle_allowlist),
         "bundle_blocklist": list(bundle_blocklist),
     }
+
+
+def build_confirmation_token_context(
+    *,
+    category_keys: Sequence[str],
+    root: Path,
+    home: Path,
+    risk_policy: str,
+    max_delete_mb: float | None,
+    max_items: int | None,
+    include_patterns: Sequence[str],
+    exclude_patterns: Sequence[str],
+    older_than_days: float | None,
+    min_size_mb: int,
+    name_regex: str | None,
+    bundle_allowlist: Sequence[str],
+    bundle_blocklist: Sequence[str],
+    delete_mode: str,
+    plan_file: str | None,
+    rows: Sequence[Mapping[str, Any]],
+    display_path: Callable[[Path | str], str],
+    file_sha256: Callable[[str | None], str | None],
+) -> dict[str, Any]:
+    return {
+        "schema": "cleanmac.ai-confirmation-token-context.v1",
+        "root": display_path(root),
+        "home": display_path(home),
+        "selected_categories": list(category_keys),
+        "risk_policy": risk_policy,
+        "max_delete_mb": max_delete_mb,
+        "max_items": max_items,
+        "include_patterns": list(include_patterns),
+        "exclude_patterns": list(exclude_patterns),
+        "older_than_days": older_than_days,
+        "min_size_mb": min_size_mb,
+        "name_regex": name_regex,
+        "bundle_allowlist": list(bundle_allowlist),
+        "bundle_blocklist": list(bundle_blocklist),
+        "delete_mode": delete_mode,
+        "plan_file": plan_file,
+        "plan_sha256": file_sha256(plan_file),
+        "candidate_count": len(rows),
+        "candidate_bytes": sum(row_bytes(row) for row in rows),
+        "candidates": [
+            {
+                "category": row.get("category"),
+                "path": row.get("path"),
+                "bytes": row.get("bytes"),
+                "bundle_id": row.get("bundle_id"),
+            }
+            for row in rows
+        ],
+    }
+
+
+def confirmation_token(context: Mapping[str, Any]) -> str:
+    payload = json.dumps(context, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return f"cleanmac-confirm-{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:32]}"
 
 
 def enforce_execute_budgets(
@@ -490,10 +551,12 @@ __all__ = [
     "ExecuteBudgetError",
     "build_ai_confirmation_summary",
     "build_ai_execution_ledger",
+    "build_confirmation_token_context",
     "build_operation_log_entry",
     "build_operation_log_explainability_fields",
     "build_review_selection_audit",
     "build_safety_gate",
+    "confirmation_token",
     "enforce_execute_budgets",
     "render_operation_log_explainability_contract",
     "sample_operation_log_entry",

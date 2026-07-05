@@ -113,10 +113,12 @@ from cleancli import logging_ops
 from cleancli.execution import ExecuteBudgetError
 from cleancli.execution import build_ai_confirmation_summary
 from cleancli.execution import build_ai_execution_ledger
+from cleancli.execution import build_confirmation_token_context
 from cleancli.execution import build_operation_log_entry
 from cleancli.execution import build_operation_log_explainability_fields
 from cleancli.execution import build_review_selection_audit
 from cleancli.execution import build_safety_gate as build_execution_safety_gate
+from cleancli.execution import confirmation_token as execution_confirmation_token
 from cleancli.execution import enforce_execute_budgets
 from cleancli.execution import (
     render_operation_log_explainability_contract as execution_render_operation_log_explainability_contract,
@@ -6322,41 +6324,30 @@ def ai_confirmation_token_context(
     plan_file: str | None,
     rows: Sequence[dict[str, Any]],
 ) -> dict[str, Any]:
-    return {
-        "schema": "cleanmac.ai-confirmation-token-context.v1",
-        "root": display_path(root),
-        "home": display_path(home),
-        "selected_categories": [category.key for category in categories],
-        "risk_policy": risk_policy,
-        "max_delete_mb": max_delete_mb,
-        "max_items": max_items,
-        "include_patterns": list(include_patterns),
-        "exclude_patterns": list(exclude_patterns),
-        "older_than_days": older_than_days,
-        "min_size_mb": min_size_mb,
-        "name_regex": name_regex,
-        "bundle_allowlist": list(bundle_allowlist),
-        "bundle_blocklist": list(bundle_blocklist),
-        "delete_mode": delete_mode,
-        "plan_file": plan_file,
-        "plan_sha256": file_sha256(plan_file),
-        "candidate_count": len(rows),
-        "candidate_bytes": sum(row_bytes(row) for row in rows),
-        "candidates": [
-            {
-                "category": row.get("category"),
-                "path": row.get("path"),
-                "bytes": row.get("bytes"),
-                "bundle_id": row.get("bundle_id"),
-            }
-            for row in rows
-        ],
-    }
+    return build_confirmation_token_context(
+        category_keys=[category.key for category in categories],
+        root=root,
+        home=home,
+        risk_policy=risk_policy,
+        max_delete_mb=max_delete_mb,
+        max_items=max_items,
+        include_patterns=include_patterns,
+        exclude_patterns=exclude_patterns,
+        older_than_days=older_than_days,
+        min_size_mb=min_size_mb,
+        name_regex=name_regex,
+        bundle_allowlist=bundle_allowlist,
+        bundle_blocklist=bundle_blocklist,
+        delete_mode=delete_mode,
+        plan_file=plan_file,
+        rows=rows,
+        display_path=display_path,
+        file_sha256=file_sha256,
+    )
 
 
 def ai_confirmation_token(context: dict[str, Any]) -> str:
-    payload = json.dumps(context, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return f"cleanmac-confirm-{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:32]}"
+    return execution_confirmation_token(context)
 
 
 def ai_confirmation_warnings(

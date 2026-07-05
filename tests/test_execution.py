@@ -6,10 +6,12 @@ from cleancli.execution import (
     ExecuteBudgetError,
     build_ai_confirmation_summary,
     build_ai_execution_ledger,
+    build_confirmation_token_context,
     build_operation_log_entry,
     build_operation_log_explainability_fields,
     build_review_selection_audit,
     build_safety_gate,
+    confirmation_token,
     enforce_execute_budgets,
     render_operation_log_explainability_contract,
     row_bytes,
@@ -52,6 +54,43 @@ def test_build_safety_gate_reports_budget_and_context() -> None:
     assert gate["review_selection_applied"] is True
     assert gate["bundle_allowlist"] == ["com.example.safe"]
     assert gate["bundle_blocklist"] == ["com.example.blocked"]
+
+
+def test_build_confirmation_token_context_and_token_are_stable(tmp_path) -> None:
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text("plan", encoding="utf-8")
+    rows = [{"category": "trash", "path": "/tmp/a", "bytes": 10, "bundle_id": None}]
+
+    context = build_confirmation_token_context(
+        category_keys=("trash",),
+        root=tmp_path,
+        home=tmp_path / "home",
+        risk_policy="default",
+        max_delete_mb=5,
+        max_items=10,
+        include_patterns=("*.tmp",),
+        exclude_patterns=("*.keep",),
+        older_than_days=7,
+        min_size_mb=1,
+        name_regex="tmp$",
+        bundle_allowlist=("com.example.safe",),
+        bundle_blocklist=("com.example.blocked",),
+        delete_mode="trash",
+        plan_file=str(plan_file),
+        rows=rows,
+        display_path=str,
+        file_sha256=lambda path: "sha256" if path else None,
+    )
+    token = confirmation_token(context)
+
+    assert context["schema"] == "cleanmac.ai-confirmation-token-context.v1"
+    assert context["selected_categories"] == ["trash"]
+    assert context["candidate_count"] == 1
+    assert context["candidate_bytes"] == 10
+    assert context["plan_sha256"] == "sha256"
+    assert token.startswith("cleanmac-confirm-")
+    assert confirmation_token(context) == token
+    assert confirmation_token({**context, "delete_mode": "permanent"}) != token
 
 
 def test_build_ai_confirmation_summary_reports_confirmation_context() -> None:
