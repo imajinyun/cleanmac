@@ -102,6 +102,7 @@ from cleancli.review import (
     normalize_review_items,
     render_review,
     render_review_html,
+    review_selection_constraints as review_selection_constraints_impl,
     validate_review_selection,
 )
 from cleancli import runtime_contracts
@@ -3115,41 +3116,14 @@ def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None
 
 
 def review_selection_constraints(plan_file: str | None, selection_file: str | None) -> dict[str, Any] | None:
-    if not selection_file:
-        return None
-    if not plan_file:
-        raise SystemExit("--review-selection-file requires --plan-file.")
-    source_payload = load_json_file(plan_file)
-    selection_payload = load_json_file(selection_file)
-    validation = validate_review_selection(source_payload, selection_payload)
-    if not validation["valid"]:
-        reasons = ", ".join(str(reason) for reason in validation["blocked_reasons"])
-        raise SystemExit(f"Review selection is invalid for this plan: {reasons}")
-    selected_ids = {str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None}
-    normalized_items = normalize_review_items(source_payload)
-    selected_paths = [
-        str(item["path"]) for item in normalized_items if str(item.get("id")) in selected_ids and item.get("path")
-    ]
-    selected_evidence = [
-        {
-            "id": str(item.get("id")),
-            "path": item.get("path"),
-            "review_evidence": dict(item["review_evidence"]),
-        }
-        for item in normalized_items
-        if str(item.get("id")) in selected_ids and isinstance(item.get("review_evidence"), dict)
-    ]
-    return {
-        "schema": "cleanmac.review-selection-constraint.v1",
-        "selection_file": display_path(Path(selection_file).expanduser().resolve(strict=False)),
-        "source_plan_file": display_path(Path(plan_file).expanduser().resolve(strict=False)),
-        "source_fingerprint": validation["source_fingerprint"],
-        "selected_item_ids": [str(item) for item in selection_payload.get("selected_item_ids", []) if item is not None],
-        "selected_paths": selected_paths,
-        "selected_review_evidence": selected_evidence,
-        "selected_count": len(selected_paths),
-        "validation": validation,
-    }
+    try:
+        return review_selection_constraints_impl(
+            plan_file=plan_file,
+            selection_file=selection_file,
+            display_path=display_path,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def render_plan_freshness_report(plan: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:

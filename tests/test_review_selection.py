@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from cleancli.ai_versioning import validate_contract_payload
+from cleancli.review import review_selection_constraints
 from tests.helpers import CLI, PROJECT_ROOT, make_sandbox, run_cli
 
 
@@ -115,6 +118,39 @@ def test_clean_plan_dry_run_can_be_constrained_by_review_selection() -> None:
         assert report["items"][0]["review_evidence"]["schema"] == "cleanmac.candidate-review-evidence.v1"
         assert report["skipped_summary"]["by_reason"]["not-in-review-selection"] == expected_skipped
         assert (root / "Users/tester/Downloads/download.bin").exists()
+
+
+def test_review_selection_constraints_normalizes_selected_paths() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        plan_file, selection_file, _review_report = write_review_selection(root, home, "trash,downloads")
+
+        constraints = review_selection_constraints(
+            plan_file=str(plan_file),
+            selection_file=str(selection_file),
+            display_path=str,
+        )
+
+        assert constraints is not None
+        assert constraints["schema"] == "cleanmac.review-selection-constraint.v1"
+        assert constraints["selection_file"] == str(selection_file.resolve(strict=False))
+        assert constraints["source_plan_file"] == str(plan_file.resolve(strict=False))
+        assert constraints["selected_count"] == 1
+        assert len(constraints["selected_paths"]) == 1
+        assert len(constraints["selected_review_evidence"]) == 1
+        assert constraints["validation"]["valid"] is True
+
+
+def test_review_selection_constraints_requires_plan_file(tmp_path: Path) -> None:
+    selection_file = tmp_path / "selection.json"
+    selection_file.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="requires --plan-file"):
+        review_selection_constraints(
+            plan_file=None,
+            selection_file=str(selection_file),
+            display_path=str,
+        )
 
 
 def test_clean_review_selection_file_must_match_plan_fingerprint() -> None:
