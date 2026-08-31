@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -90,6 +91,53 @@ def test_safe_remove_honors_dry_run_and_then_deletes() -> None:
 
         delete_ops.safe_remove(target, policy=policy, dry_run=False)
         assert not target.exists()
+
+
+def test_safe_trash_move_rejects_tree_when_current_user_cannot_traverse_it() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        policy = policy_for(root, home)
+        source = root / "private/var/folders/test/C/com.apple.siriactionsd"
+        source.mkdir(parents=True)
+        trash_root = root / "Users/tester/.Trash"
+
+        with (
+            patch.object(delete_ops.os, "scandir", side_effect=PermissionError(1, "Operation not permitted")),
+            patch.object(delete_ops.shutil, "move") as move,
+        ):
+            with pytest.raises(PermissionError, match="cannot be safely emptied"):
+                delete_ops.safe_trash_move(source, policy=policy, trash_root=trash_root)
+
+        assert source.exists()
+        move.assert_not_called()
+
+
+def test_safe_trash_move_rejects_tree_without_directory_mutation_access() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        policy = policy_for(root, home)
+        source = root / "Users/tester/Downloads/protected-cache"
+        source.mkdir()
+        (source / "cache.bin").write_text("cache", encoding="utf-8")
+        trash_root = root / "Users/tester/.Trash"
+
+        with (
+            patch.object(delete_ops.os, "access", return_value=False),
+            patch.object(delete_ops.shutil, "move") as move,
+        ):
+            with pytest.raises(PermissionError, match="cannot be safely emptied"):
+                delete_ops.safe_trash_move(source, policy=policy, trash_root=trash_root)
+
+        assert source.exists()
+        move.assert_not_called()
+
+
+def test_non_removable_file_flags_are_rejected() -> None:
+    immutable_flag = 0x00000002
+
+    with patch.object(delete_ops, "NON_REMOVABLE_FILE_FLAGS", immutable_flag):
+        assert delete_ops.has_non_removable_file_flags(SimpleNamespace(st_flags=immutable_flag))
+        assert not delete_ops.has_non_removable_file_flags(SimpleNamespace(st_flags=0))
 
 
 def test_safe_sudo_remove_blocks_no_auth_and_symlinks() -> None:
