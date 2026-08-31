@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -19,6 +20,25 @@ from typing import Any
 
 BLOCKED_TEST_COMMANDS = {"sudo", "osascript", "launchctl"}
 SUDO_REMOVE_COMMAND = ("sudo", "-n", "rm", "-rf")
+
+
+def combined_non_removable_file_flags() -> int:
+    flags = 0
+    for name in (
+        "UF_IMMUTABLE",
+        "UF_APPEND",
+        "UF_NOUNLINK",
+        "UF_DATAVAULT",
+        "SF_IMMUTABLE",
+        "SF_APPEND",
+        "SF_NOUNLINK",
+        "SF_RESTRICTED",
+    ):
+        flags |= getattr(stat, name, 0)
+    return flags
+
+
+NON_REMOVABLE_FILE_FLAGS = combined_non_removable_file_flags()
 
 
 @dataclass(frozen=True)
@@ -32,6 +52,10 @@ class DeletePolicy:
 
 
 OperationLogHook = Callable[[str, Path, str], Any]
+
+
+class TrashRemovabilityError(PermissionError):
+    pass
 
 
 def require_trash_first_delete_mode(
@@ -182,6 +206,56 @@ def unique_trash_path(path: Path, *, trash_root: Path) -> Path:
     return candidate
 
 
+def has_non_removable_file_flags(stat_result: object) -> bool:
+    return bool(getattr(stat_result, "st_flags", 0) & NON_REMOVABLE_FILE_FLAGS)
+
+
+def trash_removability_error(path: Path, detail: str) -> TrashRemovabilityError:
+    return TrashRemovabilityError(
+        f"Refusing to move path to Trash because it cannot be safely emptied: {path}: {detail}"
+    )
+
+
+def assert_tree_can_be_safely_emptied(path: Path) -> None:
+    pending = [path]
+    while pending:
+        directory = pending.pop()
+        try:
+            directory_stat = directory.stat(follow_symlinks=False)
+            if has_non_removable_file_flags(directory_stat):
+                raise trash_removability_error(directory, "non-removable file flags are set")
+            with os.scandir(directory) as entries:
+                mutation_access_checked = False
+                for entry in entries:
+                    if not mutation_access_checked:
+                        if not os.access(directory, os.W_OK | os.X_OK):
+                            raise trash_removability_error(directory, "directory mutation access denied")
+                        mutation_access_checked = True
+                    entry_stat = entry.stat(follow_symlinks=False)
+                    entry_path = Path(entry.path)
+                    if has_non_removable_file_flags(entry_stat):
+                        raise trash_removability_error(entry_path, "non-removable file flags are set")
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(entry_path)
+        except TrashRemovabilityError:
+            raise
+        except PermissionError as exc:
+            raise trash_removability_error(directory, str(exc)) from exc
+        except OSError as exc:
+            raise trash_removability_error(directory, str(exc)) from exc
+
+
+def assert_path_can_be_safely_emptied_from_trash(path: Path) -> None:
+    try:
+        path_stat = path.stat(follow_symlinks=False)
+    except OSError as exc:
+        raise trash_removability_error(path, str(exc)) from exc
+    if has_non_removable_file_flags(path_stat):
+        raise trash_removability_error(path, "non-removable file flags are set")
+    if path.is_dir():
+        assert_tree_can_be_safely_emptied(path)
+
+
 def safe_remove(
     path: str | os.PathLike[str],
     *,
@@ -234,6 +308,7 @@ def safe_trash_move(
         if operation_log is not None:
             operation_log("dry-run", path, f"trash:{trash_path}")
         return trash_path
+    assert_path_can_be_safely_emptied_from_trash(path)
     shutil.move(str(path), str(trash_path))
     if operation_log is not None:
         operation_log("deleted", path, f"trash:{trash_path}")
