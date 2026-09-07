@@ -276,7 +276,7 @@ def test_workflow_runs_fixed_non_destructive_phases() -> None:
         ]
         assert report["steps"][4]["destructive"] is False
         assert report["steps"][5]["destructive"] is True
-        assert [category["key"] for category in report["dry_run_categories"]] == ["trash", "mails", "xcode"]
+        assert [category["key"] for category in report["dry_run_categories"]] == ["trash"]
         assert automation["schema"] == "cleanmac.workflow-automation.v1"
         assert automation["safe_to_auto_execute"] is True
         assert automation["destructive_cleanup_allowed"] is False
@@ -320,7 +320,8 @@ def test_workflow_runs_fixed_non_destructive_phases() -> None:
         single_shot = {row["id"]: row for row in report["single_shot_workflows"]}
         assert single_shot["quick-safe-clean"]["safe_to_auto_call"] is True
         assert single_shot["quick-safe-clean"]["destructive"] is False
-        assert "trash,downloads,mails,xcode" in single_shot["quick-safe-clean"]["argv"]
+        assert "trash" in single_shot["quick-safe-clean"]["argv"]
+        assert single_shot["quick-safe-clean"]["categories"] == ["trash"]
         assert single_shot["developer-clean"]["exits_after_workflow"] is True
         assert "nodePackageCaches" in single_shot["developer-clean"]["categories"]
         assert single_shot["large-files-review"]["destructive"] is False

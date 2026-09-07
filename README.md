@@ -15,7 +15,7 @@ cleanmac is an **AI-first cleanup execution kernel**, not a GUI/TUI cleaner that
 
 ```bash
 # 🧹 One-command convenience wrapper (dry-run preview → confirm → Trash)
-./scripts/quick_clean.sh developer
+./scripts/quick_clean.sh safe
 
 # 🧪 Safe preview
 python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 10
@@ -23,6 +23,8 @@ python3 cleanmac.py --json clean inspect --categories trash,mails,xcode --limit 
 # 🧩 Productized safe profile for regular users
 python3 cleanmac.py --json profiles
 python3 cleanmac.py --json clean plan --profile safe --ai-origin
+
+# The safe profile targets Trash only. User home-directory folders require explicit category selection.
 
 # 🗑️ Reviewed software uninstall closed loop
 python3 cleanmac.py --json software inspect --app "Example"
@@ -108,6 +110,8 @@ python3 cleanmac.py --json clean run --plan-file /tmp/cleanmac-plan.json --revie
 ```
 
 If you later choose to execute, cleanmac keeps Trash routing, review-selection constraints, and operation-log recording instead of jumping straight to destructive deletion.
+
+The built-in `safe` profile and `quick_clean.sh safe` target Trash only. It never selects folders under the user home directory, including `Downloads`, `Desktop`, `Documents`, `Pictures`, `Movies`, and `Music`; any home-directory cleanup category requires an explicit category choice and review.
 
 ---
 

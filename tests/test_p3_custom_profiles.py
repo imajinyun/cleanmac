@@ -69,6 +69,13 @@ def test_safe_profile_is_strict() -> None:
     assert PROFILES["safe"]["risk_policy"] == "strict"
 
 
+def test_safe_profile_excludes_user_home_directories() -> None:
+    forbidden = {"downloads", "oldFiles", "installerPackages", "largeFiles", "duplicateFiles"}
+    assert PROFILES["safe"]["categories"] == ["trash"]
+    assert not forbidden.intersection(PROFILES["safe"]["categories"])
+    assert all(category == "trash" for category in PROFILES["safe"]["categories"])
+
+
 def test_browser_profile_includes_chrome_and_firefox() -> None:
     categories = PROFILES["browser"]["categories"]
     assert "chrome" in categories

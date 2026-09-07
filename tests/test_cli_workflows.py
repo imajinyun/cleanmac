@@ -508,12 +508,12 @@ def test_diagnose_recommends_safe_categories_and_flags_logs() -> None:
         report = json.loads(result.stdout)
         issue_codes = {issue["code"] for issue in report["issues"]}
 
-        assert report["recommended_clean_categories"] == ["trash", "mails", "xcode"]
+        assert report["recommended_clean_categories"] == ["trash"]
         assert "userLogs" in report["advanced_options"]["selected_advanced_keys"]
         assert report["advanced_options"]["requires_extra_review"] is True
         assert "large-logs-may-indicate-problem" in issue_codes
         assert "downloads" in report["caution_clean_categories"]
-        assert "trash,mails,xcode" in report["suggested_safe_command"]
+        assert "--categories trash" in report["suggested_safe_command"]
 
 
 def test_workflow_selected_dry_run_scope_includes_high_risk_without_execute() -> None:
@@ -729,7 +729,7 @@ def test_open_reports_special_finder_targets() -> None:
 @pytest.mark.parametrize(
     ("profile", "expected_categories", "expected_risk_policy", "expected_max_delete_mb"),
     [
-        ("safe", {"trash", "downloads", "userCache", "userLogs"}, "strict", 1024.0),
+        ("safe", {"trash"}, "strict", 1024.0),
         (
             "developer",
             {"xcode", "nodePackageCaches", "pythonPackageCaches", "goBuildCaches"},
@@ -778,7 +778,7 @@ def test_profiles_and_links_expose_safe_metadata_contracts() -> None:
         assert by_name["safe"]["max_delete_mb"] == 1024
         assert by_name["developer"]["max_delete_mb"] == 4096
         assert by_name["browser"]["max_delete_mb"] == 2048
-        assert by_name["safe"]["categories"] == ["trash", "downloads", "userCache", "userLogs"]
+        assert by_name["safe"]["categories"] == ["trash"]
         assert by_name["developer"]["categories"] == [
             "xcode",
             "nodePackageCaches",

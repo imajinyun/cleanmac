@@ -59,7 +59,7 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 
 ```bash
 # Convenience wrapper: dry-run preview → confirm → Trash execution
-./scripts/quick_clean.sh developer
+./scripts/quick_clean.sh safe
 
 python3 cleanmac.py --json capabilities
 python3 cleanmac.py --json xcode-ios-governance

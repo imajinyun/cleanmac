@@ -52,7 +52,7 @@ class QuickCleanScriptTests(unittest.TestCase):
                 "PYTHON": str(fake_python),
             }
             result = subprocess.run(
-                ["bash", "scripts/quick_clean.sh", "developer"],
+                ["bash", "scripts/quick_clean.sh", "safe"],
                 input="y\n",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -73,7 +73,7 @@ class QuickCleanScriptTests(unittest.TestCase):
             self.assertEqual(budget_call[0], "-c")
             self.assertEqual(budget_call[2:5], ["cleanmac.py", "--json", "clean"])
             self.assertIn("--profile", budget_call)
-            self.assertIn("developer", budget_call)
+            self.assertIn("safe", budget_call)
             self.assertNotIn("p", budget_call)
             self.assertNotIn("r", budget_call)
 

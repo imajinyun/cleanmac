@@ -6,8 +6,8 @@ from typing import Any
 
 PROFILES: dict[str, dict[str, Any]] = {
     "safe": {
-        "description": "Conservative everyday cleanup for ordinary user-facing caches, logs, downloads, and Trash.",
-        "categories": ["trash", "downloads", "userCache", "userLogs"],
+        "description": "Conservative cleanup for Trash only; all user home-directory folders require explicit selection.",
+        "categories": ["trash"],
         "risk_policy": "strict",
         "delete_mode": "trash",
         "max_delete_mb": 1024,

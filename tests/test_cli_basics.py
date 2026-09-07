@@ -83,8 +83,12 @@ def test_list_json_includes_category_metadata() -> None:
     assert len(report["categories"]) == len(cleancli.CATEGORIES)
     assert "Deletes all files" in by_key["trash"]["description"]
     assert by_key["trash"]["default"] is True
-    assert by_key["incompleteDownloads"]["default"] is True
+    assert by_key["incompleteDownloads"]["default"] is False
+    assert by_key["incompleteDownloads"]["recommended"] is False
     assert by_key["downloads"]["default"] is False
+    default_categories = [row for row in report["categories"] if row["default"] or row["recommended"]]
+    assert [row["key"] for row in default_categories] == ["trash"]
+    assert all("~/" not in path for row in default_categories for path in row["paths"] if row["key"] != "trash")
     assert by_key["mails"]["default_older_than_days"] == 30
     assert "Archives" in ",".join(by_key["xcode"]["paths"])
     assert by_key["deviceFirmware"]["default_older_than_days"] == 30

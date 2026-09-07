@@ -32,6 +32,8 @@
 
 `cleanmac` 有意保持 **AI-first，而不是 App-first**：它只在用户、脚本或 AI Host 显式调用时运行，完成请求的 workflow 后退出；不提供常驻 GUI/TUI、菜单栏进程、登录项、后台 daemon、主动扫描循环、提醒系统或空闲 CPU/内存占用。持久状态通过 JSON plan、review-selection 文件、显式报告和 operation log 表达。
 
+内置 `safe` profile 和 `quick_clean.sh safe` 只处理废纸篓，不会选择用户主目录下的文件夹，包括 `Downloads`、`Desktop`、`Documents`、`Pictures`、`Movies` 和 `Music`。任何主目录清理分类都必须显式选择并人工审查。
+
 | # | 能力 | 说明 |
 |---|---|---|
 | 🧹 | **分类管理** | 列出 key、标题、路径、风险等级 |
@@ -66,7 +68,7 @@
 
 ```bash
 # 0️⃣ 一键便捷清理（dry-run 预览 → 确认 → 移入废纸篓）
-./scripts/quick_clean.sh developer
+./scripts/quick_clean.sh safe
 
 # 1️⃣ 查看环境和能力
 python3 cleanmac.py capabilities

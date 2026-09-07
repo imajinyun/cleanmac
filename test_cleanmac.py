@@ -2108,7 +2108,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertEqual(report["risk_policy"], "strict")
             self.assertEqual(report["max_delete_mb"], 1024.0)
             self.assertEqual(
-                {row["key"] for row in report["selected_categories"]}, {"trash", "downloads", "userCache", "userLogs"}
+                {row["key"] for row in report["selected_categories"]}, {"trash"}
             )
 
     def test_links_reports_symbolic_link_mappings(self) -> None:

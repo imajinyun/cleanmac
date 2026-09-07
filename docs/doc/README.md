@@ -70,7 +70,7 @@ cleanmac is an **AI-first cleanup execution kernel**. It does not compete on GUI
 
 ```bash
 # 0️⃣ One-shot convenience wrapper (dry-run preview → confirm → Trash)
-./scripts/quick_clean.sh developer
+./scripts/quick_clean.sh safe
 
 # 1️⃣ Check environment
 python3 cleanmac.py capabilities
@@ -125,6 +125,8 @@ python3 cleanmac.py clean run \
 ## 🤖 AI Invocation Patterns
 
 `cleanmac` is **AI-native** — it provides structured tool definitions, an MCP server, and a confirmation token system for safe AI-driven cleanup.
+
+The built-in `safe` profile and `quick_clean.sh safe` target Trash only. They do not select folders under the user home directory; categories such as Downloads, Desktop, Documents, media folders, caches, and logs require explicit selection and review.
 
 ### 📦 AI Tool Definitions
 
