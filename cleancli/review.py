@@ -5,9 +5,12 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
+from .scan import unique_rows_bytes
 
 
 def load_json_file(path: str) -> dict[str, Any]:
@@ -26,13 +29,27 @@ def source_fingerprint(payload: dict[str, Any]) -> str:
 def _item_source(payload: dict[str, Any]) -> list[Any]:
     report_value = payload.get("report")
     report: dict[str, Any] = report_value if isinstance(report_value, dict) else payload
-    if isinstance(report.get("items"), list):
-        return list(report["items"])
-    if isinstance(report.get("candidates"), list):
-        return list(report["candidates"])
+    candidates: list[Any] | None = None
     pre_clean_report = report.get("pre_clean_report") if isinstance(report.get("pre_clean_report"), dict) else None
-    if pre_clean_report and isinstance(pre_clean_report.get("candidates"), list):
-        return list(pre_clean_report["candidates"])
+    if isinstance(report.get("items"), list):
+        candidates = list(report["items"])
+    elif isinstance(report.get("candidates"), list):
+        candidates = list(report["candidates"])
+    elif pre_clean_report and isinstance(pre_clean_report.get("candidates"), list):
+        candidates = list(pre_clean_report["candidates"])
+    if candidates is not None:
+        skips = report.get("skipped", pre_clean_report.get("skipped", []) if pre_clean_report else [])
+        known_paths = {str(item.get("path")) for item in candidates if isinstance(item, dict) and item.get("path")}
+        for item in skips if isinstance(skips, list) else []:
+            if not isinstance(item, dict) or str(item.get("path")) in known_paths:
+                continue
+            protected = (
+                bool(item.get("protected") or item.get("locked")) or item.get("reason") != "not-in-review-selection"
+            )
+            candidates.append({**item, "protected": protected, "default_selected": False, "locked": protected})
+            if item.get("path"):
+                known_paths.add(str(item["path"]))
+        return candidates
     uninstall_plan = report.get("uninstall_plan") if isinstance(report.get("uninstall_plan"), dict) else None
     if uninstall_plan and isinstance(uninstall_plan.get("candidates"), list):
         return list(uninstall_plan["candidates"])
@@ -142,8 +159,8 @@ def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
         raw_review_evidence = item.get("review_evidence")
         existing_review_evidence: dict[str, Any] = raw_review_evidence if isinstance(raw_review_evidence, dict) else {}
         risk = str(item.get("risk") or item.get("privacy_risk", "unknown"))
-        default_selected = bool(item.get("default_selected", item.get("status") != "failed"))
-        protected = bool(item.get("protected"))
+        protected = bool(item.get("protected") or item.get("locked") or item.get("selectable") is False)
+        default_selected = not protected and bool(item.get("default_selected", item.get("status") != "failed"))
         review_evidence = _review_evidence(
             item,
             source_schema=source_schema,
@@ -168,6 +185,9 @@ def normalize_review_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "human": item.get("human"),
             "default_selected": default_selected,
             "protected": protected,
+            "locked": protected,
+            "selectable": not protected and bool(item.get("selectable", True)),
+            "status": item.get("status"),
             "reason": item.get("reason") or item.get("match_reason") or item.get("preserve_reason"),
             "matched_rule": item.get("matched_rule") or review_evidence.get("matched_rule"),
             "match_reason": item.get("match_reason") or review_evidence.get("match_reason"),
@@ -212,13 +232,7 @@ def _count_by(items: list[dict[str, Any]], field: str) -> dict[str, int]:
 
 
 def _sum_bytes(items: list[dict[str, Any]]) -> int:
-    total = 0
-    for item in items:
-        try:
-            total += int(item.get("bytes") or 0)
-        except (TypeError, ValueError):
-            continue
-    return total
+    return unique_rows_bytes([{**item, "bytes": _item_bytes(item)} for item in items])
 
 
 def _item_bytes(item: dict[str, Any]) -> int:
@@ -251,6 +265,10 @@ def _selection_summary(
         "unknown_item_count": len(unknown_item_ids),
         "selected_bytes": _sum_bytes(selected_items),
         "excluded_bytes": _sum_bytes(excluded_items),
+        "discovered_bytes": unique_rows_bytes(items),
+        "protected_bytes": unique_rows_bytes([item for item in items if item["protected"]]),
+        "selectable_count": sum(not item["protected"] for item in items),
+        "selectable_bytes": unique_rows_bytes([item for item in items if not item["protected"]]),
         "selected_risk_counts": selected_risks,
         "excluded_risk_counts": _count_by(excluded_items, "risk"),
         "selected_scope_counts": selected_scopes,
@@ -505,12 +523,12 @@ def render_review_html(review: dict[str, Any]) -> str:
             continue
         item_id = str(item.get("id", ""))
         selected = item_id in selected_ids
-        status = "selected" if selected else "excluded"
+        status = "locked" if item.get("locked") else "selected" if selected else "excluded"
         rows.append(
             f"<tr class='{html.escape(status)}'>"
             f"<td><input type='checkbox' disabled {'checked' if selected else ''}></td>"
             f"<td>{html.escape(item_id)}</td>"
-            f"<td>{html.escape(status)}</td>"
+            f"<td>{html.escape(status)}{': ' + html.escape(str(item.get('reason') or '')) if item.get('locked') else ''}</td>"
             f"<td>{html.escape(str(item.get('risk', '')))}</td>"
             f"<td>{html.escape(str(item.get('scope') or item.get('application') or item.get('kind') or ''))}</td>"
             f"<td>{html.escape(str(item.get('path', item.get('kind', ''))))}</td>"
@@ -531,7 +549,7 @@ def render_review_html(review: dict[str, Any]) -> str:
             "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:2rem;}"
             "code,td,pre{font-family:ui-monospace,monospace;}table{border-collapse:collapse;width:100%;margin:1rem 0;}"
             "td,th{border:1px solid #ddd;padding:.4rem;text-align:left;}th{background:#f6f8fa;}"
-            ".selected{background:#f0fff4}.excluded{color:#57606a}.warning{color:#9a6700}</style></head><body>",
+            ".selected{background:#f0fff4}.excluded,.locked{color:#57606a}.warning{color:#9a6700}</style></head><body>",
             "<h1>cleanmac review</h1>",
             f"<p><strong>Source schema:</strong> {html.escape(str(review.get('source_schema')))}</p>",
             f"<p><strong>Items:</strong> {html.escape(str(review.get('item_count')))}</p>",

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 def normalize_plan_category_keys(value: object) -> list[str]:
@@ -202,6 +203,8 @@ def build_clean_plan_payload(
         "requires_yes_for_execute": pre_clean_report["summary"]["requires_yes_for_execute"],
         "yes_required_categories": pre_clean_report["summary"]["yes_required_categories"],
         "pre_clean_report": pre_clean_report,
+        "skipped": pre_clean_report.get("skipped", []),
+        "selection_accounting": pre_clean_report.get("selection_accounting", {}),
         "candidate_fingerprints": candidate_fingerprints,
         "by_category": by_category,
         "by_file_type": by_file_type,

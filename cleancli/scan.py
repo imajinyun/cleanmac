@@ -5,12 +5,13 @@ from __future__ import annotations
 import os
 import re
 import time
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Protocol
 from urllib.parse import quote
 
-from . import protection
+from . import delete_ops, protection
 
 
 @dataclass(frozen=True)
@@ -23,16 +24,36 @@ class ScanTarget:
     delete_target: bool = False
 
 
+class ScanTargetLike(Protocol):
+    @property
+    def category(self) -> str: ...
+    @property
+    def path(self) -> Path: ...
+    @property
+    def matched(self) -> bool: ...
+    @property
+    def delete_target(self) -> bool: ...
+
+
 class CategoryScanDefaults(Protocol):
-    key: str
-    description: str
-    risk: str
-    requires_privilege: bool
-    full_disk_access: bool
-    default_include_patterns: tuple[str, ...]
-    default_exclude_patterns: tuple[str, ...]
-    default_older_than_days: float | None
-    default_min_size_mb: int
+    @property
+    def key(self) -> str: ...
+    @property
+    def description(self) -> str: ...
+    @property
+    def risk(self) -> str: ...
+    @property
+    def requires_privilege(self) -> bool: ...
+    @property
+    def full_disk_access(self) -> bool: ...
+    @property
+    def default_include_patterns(self) -> tuple[str, ...]: ...
+    @property
+    def default_exclude_patterns(self) -> tuple[str, ...]: ...
+    @property
+    def default_older_than_days(self) -> float | None: ...
+    @property
+    def default_min_size_mb(self) -> int: ...
 
 
 @dataclass(frozen=True)
@@ -42,7 +63,9 @@ class ScanBudget:
     applies_to_execute: bool = False
     message: str = "inspect is non-destructive; use plan or clean to enforce these budgets before deletion."
 
-    def summary(self, *, candidate_count: int, candidate_bytes: int, human_size: Callable[[int | None], str]) -> dict[str, Any]:
+    def summary(
+        self, *, candidate_count: int, candidate_bytes: int, human_size: Callable[[int | None], str]
+    ) -> dict[str, Any]:
         max_delete_bytes = None if self.max_delete_mb is None else int(self.max_delete_mb * 1024 * 1024)
         return {
             "candidate_count": candidate_count,
@@ -70,8 +93,8 @@ def path_size_bytes(path: Path) -> int:
             for name in list(dirs):
                 child = current / name
                 try:
-                    total += child.lstat().st_size
                     if child.is_symlink():
+                        total += child.lstat().st_size
                         dirs.remove(name)
                 except OSError:
                     continue
@@ -118,16 +141,108 @@ def inspect_entries(path: Path, *, recursive: bool) -> list[tuple[Path, int]]:
     return rows
 
 
-def candidate_entries(target: ScanTarget, *, recursive: bool) -> list[tuple[Path, int]]:
+def candidate_entries(target: ScanTargetLike, *, recursive: bool) -> list[tuple[Path, int]]:
     if target.delete_target:
         return [(target.path, 0)] if target.matched else []
     return inspect_entries(target.path, recursive=recursive)
 
 
-def clean_candidate_entries(target: ScanTarget) -> list[Path]:
+def clean_candidate_entries(target: ScanTargetLike) -> list[Path]:
     if target.delete_target:
         return [target.path] if target.matched else []
     return child_entries(target.path)
+
+
+def path_identity(path: Path) -> Path:
+    return path.parent.resolve(strict=False) / path.name if path.is_symlink() else path.resolve(strict=False)
+
+
+def disjoint_candidate_groups(
+    targets: Sequence[ScanTargetLike], *, recursive: bool = False
+) -> list[tuple[ScanTargetLike, list[tuple[Path, int]]]]:
+    """Split broad candidates around narrower targets before applying policy."""
+    generic = {"userCache", "userAppCache", "userLogs", "userAppLogs", "appSupportCaches", "groupContainerCaches"}
+    entries: dict[Path, tuple[ScanTargetLike, Path, int]] = {}
+    ordered = sorted(targets, key=lambda target: (target.category in generic, target.category, str(target.path)))
+    for target in ordered:
+        for path, depth in candidate_entries(target, recursive=recursive):
+            identity = path_identity(path)
+            entries.setdefault(identity, (target, path, depth))
+    identities = set(entries)
+    ancestors = {parent for identity in identities for parent in identity.parents}
+    groups: list[tuple[ScanTargetLike, list[tuple[Path, int]]]] = []
+    for identity, (target, path, depth) in entries.items():
+        if recursive or identity not in ancestors or path.is_symlink() or not path.is_dir():
+            groups.append((target, [(path, depth)]))
+            continue
+        pending = [(path, depth)]
+        uncovered: list[tuple[Path, int]] = []
+        while pending:
+            current, current_depth = pending.pop()
+            key = path_identity(current)
+            if key != identity and key in identities:
+                continue
+            if current.is_dir() and not current.is_symlink() and key in ancestors:
+                pending.extend((child, current_depth + 1) for child in child_entries(current))
+            else:
+                uncovered.append((current, current_depth))
+        groups.append((target, uncovered))
+    return groups
+
+
+def accounted_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Assign nested space once while retaining every row in hierarchy views."""
+    by_path: dict[Path, int] = {}
+    for row in rows:
+        if not row.get("path"):
+            continue
+        identity = path_identity(Path(str(row["path"])))
+        by_path.setdefault(identity, _row_bytes(row))
+    nested: dict[Path, int] = {}
+    allocated: dict[Path, int] = {}
+    for path in sorted(by_path, key=lambda item: len(item.parts), reverse=True):
+        size = max(by_path[path] - nested.get(path, 0), 0)
+        allocated[path] = size
+        for parent in path.parents:
+            if parent in by_path:
+                nested[parent] = nested.get(parent, 0) + size
+    result = []
+    for row in rows:
+        item = dict(row)
+        if row.get("path"):
+            item["bytes"] = allocated.pop(path_identity(Path(str(row["path"]))), 0)
+        result.append(item)
+    return result
+
+
+def unique_rows_bytes(rows: Sequence[Mapping[str, Any]]) -> int:
+    return sum(_row_bytes(row) for row in accounted_rows(rows))
+
+
+def selection_accounting(rows: Sequence[Mapping[str, Any]], skipped: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    by_path: dict[Path, Mapping[str, Any]] = {}
+    for row in [*rows, *skipped]:
+        path = path_identity(Path(str(row.get("path", ""))))
+        if path not in by_path or row.get("protected"):
+            by_path[path] = row
+    discovered = list(by_path.values())
+    protected = [
+        row
+        for row in discovered
+        if row.get("protected", row.get("reason") != "not-in-review-selection" if row in skipped else False)
+    ]
+    selectable = [row for row in discovered if row not in protected]
+    selected = [row for row in selectable if row.get("default_selected")]
+    return {
+        "discovered_count": len(discovered),
+        "discovered_bytes": unique_rows_bytes(discovered),
+        "protected_count": len(protected),
+        "protected_bytes": unique_rows_bytes(protected),
+        "selectable_count": len(selectable),
+        "selectable_bytes": unique_rows_bytes(selectable),
+        "selected_count": len(selected),
+        "selected_bytes": unique_rows_bytes(selected),
+    }
 
 
 def matches_exclude(path: Path, patterns: Sequence[str]) -> bool:
@@ -192,7 +307,7 @@ def rows_by_category(
     human_size: Callable[[int | None], str],
 ) -> dict[str, dict[str, Any]]:
     output: dict[str, dict[str, Any]] = {}
-    for row in rows:
+    for row in accounted_rows(rows):
         key = str(row["category"])
         current = output.setdefault(key, {"count": 0, "bytes": 0, "human": human_size(0)})
         current["count"] = int(current["count"]) + 1
@@ -207,7 +322,7 @@ def rows_by_file_type(
     human_size: Callable[[int | None], str],
 ) -> dict[str, dict[str, Any]]:
     output: dict[str, dict[str, Any]] = {}
-    for row in rows:
+    for row in accounted_rows(rows):
         path_str = str(row.get("path", ""))
         suffix = Path(path_str).suffix.lower().lstrip(".") or "(no extension)"
         current = output.setdefault(suffix, {"count": 0, "bytes": 0, "human": human_size(0)})
@@ -223,7 +338,7 @@ def rows_by_parent_directory(
     human_size: Callable[[int | None], str],
 ) -> dict[str, dict[str, Any]]:
     output: dict[str, dict[str, Any]] = {}
-    for row in rows:
+    for row in accounted_rows(rows):
         parent = str(row.get("parent", "(unknown)"))
         current = output.setdefault(parent, {"count": 0, "bytes": 0, "human": human_size(0)})
         current["count"] = int(current["count"]) + 1
@@ -276,6 +391,11 @@ def skipped_row(
         "reason": reason,
         "bytes": size,
         "human": human_size(size),
+        "status": "skipped",
+        "default_selected": False,
+        "protected": reason != "not-in-review-selection",
+        "locked": reason != "not-in-review-selection",
+        "selectable": reason == "not-in-review-selection",
     }
 
 
@@ -296,7 +416,7 @@ def skipped_summary(
 def inspect_items(
     categories: Sequence[CategoryScanDefaults],
     *,
-    targets: Sequence[ScanTarget],
+    targets: Sequence[ScanTargetLike],
     category_by_key: Mapping[str, CategoryScanDefaults],
     root: Path,
     limit: int,
@@ -320,10 +440,10 @@ def inspect_items(
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
-    for target in targets:
+    for target, entries in disjoint_candidate_groups(targets, recursive=recursive):
         category = category_by_key[target.category]
         min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
-        for entry, depth in candidate_entries(target, recursive=recursive):
+        for entry, depth in entries:
             reason = filter_reason(
                 category,
                 entry,
@@ -386,7 +506,7 @@ def inspect_items(
     else:
         rows.sort(key=lambda row: (_row_bytes(row), str(row["path"])), reverse=True)
     total_candidates = len(rows)
-    total_bytes = sum(_row_bytes(row) for row in rows)
+    total_bytes = unique_rows_bytes(rows)
     budget_summary = ScanBudget(max_delete_mb=max_delete_mb, max_items=max_items).summary(
         candidate_count=total_candidates,
         candidate_bytes=total_bytes,
@@ -409,6 +529,7 @@ def inspect_items(
         "shown_candidates": len(shown_rows),
         "total_bytes": total_bytes,
         "total_human": human_size(total_bytes),
+        "selection_accounting": selection_accounting(rows, skipped),
         "recursive": recursive,
         "min_size_mb": min_size_mb,
         "effective_category_defaults": {
@@ -441,7 +562,7 @@ def inspect_items(
 
 def clean_candidate_rows(
     *,
-    targets: Sequence[ScanTarget],
+    targets: Sequence[ScanTargetLike],
     category_by_key: Mapping[str, CategoryScanDefaults],
     root: Path,
     include_patterns: Sequence[str],
@@ -464,11 +585,29 @@ def clean_candidate_rows(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     rows: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
-    for target in targets:
+    for target, entries in disjoint_candidate_groups(targets):
         category = category_by_key[target.category]
         min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
-        for entry in clean_candidate_entries(target):
-            assert_safe_to_delete(entry)
+        for entry, _ in entries:
+            try:
+                assert_safe_to_delete(entry)
+            except delete_ops.ProtectedUserDataError:
+                protected_reason = (
+                    filter_reason(
+                        category,
+                        entry,
+                        root=root,
+                        include_patterns=include_patterns,
+                        exclude_patterns=exclude_patterns,
+                        older_than_days=older_than_days,
+                        name_regex=name_regex,
+                        bundle_allowlist=bundle_allowlist,
+                        bundle_blocklist=bundle_blocklist,
+                    )
+                    or "protected-user-data"
+                )
+                skipped.append(skipped_row(target.category, target.path, entry, protected_reason))
+                continue
             reason = filter_reason(
                 category,
                 entry,
@@ -573,13 +712,13 @@ __all__ = [
     "effective_older_than_days",
     "effective_min_size_mb",
     "matches_name_regex",
-        "is_old_enough",
-        "rows_by_category",
-        "rows_by_file_type",
-        "rows_by_parent_directory",
-        "path_interaction_metadata",
-        "skipped_row",
-        "skipped_summary",
-        "inspect_items",
-        "clean_candidate_rows",
-    ]
+    "is_old_enough",
+    "rows_by_category",
+    "rows_by_file_type",
+    "rows_by_parent_directory",
+    "path_interaction_metadata",
+    "skipped_row",
+    "skipped_summary",
+    "inspect_items",
+    "clean_candidate_rows",
+]
