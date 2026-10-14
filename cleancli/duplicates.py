@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Protocol, Sequence
+from typing import Any, Protocol
 
 from . import scan
 
 
 class DuplicateCategory(Protocol):
-    description: str
-    risk: str
+    @property
+    def description(self) -> str: ...
+    @property
+    def risk(self) -> str: ...
 
 
 def find_duplicate_files(
@@ -138,6 +141,7 @@ def duplicate_candidate_rows(
     filter_reason: Callable[..., str | None],
     assert_safe_to_delete: Callable[[Path], None],
     bundle_id_for_path: Callable[[Path], str | None],
+    on_skip: Callable[[Path, str], None] | None = None,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for dup_path, dup_meta in dup_candidates.items():
@@ -158,9 +162,13 @@ def duplicate_candidate_rows(
             bundle_blocklist=bundle_blocklist,
         )
         if reason:
+            if on_skip is not None:
+                on_skip(entry, reason)
             continue
         display_entry = display_path(entry)
         if review_selected_paths is not None and display_entry not in review_selected_paths:
+            if on_skip is not None:
+                on_skip(entry, "not-in-review-selection")
             continue
         size = scan.path_size_bytes(entry)
         rows.append(
