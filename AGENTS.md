@@ -25,6 +25,9 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 - `cleancli/delete_ops.py`: The only real deletion exit; owns path validation, Trash routing, permanent deletion, and test/no-auth command blocking.
 - `cleancli/protection_data.py`: Pure protection-policy data, including bundle blocklists, system paths, sensitive user-data fragments, official uninstallers, and app cleanup rules. Do not put logic here.
 - `cleancli/protection.py`: Protection-policy logic, including bundle/container/group-container decisions, sensitive-data protection, official uninstaller vendor matching, and protected descendant checks.
+- `cleancli/app_activity.py`: Per-invocation application ownership and executable snapshots. Shared path protection applies across categories; unknown observations preserve candidates, and execution observes activity again before each deletion. Never add polling or resident process monitoring.
+- `cleancli/cache_discovery.py`: Bounded discovery of exact regenerable Application Support cache directories. Symlinked roots and markers must not authorize discovery. Ambiguous cache directories require a recognized app or a physical cache marker.
+- `cleancli/scan.py`: Disjoint candidate discovery, policy skips, review evidence, and logical-byte accounting. Overlapping categories must not duplicate budgets, selections, or deletion.
 - `cleancli/scripts.py` / `cleancli/governance.py`: Script templates, automation boundaries, command-template safety validation, and governance reports.
 - `cleancli/workflow.py`: Fixed safe workflows and automation playbooks; never place destructive cleanup in the default workflow path.
 - `cleancli/software.py`: Software inventory, startup items, leftovers, iOS backups, and uninstall-plan capabilities.
@@ -147,6 +150,19 @@ make clean-test-artifacts
 
 ## 🧪 High-Risk Module Ownership and Required Tests
 
+### Application cache discovery, activity, and review
+
+Changes to `app_activity.py`, `cache_discovery.py`, cache rules, candidate normalization, or locked review items must preserve protected Apple data, credentials, source fingerprints, and all execution gates. A generic category must not bypass application-specific protection. Skipped items remain visible in review and cannot be selected while protected.
+
+Run focused tests inside the temporary virtual environment created by the required pytest target:
+
+```bash
+make pytest-test PYTEST_SAFE_TARGETS="tests/test_app_activity.py tests/test_cache_discovery.py tests/test_cache_review.py tests/test_scan.py tests/test_review_selection.py tests/test_clean_execution.py"
+make local-test
+make mcp-smoke
+make ai-host-smoke
+```
+
 ### `cleancli/delete_ops.py`
 
 Responsibility: the only deletion exit, path validation, symlink protection, Trash routing, and test-mode command blocking.
@@ -154,13 +170,12 @@ Responsibility: the only deletion exit, path validation, symlink protection, Tra
 Run after changes:
 
 ```bash
-python3 -m unittest test_cleanmac.CleanMacCLITests.test_real_delete_primitives_are_owned_by_delete_ops -v
-python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_malformed_and_protected_paths -v
-python3 -m unittest test_cleanmac.CleanMacCLITests.test_delete_safety_rejects_symlink_to_protected_path -v
-python3 -m unittest test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink -v
+make pytest-test PYTEST_SAFE_TARGETS="tests/test_delete_ops.py tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_execution.py"
 make pytest-test
 make docker-test
 ```
+
+The deletion ownership, malformed/protected path, symlink, and Trash fail-closed tests have migrated to these pytest modules. Use the temporary-venv target rather than their obsolete `CleanMacCLITests` method names.
 
 ### `cleancli/protection_data.py` and `cleancli/protection.py`
 

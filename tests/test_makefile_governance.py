@@ -8,6 +8,14 @@ import pytest
 from tests.helpers import PROJECT_ROOT
 
 
+def test_docker_validation_enforces_no_auth_for_both_test_runners() -> None:
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    recipe = makefile.split("docker-test:\n", 1)[1].split("\nno-cache-docker-test:", 1)[0]
+    safe_environment = "CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 PYTHONDONTWRITEBYTECODE=1"
+    assert safe_environment + " /tmp/cleanmac-venv/bin/python -m unittest" in recipe
+    assert safe_environment + " /tmp/cleanmac-venv/bin/python -m pytest" in recipe
+
+
 def test_makefile_exposes_validation_targets() -> None:
     makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
     agent_guide = (PROJECT_ROOT / "AGENTS.md").read_text(encoding="utf-8")
