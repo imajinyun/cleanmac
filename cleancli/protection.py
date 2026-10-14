@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from cleancli.protection_data import (
+    APP_CACHE_PROTECTED_PATTERNS,
     APP_CLEANUP_RULES,
     APPLE_CONTAINER_CACHE_EXCEPTIONS,
     APPLE_UNINSTALLABLE_BUNDLE_PATTERNS,
@@ -22,10 +23,17 @@ from cleancli.protection_data import (
     SYSTEM_CRITICAL_BUNDLE_PATTERNS,
 )
 
+from . import app_activity, cache_discovery
+
 
 def matches_pattern(path: Path, patterns: Sequence[str]) -> bool:
     path_text = str(path)
-    return any(fnmatch.fnmatch(path_text, pattern) or fnmatch.fnmatch(path.name, pattern) for pattern in patterns)
+    return any(
+        fnmatch.fnmatch(path_text, pattern)
+        or fnmatch.fnmatch(path.name, pattern)
+        or (pattern.endswith("/*") and fnmatch.fnmatch(path_text, pattern[:-2]))
+        for pattern in patterns
+    )
 
 
 def contains_protected_descendant(path: Path, patterns: Sequence[str]) -> bool:
@@ -53,9 +61,33 @@ def bundle_matches_any(bundle_id: str | None, patterns: Sequence[str]) -> bool:
 
 def app_protected_data_reason(category_key: str, path: Path) -> str | None:
     protected_patterns = APP_CLEANUP_RULES.get(category_key, {}).get("protected_patterns", ())
+    if category_key == "appSupportCaches":
+        return cache_protected_data_reason(path)
     if protected_patterns and contains_protected_descendant(path, protected_patterns):
         return "app-protected-data"
     return None
+
+
+def cache_protected_data_reason(path: Path, *, home_root: Path | None = None) -> str | None:
+    patterns = list(APP_CACHE_PROTECTED_PATTERNS)
+    if home_root is None:
+        app = cache_discovery.cache_application_root(path)
+        home_root = app.parent.parent.parent if app is not None else None
+    if home_root is not None:
+        home_root = home_root.resolve(strict=False)
+        actual = path.resolve(strict=False)
+        for rule in APP_CLEANUP_RULES.values():
+            if not any(
+                app_activity.pattern_owns_path(str(home_root / template[2:]).rstrip("/"), actual)
+                for template in rule.get("paths", ())
+                if template.startswith("~/")
+            ):
+                continue
+            patterns.extend(
+                str(home_root / pattern[2:]) if pattern.startswith("~/") else pattern
+                for pattern in rule.get("protected_patterns", ())
+            )
+    return "app-protected-data" if contains_protected_descendant(path, patterns) else None
 
 
 def should_protect_bundle(bundle_id: str | None) -> bool:
@@ -90,7 +122,13 @@ def _contains_sensitive_fragment(path_text: str, fragment: str) -> bool:
 def should_protect_data(path: Path) -> bool:
     text = str(path)
     lowered = text.lower()
-    if any(_contains_sensitive_fragment(lowered, fragment) for fragment in SENSITIVE_USER_DATA_FRAGMENTS):
+    for fragment in SENSITIVE_USER_DATA_FRAGMENTS:
+        if not _contains_sensitive_fragment(lowered, fragment):
+            continue
+        # Only exact cache subtrees of recognized apps escape a blanket app-root
+        # rule. Credential and session fragments still take precedence.
+        if cache_discovery.known_regenerable_app_cache(path, fragment) and cache_protected_data_reason(path) is None:
+            continue
         return True
     lowered_exceptions = tuple(item.lower() for item in APPLE_CONTAINER_CACHE_EXCEPTIONS)
     if "/library/containers/com.apple." in lowered and not any(item.lower() in lowered for item in lowered_exceptions):

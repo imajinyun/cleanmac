@@ -15,7 +15,6 @@ import hashlib
 import html
 import json
 import os
-import re
 import shlex
 import shutil
 import subprocess
@@ -23,12 +22,23 @@ import sys
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, NoReturn
-from urllib.parse import quote
 
-from cleancli import ai_schema, delete_ops, protection
+from cleancli import (
+    ai_schema,
+    app_activity,
+    cache_discovery,
+    delete_ops,
+    duplicates,
+    explain,
+    logging_ops,
+    protection,
+    runtime_contracts,
+    scan,
+)
+from cleancli import plan as plan_helpers
 from cleancli.ai_contract import render_ai_entrypoint_contract as render_ai_entrypoint_contract
 from cleancli.ai_contract import render_ai_intent_hints as render_ai_intent_hints
 from cleancli.ai_contract import render_ai_recommended_workflow as render_ai_recommended_workflow
@@ -58,6 +68,24 @@ from cleancli.ai_versioning import (
     validate_contract_payload,
 )
 from cleancli.auto_clean import DEFAULT_AUTO_CATEGORIES, render_auto_clean
+from cleancli.execution import (
+    ExecuteBudgetError,
+    build_ai_confirmation_summary,
+    build_ai_execution_ledger,
+    build_confirmation_token_context,
+    build_operation_log_entry,
+    build_operation_log_explainability_fields,
+    build_review_selection_audit,
+    enforce_execute_budgets,
+)
+from cleancli.execution import build_safety_gate as build_execution_safety_gate
+from cleancli.execution import confirmation_token as execution_confirmation_token
+from cleancli.execution import (
+    render_operation_log_explainability_contract as execution_render_operation_log_explainability_contract,
+)
+from cleancli.execution import row_bytes as execution_row_bytes
+from cleancli.execution import sample_operation_log_entry as execution_sample_operation_log_entry
+from cleancli.execution import validate_operation_log_explainability as execution_validate_operation_log_explainability
 from cleancli.governance import (
     render_ai_first_release_checklist,
     render_boundary_governance,
@@ -75,7 +103,6 @@ from cleancli.governance import (
 )
 from cleancli.mcp_resources import render_mcp_surface_audit
 from cleancli.mcp_tools import render_mcp_destructive_tool_governance
-from cleancli import plan as plan_helpers
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
 from cleancli.progress import make_execute_progress, make_scan_progress
@@ -100,33 +127,13 @@ from cleancli.report_renderers import render_html_report, render_markdown_report
 from cleancli.review import (
     apply_item_scope,
     load_json_file,
-    normalize_review_items,
     render_review,
     render_review_html,
-    review_selection_constraints as review_selection_constraints_impl,
     validate_review_selection,
 )
-from cleancli import runtime_contracts
-from cleancli import scan
-from cleancli import duplicates
-from cleancli import explain
-from cleancli import logging_ops
-from cleancli.execution import ExecuteBudgetError
-from cleancli.execution import build_ai_confirmation_summary
-from cleancli.execution import build_ai_execution_ledger
-from cleancli.execution import build_confirmation_token_context
-from cleancli.execution import build_operation_log_entry
-from cleancli.execution import build_operation_log_explainability_fields
-from cleancli.execution import build_review_selection_audit
-from cleancli.execution import build_safety_gate as build_execution_safety_gate
-from cleancli.execution import confirmation_token as execution_confirmation_token
-from cleancli.execution import enforce_execute_budgets
-from cleancli.execution import (
-    render_operation_log_explainability_contract as execution_render_operation_log_explainability_contract,
+from cleancli.review import (
+    review_selection_constraints as review_selection_constraints_impl,
 )
-from cleancli.execution import row_bytes as execution_row_bytes
-from cleancli.execution import sample_operation_log_entry as execution_sample_operation_log_entry
-from cleancli.execution import validate_operation_log_explainability as execution_validate_operation_log_explainability
 from cleancli.software_uninstall import execute_software_uninstall
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import disable_startup_items, render_startup
@@ -1546,9 +1553,27 @@ CATEGORIES: tuple[Category, ...] = (
         advanced=True,
     ),
     Category(
+        "appSupportCaches",
+        "Regenerable application support caches",
+        (),
+        "Discovers exact Chromium and Electron cache subtrees; preserves credentials, sessions, and user data.",
+        risk="medium",
+        advanced=True,
+        provider="app-support-cache",
+    ),
+    Category(
+        "automationBrowserCaches",
+        "Automation browser download caches",
+        ("~/.cache/puppeteer/",),
+        "Deletes rebuildable Puppeteer browser downloads while preserving automation projects and configuration.",
+        risk="medium",
+        advanced=True,
+        process_guard="Puppeteer",
+    ),
+    Category(
         "userLogs",
         "User logs",
-        ("~/Library/logs/",),
+        ("~/Library/Logs/", "~/Library/logs/"),
         "Deletes user-level logs.",
         risk="medium",
         advanced=True,
@@ -3095,6 +3120,7 @@ def ensure_supported_plan_schema(plan: dict[str, Any]) -> None:
 def plan_schema_warnings(schema_negotiation: dict[str, Any]) -> list[dict[str, str]]:
     return plan_helpers.plan_schema_warnings(schema_negotiation)
 
+
 def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None:
     if getattr(args, "command", None) != "clean" or not getattr(args, "plan_file", None):
         return None
@@ -3140,6 +3166,7 @@ def render_plan_freshness_report(plan: dict[str, Any], *, now: datetime | None =
         plan_max_age_seconds=PLAN_MAX_AGE_SECONDS,
         now=now,
     )
+
 
 def remap_path(pattern: str, *, root: Path, home: Path) -> str:
     expanded = str(home / pattern[2:]) if pattern.startswith("~/") else (str(home) if pattern == "~" else pattern)
@@ -3214,7 +3241,9 @@ def provider_targets(category: Category, *, root: Path, home: Path) -> list[Reso
         return []
 
     paths: list[Path] = []
-    if provider in {"darwin-user-temp", "darwin-user-cache"}:
+    if provider == "app-support-cache":
+        paths = cache_discovery.app_support_cache_directories(remap_home(root=root, home=home))
+    elif provider in {"darwin-user-temp", "darwin-user-cache"}:
         kind = "temp" if provider == "darwin-user-temp" else "cache"
         if root == Path("/"):
             runtime_dir = darwin_runtime_dir_from_getconf(kind)
@@ -3265,7 +3294,21 @@ def resolve_targets(categories: Iterable[Category], *, root: Path, home: Path) -
                 targets.append(
                     ResolvedTarget(category.key, source_pattern, path, path.exists(), False, category.delete_target)
                 )
-    return targets
+    unique_targets: list[ResolvedTarget] = []
+    directory_identities: set[tuple[str, int, int]] = set()
+    for target in targets:
+        if target.matched and target.path.is_dir() and not target.path.is_symlink():
+            try:
+                metadata = target.path.stat()
+            except OSError:
+                unique_targets.append(target)
+                continue
+            identity = (target.category, metadata.st_dev, metadata.st_ino)
+            if identity in directory_identities:
+                continue
+            directory_identities.add(identity)
+        unique_targets.append(target)
+    return unique_targets
 
 
 def category_metadata(category: Category) -> dict[str, Any]:
@@ -4335,9 +4378,12 @@ def is_old_enough(path: Path, older_than_days: float | None) -> bool:
 
 
 def is_process_running_exact(name: str) -> bool:
-    if is_test_mode():
+    if is_test_no_auth():
         return False
-    return run_text_command(["pgrep", "-x", name]) is not None
+    observation = run_text_command(["ps", "-axo", "comm="], timeout=2)
+    return observation is None or any(
+        app_activity.executable_matches(line.strip(), name) for line in observation.splitlines()
+    )
 
 
 def is_file_open(path: Path) -> bool:
@@ -4410,8 +4456,22 @@ def plist_platform_version_major(plist_path: Path) -> str | None:
     return output.split(".", 1)[0]
 
 
-def category_policy_reason(category: Category, path: Path, *, root: Path) -> str | None:
-    if category.process_guard and is_process_running_exact(category.process_guard):
+def application_activity(*, root: Path, home: Path) -> app_activity.ApplicationActivity:
+    return app_activity.ApplicationActivity(
+        home_root=remap_home(root=root, home=home),
+        category_guards=[(category.process_guard, category.paths) for category in CATEGORIES if category.process_guard],
+        read_processes=lambda: "" if is_test_no_auth() else run_text_command(["ps", "-axo", "comm="], timeout=2),
+    )
+
+
+def category_policy_reason(
+    category: Category, path: Path, *, root: Path, activity: app_activity.ApplicationActivity | None = None
+) -> str | None:
+    if activity is not None:
+        reason = activity.reason(path, category.process_guard)
+        if reason:
+            return reason
+    elif category.process_guard and is_process_running_exact(category.process_guard):
         return "app-running"
     if category.active_file_check and path.is_file() and is_file_open(path):
         return "active-file"
@@ -4419,6 +4479,21 @@ def category_policy_reason(category: Category, path: Path, *, root: Path) -> str
         reason = protection.app_protected_data_reason(category.key, path)
         if reason:
             return reason
+    library_cache = any(path.parts[index : index + 2] == ("Library", "Caches") for index in range(len(path.parts) - 1))
+    if category.key in {"userCache", "userAppCache", "groupContainerCaches", "appSupportCaches"} or library_cache:
+        reason = protection.cache_protected_data_reason(
+            path, home_root=activity.home_root if activity is not None else None
+        )
+        if reason:
+            return reason
+    if category.key == "appSupportCaches":
+        if not cache_discovery.valid_app_cache_path(path):
+            return "outside-provider-allowlist"
+        reason = protection.app_protected_data_reason(category.key, path)
+        if reason:
+            return reason
+        if protection.should_protect_data(path):
+            return "protected-user-data"
     container_reason = protection.container_policy_reason(category.key, path)
     if container_reason:
         return container_reason
@@ -4465,11 +4540,12 @@ def filter_reason(
     name_regex: str | None,
     bundle_allowlist: Sequence[str] = (),
     bundle_blocklist: Sequence[str] = (),
+    activity: app_activity.ApplicationActivity | None = None,
 ) -> str | None:
     app_policy_reason = bundle_policy_reason(path, bundle_allowlist=bundle_allowlist, bundle_blocklist=bundle_blocklist)
     if app_policy_reason:
         return app_policy_reason
-    policy_reason = category_policy_reason(category, path, root=root)
+    policy_reason = category_policy_reason(category, path, root=root, activity=activity)
     if policy_reason:
         return policy_reason
     effective_include = effective_include_patterns(category, include_patterns)
@@ -4495,7 +4571,7 @@ def path_interaction_metadata(path: Path) -> dict[str, Any]:
 
 
 def skipped_row(category: str, parent: Path, entry: Path, reason: str) -> dict[str, Any]:
-    return scan.skipped_row(
+    row = scan.skipped_row(
         category,
         parent,
         entry,
@@ -4504,6 +4580,26 @@ def skipped_row(category: str, parent: Path, entry: Path, reason: str) -> dict[s
         shell_quote_command=shell_quote_command,
         human_size=human_size,
     )
+    definition = CATEGORY_BY_KEY[category]
+    row["risk"] = definition.risk
+    row["review_evidence"] = {
+        "schema": "cleanmac.candidate-review-evidence.v1",
+        "matched_rule": f"clean.{category}.candidate",
+        "match_reason": reason,
+        "confidence": "high",
+        "risk": definition.risk,
+        "risk_reason": reason,
+        "risk_explanation": definition.description,
+        "default_selected": False,
+        "why_not_default": reason,
+        "protected": row["protected"],
+        "delete_mode": "trash",
+        "recovery": "Preserved in place; resolve the skip reason and generate a fresh plan before execution.",
+        "contains_user_data": reason in {"protected-user-data", "app-protected-data", "protected-container-data"},
+        "shared_container": category == "groupContainerCaches",
+        "recommended_next_action": "preserve-and-rescan",
+    }
+    return row
 
 
 def skipped_summary(skipped: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -4540,7 +4636,8 @@ def inspect_items(
     bundle_allowlist: Sequence[str] = (),
     bundle_blocklist: Sequence[str] = (),
 ) -> dict[str, Any]:
-    return scan.inspect_items(
+    activity = application_activity(root=root, home=home)
+    report = scan.inspect_items(
         categories,
         targets=resolve_targets(categories, root=root, home=home),
         category_by_key=CATEGORY_BY_KEY,
@@ -4561,9 +4658,13 @@ def inspect_items(
         human_size=human_size,
         path_interaction_metadata=path_interaction_metadata,
         skipped_row=skipped_row,
-        filter_reason=filter_reason,
+        filter_reason=lambda category, path, **kwargs: filter_reason(category, path, activity=activity, **kwargs),
         render_ai_summary=render_ai_summary,
     )
+    for row in [*report["items"], *report["skipped"]]:
+        category = CATEGORY_BY_KEY[row["category"]]
+        row.update(activity.metadata(Path(row["path"]), category.process_guard))
+    return report
 
 
 def remap_home(*, root: Path, home: Path) -> Path:
@@ -4616,19 +4717,21 @@ def is_private_allowlisted_path(path: Path) -> bool:
 
 
 def is_protected_user_data_path(path: Path) -> bool:
-    parts = path.parts
-    if len(parts) < 3 or parts[1] != "Users":
-        return False
     return protection.is_protected_user_data_path(Path(normalize_policy_path(path)))
 
 
 def delete_policy_for_context(*, root: Path, home: Path) -> delete_ops.DeletePolicy:
+    def protected_user_data(path: Path) -> bool:
+        if is_protected_user_data_path(path):
+            return True
+        return root != Path("/") and is_protected_user_data_path(root / str(path).lstrip("/"))
+
     return delete_ops.DeletePolicy(
         root=root,
         home_root=remap_home(root=root, home=home),
         critical_path=is_critical_deletion_path,
         private_allowlist=is_private_allowlisted_path,
-        protected_user_data=is_protected_user_data_path,
+        protected_user_data=protected_user_data,
         normalize_policy_path=normalize_policy_path,
     )
 
@@ -4847,7 +4950,6 @@ def analyze(categories: list[Category], *, root: Path, home: Path) -> dict[str, 
     target_rows = []
     for target in targets:
         size = path_size_bytes(target.path)
-        category_sizes[target.category] += size
         target_rows.append(
             {
                 "category": target.category,
@@ -4858,6 +4960,8 @@ def analyze(categories: list[Category], *, root: Path, home: Path) -> dict[str, 
                 "human": human_size(size),
             }
         )
+    for candidate_target, entries in scan.disjoint_candidate_groups(targets):
+        category_sizes[candidate_target.category] += sum(path_size_bytes(entry) for entry, _ in entries)
     total = sum(category_sizes.values())
     return {
         "schema": "cleanmac.analyze.v1",
@@ -6015,8 +6119,8 @@ def render_pre_clean_report(
         "summary": {
             "selected_category_count": len(categories),
             "candidate_count": inspect_report["total_candidates"],
-            "estimated_reclaimable_bytes": analysis_report["total_bytes"],
-            "estimated_reclaimable_human": analysis_report["total_human"],
+            "estimated_reclaimable_bytes": inspect_report["total_bytes"],
+            "estimated_reclaimable_human": inspect_report["total_human"],
             "risk_summary": summarize_risks(categories),
             "high_risk_categories": [category.key for category in high_risk],
             "risk_policy": risk_policy,
@@ -6060,6 +6164,9 @@ def render_pre_clean_report(
         "candidates": inspect_report["items"],
         "candidate_total_bytes": inspect_report["total_bytes"],
         "candidate_total_human": inspect_report["total_human"],
+        "selection_accounting": inspect_report["selection_accounting"],
+        "skipped": inspect_report["skipped"],
+        "skipped_summary": inspect_report["skipped_summary"],
         "action_scripts": render_scripts(categories, root=root, home=home),
     }
 
@@ -6515,6 +6622,7 @@ def render_operation_log_explainability_contract() -> dict[str, Any]:
         required_entry_fields=set(OPERATION_LOG_REQUIRED_EXPLAINABILITY_FIELDS),
     )
 
+
 def _pyproject_list_value(text: str, key: str) -> list[str]:
     return runtime_contracts.pyproject_list_value(text, key)
 
@@ -6546,6 +6654,7 @@ def validate_cold_start_budget(payload: dict[str, Any] | None = None) -> dict[st
 
 def render_cold_start_budget_contract() -> dict[str, Any]:
     return runtime_contracts.render_cold_start_budget_contract()
+
 
 def delete_failure_reason(exc: Exception) -> str:
     text = str(exc)
@@ -6657,6 +6766,7 @@ def clean(
     _scan_bar = getattr(_scan_cb, "_bar", None)
     _scan_tick = _scan_cb
     normal_targets = [target for target in resolved_targets if target.category != "duplicateFiles"]
+    activity = application_activity(root=root, home=home)
     normal_rows, normal_skipped = scan.clean_candidate_rows(
         targets=normal_targets,
         category_by_key=CATEGORY_BY_KEY,
@@ -6674,7 +6784,7 @@ def clean(
         human_size=human_size,
         path_interaction_metadata=path_interaction_metadata,
         skipped_row=skipped_row,
-        filter_reason=filter_reason,
+        filter_reason=lambda category, path, **kwargs: filter_reason(category, path, activity=activity, **kwargs),
         assert_safe_to_delete=lambda entry: assert_safe_to_delete(entry, root=root, home=home),
         bundle_id_for_path=bundle_id_for_path,
         progress_tick=_scan_tick,
@@ -6702,11 +6812,17 @@ def clean(
                 display_path=display_path,
                 human_size=human_size,
                 path_interaction_metadata=path_interaction_metadata,
-                filter_reason=filter_reason,
+                filter_reason=lambda category, path, **kwargs: filter_reason(
+                    category, path, activity=activity, **kwargs
+                ),
                 assert_safe_to_delete=lambda entry: assert_safe_to_delete(entry, root=root, home=home),
                 bundle_id_for_path=bundle_id_for_path,
+                on_skip=lambda path, reason: skipped.append(skipped_row("duplicateFiles", path.parent, path, reason)),
             )
         )
+    for row in [*rows, *skipped]:
+        category = CATEGORY_BY_KEY[row["category"]]
+        row.update(activity.metadata(Path(row["path"]), category.process_guard))
     if _scan_bar:
         _scan_bar.close()
     candidate_bytes = sum(row_bytes(row) for row in rows)
@@ -6852,6 +6968,41 @@ def clean(
         for row in rows:
             path = Path(str(row["path"]))
             try:
+                current_activity = application_activity(root=root, home=home)
+                reason = category_policy_reason(
+                    CATEGORY_BY_KEY[row["category"]], path, root=root, activity=current_activity
+                )
+                if reason:
+                    current_skip = skipped_row(str(row["category"]), path.parent, path, reason)
+                    current_skip.update(current_activity.metadata(path, CATEGORY_BY_KEY[row["category"]].process_guard))
+                    row.update(
+                        {
+                            "status": "skipped",
+                            "reason": reason,
+                            "deleted": False,
+                            "protected": True,
+                            "locked": True,
+                            "selectable": False,
+                            "default_selected": False,
+                            "review_evidence": current_skip["review_evidence"],
+                            "application": current_skip["application"],
+                            "applications": current_skip["applications"],
+                        }
+                    )
+                    skipped.append(current_skip)
+                    operation_log_entries.append(
+                        operation_log_entry(
+                            session_id=session_id,
+                            command_text=command_text,
+                            action="skipped",
+                            row=row,
+                            delete_mode=delete_mode,
+                            root=root,
+                            home=home,
+                            ai_operation_audit=ai_operation_audit,
+                        )
+                    )
+                    continue
                 is_dup = row.get("category") == "duplicateFiles" and "duplicate_keep_path" in row
                 if delete_mode == "hardlink":
                     if not is_dup:
@@ -7084,6 +7235,7 @@ def clean(
         "human_summary": human_summary,
         "total_bytes": candidate_bytes,
         "total_human": human_size(candidate_bytes),
+        "selection_accounting": scan.selection_accounting(rows, skipped),
         "by_category": rows_by_category(rows),
         "by_file_type": rows_by_file_type(rows),
         "by_parent_directory": rows_by_parent_directory(rows),
@@ -7401,7 +7553,9 @@ def validate_clean_plan(plan_file: str, *, root: Path | None = None, home: Path 
     return _validate_clean_plan_metadata(plan, root=root, home=home)
 
 
-def _validate_clean_plan_payload(payload: dict[str, Any], *, root: Path | None = None, home: Path | None = None) -> dict[str, Any]:
+def _validate_clean_plan_payload(
+    payload: dict[str, Any], *, root: Path | None = None, home: Path | None = None
+) -> dict[str, Any]:
     schema_negotiation = negotiate_plan_schema(payload, allow_legacy_missing=True)
     category_keys = normalize_plan_category_keys(payload.get("selected_category_keys"))
     if not category_keys:
@@ -7414,7 +7568,9 @@ def _validate_clean_plan_payload(payload: dict[str, Any], *, root: Path | None =
         "schema_negotiation": schema_negotiation,
         "category_keys": category_keys,
         "risk_policy": normalize_risk_policy(payload.get("risk_policy")),
-        "max_delete_mb": payload.get("max_delete_mb") if isinstance(payload.get("max_delete_mb"), (int, float)) else None,
+        "max_delete_mb": payload.get("max_delete_mb")
+        if isinstance(payload.get("max_delete_mb"), (int, float))
+        else None,
         "exclude_patterns": normalize_plan_category_keys(payload.get("exclude_patterns")),
         "include_patterns": normalize_plan_category_keys(payload.get("include_patterns")),
         "older_than_days": payload.get("older_than_days")

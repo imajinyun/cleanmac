@@ -18,6 +18,8 @@ Downloads/../Secrets
 /Library/Apple
 /Library/Extensions
 /Library/Keychains
+/Library/Application Support/Codex/Cache
+/Library/Application Support/Claude/GPUCache
 /Applications/Finder.app
 /Applications/Safari.app
 /Users
@@ -54,3 +56,5 @@ Downloads/../Secrets
 /Users/tester/Library/Application Support/Dropbox
 /Users/tester/Library/Application Support/Google/DriveFS
 /Users/tester/Library/Application Support/Code/User/settings.json
+/Users/tester/.codex/auth.json
+/Users/tester/Library/Application Support/Codex/Local Storage

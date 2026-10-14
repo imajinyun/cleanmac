@@ -58,6 +58,10 @@ class TrashRemovabilityError(PermissionError):
     pass
 
 
+class ProtectedUserDataError(RuntimeError):
+    """A validated candidate belongs to protected application or user data."""
+
+
 def require_trash_first_delete_mode(
     delete_mode: str,
     *,
@@ -180,7 +184,7 @@ def validate_deletion_path(target: str | os.PathLike[str], *, policy: DeletePoli
     if policy.normalize_policy_path(policy_path).startswith("/private/") and not policy.private_allowlist(policy_path):
         raise RuntimeError(f"Refusing to delete non-allowlisted /private path: {target}")
     if policy.protected_user_data(policy_path):
-        raise RuntimeError(f"Refusing to delete protected user data path: {target}")
+        raise ProtectedUserDataError(f"Refusing to delete protected user data path: {target}")
     return target
 
 

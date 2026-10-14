@@ -434,6 +434,102 @@ APPLE_CONTAINER_CACHE_EXCEPTIONS = (
 )
 
 
+# Executable names and app-bundle labels; these authorize protection, never deletion.
+APP_PROCESS_ALIASES: dict[str, tuple[str, ...]] = {
+    "Google Chrome": ("Google Chrome", "Chrome", "Google Chrome Helper"),
+    "Microsoft Edge": ("Microsoft Edge", "Microsoft Edge Helper"),
+    "Code": ("Code", "Visual Studio Code", "Code Helper"),
+    "Feishu": ("Feishu", "LarkShell", "Lark", "Lark Helper"),
+    "Lark": ("Lark", "LarkInternational", "Lark Helper"),
+    "WeChat": ("WeChat", "WeChat Helper", "微信"),
+    "cmux": ("cmux", "cmux Helper"),
+    "Trae CN": ("Trae CN", "Trae", "TRAE", "Trae Helper"),
+    "TRAE SOLO CN": ("TRAE SOLO CN", "TRAE SOLO", "Trae Solo", "TRAE SOLO CN Helper"),
+    "mira": ("mira", "mira Helper"),
+    "Codex": ("Codex", "Codex Helper"),
+    "Claude": ("Claude", "Claude Helper"),
+    "ChatGPT": ("ChatGPT", "ChatGPT Helper"),
+    "Doubao": ("Doubao", "Doubao Helper", "豆包"),
+    "Qianwen": ("Qianwen", "Qianwen Helper", "千问"),
+    "CorpLink": ("CorpLink", "CorpLink Helper"),
+    "Puppeteer": ("chrome-headless-shell", "headless_shell", "Google Chrome for Testing", "Chromium", "chrome"),
+}
+
+APP_CACHE_OWNER_PATHS: dict[str, tuple[str, ...]] = {
+    "ChatGPT": ("~/Library/Caches/com.openai.chat", "~/Library/Application Support/ChatGPT"),
+    "Google Chrome": ("~/Library/Caches/Google/Chrome", "~/Library/Application Support/Google/Chrome"),
+    "Microsoft Edge": ("~/Library/Caches/Microsoft Edge", "~/Library/Application Support/Microsoft Edge"),
+    "Code": ("~/Library/Application Support/Code",),
+    "Feishu": (
+        "~/Library/Caches/LarkShell*",
+        "~/Library/Application Support/LarkShell*",
+        "~/Library/Caches/com.bytedance.feishu",
+        "~/Library/Caches/com.bytedance.lark",
+    ),
+    "Lark": ("~/Library/Caches/LarkInternational", "~/Library/Application Support/LarkInternational"),
+    "WeChat": ("~/Library/Containers/com.tencent.xinWeChat", "~/Library/Caches/com.tencent.xinWeChat"),
+    "cmux": ("~/Library/Caches/com.cmuxterm.app",),
+    "Puppeteer": ("~/.cache/puppeteer",),
+}
+
+APP_SUPPORT_CACHE_DIRECTORIES = (
+    "Code Cache",
+    "GPUCache",
+    "DawnCache",
+    "GrShaderCache",
+    "ShaderCache",
+    "GraphiteDawnCache",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+    "Crashpad/completed",
+    "component_crx_cache",
+    "extensions_crx_cache",
+    "Service Worker/CacheStorage",
+    "Service Worker/ScriptCache",
+)
+AMBIGUOUS_APP_CACHE_DIRECTORIES = ("Cache", "CachedData")
+KNOWN_ELECTRON_CACHE_APPS = (
+    "Code",
+    "Trae CN",
+    "TRAE SOLO CN",
+    "mira",
+    "Codex",
+    "Claude",
+    "Doubao",
+    "Qianwen",
+    "LarkShell",
+    "LarkInternational",
+    "CorpLink",
+    "DBW",
+    "Cursor",
+    "Windsurf",
+    "ChatGPT",
+    "LM Studio",
+    "Jan",
+    "Chatbox",
+    "Perplexity",
+    "Poe",
+)
+APP_CACHE_PROTECTED_PATTERNS = (
+    "Cookies*",
+    "History*",
+    "Bookmarks*",
+    "Login Data*",
+    "Preferences",
+    "Local State",
+    "*/Local Storage*",
+    "*/IndexedDB*",
+    "*/Session Storage*",
+    "*/Sessions*",
+    "*/credentials*",
+    "*/secrets*",
+    "*/tokens*",
+    "*/auth.json",
+    "*.key",
+    "*.keychain*",
+)
+
+
 OFFICIAL_UNINSTALLER_RULES: tuple[dict[str, str | tuple[str, ...]], ...] = (
     {"vendor": "ESET", "bundle_prefixes": ("com.eset.",), "name_fragments": ("eset",)},
     {
@@ -508,6 +604,10 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "~/Library/Application Support/Google/Chrome/*/Code Cache/",
             "~/Library/Application Support/Google/Chrome/*/GPUCache/",
             "~/Library/Application Support/Google/Chrome/*/Service Worker/CacheStorage/",
+            "~/Library/Application Support/Google/Chrome/*/Service Worker/ScriptCache/",
+            "~/Library/Application Support/Google/Chrome/component_crx_cache/",
+            "~/Library/Application Support/Google/Chrome/extensions_crx_cache/",
+            "~/Library/Application Support/Google/Chrome/Crashpad/completed/",
         ),
         "protected_patterns": (
             "*/Bookmarks*",
@@ -526,6 +626,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "~/Library/Application Support/Microsoft Edge/*/Code Cache/",
             "~/Library/Application Support/Microsoft Edge/*/GPUCache/",
             "~/Library/Application Support/Microsoft Edge/*/Service Worker/CacheStorage/",
+            "~/Library/Application Support/Microsoft Edge/*/Service Worker/ScriptCache/",
             "~/Library/Caches/Microsoft Edge/",
         ),
         "protected_patterns": (
