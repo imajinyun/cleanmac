@@ -296,10 +296,10 @@ def test_release_workflow_supply_chain_contract() -> None:
     assert ".venv/bin/python -m pip install -e '.[dev,build]'" in release
     assert "name: cleanmac-dist" in release
     assert "name: cleanmac-release-assets" in release
-    assert "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b" in release
+    assert "pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247" in release
     assert "pypa/gh-action-pypi-publish@release/v1" in release
-    assert "actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32" in release
-    assert "softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b" in release
+    assert "actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373" in release
+    assert "softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228" in release
     assert 'packages-dir: "release-assets"' not in release
 
     uses_lines = [line.strip() for line in release.splitlines() if line.strip().startswith("uses: ")]

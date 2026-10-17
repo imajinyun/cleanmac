@@ -298,9 +298,12 @@ def test_diagnose_recommends_safe_categories_and_flags_logs() -> None:
         )
         issue_codes = {issue["code"] for issue in report["issues"]}
 
-        assert report["recommended_clean_categories"] == ["trash", "mails", "xcode"]
+        # Safe recommendation is Trash-only; mails/xcode stay explicit selections.
+        assert report["recommended_clean_categories"] == ["trash"]
+        assert "mails" not in report["recommended_clean_categories"]
+        assert "xcode" not in report["recommended_clean_categories"]
         assert "userLogs" in report["advanced_options"]["selected_advanced_keys"]
         assert report["advanced_options"]["requires_extra_review"] is True
         assert "large-logs-may-indicate-problem" in issue_codes
         assert "downloads" in report["caution_clean_categories"]
-        assert "trash,mails,xcode" in report["suggested_safe_command"]
+        assert report["suggested_safe_command"] == "python3 cleanmac.py clean --categories trash"

@@ -2107,9 +2107,7 @@ class CleanMacCLITests(unittest.TestCase):
             self.assertIn("safe", {profile["name"] for profile in profiles["profiles"]})
             self.assertEqual(report["risk_policy"], "strict")
             self.assertEqual(report["max_delete_mb"], 1024.0)
-            self.assertEqual(
-                {row["key"] for row in report["selected_categories"]}, {"trash"}
-            )
+            self.assertEqual({row["key"] for row in report["selected_categories"]}, {"trash"})
 
     def test_links_reports_symbolic_link_mappings(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -7885,12 +7883,15 @@ class CleanMacCLITests(unittest.TestCase):
             report = json.loads(result.stdout)
             issue_codes = {issue["code"] for issue in report["issues"]}
 
-            self.assertEqual(report["recommended_clean_categories"], ["trash", "mails", "xcode"])
+            # Safe recommendation is Trash-only; mails/xcode stay explicit selections.
+            self.assertEqual(report["recommended_clean_categories"], ["trash"])
+            self.assertNotIn("mails", report["recommended_clean_categories"])
+            self.assertNotIn("xcode", report["recommended_clean_categories"])
             self.assertIn("userLogs", report["advanced_options"]["selected_advanced_keys"])
             self.assertTrue(report["advanced_options"]["requires_extra_review"])
             self.assertIn("large-logs-may-indicate-problem", issue_codes)
             self.assertIn("downloads", report["caution_clean_categories"])
-            self.assertIn("trash,mails,xcode", report["suggested_safe_command"])
+            self.assertEqual(report["suggested_safe_command"], "python3 cleanmac.py clean --categories trash")
 
     def test_ai_workflow_renders_one_shot_governed_safe_cleanup_route(self) -> None:
         tmp, root, home = self.make_sandbox()
@@ -8324,12 +8325,12 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("make real-macos-smoke", release)
         self.assertIn("Verify governed release promotion decision", release)
         self.assertIn(
-            "actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 "
-            "# pinned from actions/attest-build-provenance@v4.1.0",
+            "actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 "
+            "# pinned from actions/attest-build-provenance@v4.1.1",
             release,
         )
         self.assertIn("pypa/gh-action-pypi-publish@release/v1", release)
-        self.assertIn("pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b", release)
+        self.assertIn("pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247", release)
         self.assertIn("PYTHON: .venv/bin/python", release)
         self.assertIn("Create venv and install build dependencies", release)
         self.assertIn("bundle-audit-smoke", release)
