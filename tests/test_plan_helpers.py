@@ -123,6 +123,7 @@ def test_build_clean_plan_payload_preserves_plan_contract() -> None:
         min_size_mb=1,
         name_regex="tmp$",
         max_items=10,
+        project_roots=["/Users/tester/Codes"],
         root="/tmp/root",
         home="/Users/tester",
         pre_clean_report=pre_report,
@@ -140,5 +141,6 @@ def test_build_clean_plan_payload_preserves_plan_contract() -> None:
     assert payload["expires_at"] == (generated + timedelta(seconds=60)).isoformat()
     assert payload["ai_origin"] is True
     assert payload["selected_category_keys"] == ["trash"]
+    assert payload["project_roots"] == ["/Users/tester/Codes"]
     assert payload["estimated_reclaimable_bytes"] == 128
     assert payload["replay_command"] == "python3 cleanmac.py clean --categories trash"
