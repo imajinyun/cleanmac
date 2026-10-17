@@ -323,6 +323,15 @@ CATEGORIES: tuple[Category, ...] = (
         process_guard="Code",
     ),
     Category(
+        "zed",
+        APP_CLEANUP_RULES["zed"]["title"],
+        APP_CLEANUP_RULES["zed"]["paths"],
+        "Deletes Zed managed-node npm caches while preserving editor settings, extensions, and the managed Node runtime.",
+        risk="medium",
+        advanced=True,
+        process_guard="Zed",
+    ),
+    Category(
         "docker",
         APP_CLEANUP_RULES["docker"]["title"],
         APP_CLEANUP_RULES["docker"]["paths"],
@@ -526,6 +535,46 @@ CATEGORIES: tuple[Category, ...] = (
         APP_CLEANUP_RULES["cocoaPodsCaches"]["title"],
         APP_CLEANUP_RULES["cocoaPodsCaches"]["paths"],
         "Deletes CocoaPods caches and spec repos while preserving publishing and registry credentials.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "bunCaches",
+        APP_CLEANUP_RULES["bunCaches"]["title"],
+        APP_CLEANUP_RULES["bunCaches"]["paths"],
+        "Deletes the Bun package and installer download cache while preserving Bun configuration.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "corepackCaches",
+        APP_CLEANUP_RULES["corepackCaches"]["title"],
+        APP_CLEANUP_RULES["corepackCaches"]["paths"],
+        "Deletes cached Corepack package manager shims while preserving Node and registry configuration.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "preCommitCaches",
+        APP_CLEANUP_RULES["preCommitCaches"]["title"],
+        APP_CLEANUP_RULES["preCommitCaches"]["paths"],
+        "Deletes cached pre-commit hook environments while preserving repository configuration.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "bundlerCaches",
+        APP_CLEANUP_RULES["bundlerCaches"]["title"],
+        APP_CLEANUP_RULES["bundlerCaches"]["paths"],
+        "Deletes Ruby Bundler gem and git caches while preserving Bundler and RubyGems credentials.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "gitHubCliCaches",
+        APP_CLEANUP_RULES["gitHubCliCaches"]["title"],
+        APP_CLEANUP_RULES["gitHubCliCaches"]["paths"],
+        "Deletes GitHub CLI response caches while preserving GitHub credentials and configuration.",
         risk="medium",
         advanced=True,
     ),
@@ -2196,9 +2245,17 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     inspect_cmd.add_argument("--older-than-days", type=float)
     inspect_cmd.add_argument("--max-delete-mb", type=float)
     inspect_cmd.add_argument("--max-items", type=int)
+    inspect_cmd.add_argument(
+        "--project-roots",
+        help="Comma-separated project directories for projectArtifacts discovery, replacing built-in roots.",
+    )
 
     analyze_cmd = subparsers.add_parser("analyze", help="Calculate reclaimable space without deleting files.")
     add_category_flags(analyze_cmd, default_scope="all")
+    analyze_cmd.add_argument(
+        "--project-roots",
+        help="Comma-separated project directories for projectArtifacts discovery, replacing built-in roots.",
+    )
 
     plan_cmd = subparsers.add_parser("plan", help="Generate a reusable JSON cleanup plan without deleting files.")
     add_category_flags(plan_cmd, default_scope="default")
@@ -2215,6 +2272,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     plan_cmd.add_argument("--name-regex")
     plan_cmd.add_argument("--max-items", type=int)
     plan_cmd.add_argument("--older-than-days", type=float)
+    plan_cmd.add_argument(
+        "--project-roots",
+        help="Comma-separated project directories for projectArtifacts discovery, replacing built-in roots.",
+    )
     plan_cmd.add_argument(
         "--ai-origin",
         action="store_true",
@@ -2305,6 +2366,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     clean_cmd.add_argument("--name-regex")
     clean_cmd.add_argument("--max-items", type=int)
     clean_cmd.add_argument("--older-than-days", type=float)
+    clean_cmd.add_argument(
+        "--project-roots",
+        help="Comma-separated project directories for projectArtifacts discovery, replacing built-in roots.",
+    )
     clean_cmd.add_argument("--allow-live-root", action="store_true")
     clean_cmd.add_argument("--require-plan-context", action="store_true")
     clean_cmd.add_argument("--fail-on-skipped", action="store_true")
@@ -3144,6 +3209,8 @@ def apply_clean_plan_defaults(args: argparse.Namespace) -> dict[str, Any] | None
         args.name_regex = str(plan["name_regex"])
     if getattr(args, "max_items", None) is None and plan["max_items"] is not None:
         args.max_items = int(plan["max_items"])
+    if not getattr(args, "project_roots", None) and plan.get("project_roots"):
+        args.project_roots = ",".join(str(path) for path in plan["project_roots"])
     return plan
 
 
@@ -3270,11 +3337,112 @@ def provider_targets(category: Category, *, root: Path, home: Path) -> list[Reso
     ]
 
 
-def resolve_targets(categories: Iterable[Category], *, root: Path, home: Path) -> list[ResolvedTarget]:
+PROJECT_ARTIFACTS_CATEGORY_KEY = "projectArtifacts"
+
+# Keep bounded discovery aligned with purge.MAX_SCAN_DEPTH: artifact dirs can
+# sit a few levels below a caller-named project root (root/org/repo/target).
+PROJECT_ARTIFACT_MAX_SCAN_DEPTH = 4
+
+
+def project_root_logical_path(path: Path, *, root: Path) -> str:
+    """Inverse of sandbox remapping so plans store replayable absolute paths."""
+    if root == Path("/"):
+        return str(path)
+    try:
+        return str(Path("/") / path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def normalize_project_roots(values: Sequence[str], *, root: Path, home: Path) -> tuple[Path, ...]:
+    """Validate caller-supplied projectArtifacts scan roots and remap them for sandboxes."""
+    if not values:
+        return ()
+    allowed_root = root if root != Path("/") else home
+    allowed = allowed_root.expanduser().resolve(strict=False)
+    normalized: list[Path] = []
+    seen: set[Path] = set()
+    for value in values:
+        logical = Path(value).expanduser()
+        if not logical.is_absolute():
+            raise SystemExit(f"--project-roots entries must be absolute paths or ~-relative paths: {value}")
+        physical = logical if root == Path("/") else root / str(logical).lstrip("/")
+        resolved = physical.resolve(strict=False)
+        try:
+            resolved.relative_to(allowed)
+        except ValueError as exc:
+            raise SystemExit(
+                f"Refusing --project-roots outside the active {'root' if root != Path('/') else 'home'}: {value}"
+            ) from exc
+        if resolved == allowed:
+            raise SystemExit(
+                f"Refusing --project-roots entry {value}: scanning the root/home itself is not allowed; "
+                "name project directories explicitly."
+            )
+        if resolved not in seen:
+            seen.add(resolved)
+            normalized.append(physical)
+    return tuple(normalized)
+
+
+def discover_project_artifact_targets(
+    category: Category,
+    project_roots: Sequence[Path],
+) -> list[ResolvedTarget]:
+    """Bounded discovery of exact build/dependency directories under caller roots.
+
+    Mirrors purge._find_artifact_dirs: the walk is depth-bounded and never
+    descends into a matched artifact directory (so node_modules internals are
+    not enumerated). The governed projectArtifacts include patterns are the
+    name source of truth; scan-layer filters (age, exclude, review selection)
+    still apply to every emitted target. Symlinks are never followed.
+    """
+    patterns = category.default_include_patterns
+    discovered: list[ResolvedTarget] = []
+
+    def walk(directory: Path, depth_remaining: int) -> None:
+        if depth_remaining <= 0:
+            return
+        try:
+            entries = list(os.scandir(directory))
+        except OSError:
+            return
+        for entry in entries:
+            child = Path(entry.path)
+            try:
+                if entry.is_symlink() or not entry.is_dir(follow_symlinks=False):
+                    continue
+            except OSError:
+                continue
+            if matches_include(child, patterns):
+                discovered.append(ResolvedTarget(category.key, str(directory), child, True, False, True))
+                continue
+            if child.name.startswith("."):
+                # Dot directories can themselves be artifacts (handled above);
+                # never descend into others (.git, .idea) to keep the walk bounded.
+                continue
+            walk(child, depth_remaining - 1)
+
+    for project_root in project_roots:
+        if project_root.is_dir() and not project_root.is_symlink():
+            walk(project_root, PROJECT_ARTIFACT_MAX_SCAN_DEPTH)
+    return discovered
+
+
+def resolve_targets(
+    categories: Iterable[Category],
+    *,
+    root: Path,
+    home: Path,
+    project_roots: Sequence[Path] = (),
+) -> list[ResolvedTarget]:
     targets: list[ResolvedTarget] = []
     for category in categories:
         if category.provider:
             targets.extend(provider_targets(category, root=root, home=home))
+            continue
+        if category.key == PROJECT_ARTIFACTS_CATEGORY_KEY and project_roots:
+            targets.extend(discover_project_artifact_targets(category, project_roots))
             continue
         for source_pattern in category.paths:
             remapped = remap_path(source_pattern, root=root, home=home)
@@ -4635,11 +4803,12 @@ def inspect_items(
     max_items: int | None = None,
     bundle_allowlist: Sequence[str] = (),
     bundle_blocklist: Sequence[str] = (),
+    project_roots: Sequence[Path] = (),
 ) -> dict[str, Any]:
     activity = application_activity(root=root, home=home)
     report = scan.inspect_items(
         categories,
-        targets=resolve_targets(categories, root=root, home=home),
+        targets=resolve_targets(categories, root=root, home=home, project_roots=project_roots),
         category_by_key=CATEGORY_BY_KEY,
         root=root,
         limit=limit,
@@ -4944,8 +5113,14 @@ def debug_timer_end(label: str, start: float, *, root: Path, home: Path) -> floa
     return elapsed_ms
 
 
-def analyze(categories: list[Category], *, root: Path, home: Path) -> dict[str, Any]:
-    targets = resolve_targets(categories, root=root, home=home)
+def analyze(
+    categories: list[Category],
+    *,
+    root: Path,
+    home: Path,
+    project_roots: Sequence[Path] = (),
+) -> dict[str, Any]:
+    targets = resolve_targets(categories, root=root, home=home, project_roots=project_roots)
     category_sizes = {category.key: 0 for category in categories}
     target_rows = []
     for target in targets:
@@ -6095,8 +6270,9 @@ def render_pre_clean_report(
     name_regex: str | None = None,
     bundle_allowlist: Sequence[str] = (),
     bundle_blocklist: Sequence[str] = (),
+    project_roots: Sequence[Path] = (),
 ) -> dict[str, Any]:
-    analysis_report = analyze(categories, root=root, home=home)
+    analysis_report = analyze(categories, root=root, home=home, project_roots=project_roots)
     inspect_report = inspect_items(
         categories,
         root=root,
@@ -6109,6 +6285,7 @@ def render_pre_clean_report(
         name_regex=name_regex,
         bundle_allowlist=bundle_allowlist,
         bundle_blocklist=bundle_blocklist,
+        project_roots=project_roots,
     )
     high_risk = selected_high_risk_categories(categories)
     yes_required = categories_requiring_yes(categories, risk_policy)
@@ -6180,9 +6357,10 @@ def render_post_clean_report(
     deleted_items: list[dict[str, Any]],
     disk_free_before: int | None,
     disk_free_after: int | None,
+    project_roots: Sequence[Path] = (),
 ) -> dict[str, Any]:
-    after_analysis = analyze(categories, root=root, home=home)
-    remaining_candidates = inspect_items(categories, root=root, home=home, limit=-1)
+    after_analysis = analyze(categories, root=root, home=home, project_roots=project_roots)
+    remaining_candidates = inspect_items(categories, root=root, home=home, limit=-1, project_roots=project_roots)
     pre_estimated = int(pre_report["summary"]["estimated_reclaimable_bytes"])  # type: ignore[index]
     remaining_estimated = int(after_analysis["total_bytes"])
     before_by_category = category_bytes_by_key(pre_report["categories"])  # type: ignore[arg-type]
@@ -6725,6 +6903,7 @@ def clean(
     review_selection: dict[str, Any] | None = None,
     command_argv: Sequence[str] = (),
     progress_enabled: bool = False,
+    project_roots: Sequence[Path] = (),
 ) -> dict[str, Any]:
     timer_start = debug_timer_start("clean", root=root, home=home)
     session_id = datetime.now(timezone.utc).strftime("cleanmac-%Y%m%dT%H%M%S%fZ")
@@ -6740,6 +6919,7 @@ def clean(
         name_regex=name_regex,
         bundle_allowlist=bundle_allowlist,
         bundle_blocklist=bundle_blocklist,
+        project_roots=project_roots,
     )
     disk_free_before = disk_free_bytes(root)
     rows = []
@@ -6760,7 +6940,7 @@ def clean(
         )
         dup_result = find_duplicate_files(dup_scan_paths, root=root, home=home, min_size_mb=effective_min)
         dup_candidates = duplicates.duplicate_candidates_from_result(dup_result)
-    resolved_targets = resolve_targets(categories, root=root, home=home)
+    resolved_targets = resolve_targets(categories, root=root, home=home, project_roots=project_roots)
     _scan_total = len([t for t in resolved_targets if t.category != "duplicateFiles"])
     _scan_cb = make_scan_progress(_scan_total, enabled=progress_enabled)
     _scan_bar = getattr(_scan_cb, "_bar", None)
@@ -7135,6 +7315,7 @@ def clean(
             deleted_items=rows,
             disk_free_before=disk_free_before,
             disk_free_after=disk_free_after,
+            project_roots=project_roots,
         )
         if execute
         else None
@@ -7267,6 +7448,7 @@ def render_clean_plan(
     name_regex: str | None = None,
     max_items: int | None = None,
     ai_origin: bool = False,
+    project_roots: Sequence[Path] = (),
 ) -> dict[str, Any]:
     category_keys = [category.key for category in categories]
     generated_at = datetime.now(timezone.utc)
@@ -7280,6 +7462,7 @@ def render_clean_plan(
         older_than_days=older_than_days,
         min_size_mb=min_size_mb,
         name_regex=name_regex,
+        project_roots=project_roots,
     )
     ai_summary = render_ai_summary(
         categories,
@@ -7345,6 +7528,7 @@ def render_clean_plan(
         min_size_mb=min_size_mb,
         name_regex=name_regex,
         max_items=max_items,
+        project_roots=[project_root_logical_path(path, root=root) for path in project_roots],
         root=display_path(root),
         home=display_path(home),
         pre_clean_report=pre_report,
@@ -7352,7 +7536,11 @@ def render_clean_plan(
         by_category=rows_by_category(pre_report["candidates"]),
         by_file_type=rows_by_file_type(pre_report["candidates"]),
         by_parent_directory=rows_by_parent_directory(pre_report["candidates"]),
-        replay_command=build_clean_command(category_keys, execute=False),
+        replay_command=build_clean_command(
+            category_keys,
+            execute=False,
+            project_roots=[project_root_logical_path(path, root=root) for path in project_roots],
+        ),
     )
 
 
@@ -7512,10 +7700,17 @@ def shell_quote_command(parts: Sequence[str]) -> str:
     return " ".join(shlex.quote(part) for part in parts)
 
 
-def build_clean_command(category_keys: Sequence[str], *, execute: bool) -> str | None:
+def build_clean_command(
+    category_keys: Sequence[str],
+    *,
+    execute: bool,
+    project_roots: Sequence[str] = (),
+) -> str | None:
     if not category_keys:
         return None
     parts = ["python3", "cleanmac.py", "clean", "--categories", ",".join(category_keys)]
+    if project_roots:
+        parts.extend(["--project-roots", ",".join(project_roots)])
     if execute:
         parts.append("--execute")
     return shell_quote_command(parts)
@@ -7579,6 +7774,7 @@ def _validate_clean_plan_payload(
         "min_size_mb": payload.get("min_size_mb") if isinstance(payload.get("min_size_mb"), int) else None,
         "name_regex": str(payload.get("name_regex")) if isinstance(payload.get("name_regex"), str) else None,
         "max_items": payload.get("max_items") if isinstance(payload.get("max_items"), int) else None,
+        "project_roots": normalize_plan_category_keys(payload.get("project_roots")),
         "root": str(payload.get("root")) if isinstance(payload.get("root"), str) else None,
         "home": str(payload.get("home")) if isinstance(payload.get("home"), str) else None,
         "ai_origin": payload.get("ai_origin") is True,
@@ -7605,6 +7801,16 @@ def _validate_clean_plan_metadata(
     if home is not None and plan.get("home") and not same_context_path(str(plan["home"]), home):
         context_warnings.append({"field": "home", "expected": plan["home"], "actual": display_path(home)})
     preview = None
+    project_roots: tuple[Path, ...] = ()
+    if not unknown and root is not None and home is not None and plan.get("project_roots"):
+        try:
+            project_roots = normalize_project_roots(
+                tuple(str(path) for path in plan["project_roots"]), root=root, home=home
+            )
+        except SystemExit as exc:
+            context_warnings.append(
+                {"field": "project_roots", "expected": list(plan["project_roots"]), "actual": str(exc)}
+            )
     if not unknown and root is not None and home is not None:
         categories = [CATEGORY_BY_KEY[str(key)] for key in plan["category_keys"]]
         preview = inspect_items(
@@ -7617,6 +7823,7 @@ def _validate_clean_plan_metadata(
             exclude_patterns=tuple(str(pattern) for pattern in plan["exclude_patterns"]),
             older_than_days=float(plan["older_than_days"]) if plan["older_than_days"] is not None else None,
             name_regex=str(plan["name_regex"]) if plan["name_regex"] else None,
+            project_roots=project_roots,
         )
     budget_summary = None
     if preview is not None:
@@ -7646,7 +7853,11 @@ def _validate_clean_plan_metadata(
         "preview": preview,
         "budget_summary": budget_summary,
         "replay_clean_command": build_clean_command(
-            [str(key) for key in plan["category_keys"] if str(key) in CATEGORY_BY_KEY], execute=False
+            [str(key) for key in plan["category_keys"] if str(key) in CATEGORY_BY_KEY],
+            execute=False,
+            project_roots=[project_root_logical_path(path, root=root) for path in project_roots]
+            if root is not None
+            else [str(path) for path in plan.get("project_roots", ())],
         ),
         "execute_command_requires_review": True,
     }
@@ -8129,14 +8340,27 @@ def render_single_shot_workflow_presets() -> list[dict[str, Any]]:
         {
             "id": "developer-clean",
             "title": "Developer cache clean",
-            "purpose": "Preview regenerable developer caches such as Xcode, package-manager caches, and Docker cache paths once, then exit.",
-            "categories": ["xcode", "nodePackageCaches", "pythonPackageCaches", "goBuildCaches", "docker"],
+            "purpose": "Preview regenerable developer caches such as Xcode, language package-manager caches, and Docker cache paths once, then exit.",
+            "categories": [
+                "xcode",
+                "nodePackageCaches",
+                "pythonPackageCaches",
+                "goBuildCaches",
+                "cargoCaches",
+                "bunCaches",
+                "corepackCaches",
+                "preCommitCaches",
+                "bundlerCaches",
+                "gitHubCliCaches",
+                "docker",
+            ],
             "argv": [
                 "cleanmac",
                 "--json",
                 "workflow",
                 "--categories",
-                "xcode,nodePackageCaches,pythonPackageCaches,goBuildCaches,docker",
+                "xcode,nodePackageCaches,pythonPackageCaches,goBuildCaches,cargoCaches,bunCaches,"
+                "corepackCaches,preCommitCaches,bundlerCaches,gitHubCliCaches,docker",
                 "--dry-run-scope",
                 "selected",
             ],
@@ -10095,6 +10319,7 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
 
     categories = select_categories(args)
+    project_roots = normalize_project_roots(parse_csv(getattr(args, "project_roots", None)), root=root, home=home)
     if args.command == "open":
         emit_report(
             render_open_targets(categories, root=root, home=home, execute=args.execute),
@@ -10117,7 +10342,7 @@ def _main_impl(argv: Sequence[str]) -> int:
         return 0
     if args.command == "analyze":
         emit_report(
-            analyze(categories, root=root, home=home),
+            analyze(categories, root=root, home=home, project_roots=project_roots),
             args=args,
             command="analyze",
             root=root,
@@ -10139,6 +10364,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             name_regex=args.name_regex,
             max_items=args.max_items,
             ai_origin=args.ai_origin,
+            project_roots=project_roots,
         )
         emit_report(report, args=args, command="plan", root=root, home=home, argv=actual_argv)
         return 0
@@ -10189,6 +10415,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             name_regex=args.name_regex,
             max_delete_mb=args.max_delete_mb,
             max_items=args.max_items,
+            project_roots=project_roots,
         )
         emit_report(report, args=args, command="inspect", root=root, home=home, argv=actual_argv)
         return 0
@@ -10253,6 +10480,7 @@ def _main_impl(argv: Sequence[str]) -> int:
             review_selection=review_selection,
             command_argv=original_argv,
             progress_enabled=not args.json and not getattr(args, "quiet", False),
+            project_roots=project_roots,
         )
         if plan_metadata:
             report["plan_metadata"] = plan_metadata

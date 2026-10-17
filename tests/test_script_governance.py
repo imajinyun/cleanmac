@@ -322,8 +322,25 @@ def test_workflow_runs_fixed_non_destructive_phases() -> None:
         assert single_shot["quick-safe-clean"]["destructive"] is False
         assert "trash" in single_shot["quick-safe-clean"]["argv"]
         assert single_shot["quick-safe-clean"]["categories"] == ["trash"]
-        assert single_shot["developer-clean"]["exits_after_workflow"] is True
-        assert "nodePackageCaches" in single_shot["developer-clean"]["categories"]
+        developer_clean = single_shot["developer-clean"]
+        assert developer_clean["exits_after_workflow"] is True
+        assert developer_clean["safe_to_auto_call"] is True
+        assert developer_clean["destructive"] is False
+        assert developer_clean["categories"] == [
+            "xcode",
+            "nodePackageCaches",
+            "pythonPackageCaches",
+            "goBuildCaches",
+            "cargoCaches",
+            "bunCaches",
+            "corepackCaches",
+            "preCommitCaches",
+            "bundlerCaches",
+            "gitHubCliCaches",
+            "docker",
+        ]
+        argv_categories = developer_clean["argv"][developer_clean["argv"].index("--categories") + 1]
+        assert argv_categories == ",".join(developer_clean["categories"])
         assert single_shot["large-files-review"]["destructive"] is False
         tool_hints = {row["intent"]: row for row in ux_guide["tool_choice_hints"]}
         assert tool_hints["understand_available_actions"]["first_tool"] == "cleanmac_capabilities"

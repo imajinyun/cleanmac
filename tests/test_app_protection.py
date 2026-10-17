@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from cleancli import protection
+from cleancli.core import CATEGORY_BY_KEY
 from tests.helpers import make_sandbox, run_cli
 
 
@@ -115,6 +116,34 @@ def test_extended_app_cache_categories_select_regenerable_caches_and_preserve_cr
                 root / "Users/tester/.npm/_cacache/index-v5/entry",
                 root / "Users/tester/.npm/_cacache/index-v5",
             ),
+            "cargoCaches": (
+                root / "Users/tester/.cargo/registry/src/index.test-000/serde/Cargo.toml",
+                root / "Users/tester/.cargo/registry/src/index.test-000",
+            ),
+            "bunCaches": (
+                root / "Users/tester/.bun/install/cache/ab/ball.tgz",
+                root / "Users/tester/.bun/install/cache/ab",
+            ),
+            "corepackCaches": (
+                root / "Users/tester/.cache/node/corepack/v1/pnpm/9/bin/pnpm",
+                root / "Users/tester/.cache/node/corepack/v1",
+            ),
+            "preCommitCaches": (
+                root / "Users/tester/.cache/pre-commit/reporky1wk11/.pre-commit-hooks.yaml",
+                root / "Users/tester/.cache/pre-commit/reporky1wk11",
+            ),
+            "bundlerCaches": (
+                root / "Users/tester/.bundle/cache/compact_index/rubygems.version",
+                root / "Users/tester/.bundle/cache/compact_index",
+            ),
+            "gitHubCliCaches": (
+                root / "Users/tester/.cache/gh/objects/response.json",
+                root / "Users/tester/.cache/gh/objects",
+            ),
+            "zed": (
+                root / "Users/tester/Library/Application Support/Zed/node/cache/_cacache/entry",
+                root / "Users/tester/Library/Application Support/Zed/node/cache/_cacache",
+            ),
             "pythonPackageCaches": (
                 root / "Users/tester/Library/Caches/pip/http-v2/entry",
                 root / "Users/tester/Library/Caches/pip/http-v2",
@@ -132,6 +161,13 @@ def test_extended_app_cache_categories_select_regenerable_caches_and_preserve_cr
             root / "Users/tester/.docker/config.json",
             root / "Users/tester/.pypirc",
             root / "Users/tester/.netrc",
+            root / "Users/tester/.npmrc",
+            root / "Users/tester/.cargo/credentials",
+            root / "Users/tester/.bunfig.toml",
+            root / "Users/tester/.bundle/config",
+            root / "Users/tester/.gem/credentials",
+            root / "Users/tester/.config/gh/hosts.yml",
+            root / "Users/tester/Library/Application Support/Zed/settings.json",
             root / "Users/tester/Library/Application Support/Slack/Cookies",
             root / "Users/tester/Library/Application Support/Google/Chrome/Default/Login Data",
         )
@@ -162,7 +198,7 @@ def test_extended_app_cache_categories_select_regenerable_caches_and_preserve_cr
             evidence = row["review_evidence"]
             assert row["path"] == str(expected_candidate_path)
             assert row["default_selected"] is True
-            assert row["risk"] == "medium"
+            assert row["risk"] == CATEGORY_BY_KEY[category].risk
             assert evidence["schema"] == "cleanmac.candidate-review-evidence.v1"
             assert evidence["matched_rule"] == f"clean.{category}.candidate"
             assert evidence["default_selected"] is True

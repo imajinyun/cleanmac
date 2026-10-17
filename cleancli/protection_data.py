@@ -576,6 +576,23 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "paths": ("~/Library/Application Support/Code/Cache/", "~/Library/Application Support/Code/CachedData/"),
         "protected_patterns": ("*/User/*", "*/workspaceStorage/*"),
     },
+    "zed": {
+        "title": "Zed editor caches",
+        "paths": (
+            "~/Library/Application Support/Zed/node/cache/",
+            "~/Library/Application Support/Zed/node/node-*/cache/",
+        ),
+        "protected_patterns": (
+            "*/Zed/db/*",
+            "*/Zed/extensions/*",
+            "*/Zed/copilot/*",
+            "*/Zed/languages/*",
+            "*/Zed/threads/*",
+            "*/Zed/settings.json",
+            "*/Zed/node/node-*/bin/*",
+            "*/Zed/node/node-*/lib/*",
+        ),
+    },
     "docker": {
         "title": "Docker desktop caches",
         "paths": ("~/Library/Caches/com.docker.docker/", "~/.docker/buildx/cache/"),
@@ -767,7 +784,14 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     },
     "nodePackageCaches": {
         "title": "Node package manager caches",
-        "paths": ("~/.npm/_cacache/", "~/Library/pnpm/store/", "~/Library/Caches/Yarn/"),
+        "paths": (
+            "~/.npm/_cacache/",
+            "~/.npm/_npx/",
+            "~/.npm/_prebuilds/",
+            "~/.npm/_logs/",
+            "~/Library/pnpm/store/",
+            "~/Library/Caches/Yarn/",
+        ),
         "protected_patterns": ("~/.npmrc", "~/.yarnrc", "~/.yarnrc.yml", "~/Library/pnpm/rc"),
     },
     "pythonPackageCaches": {
@@ -792,13 +816,42 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     },
     "cargoCaches": {
         "title": "Cargo registry and git caches",
-        "paths": ("~/.cargo/registry/cache/", "~/.cargo/git/checkouts/", "~/.cargo/git/db/"),
+        "paths": (
+            "~/.cargo/registry/cache/",
+            "~/.cargo/registry/src/",
+            "~/.cargo/git/checkouts/",
+            "~/.cargo/git/db/",
+        ),
         "protected_patterns": ("~/.cargo/credentials", "~/.cargo/config", "~/.cargo/config.toml"),
     },
     "cocoaPodsCaches": {
         "title": "CocoaPods caches",
         "paths": ("~/Library/Caches/CocoaPods/", "~/.cocoapods/repos/"),
         "protected_patterns": ("~/.netrc", "~/.gem/credentials", "~/.cocoapods/config.yaml"),
+    },
+    "bunCaches": {
+        "title": "Bun package and installer caches",
+        "paths": ("~/.bun/install/cache/",),
+        "protected_patterns": ("~/.bunfig.toml",),
+    },
+    "corepackCaches": {
+        "title": "Corepack package manager shim caches",
+        "paths": ("~/.cache/node/corepack/",),
+        "protected_patterns": ("~/.npmrc",),
+    },
+    "preCommitCaches": {
+        "title": "pre-commit hook environment caches",
+        "paths": ("~/.cache/pre-commit/",),
+    },
+    "bundlerCaches": {
+        "title": "Ruby Bundler caches",
+        "paths": ("~/.bundle/cache/",),
+        "protected_patterns": ("~/.bundle/config", "~/.gem/credentials"),
+    },
+    "gitHubCliCaches": {
+        "title": "GitHub CLI caches",
+        "paths": ("~/.cache/gh/",),
+        "protected_patterns": ("~/.config/gh/hosts.yml", "~/.config/gh/config.yml"),
     },
     "postman": {
         "title": "Postman caches",
