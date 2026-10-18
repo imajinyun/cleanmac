@@ -540,7 +540,7 @@ python3 cleanmac.py clean run \
 | 命令组 | 子命令 | 说明 |
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 清理操作 |
-| `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 应用清单（只读） |
+| `software` | `list`、`leftovers`（`orphans` 别名）、`orphans`、`startup-items`、`uninstall-plan` | 📦 应用清单与已卸载应用残留扫描（只读） |
 | `startup` | `audit`, `plan`, `disable` | 🚀 启动项审计、禁用计划和已审查禁用执行 |
 | `privacy` | `inspect`, `plan`, `execute` | 🔐 浏览器/应用隐私候选项检查、计划和已审查执行 |
 | `permissions` | preflight | 🔎 权限和 Full Disk Access 就绪预检 |
@@ -667,15 +667,52 @@ python3 cleanmac.py --json optimize run
 python3 cleanmac.py --json status snapshot
 ```
 
+### `purge`
+
+扫描项目目录中的构建产物（node_modules、target、venv、dist 等）并报告可回收空间。只读，不会删除任何文件。
+
+```bash
+python3 cleanmac.py --json purge
+python3 cleanmac.py --json purge --recent-days 14
+python3 cleanmac.py --json purge --roots ~/Projects,~/code
+```
+
+返回 schema `cleanmac.project-purge.v1`。
+
+### `projectArtifacts` 与 `--project-roots`
+
+`purge` 是只读的；受治理的清理链路可以通过 `projectArtifacts` 分类删除同一批构建产物。其内置根目录为 `~/Projects`、`~/GitHub`、`~/dev`、`~/code`、`~/work`。传入 `--project-roots` 可显式指定项目目录——自定义根会**替换**内置根，`inspect`、`analyze`、`plan`、`clean` 均支持：
+
+```bash
+# 预览指定项目根下发现的产物
+python3 cleanmac.py --json clean inspect \
+  --categories projectArtifacts \
+  --project-roots ~/Codes,~/work \
+  --older-than-days 0
+
+# 根目录会持久化进 plan；validate-plan 与回放恢复相同作用域
+python3 cleanmac.py --json clean plan \
+  --categories projectArtifacts \
+  --project-roots ~/Codes \
+  > /tmp/plan.json
+```
+
+根目录必须是绝对路径或 `~` 相对路径、必须位于当前 home 之内，且不能是 home/根本身（请显式指定具体项目目录）。发现过程有深度上限，只精确匹配产物名（`node_modules`、`target`、`venv`、`.venv`、`dist`、`build` 等），不跟随符号链接，也不会下钻进入已命中的产物目录。plan 顶层会持久化 `project_roots`，因此带 `--require-plan-context` 回放时作用域完全一致；dry-run 默认、时间过滤、Trash 路由、删除预算与 review-selection 门禁仍然全部生效。
+
 ### `software`
 
 ```bash
 python3 cleanmac.py --json software list
-python3 cleanmac.py --json software leftovers
+python3 cleanmac.py --json software orphans
+python3 cleanmac.py --json software leftovers          # "software orphans" 的别名
+python3 cleanmac.py --json software orphans --summary-only
+python3 cleanmac.py --json software orphans --limit 1000 --max-scan-entries 20000
 python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
 python3 cleanmac.py --json software ios-backups
 ```
+
+`software orphans`（以及别名 `leftovers`）返回只读的 `cleanmac.software-orphans.v1` 报告。它会扫描 Preferences、Caches、Logs、Application Support、Containers、Group Containers、Application Scripts、Saved Application State、HTTPStorages、WebKit、用户/系统 LaunchAgents、LaunchDaemons 和 PrivilegedHelperTools，找出 bundle id 未被任何当前已安装应用暴露的残留数据。bundle id 判定采用保守的反向域名校验（接受 `cn.`、`dev.`、`ai.`、`pc.` 等真实前缀，同时拒绝 UUID、点开头文件、`homebrew.*` 服务数据以及 `UBF8T346G9.Office` 这类 TeamID 裸名），会剥离 TeamID/group container 装饰前缀（`ABCDE12345.group.com.vendor.app`），并把已安装应用的扩展/父级 id 视为属于该应用。Application Scripts 目录一律标记为中风险、仅可人工审查；扫描绝不跟随符号链接，除明确已卸载应用的可重建缓存/日志/偏好设置外不默认勾选任何候选项。默认最多返回 1000 条候选项明细（超过 limit 或扫描预算时报告中的 `truncated`/`scan_truncated` 为 true）；仅需统计时使用 `--summary-only`。
 
 ### `xcode-ios-candidates`
 
@@ -837,6 +874,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `--max-delete-mb 500` | 预算：总字节 |
 | `--max-items 100` | 预算：数量 |
 | `--fail-on-skipped` | 有跳过项时拒绝 |
+| `--project-roots ~/Codes,~/work` | `projectArtifacts` 作用域：显式项目根替换内置 `~/Projects` 等根（inspect/analyze/plan/clean） |
 
 ### ⚙️ 全局参数
 
@@ -869,7 +907,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `userPrefs` | ⚙️ 偏好设置 | critical | ❌ | `~/Library/Preferences/` |
 | `docRev` | 📄 文档版本 | critical | ❌ | `/.DocumentRevisions-V100/` |
 
-其他应用专用分类：`groupContainerCaches`、`androidStudio`、`jetbrains`、`vscode`、`docker`、`chrome`、`firefox`、`slack`、`zoom`、`teams`、`nodePackageCaches`、`pythonPackageCaches`、`goBuildCaches`。系统/深层分类：`rotate_log_once`（日志轮转）、`deviceFirmware`（固件缓存）、`appleSiliconCaches`（Rosetta/M1 缓存）、`iosBackups`（iOS 设备备份）、`fontCache`（字体注册表缓存）、`inputMethodCache`（输入法缓存）、`spotlightCache`（Spotlight 索引缓存）、`printQueue`（打印队列池）、`quickLookCache`（QuickLook 缩略图缓存）。分析类分类：`duplicateFiles`（重复文件检测）、`largeFiles`（大文件审计）、`oldFiles`（过期文件审计）。治理：`official_uninstaller_vendor` 检测 CrowdStrike 等官方卸载器。
+其他应用专用分类：`groupContainerCaches`、`androidStudio`、`jetbrains`、`vscode`、`zed`、`docker`、`chrome`、`firefox`、`slack`、`zoom`、`teams`。开发者工具链缓存：`nodePackageCaches`（npm 的 `_cacache`/`_npx`/`_prebuilds`/`_logs`、pnpm、Yarn）、`pythonPackageCaches`、`goBuildCaches`、`cargoCaches`（registry 缓存与解压出的 `registry/src`）、`bunCaches`、`corepackCaches`、`preCommitCaches`、`bundlerCaches`、`gitHubCliCaches`；这些分类只针对可再生的缓存路径，并保留各工具的凭据与配置。AI 工具缓存：`aiToolCaches` 覆盖 Claude、Codex、Cursor、ChatGPT、Ollama 的可再生缓存，包括已识别应用的 Electron profile/partition 缓存（`Default`、`Partitions/*`，含 `Shared Dictionary/cache`），以及 `~/.codex`、`~/.claude` dotdirectory 内精确的缓存/临时叶子目录；凭据、会话、配置与历史记录始终受保护。`aiToolOldVersions` 通过解析各工具的活动版本标记软链来删除磁盘上已被取代的 Codex 与 Cursor Agent 旧版本（活动版本始终保留；标记缺失、悬空或逃逸时不清理任何内容）。系统/深层分类：`rotate_log_once`（日志轮转）、`deviceFirmware`（固件缓存）、`appleSiliconCaches`（Rosetta/M1 缓存）、`iosBackups`（iOS 设备备份）、`fontCache`（字体注册表缓存）、`inputMethodCache`（输入法缓存）、`spotlightCache`（Spotlight 索引缓存）、`printQueue`（打印队列池）、`quickLookCache`（QuickLook 缩略图缓存）。分析类分类：`duplicateFiles`（重复文件检测）、`largeFiles`（大文件审计）、`oldFiles`（过期文件审计）。治理：`official_uninstaller_vendor` 检测 CrowdStrike 等官方卸载器。
 
 ---
 

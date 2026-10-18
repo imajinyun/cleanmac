@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 from collections.abc import Callable
@@ -163,6 +164,7 @@ LEFTOVER_TYPE_BY_KIND = {
     "logs": "logs",
     "container": "containers",
     "group-container": "containers",
+    "application-scripts": "application_scripts",
     "saved-state": "saved_state",
     "http-storage": "containers",
     "webkit-data": "containers",
@@ -183,6 +185,7 @@ LEFTOVER_TYPE_RISK_EXPLANATIONS = {
     "preferences": "Preferences can reset app settings; they are reviewable and Trash-first recoverable.",
     "saved_state": "Saved state stores previous windows/session UI and is usually rebuildable by macOS.",
     "containers": "Container data may include sandboxed app state, databases, cookies, web storage, or files shared across apps.",
+    "application_scripts": "Application Scripts folders hold AppleScript/script dictionaries registered by an app; orphaned ones may still be referenced by Shortcuts or other automations and require review.",
     "credentials": "Credentials, auth tokens, keys, and secrets are protected user data and are skipped by default.",
     "user_documents": "User documents may be authored project/work files and are never default-selected for uninstall cleanup.",
     "launch_items": "Launch agents/daemons can affect background services and should be selected only after explicit review.",
@@ -204,6 +207,7 @@ RECOVERY_GUIDANCE = {
     "launch-daemon": "Restore from Trash and reload manually only after reviewing the daemon and privileges.",
     "privileged-helper": "Do not remove casually; use vendor uninstall instructions or restore from Trash immediately.",
     "group-container": "Do not remove casually; may be shared across apps from the same vendor.",
+    "application-scripts": "Restore from Trash if Shortcuts, Mail rules, or other automations still reference the scripts.",
     "application-support": "Restore from Trash if user state or app support files are still needed.",
     "system-application-support": "Restore from Trash or reinstall the app/vendor package if support files were selected.",
     "credentials": "Credentials are protected and skipped by default; restore from Trash immediately if explicitly selected by mistake.",
@@ -627,7 +631,8 @@ def _orphan_candidate(
     candidate["known_helper_only_bundle"] = kind in {"launch-agent", "launch-daemon", "privileged-helper"}
     candidate["group_container_naming_ambiguous"] = kind == "group-container"
     candidate["possible_installed_outside_indexed_app_dirs"] = (
-        bool(bundle_id) and kind in {"preferences", "cache", "logs", "saved-state"}
+        bool(bundle_id)
+        and kind in {"preferences", "cache", "logs", "saved-state", "application-scripts"}
     )
     candidate["confidence_reason"] = _orphan_confidence_reason(
         bundle_id=bundle_id,
@@ -665,18 +670,96 @@ def _bundle_id_from_plist(path: Path) -> str:
     return name[: -len(suffix)] if name.endswith(suffix) else path.stem
 
 
+_BUNDLE_ID_FIRST_LABEL_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+_BUNDLE_ID_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9_ -]*[a-z0-9])?$|^[a-z0-9]$")
+_BUNDLE_ID_DENY_PREFIXES = (
+    "homebrew.",
+    "group.",
+    "groups.",
+    "systemgroup.",
+)
+_TEAM_ID_PREFIX_RE = re.compile(r"^[0-9A-Z]{10}\.")
+_GROUP_ID_PREFIXES = ("systemgroup.", "groups.", "group.")
+_LOG_ROTATION_SUFFIX_RE = re.compile(r"(?:\.(?:old\.\d+|\d+))*$")
+
+
 def _looks_like_bundle_id(value: str | None) -> bool:
-    if not value or "." not in value:
+    """Conservative reverse-DNS bundle-id predicate.
+
+    Real third-party identifiers use many first labels beyond com./org./net./io.
+    (cn., dev., ai., pc., app., ...). Accept structurally valid reverse-DNS names
+    while rejecting UUIDs, dotfiles, TeamID-bare names (``ABCDE12345.Office``),
+    group/system markers, and service-manager metadata such as ``homebrew.*``.
+    """
+    if not value or "." not in value or value.startswith("."):
         return False
+    labels = value.split(".")
+    if len(labels) < 2 or any(not label for label in labels):
+        return False
+    first = labels[0]
+    if not _BUNDLE_ID_FIRST_LABEL_RE.match(first):
+        return False
+    if not all(_BUNDLE_ID_LABEL_RE.match(label.lower()) for label in labels):
+        return False
+    if labels[-1].isdigit() or value.lower().startswith(_BUNDLE_ID_DENY_PREFIXES):
+        return False
+    return True
+
+
+def _strip_bundle_id_decorators(value: str) -> str:
+    """Drop Apple App Management naming decorators around a bundle id.
+
+    Containers and Application Scripts can be named ``<TeamID>.<bundle-id>``,
+    optionally wrapped in ``group.``/``groups.``/``systemgroup.``. The returned
+    value may still fail :func:`_looks_like_bundle_id` (for example TeamID-bare
+    names like ``UBF8T346G9.Office``), which callers must enforce.
+    """
+    matched = _TEAM_ID_PREFIX_RE.match(value)
+    if matched:
+        value = value[matched.end() :]
     lowered = value.lower()
-    return lowered.startswith(("com.", "org.", "net.", "io."))
+    for prefix in _GROUP_ID_PREFIXES:
+        if lowered.startswith(prefix):
+            return value[len(prefix) :]
+    return value
+
+
+def _bundle_id_matches_installed(bundle_id: str, installed_bundle_ids: set[str]) -> bool:
+    """True when an installed app exposes the id or an enclosing/extension id.
+
+    Containers are frequently named after app extensions (``com.vendor.app.widget``)
+    or parent identifiers (``com.vendor.app`` vs installed ``com.vendor.App`` ids),
+    so exact matching alone hides installed-app data and mislabels orphan scans.
+    """
+    if bundle_id in installed_bundle_ids:
+        return True
+    return any(
+        installed.startswith(bundle_id + ".") or bundle_id.startswith(installed + ".")
+        for installed in installed_bundle_ids
+    )
+
+
+def _bundle_id_from_application_scripts(path: Path) -> str:
+    return _strip_bundle_id_decorators(path.name)
+
+
+def _bundle_id_from_log_path(path: Path) -> str:
+    name = _LOG_ROTATION_SUFFIX_RE.sub("", path.name)
+    if name.endswith(".log"):
+        name = name[: -len(".log")]
+    return name
+
+
+def _bundle_id_from_http_storage(path: Path) -> str:
+    match = re.match(r"^(?P<stem>.*?)\.binarycookies(?:_tmp_\d+\.dat)?$", path.name)
+    return match.group("stem") if match else path.name
 
 
 def find_software_orphans(
     *,
     root: Path,
     home: Path,
-    limit: int | None = 100,
+    limit: int | None = 1000,
     max_scan_entries: int | None = None,
     summary_only: bool = False,
 ) -> dict[str, Any]:
@@ -692,6 +775,7 @@ def find_software_orphans(
         _display_path(home_root / "Library/Application Support"),
         _display_path(home_root / "Library/Containers"),
         _display_path(home_root / "Library/Group Containers"),
+        _display_path(home_root / "Library/Application Scripts"),
         _display_path(home_root / "Library/Saved Application State"),
         _display_path(home_root / "Library/HTTPStorages"),
         _display_path(home_root / "Library/WebKit"),
@@ -718,8 +802,16 @@ def find_software_orphans(
     bundle_scans = [
         (home_root / "Library/Preferences", "*.plist", "preferences", "medium", True, _bundle_id_from_plist),
         (home_root / "Library/Caches", "*", "cache", "low", True, lambda path: path.name),
-        (home_root / "Library/Logs", "*", "logs", "low", True, lambda path: path.name),
+        (home_root / "Library/Logs", "*", "logs", "low", True, _bundle_id_from_log_path),
         (home_root / "Library/Containers", "*", "container", "high", False, lambda path: path.name),
+        (
+            home_root / "Library/Application Scripts",
+            "*",
+            "application-scripts",
+            "medium",
+            False,
+            _bundle_id_from_application_scripts,
+        ),
         (
             home_root / "Library/Saved Application State",
             "*.savedState",
@@ -728,7 +820,7 @@ def find_software_orphans(
             True,
             _bundle_id_from_saved_state,
         ),
-        (home_root / "Library/HTTPStorages", "*", "http-storage", "medium", False, lambda path: path.name),
+        (home_root / "Library/HTTPStorages", "*", "http-storage", "medium", False, _bundle_id_from_http_storage),
         (home_root / "Library/WebKit", "*", "webkit-data", "medium", False, lambda path: path.name),
         (home_root / "Library/LaunchAgents", "*.plist", "launch-agent", "high", False, _bundle_id_from_plist),
         (_system_path(root, "/Library/LaunchAgents"), "*.plist", "launch-agent", "high", False, _bundle_id_from_plist),
@@ -755,13 +847,18 @@ def find_software_orphans(
         for path in sorted(base.glob(pattern)):
             if not note_scanned_entry():
                 break
-            if not (path.exists() or path.is_symlink()):
+            # Application Scripts entries are real on-disk per-app script folders;
+            # symlinked roots must not authorize discovery or become Trash targets.
+            if kind == "application-scripts":
+                if path.is_symlink() or not path.is_dir():
+                    continue
+            elif not (path.exists() or path.is_symlink()):
                 continue
             bundle_id = bundle_id_func(path)
             if (
                 not _looks_like_bundle_id(bundle_id)
                 or bundle_id.startswith("com.apple.")
-                or bundle_id in installed_bundle_ids
+                or _bundle_id_matches_installed(bundle_id, installed_bundle_ids)
             ):
                 continue
             candidates.append(
@@ -809,8 +906,14 @@ def find_software_orphans(
         for path in sorted(child for child in group_root.iterdir() if child.exists() or child.is_symlink()):
             if not note_scanned_entry():
                 break
-            bundle_id = protection.bundle_id_for_path(path)
-            if not bundle_id or bundle_id.startswith("com.apple.") or bundle_id in installed_bundle_ids:
+            # Normalize TeamID/group decorators (``ABCDE12345.group.com.vendor.app``)
+            # so extension/team-prefixed containers compare against installed ids.
+            bundle_id = _strip_bundle_id_decorators(protection.bundle_id_for_path(path) or path.name)
+            if (
+                not _looks_like_bundle_id(bundle_id)
+                or bundle_id.startswith("com.apple.")
+                or _bundle_id_matches_installed(bundle_id, installed_bundle_ids)
+            ):
                 continue
             candidates.append(
                 _orphan_candidate(
@@ -1162,7 +1265,7 @@ def render_software(
     app: str | None,
     root: Path,
     home: Path,
-    limit: int | None = 100,
+    limit: int | None = 1000,
     max_scan_entries: int | None = None,
     summary_only: bool = False,
 ) -> dict[str, Any]:
@@ -1173,18 +1276,12 @@ def render_software(
         "~/Library/StartupItems/",
         "/Library/StartupItems/",
     ]
-    leftover_roots = [
-        "~/Library/Preferences/<bundle-id>.plist",
-        "~/Library/Application Support/<app>",
-        "~/Library/Caches/<bundle-id>",
-        "~/Library/LaunchAgents/<bundle-id>.plist",
-        "/Library/Receipts/<package-id>.*",
-    ]
     if action == "inspect":
         return inspect_software_uninstall(app or "", root=root, home=home)
     if action == "uninstall-plan":
         return plan_software_uninstall(app, root=root, home=home)
-    if action == "orphans":
+    # "leftovers" is the user-facing alias of the governed read-only orphan scan.
+    if action in {"orphans", "leftovers"}:
         return find_software_orphans(
             root=root,
             home=home,
@@ -1200,6 +1297,5 @@ def render_software(
         "app": app,
         "apps": list_apps(root=root, home=home) if action == "list" else [],
         "startup_locations": startup_locations if action == "startup-items" else [],
-        "leftover_scan_roots": leftover_roots if action == "leftovers" else [],
         "uninstall_plan": None,
     }

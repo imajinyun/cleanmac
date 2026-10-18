@@ -403,7 +403,7 @@ def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
             (["clean", "open", "--categories", "trash"], "cleanmac.open.v1", {"dry_run": True}),
             (["clean", "links"], "cleanmac.links.v1", {"dry_run": True}),
             (["software", "list"], "cleanmac.software.v1", {"destructive": False}),
-            (["software", "leftovers"], "cleanmac.software.v1", {"destructive": False}),
+            (["software", "leftovers"], "cleanmac.software-orphans.v1", {"dry_run": True}),
             (["software", "orphans"], "cleanmac.software-orphans.v1", {"dry_run": True}),
             (["software", "startup-items"], "cleanmac.software.v1", {"destructive": False}),
             (["startup", "audit"], "cleanmac.startup-audit.v1", {"dry_run": True}),

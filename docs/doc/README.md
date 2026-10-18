@@ -548,7 +548,7 @@ python3 cleanmac.py clean run \
 | Group | Commands | Description |
 |---|---|---|
 | `clean` | `list`, `inspect`, `plan`, `validate-plan`, `run`, `scripts`, `open`, `links` | 🧹 Cleanup operations |
-| `software` | `list`, `leftovers`, `startup-items`, `uninstall-plan` | 📦 App inventory (read-only) |
+| `software` | `list`, `leftovers` (alias of `orphans`), `orphans`, `startup-items`, `uninstall-plan` | 📦 App inventory and uninstalled-app leftover scan (read-only) |
 | `startup` | `audit`, `plan`, `disable` | 🚀 Startup item audit, disable planning, and reviewed disable execution |
 | `privacy` | `inspect`, `plan`, `execute` | 🔐 Browser/app privacy candidate inspection, planning, and reviewed execution |
 | `permissions` | preflight | 🔎 Permission and Full Disk Access readiness |
@@ -692,15 +692,40 @@ python3 cleanmac.py --json purge --roots ~/Projects,~/code
 
 Returns schema `cleanmac.project-purge.v1`.
 
+### `projectArtifacts` with `--project-roots`
+
+`purge` is read-only; the governed clean flow can remove the same build artifacts through the `projectArtifacts` category. Its built-in roots are `~/Projects`, `~/GitHub`, `~/dev`, `~/code`, and `~/work`. Pass `--project-roots` to name project directories explicitly — custom roots **replace** the built-in roots and are accepted by `inspect`, `analyze`, `plan`, and `clean`:
+
+```bash
+# Preview artifacts discovered under the named project roots
+python3 cleanmac.py --json clean inspect \
+  --categories projectArtifacts \
+  --project-roots ~/Codes,~/work \
+  --older-than-days 0
+
+# Persist the roots in a plan; validate-plan and replay restore the same scope
+python3 cleanmac.py --json clean plan \
+  --categories projectArtifacts \
+  --project-roots ~/Codes \
+  > /tmp/plan.json
+```
+
+Roots must be absolute or `~`-relative, must live inside the active home, and cannot be the home/root itself (name project directories explicitly). Discovery is depth-bounded, matches exact artifact names (`node_modules`, `target`, `venv`, `.venv`, `dist`, `build`, ...), never follows symlinks, and never descends into a matched artifact directory. Plans persist `project_roots` at the top level, so plan replay with `--require-plan-context` keeps the identical scope; dry-run defaults, age filters, Trash routing, deletion budgets, and review-selection gates all still apply.
+
 ### `software`
 
 ```bash
 python3 cleanmac.py --json software list
-python3 cleanmac.py --json software leftovers
+python3 cleanmac.py --json software orphans
+python3 cleanmac.py --json software leftovers          # alias of "software orphans"
+python3 cleanmac.py --json software orphans --summary-only
+python3 cleanmac.py --json software orphans --limit 1000 --max-scan-entries 20000
 python3 cleanmac.py --json software startup-items
 python3 cleanmac.py --json software uninstall-plan --app DemoApp
 python3 cleanmac.py --json software ios-backups
 ```
+
+`software orphans` (and its `leftovers` alias) returns the read-only `cleanmac.software-orphans.v1` report. It scans Preferences, Caches, Logs, Application Support, Containers, Group Containers, Application Scripts, Saved Application State, HTTPStorages, WebKit, user/system LaunchAgents, LaunchDaemons, and PrivilegedHelperTools for data whose bundle id is not exposed by any currently installed app. Bundle-id matching is conservative reverse-DNS validation (it accepts real prefixes such as `cn.`, `dev.`, `ai.`, and `pc.` while rejecting UUIDs, dotfiles, `homebrew.*` service data, and TeamID-bare names such as `UBF8T346G9.Office`), strips TeamID/group-container decorators (`ABCDE12345.group.com.vendor.app`), and treats installed app extension/parent ids as belonging to the installed app. Application Scripts folders are always medium-risk, review-only candidates; the scan never follows symlinks and never selects anything by default beyond rebuildable caches/logs/preferences of clearly uninstalled apps. Up to 1000 candidate details are returned by default (`truncated`/`scan_truncated` report when the limit or scan budget clips results); use `--summary-only` for counts without details.
 
 iOS backup enumeration returns schema `cleanmac.software-ios-backups.v1`.
 
@@ -875,6 +900,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `--max-delete-mb 500` | Budget: total bytes |
 | `--max-items 100` | Budget: count |
 | `--fail-on-skipped` | Reject if any skip |
+| `--project-roots ~/Codes,~/work` | `projectArtifacts` scope: named project roots replace the built-in `~/Projects` roots (inspect/analyze/plan/clean) |
 
 ### ⚙️ Global options
 
@@ -907,7 +933,7 @@ python3 cleanmac.py --root "$SANDBOX" --home "$SANDBOX_HOME" --json clean run \
 | `userPrefs` | ⚙️ Preferences | critical | ❌ | `~/Library/Preferences/` |
 | `docRev` | 📄 Doc revisions | critical | ❌ | `/.DocumentRevisions-V100/` |
 
-Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `jetbrains`, `vscode`, `docker`, `chrome`, `firefox`, `slack`, `zoom`, `teams`, `nodePackageCaches`, `pythonPackageCaches`, `goBuildCaches`. System/deep categories: `rotate_log_once` (log rotation), `deviceFirmware` (firmware caches), `appleSiliconCaches` (Rosetta/M1 caches), `iosBackups` (iOS device backups), `fontCache` (font registry caches), `inputMethodCache` (input method caches), `spotlightCache` (Spotlight index caches), `printQueue` (printer queue spool), `quickLookCache` (QuickLook thumbnail caches). Analysis categories: `duplicateFiles` (duplicate file detection), `largeFiles` (large file audit), `oldFiles` (stale file audit). Governance: `official_uninstaller_vendor` detects CrowdStrike, etc.
+Additional app-specific categories: `groupContainerCaches`, `androidStudio`, `jetbrains`, `vscode`, `zed`, `docker`, `chrome`, `firefox`, `slack`, `zoom`, `teams`. Developer toolchain caches: `nodePackageCaches` (npm `_cacache`/`_npx`/`_prebuilds`/`_logs`, pnpm, Yarn), `pythonPackageCaches`, `goBuildCaches`, `cargoCaches` (registry cache and extracted `registry/src`), `bunCaches`, `corepackCaches`, `preCommitCaches`, `bundlerCaches`, and `gitHubCliCaches`; each targets regenerable cache paths only and preserves the tool's credentials and configuration. AI tool caches: `aiToolCaches` covers regenerable caches for Claude, Codex, Cursor, ChatGPT, and Ollama, including Electron profile/partition caches (`Default`, `Partitions/*`, including `Shared Dictionary/cache`) for recognized apps and exact cache/temp leaves inside the `~/.codex` and `~/.claude` dotdirectories, while credentials, sessions, configuration, and history stay protected; `aiToolOldVersions` removes superseded on-disk Codex and Cursor Agent versions by resolving each tool's active-version marker symlink (the active version is always preserved, and a missing, dangling, or escaping marker prunes nothing). System/deep categories: `rotate_log_once` (log rotation), `deviceFirmware` (firmware caches), `appleSiliconCaches` (Rosetta/M1 caches), `iosBackups` (iOS device backups), `fontCache` (font registry caches), `inputMethodCache` (input method caches), `spotlightCache` (Spotlight index caches), `printQueue` (printer queue spool), `quickLookCache` (QuickLook thumbnail caches). Analysis categories: `duplicateFiles` (duplicate file detection), `largeFiles` (large file audit), `oldFiles` (stale file audit). Governance: `official_uninstaller_vendor` detects CrowdStrike, etc.
 
 ---
 

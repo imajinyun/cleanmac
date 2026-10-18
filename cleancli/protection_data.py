@@ -426,6 +426,25 @@ SENSITIVE_USER_DATA_FRAGMENTS = (
     "/library/application support/poe",
 )
 
+# Exact regenerable cache leaves inside otherwise blanket-protected AI CLI
+# dotdirectories. Only these leaves (and their contents) escape the sensitive
+# data guard; credentials, sessions, configuration, and history siblings stay
+# protected. Match against the resolved, lowercased absolute path.
+DOTDIR_REGENERABLE_CACHE_PATHS: tuple[str, ...] = (
+    "/.codex/.tmp",
+    "/.codex/cache",
+    "/.claude/cache",
+)
+
+# Home-relative roots that hold multiple on-disk AI CLI versions. Only direct
+# non-active version directories are reachable, and only via the
+# aiToolOldVersions provider, which resolves each tool's active-version marker
+# before listing anything; a missing or unreadable marker prunes nothing.
+AI_TOOL_VERSION_ROOTS: tuple[str, ...] = (
+    "/.codex/packages/standalone/releases/",
+    "/.local/share/cursor-agent/versions/",
+)
+
 
 APPLE_CONTAINER_CACHE_EXCEPTIONS = (
     "/Data/Library/Caches/",
@@ -446,8 +465,9 @@ APP_PROCESS_ALIASES: dict[str, tuple[str, ...]] = {
     "Trae CN": ("Trae CN", "Trae", "TRAE", "Trae Helper"),
     "TRAE SOLO CN": ("TRAE SOLO CN", "TRAE SOLO", "Trae Solo", "TRAE SOLO CN Helper"),
     "mira": ("mira", "mira Helper"),
-    "Codex": ("Codex", "Codex Helper"),
-    "Claude": ("Claude", "Claude Helper"),
+    "Codex": ("Codex", "Codex Helper", "codex"),
+    "Claude": ("Claude", "Claude Helper", "claude"),
+    "Cursor Agent": ("cursor-agent",),
     "ChatGPT": ("ChatGPT", "ChatGPT Helper"),
     "Doubao": ("Doubao", "Doubao Helper", "豆包"),
     "Qianwen": ("Qianwen", "Qianwen Helper", "千问"),
@@ -456,6 +476,16 @@ APP_PROCESS_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 APP_CACHE_OWNER_PATHS: dict[str, tuple[str, ...]] = {
+    "Codex": (
+        "~/.codex/.tmp",
+        "~/.codex/cache",
+        "~/.codex/packages/standalone/releases",
+    ),
+    "Claude": (
+        "~/.claude/cache",
+        "~/.claude/Cache",
+    ),
+    "Cursor Agent": ("~/.local/share/cursor-agent/versions",),
     "ChatGPT": ("~/Library/Caches/com.openai.chat", "~/Library/Application Support/ChatGPT"),
     "Google Chrome": ("~/Library/Caches/Google/Chrome", "~/Library/Application Support/Google/Chrome"),
     "Microsoft Edge": ("~/Library/Caches/Microsoft Edge", "~/Library/Application Support/Microsoft Edge"),
@@ -484,6 +514,7 @@ APP_SUPPORT_CACHE_DIRECTORIES = (
     "Crashpad/completed",
     "component_crx_cache",
     "extensions_crx_cache",
+    "Shared Dictionary/cache",
     "Service Worker/CacheStorage",
     "Service Worker/ScriptCache",
 )
@@ -874,6 +905,10 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     "aiToolCaches": {
         "title": "AI tool caches",
         "paths": (
+            "~/.codex/.tmp/",
+            "~/.codex/cache/",
+            "~/.claude/cache/",
+            "~/.claude/Cache/",
             "~/Library/Application Support/Claude/Cache/",
             "~/Library/Application Support/Claude/Code Cache/",
             "~/Library/Application Support/Cursor/Cache/",
@@ -888,8 +923,21 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "~/.ollama/models/.cache/",
         ),
         "protected_patterns": (
-            "~/.claude/*",
-            "~/.codex/*",
+            # Dotdirectories are blanket-protected as sensitive AI CLI state;
+            # only the exact cache leaves in paths are reachable. List the state
+            # siblings explicitly so wildcard patterns cannot cover cache leaves.
+            "~/.codex/auth.json",
+            "~/.codex/config.toml",
+            "~/.codex/config.yaml",
+            "~/.codex/sessions/*",
+            "~/.codex/projects/*",
+            "~/.codex/history.jsonl",
+            "~/.codex/log/*",
+            "~/.claude/.credentials*",
+            "~/.claude/settings*.json",
+            "~/.claude/projects/*",
+            "~/.claude/sessions/*",
+            "~/.claude/history*",
             "~/.cursor/*",
             "~/.ollama/id_*",
             "~/.ollama/config*",

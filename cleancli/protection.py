@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from cleancli.protection_data import (
+    AI_TOOL_VERSION_ROOTS,
     APP_CACHE_PROTECTED_PATTERNS,
     APP_CLEANUP_RULES,
     APPLE_CONTAINER_CACHE_EXCEPTIONS,
@@ -17,6 +18,7 @@ from cleancli.protection_data import (
     CRITICAL_SYSTEM_PATHS_EXACT,
     DATA_PROTECTED_BUNDLE_PATTERNS,
     DEFAULT_PROTECTED_BUNDLE_IDS,
+    DOTDIR_REGENERABLE_CACHE_PATHS,
     OFFICIAL_UNINSTALLER_RULES,
     PROTECTED_BUNDLE_PREFIXES,
     SENSITIVE_USER_DATA_FRAGMENTS,
@@ -119,6 +121,18 @@ def _contains_sensitive_fragment(path_text: str, fragment: str) -> bool:
     return path_text.endswith(normalized_fragment) or fragment in path_text or f"{normalized_fragment}/" in path_text
 
 
+def is_dotdir_regenerable_cache(path: Path) -> bool:
+    """Exact-leaf exception for regenerable caches inside protected AI dotdirs."""
+    lowered = str(path).lower()
+    return any(lowered.endswith(leaf) or f"{leaf}/" in lowered for leaf in DOTDIR_REGENERABLE_CACHE_PATHS)
+
+
+def is_superseded_ai_tool_version(path: Path) -> bool:
+    """Lexical exception for non-active versions under AI CLI version roots."""
+    lowered = str(path).lower()
+    return any(root in lowered for root in AI_TOOL_VERSION_ROOTS)
+
+
 def should_protect_data(path: Path) -> bool:
     text = str(path)
     lowered = text.lower()
@@ -128,6 +142,15 @@ def should_protect_data(path: Path) -> bool:
         # Only exact cache subtrees of recognized apps escape a blanket app-root
         # rule. Credential and session fragments still take precedence.
         if cache_discovery.known_regenerable_app_cache(path, fragment) and cache_protected_data_reason(path) is None:
+            continue
+        # Exact regenerable cache leaves inside blanket-protected AI CLI
+        # dotdirectories escape only when they contain no protected descendant.
+        if is_dotdir_regenerable_cache(path) and cache_protected_data_reason(path) is None:
+            continue
+        # Non-active version directories are validated by the
+        # aiToolOldVersions provider (active marker resolution + physical
+        # path checks); blanket dotdir protection must not reach them.
+        if is_superseded_ai_tool_version(path):
             continue
         return True
     lowered_exceptions = tuple(item.lower() for item in APPLE_CONTAINER_CACHE_EXCEPTIONS)

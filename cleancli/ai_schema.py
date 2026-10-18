@@ -325,11 +325,20 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "cleanmac_software_leftovers",
-        "description": "Inspect software leftover scan roots without making changes.",
+        "description": (
+            "Alias of cleanmac_software_orphans: scan for likely leftover data of apps "
+            "that are no longer installed without making changes."
+        ),
         "risk": "readonly",
         "auto_call_allowed": True,
         "requires_confirmation": False,
-        "parameters": object_schema({}),
+        "parameters": object_schema(
+            {
+                "limit": integer_schema("Maximum orphan candidate details to return. Default CLI output is bounded."),
+                "max_scan_entries": integer_schema("Maximum filesystem entries to inspect before stopping the scan."),
+                "summary_only": bool_schema("Return summary contract fields without candidate details."),
+            }
+        ),
         "argv_template": ["cleanmac", "--json", "software", "leftovers"],
     },
     {
@@ -1232,7 +1241,12 @@ def build_tool_argv(name: str, args: Mapping[str, Any] | None = None) -> list[st
     if name == "cleanmac_software_list":
         return ["cleanmac", "--json", "software", "list"]
     if name == "cleanmac_software_leftovers":
-        return ["cleanmac", "--json", "software", "leftovers"]
+        argv = ["cleanmac", "--json", "software", "leftovers"]
+        append_option(argv, args, "limit", "--limit")
+        append_option(argv, args, "max_scan_entries", "--max-scan-entries")
+        if args.get("summary_only"):
+            argv.append("--summary-only")
+        return argv
     if name == "cleanmac_software_orphans":
         argv = ["cleanmac", "--json", "software", "orphans"]
         append_option(argv, args, "limit", "--limit")

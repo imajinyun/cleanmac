@@ -7761,7 +7761,7 @@ class CleanMacCLITests(unittest.TestCase):
                 ),
                 (
                     ["software", "leftovers"],
-                    lambda report: report["schema"] == "cleanmac.software.v1" and not report["destructive"],
+                    lambda report: report["schema"] == "cleanmac.software-orphans.v1" and report["dry_run"],
                 ),
                 (
                     ["software", "orphans"],

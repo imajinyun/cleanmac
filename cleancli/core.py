@@ -37,6 +37,7 @@ from cleancli import (
     protection,
     runtime_contracts,
     scan,
+    version_prune,
 )
 from cleancli import plan as plan_helpers
 from cleancli.ai_contract import render_ai_entrypoint_contract as render_ai_entrypoint_contract
@@ -600,9 +601,19 @@ CATEGORIES: tuple[Category, ...] = (
         "aiToolCaches",
         APP_CLEANUP_RULES["aiToolCaches"]["title"],
         APP_CLEANUP_RULES["aiToolCaches"]["paths"],
-        "Deletes regenerable Claude, Cursor, ChatGPT, and Ollama caches while preserving AI tool runtime state and credentials.",
+        "Deletes regenerable Claude, Codex, Cursor, ChatGPT, and Ollama caches (including AI CLI cache and temp leaves) while preserving AI tool runtime state, conversations, and credentials.",
         risk="medium",
         advanced=True,
+    ),
+    Category(
+        "aiToolOldVersions",
+        "Superseded AI tool versions",
+        (),
+        "Deletes non-active on-disk Codex and Cursor Agent versions after resolving each tool's active-version marker; preserves the active version and reports nothing when a marker is missing or anomalous.",
+        risk="medium",
+        advanced=True,
+        provider="ai-tool-old-versions",
+        delete_target=True,
     ),
     Category(
         "windsurf",
@@ -2448,7 +2459,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     software_cmd.add_argument(
         "--limit",
         type=int,
-        default=100,
+        default=1000,
         help="Limit software orphan candidate details returned in JSON output.",
     )
     software_cmd.add_argument(
@@ -3310,6 +3321,8 @@ def provider_targets(category: Category, *, root: Path, home: Path) -> list[Reso
     paths: list[Path] = []
     if provider == "app-support-cache":
         paths = cache_discovery.app_support_cache_directories(remap_home(root=root, home=home))
+    elif provider == "ai-tool-old-versions":
+        paths = version_prune.old_version_targets(remap_home(root=root, home=home))
     elif provider in {"darwin-user-temp", "darwin-user-cache"}:
         kind = "temp" if provider == "darwin-user-temp" else "cache"
         if root == Path("/"):
@@ -4662,6 +4675,20 @@ def category_policy_reason(
             return reason
         if protection.should_protect_data(path):
             return "protected-user-data"
+    if category.key == "aiToolCaches" and protection.is_dotdir_regenerable_cache(path):
+        reason = protection.cache_protected_data_reason(
+            path, home_root=activity.home_root if activity is not None else None
+        )
+        if reason:
+            return reason
+        if protection.should_protect_data(path):
+            return "protected-user-data"
+    if category.key == "aiToolOldVersions":
+        if not protection.is_superseded_ai_tool_version(path):
+            return "outside-provider-allowlist"
+        home_root = activity.home_root if activity is not None else version_prune.home_root_for_candidate(path)
+        if home_root is None or not version_prune.is_prunable_version_dir(path, home_root):
+            return "outside-provider-allowlist"
     container_reason = protection.container_policy_reason(category.key, path)
     if container_reason:
         return container_reason

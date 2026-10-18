@@ -54,6 +54,103 @@ def test_generic_ambiguous_cache_requires_a_regenerable_marker(tmp_path: Path) -
     assert marked.resolve() in paths
 
 
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "Library/Application Support/Codex/Default/GPUCache",
+        "Library/Application Support/Codex/Default/DawnGraphiteCache",
+        "Library/Application Support/Codex/Default/DawnWebGPUCache",
+        "Library/Application Support/Codex/Default/Code Cache",
+        "Library/Application Support/Codex/Default/Cache",
+        "Library/Application Support/Codex/Default/Partitions/codex-browser-app/GPUCache",
+        "Library/Application Support/Codex/Default/Partitions/codex-browser-app/Code Cache",
+        "Library/Application Support/Claude/Partitions/cowork-file-preview/Code Cache",
+        "Library/Application Support/Claude/Partitions/cowork-file-preview/Cache",
+        "Library/Application Support/Claude/Partitions/launch-preview-static/Code Cache",
+    ],
+)
+def test_known_ai_app_profile_and_partition_caches_are_discovered(tmp_path: Path, relative: str) -> None:
+    cache = cache_file(tmp_path, relative)
+    report = core.inspect_items(
+        [core.CATEGORY_BY_KEY["appSupportCaches"]], root=tmp_path, home=Path("/Users/tester"), limit=-1
+    )
+    paths = {Path(row["path"]).resolve() for row in report["items"]}
+    assert cache.resolve() in paths or cache.resolve().parent in paths
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "Library/Application Support/Codex/Shared Dictionary/cache",
+        "Library/Application Support/Claude/Shared Dictionary/cache",
+        "Library/Application Support/Codex/Default/Shared Dictionary/cache",
+        "Library/Application Support/Codex/Default/Partitions/codex-browser-app/Shared Dictionary/cache",
+        "Library/Application Support/Claude/Partitions/cowork-file-preview/Shared Dictionary/cache",
+        "Library/Application Support/Claude/Partitions/launch-preview-static/Shared Dictionary/cache",
+    ],
+)
+def test_chromium_shared_dictionary_caches_are_discovered(tmp_path: Path, relative: str) -> None:
+    cache = cache_file(tmp_path, relative)
+    report = core.inspect_items(
+        [core.CATEGORY_BY_KEY["appSupportCaches"]], root=tmp_path, home=Path("/Users/tester"), limit=-1
+    )
+    paths = {Path(row["path"]).resolve() for row in report["items"]}
+    assert cache.resolve() in paths or cache.resolve().parent in paths
+
+
+def test_profile_descent_is_restricted_to_recognized_applications(tmp_path: Path) -> None:
+    # The unknown app has a regenerable marker at its root, so root markers are
+    # discovered, but its Default/ profile must not authorize deeper descent.
+    root_marker = cache_file(tmp_path, "Library/Application Support/UnknownElectron/GPUCache")
+    profile_marker = cache_file(tmp_path, "Library/Application Support/UnknownElectron/Default/GPUCache")
+    partition_marker = cache_file(tmp_path, "Library/Application Support/UnknownElectron/Partitions/guest/Code Cache")
+    report = core.inspect_items(
+        [core.CATEGORY_BY_KEY["appSupportCaches"]], root=tmp_path, home=Path("/Users/tester"), limit=-1
+    )
+    paths = {Path(row["path"]).resolve() for row in report["items"]}
+    assert root_marker.resolve() in paths
+    assert profile_marker.resolve() not in paths
+    assert partition_marker.resolve() not in paths
+
+
+def test_profile_descent_does_not_follow_symlinked_partitions(tmp_path: Path) -> None:
+    home = tmp_path / "Users/tester"
+    support = home / "Library/Application Support"
+    app = support / "Claude"
+    app.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    (outside / "GPUCache").mkdir(parents=True)
+    (outside / "GPUCache/cache.bin").write_bytes(b"private")
+    partitions = app / "Partitions"
+    partitions.mkdir()
+    (partitions / "guest").symlink_to(outside, target_is_directory=True)
+    report = core.inspect_items(
+        [core.CATEGORY_BY_KEY["appSupportCaches"]], root=tmp_path, home=Path("/Users/tester"), limit=-1
+    )
+    assert report["items"] == []
+    assert (outside / "GPUCache/cache.bin").read_bytes() == b"private"
+
+
+def test_profile_partition_storage_siblings_remain_protected(tmp_path: Path) -> None:
+    cache = cache_file(
+        tmp_path,
+        "Library/Application Support/Claude/Partitions/launch-preview-static/Code Cache",
+    )
+    storage = (
+        tmp_path
+        / "Users/tester/Library/Application Support/Claude/Partitions/launch-preview-static/Local Storage/leveldb/0001.log"
+    )
+    storage.parent.mkdir(parents=True, exist_ok=True)
+    storage.write_bytes(b"session")
+    report = core.inspect_items(
+        [core.CATEGORY_BY_KEY["appSupportCaches"]], root=tmp_path, home=Path("/Users/tester"), limit=-1
+    )
+    paths = {Path(row["path"]).resolve() for row in report["items"]}
+    assert cache.resolve() in paths or cache.resolve().parent in paths
+    assert storage.resolve() not in paths
+    assert all("Local Storage" not in row["path"] for row in report["items"])
+
+
 @pytest.mark.parametrize("redirect", ["app", "cache", "marker"])
 def test_generic_cache_discovery_does_not_follow_symlink_authority(tmp_path: Path, redirect: str) -> None:
     support = tmp_path / "Users/tester/Library/Application Support"

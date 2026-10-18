@@ -10,6 +10,13 @@ from .protection_data import (
     KNOWN_ELECTRON_CACHE_APPS,
 )
 
+# Chromium/Electron per-profile layouts place caches under Default/ and
+# Partitions/<partition>/ below the application data directory. Descent is
+# restricted to recognized applications so a profile directory can never
+# authorize deletion inside an unrecognized application data directory.
+PROFILE_DEFAULT_DIRECTORY = "Default"
+PARTITIONS_DIRECTORY = "Partitions"
+
 
 def _physical_directory(path: Path, boundary: Path) -> bool:
     if not path.is_dir() or not path.is_relative_to(boundary):
@@ -24,6 +31,32 @@ def _physical_directory(path: Path, boundary: Path) -> bool:
 
 def app_has_cache_markers(app: Path) -> bool:
     return any(_physical_directory(app / name, app.parent) for name in APP_SUPPORT_CACHE_DIRECTORIES)
+
+
+def _partition_roots(partitions: Path, home_root: Path) -> list[Path]:
+    if not _physical_directory(partitions, home_root):
+        return []
+    try:
+        children = sorted(partitions.iterdir())
+    except OSError:
+        return []
+    return [child for child in children if _physical_directory(child, home_root)]
+
+
+def profile_roots(app: Path, home_root: Path) -> tuple[Path, ...]:
+    """Application root plus bounded Chromium profile roots for known apps."""
+    roots: list[Path] = [app]
+    if app.name not in KNOWN_ELECTRON_CACHE_APPS:
+        return tuple(roots)
+    # Partitions can sit beside the profiles (App/Partitions/<name>) or inside
+    # the active profile (App/Default/Partitions/<name>); both are Chromium
+    # defaults for non-persistent and in-profile storage partitions.
+    roots.extend(_partition_roots(app / PARTITIONS_DIRECTORY, home_root))
+    default_profile = app / PROFILE_DEFAULT_DIRECTORY
+    if _physical_directory(default_profile, home_root):
+        roots.append(default_profile)
+        roots.extend(_partition_roots(default_profile / PARTITIONS_DIRECTORY, home_root))
+    return tuple(roots)
 
 
 def app_support_cache_directories(home_root: Path) -> list[Path]:
@@ -41,8 +74,27 @@ def app_support_cache_directories(home_root: Path) -> list[Path]:
         names: tuple[str, ...] = APP_SUPPORT_CACHE_DIRECTORIES
         if app.name in KNOWN_ELECTRON_CACHE_APPS or app_has_cache_markers(app):
             names = (*names, *AMBIGUOUS_APP_CACHE_DIRECTORIES)
-        paths.extend(app / name for name in names if _physical_directory(app / name, home_root))
+        for root in profile_roots(app, home_root):
+            paths.extend(root / name for name in names if _physical_directory(root / name, home_root))
     return paths
+
+
+def _relative_cache_root(app: Path, relative: tuple[str, ...]) -> Path | None:
+    marker_names = (*APP_SUPPORT_CACHE_DIRECTORIES, *AMBIGUOUS_APP_CACHE_DIRECTORIES)
+    prefixes: list[tuple[str, ...]] = [()]
+    if relative and relative[0] == PROFILE_DEFAULT_DIRECTORY:
+        prefixes.append((PROFILE_DEFAULT_DIRECTORY,))
+    if len(relative) >= 2 and relative[0] == PARTITIONS_DIRECTORY:
+        prefixes.append((PARTITIONS_DIRECTORY, relative[1]))
+    if len(relative) >= 3 and relative[:2] == (PROFILE_DEFAULT_DIRECTORY, PARTITIONS_DIRECTORY):
+        prefixes.append((PROFILE_DEFAULT_DIRECTORY, PARTITIONS_DIRECTORY, relative[2]))
+    for prefix in prefixes:
+        tail = relative[len(prefix) :]
+        for name in marker_names:
+            cache_parts = Path(name).parts
+            if tail[: len(cache_parts)] == cache_parts:
+                return app.joinpath(*prefix, *cache_parts)
+    return None
 
 
 def app_cache_root(path: Path) -> Path | None:
@@ -52,10 +104,9 @@ def app_cache_root(path: Path) -> Path | None:
             continue
         app = Path(*parts[: index + 3])
         relative = parts[index + 3 :]
-        for name in (*APP_SUPPORT_CACHE_DIRECTORIES, *AMBIGUOUS_APP_CACHE_DIRECTORIES):
-            cache_parts = Path(name).parts
-            if relative[: len(cache_parts)] == cache_parts:
-                return app / name
+        cache_root = _relative_cache_root(app, relative)
+        if cache_root is not None:
+            return cache_root
     return None
 
 
