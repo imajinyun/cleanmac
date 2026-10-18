@@ -22,7 +22,7 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 
 - `cleanmac.py`: CLI entry point; only delegates execution to `cleancli.main`.
 - `cleancli/core.py`: Main orchestration layer for CLI arguments, cleanup categories, candidate discovery, report output, plan replay, operation logs, and grouped-command compatibility. This file may orchestrate, but it must not own real deletion primitives.
-- `cleancli/delete_ops.py`: The only real deletion exit; owns path validation, Trash routing, permanent deletion, and test/no-auth command blocking.
+- `cleancli/delete_ops.py`: The only real deletion exit; owns path validation, Trash routing, permanent deletion, governed `sudo log erase --all` unified-log erasure, and test/no-auth command blocking.
 - `cleancli/protection_data.py`: Pure protection-policy data, including bundle blocklists, system paths, sensitive user-data fragments, official uninstallers, and app cleanup rules. Do not put logic here.
 - `cleancli/protection.py`: Protection-policy logic, including bundle/container/group-container decisions, sensitive-data protection, official uninstaller vendor matching, and protected descendant checks.
 - `cleancli/app_activity.py`: Per-invocation application ownership and executable snapshots. Shared path protection applies across categories; unknown observations preserve candidates, and execution observes activity again before each deletion. Never add polling or resident process monitoring.
@@ -32,6 +32,7 @@ This guide is the shared operating agreement for maintainers and AI Agents chang
 - `cleancli/workflow.py`: Fixed safe workflows and automation playbooks; never place destructive cleanup in the default workflow path.
 - `cleancli/software.py`: Software inventory, startup items, leftovers, iOS backups, and uninstall-plan capabilities.
 - `cleancli/purge.py`: Project artifact discovery — scans project roots for build/dependency directories (node_modules, target, venv, dist, etc.) and reports reclaimable space. Read-only; no deletion.
+- `cleancli/unified_logs.py`: macOS unified-log store inspection (`/private/var/db/diagnostics`, `/private/var/db/uuidtext`) with bounded size accounting and governed permanent erasure via `sudo log erase --all`. Inspect is read-only; erase defaults to dry-run, is live-root-only, requires `--execute --yes --confirm-permanent-erase` plus non-interactive sudo preflight, fails closed, and is not exposed as an MCP/AI Host tool.
 - `cleancli/analyze.py`, `cleancli/status.py`, `cleancli/optimize.py`, `cleancli/finder.py`: Read-only analysis, status snapshots, system maintenance execution (cache refresh, index rebuild, service restart), and Finder preview capabilities. Optimize tasks are non-destructive; privileged tasks are sudo-gated.
 - `cleancli/progress.py`: Progress bar rendering for clean scan and execution phases — renders stderr progress with categories, counts, and elapsed time. Read-only UI helper; no deletion logic.
 - `scripts/test.sh`: Default local test entry point; enables no-auth/test-mode and stubs `sudo`, `osascript`, `launchctl`, and `rm`.
@@ -165,12 +166,12 @@ make ai-host-smoke
 
 ### `cleancli/delete_ops.py`
 
-Responsibility: the only deletion exit, path validation, symlink protection, Trash routing, and test-mode command blocking.
+Responsibility: the only deletion exit, path validation, symlink protection, Trash routing, governed `sudo log erase --all` unified-log erasure, and test-mode command blocking.
 
 Run after changes:
 
 ```bash
-make pytest-test PYTEST_SAFE_TARGETS="tests/test_delete_ops.py tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_execution.py"
+make pytest-test PYTEST_SAFE_TARGETS="tests/test_delete_ops.py tests/test_path_safety.py tests/test_trash_mode.py tests/test_delete_execution.py tests/test_unified_logs.py"
 make pytest-test
 make docker-test
 ```
@@ -243,6 +244,18 @@ Run after changes:
 ```bash
 python3 -m pytest tests/test_optimize.py -v
 make local-test
+```
+
+### `cleancli/unified_logs.py`
+
+Responsibility: bounded read-only inspection of the macOS unified-log stores (`/private/var/db/diagnostics`, `/private/var/db/uuidtext`) and governed permanent erasure through the `delete_ops.erase_unified_logs` primitive (`sudo -n log erase --all`). Erase defaults to dry-run, rejects sandbox roots, requires `--execute --yes --confirm-permanent-erase`, preflights non-interactive sudo, fails closed with no Trash/permanent-delete fallback, and is deliberately not exposed as an MCP/AI Host tool.
+
+Run after changes:
+
+```bash
+make pytest-test PYTEST_SAFE_TARGETS="tests/test_unified_logs.py tests/test_delete_ops.py tests/test_cli_workflows.py"
+make local-test
+make governance-smoke
 ```
 
 

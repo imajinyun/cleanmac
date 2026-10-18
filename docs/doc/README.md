@@ -555,6 +555,7 @@ python3 cleanmac.py clean run \
 | `tool-plan` / `tool-execute` | external tool adapters | 🧰 Allowlisted Docker/Homebrew/Xcode dry-run and gated execution |
 | `review` | review normalization | 🧾 Reviewable items, selections, HTML audit output |
 | `optimize` | `list`, `plan`, `run` | ⚙️ Maintenance tasks (dry-run only) |
+| `system-logs` | `inspect`, `erase` | 🪵 Unified-log size inspection and governed permanent `log erase` |
 | `purge` | scan project roots | 🗑️ Project build artifact purge (node_modules, target, venv, etc.) |
 | `analyze` | `categories`, `tree`, `scan` | 📊 Space analysis |
 | `status` | `snapshot` | 🩺 System health |
@@ -671,6 +672,27 @@ python3 cleanmac.py --json optimize run
 ```
 
 Returns schema `cleanmac.optimize.v1`.
+
+### `system-logs`
+
+Inspect the live size of the macOS unified log stores (`/private/var/db/diagnostics` and `/private/var/db/uuidtext`) and govern permanent erasure. The files are managed by logd and SIP, so direct deletion reclaims nothing; the supported reclamation path is `sudo log erase --all`, which clears both stores together.
+
+```bash
+# Read-only size accounting — safe and default
+python3 cleanmac.py --json system-logs inspect
+
+# Dry-run erase plan (nothing runs); permanent/irreversible disclosure included
+python3 cleanmac.py --json system-logs erase
+
+# Real erasure requires every gate below; sudo is invoked non-interactively
+python3 cleanmac.py --json system-logs erase \
+  --execute --yes --confirm-permanent-erase
+```
+
+- Inspect returns `cleanmac.unified-logs-inspect.v1`; the dry-run plan returns `cleanmac.unified-logs-erase-plan.v1`; execution returns `cleanmac.unified-logs-erase-result.v1`.
+- Erasure defaults to dry-run, runs only on the live root (`/`; sandbox `--root` is refused), requires `--execute --yes --confirm-permanent-erase`, passes a non-interactive `sudo -n true` preflight, never routes through Trash, and is permanent and irreversible. No fallback to file deletion ever occurs.
+- Execute runs append an audit record to the operation log (`--operation-log`, default `~/.cleanmac/operations.jsonl`); preflight failure aborts before erasure.
+- This command is intentionally not exposed as an MCP/AI Host tool.
 
 ### `status`
 

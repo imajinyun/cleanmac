@@ -412,6 +412,12 @@ def test_grouped_command_matrix_smoke_remains_non_destructive() -> None:
             (["privacy", "plan", "--scope", "credentials"], "cleanmac.privacy-plan.v1", {"dry_run": True}),
             (["optimize", "list"], "cleanmac.optimize.v1", {"destructive": False}),
             (["optimize", "run", "--execute"], "cleanmac.optimize.v1", {"destructive": False}),
+            (["system-logs", "inspect"], "cleanmac.unified-logs-inspect.v1", {"dry_run": True, "destructive": False}),
+            (
+                ["system-logs", "erase"],
+                "cleanmac.unified-logs-erase-plan.v1",
+                {"dry_run": True, "destructive": True, "status": "dry-run"},
+            ),
             (["analyze", "categories", "--categories", "trash"], "cleanmac.analyze.v1", {"dry_run": True}),
             (["analyze", "scan", "--path", "/Users/tester", "--depth", "1"], "cleanmac.analyze-tree.v1", {}),
             (["status", "snapshot"], "cleanmac.status.snapshot.v1", {"destructive": False}),

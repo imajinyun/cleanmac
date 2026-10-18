@@ -547,6 +547,7 @@ python3 cleanmac.py clean run \
 | `tool-plan` / `tool-execute` | 外部工具适配器 | 🧰 Docker/Homebrew/Xcode allowlist dry-run 和门禁执行 |
 | `review` | 审查归一化 | 🧾 可审查条目、selection、HTML 审计输出 |
 | `optimize` | `list`, `plan`, `run` | ⚙️ 维护任务（仅 dry-run） |
+| `system-logs` | `inspect`, `erase` | 🪵 统一日志容量检查与受治理的永久 `log erase` |
 | `analyze` | `categories`, `tree`, `scan` | 📊 空间分析 |
 | `status` | `snapshot` | 🩺 系统健康 |
 
@@ -660,6 +661,27 @@ python3 cleanmac.py --json optimize list
 python3 cleanmac.py --json optimize plan
 python3 cleanmac.py --json optimize run
 ```
+
+### `system-logs`
+
+检查 macOS 统一日志存储（`/private/var/db/diagnostics` 与 `/private/var/db/uuidtext`）的实时占用，并对永久清除进行治理。这些文件由 logd 与 SIP 管理，直接删除无法回收空间；唯一受支持的回收方式是 `sudo log erase --all`，它会同时清空两个存储。
+
+```bash
+# 只读容量统计 —— 安全且为默认行为
+python3 cleanmac.py --json system-logs inspect
+
+# 清除 dry-run 计划（不执行任何操作），包含永久且不可恢复的披露
+python3 cleanmac.py --json system-logs erase
+
+# 真正清除必须同时通过以下全部门禁；sudo 以非交互方式调用
+python3 cleanmac.py --json system-logs erase \
+  --execute --yes --confirm-permanent-erase
+```
+
+- inspect 返回 `cleanmac.unified-logs-inspect.v1`；dry-run 计划返回 `cleanmac.unified-logs-erase-plan.v1`；执行返回 `cleanmac.unified-logs-erase-result.v1`。
+- 清除默认为 dry-run，只能在实时根目录（`/`）上运行（沙箱 `--root` 会被拒绝），必须提供 `--execute --yes --confirm-permanent-erase`，先通过非交互 `sudo -n true` 预检，不走废纸篓，永久且不可恢复；任何失败都不会回退为文件删除。
+- 执行时会向操作日志（`--operation-log`，默认 `~/.cleanmac/operations.jsonl`）追加审计记录；预检失败会在清除前中止。
+- 该命令有意不通过 MCP/AI Host 工具暴露。
 
 ### `status`
 

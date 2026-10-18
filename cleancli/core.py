@@ -2103,6 +2103,12 @@ COMMAND_GROUPS: dict[str, dict[str, Any]] = {
         "commands": ["optimize list", "optimize plan", "optimize run"],
         "flat_command_aliases": ["doctor", "workflow"],
     },
+    "system-logs": {
+        "title": "系统日志 / System logs",
+        "description": "Read-only unified-log size inspection and governed permanent `sudo log erase --all` execution.",
+        "commands": ["system-logs inspect", "system-logs erase"],
+        "flat_command_aliases": [],
+    },
     "analyze": {
         "title": "分析 / Analyze",
         "description": "Category reclaim analysis and directory tree scans for CLI workflows.",
@@ -2615,6 +2621,32 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="Reserved for future maintenance execution; current tasks remain dry-run.",
     )
 
+    system_logs_cmd = subparsers.add_parser(
+        "system-logs",
+        help="Inspect unified-log store sizes and govern permanent `sudo log erase --all` execution.",
+    )
+    system_logs_cmd.add_argument("action", nargs="?", choices=("inspect", "erase"), default="inspect")
+    system_logs_cmd.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually run `sudo log erase --all` (permanent, irreversible; no Trash). Erase defaults to dry-run.",
+    )
+    system_logs_cmd.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required with --execute: acknowledge permanent unified-log erasure.",
+    )
+    system_logs_cmd.add_argument(
+        "--confirm-permanent-erase",
+        action="store_true",
+        help="Required with --execute: explicit acknowledgement that erasure is permanent and not Trash-routed.",
+    )
+    system_logs_cmd.add_argument(
+        "--operation-log",
+        default=OPERATIONS_LOG_FILE,
+        help="Append JSONL audit records to this file when erasing unified logs.",
+    )
+
     status_cmd = subparsers.add_parser("status", help="Read-only system health snapshots.")
     status_cmd.add_argument("action", nargs="?", choices=("snapshot",), default="snapshot")
 
@@ -2976,6 +3008,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "startup",
         "privacy",
         "optimize",
+        "system-logs",
         "purge",
         "status",
         "completion",
@@ -3601,6 +3634,7 @@ def render_capabilities() -> dict[str, Any]:
             "tool-execute",
             "review",
             "optimize",
+            "system-logs",
             "purge",
             "status",
             "completion",
@@ -9121,6 +9155,7 @@ def render_completion_shell(shell: str) -> str:
         "clean",
         "software",
         "optimize",
+        "system-logs",
         "status",
         "completion",
         "ai-tools",
@@ -9175,6 +9210,7 @@ def render_completion_shell(shell: str) -> str:
         "clean": f"{category_flags} --execute --yes --risk-policy --delete-mode --max-delete-mb --exclude --include --min-size-mb --name-regex --max-items --older-than-days --fail-on-skipped --bundle-allowlist --bundle-blocklist --delete-mode --operation-log --require-plan-context --require-confirmation-token --confirmation-token --plan-file --allow-live-root",
         "software": "list leftovers orphans startup-items inspect uninstall-plan execute --app --plan-file --review-selection-file --execute --yes --delete-mode --operation-log --limit --max-scan-entries --summary-only",
         "optimize": "list plan run --execute",
+        "system-logs": "inspect erase --execute --yes --confirm-permanent-erase",
         "status": "snapshot",
         "completion": "bash zsh fish",
         "ai-tools": "--format openai anthropic mcp all",
@@ -9438,6 +9474,11 @@ def print_report(report: dict[str, Any], *, as_json: bool, command: str, quiet: 
         return
     if command == "optimize":
         print(f"Optimize {report['action']}: {len(report['tasks'])} task(s), dry-run only")
+        return
+    if command == "system-logs":
+        from cleancli import unified_logs
+
+        print(unified_logs.render_human(report))
         return
     if command == "analyze-tree":
         print(f"Analyze tree: {report['path']} showing {report['shown_entries']} of {report['total_entries']} entries")
@@ -10307,6 +10348,64 @@ def _main_impl(argv: Sequence[str]) -> int:
             emit_report(report, args=args, command="optimize", root=root, home=home, argv=actual_argv)
         else:
             print(render_optimize_human(report))
+        return 0
+    if args.command == "system-logs":
+        from cleancli import unified_logs
+
+        if args.action == "inspect":
+            report = unified_logs.inspect_unified_logs(root=root, home=home)
+        elif not args.execute:
+            report = unified_logs.run_erase(root=root, home=home, execute=False)
+        else:
+            if args.operation_log:
+                operation_log_status = preflight_operation_log(args.operation_log, root=root, home=home)
+                if operation_log_status["status"] != "ready":
+                    raise SystemExit(
+                        "Refusing to erase unified logs because operation log preflight failed: "
+                        f"{operation_log_status['error']}"
+                    )
+            # run_text_command blocks sudo under CLEANMAC_TEST_MODE/CLEANMAC_TEST_NO_AUTH.
+            sudo_available = not is_test_no_auth() and run_text_command(["sudo", "-n", "true"], timeout=1) is not None
+            hook_records: list[tuple[str, Path, str]] = []
+
+            def _record_unified_log_action(action: str, target: Path, detail: str) -> None:
+                hook_records.append((action, target, detail))
+
+            report = unified_logs.run_erase(
+                root=root,
+                home=home,
+                execute=True,
+                confirmed=args.yes,
+                permanent_confirmed=args.confirm_permanent_erase,
+                sudo_available=sudo_available,
+                operation_log=_record_unified_log_action,
+            )
+            if hook_records and args.operation_log:
+                command_text = shlex.join(["cleanmac.py", *actual_argv])
+                entries = [
+                    {
+                        "schema": "cleanmac.operation-log-entry.v1",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "command": command_text,
+                        "action": action,
+                        "category": "system-logs",
+                        "path": str(target),
+                        "delete_mode": "permanent",
+                        "deleted": action == "deleted",
+                        "status": action,
+                        "reason": detail,
+                        "root": display_path(root),
+                        "home": display_path(home),
+                    }
+                    for action, target, detail in hook_records
+                ]
+                report["operation_log"] = append_operation_log(
+                    args.operation_log, entries, root=root, home=home, rotate=False
+                )
+        if getattr(args, "json", False):
+            emit_report(report, args=args, command="system-logs", root=root, home=home, argv=actual_argv)
+        else:
+            print(unified_logs.render_human(report))
         return 0
     if args.command == "status":
         emit_report(

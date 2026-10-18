@@ -20,6 +20,10 @@ from typing import Any
 
 BLOCKED_TEST_COMMANDS = {"sudo", "osascript", "launchctl"}
 SUDO_REMOVE_COMMAND = ("sudo", "-n", "rm", "-rf")
+SUDO_LOG_ERASE_COMMAND = ("sudo", "-n", "log", "erase", "--all")
+# Representative store path for audit entries. ``log erase --all`` clears the
+# whole unified-log store (diagnostics + uuidtext), not this directory alone.
+UNIFIED_LOG_ERASE_TARGET = Path("/private/var/db/diagnostics")
 
 
 def combined_non_removable_file_flags() -> int:
@@ -319,7 +323,7 @@ def safe_trash_move(
     return trash_path
 
 
-def sudo_remove_error_reason(output: str) -> str:
+def sudo_command_error_reason(output: str) -> str:
     if any(fragment in output for fragment in ("a password is required", "a terminal is required", "Password:")):
         return "auth required"
     if "Operation not permitted" in output:
@@ -329,6 +333,10 @@ def sudo_remove_error_reason(output: str) -> str:
     if any(fragment in output for fragment in ("Sorry, try again", "incorrect passphrase", "incorrect credentials")):
         return "auth failed"
     return "sudo error"
+
+
+def sudo_remove_error_reason(output: str) -> str:
+    return sudo_command_error_reason(output)
 
 
 def safe_sudo_remove(
@@ -372,10 +380,82 @@ def safe_sudo_remove(
             operation_log("deleted", target, "sudo permanent")
         return
 
-    reason = sudo_remove_error_reason(result.stderr or "")
+    reason = sudo_command_error_reason(result.stderr or "")
     if operation_log is not None:
         operation_log("failed", target, reason)
     raise RuntimeError(f"Failed to sudo remove {target}: {reason}")
+
+
+@dataclass(frozen=True)
+class UnifiedLogEraseResult:
+    command: tuple[str, ...]
+    dry_run: bool
+    returncode: int | None
+    stdout: str
+    stderr: str
+
+    @property
+    def executed(self) -> bool:
+        return not self.dry_run and self.returncode == 0
+
+
+def erase_unified_logs(
+    *,
+    dry_run: bool = False,
+    operation_log: OperationLogHook | None = None,
+    timeout: float = 120,
+) -> UnifiedLogEraseResult:
+    """Permanently erase the macOS unified log with ``sudo log erase --all``.
+
+    This operation is irreversible and cannot use Trash. It must never fall
+    back to deleting live tracev3 files, which are managed by logd and SIP.
+    Fails closed on every non-success path.
+    """
+    target = UNIFIED_LOG_ERASE_TARGET
+    if dry_run:
+        if operation_log is not None:
+            operation_log("dry-run", target, "sudo log erase --all (diagnostics + uuidtext)")
+        return UnifiedLogEraseResult(
+            command=SUDO_LOG_ERASE_COMMAND,
+            dry_run=True,
+            returncode=None,
+            stdout="",
+            stderr="",
+        )
+    if is_test_no_auth():
+        reason = "sudo blocked in test/no-auth mode"
+        if operation_log is not None:
+            operation_log("failed", target, reason)
+        raise RuntimeError("Refusing to erase unified logs while test/no-auth mode is enabled: sudo blocked")
+
+    try:
+        result = subprocess.run(
+            list(SUDO_LOG_ERASE_COMMAND),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        if operation_log is not None:
+            operation_log("failed", target, str(exc))
+        raise RuntimeError(f"Failed to erase unified logs: {exc}") from exc
+
+    if result.returncode == 0:
+        if operation_log is not None:
+            operation_log("deleted", target, "sudo log erase --all")
+        return UnifiedLogEraseResult(
+            command=SUDO_LOG_ERASE_COMMAND,
+            dry_run=False,
+            returncode=0,
+            stdout=result.stdout.strip(),
+            stderr=result.stderr.strip(),
+        )
+
+    reason = sudo_command_error_reason(result.stderr or result.stdout or "")
+    if operation_log is not None:
+        operation_log("failed", target, reason)
+    raise RuntimeError(f"Failed to erase unified logs: {reason}")
 
 
 def hardlink_replace(
