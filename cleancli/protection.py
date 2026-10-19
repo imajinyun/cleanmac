@@ -14,6 +14,7 @@ from cleancli.protection_data import (
     APP_CLEANUP_RULES,
     APPLE_CONTAINER_CACHE_EXCEPTIONS,
     APPLE_UNINSTALLABLE_BUNDLE_PATTERNS,
+    CONFIGURATOR_FIRMWARE_CONTAINER_MARKER,
     CRITICAL_SYSTEM_PATH_PREFIXES,
     CRITICAL_SYSTEM_PATHS_EXACT,
     DATA_PROTECTED_BUNDLE_PATTERNS,
@@ -133,6 +134,27 @@ def is_superseded_ai_tool_version(path: Path) -> bool:
     return any(root in lowered for root in AI_TOOL_VERSION_ROOTS)
 
 
+def is_configurator_firmware_installer(path: Path) -> bool:
+    """Exact ``*.ipsw`` leaves inside Apple Configurator group containers.
+
+    Covers both the bare ``group.com.apple.configurator`` container and the
+    ``<TEAMID>.group.com.apple.configurator`` per-team form. Credentials,
+    device records, and every other container entry never match.
+    """
+    if path.suffix.lower() != ".ipsw":
+        return False
+    parts = tuple(part.lower() for part in path.parts)
+    for index, part in enumerate(parts):
+        if part != "group containers" or index + 1 >= len(parts):
+            continue
+        container = parts[index + 1]
+        if container == CONFIGURATOR_FIRMWARE_CONTAINER_MARKER:
+            return True
+        if container.endswith(f".{CONFIGURATOR_FIRMWARE_CONTAINER_MARKER}"):
+            return True
+    return False
+
+
 def should_protect_data(path: Path) -> bool:
     text = str(path)
     lowered = text.lower()
@@ -157,7 +179,10 @@ def should_protect_data(path: Path) -> bool:
     if "/library/containers/com.apple." in lowered and not any(item.lower() in lowered for item in lowered_exceptions):
         return True
     if "/library/group containers/group.com.apple." in lowered:
-        return True
+        # Apple Configurator firmware installers are regenerable downloads;
+        # the predicate stays scoped to exact *.ipsw leaves.
+        if not is_configurator_firmware_installer(path):
+            return True
     if "/library/group containers/systemgroup.com.apple." in lowered:
         return True
     return False

@@ -452,6 +452,13 @@ APPLE_CONTAINER_CACHE_EXCEPTIONS = (
     "/Data/Library/Mail Downloads/",
 )
 
+# Apple Configurator 2 keeps downloaded device firmware (*.ipsw) inside its
+# group container (bare ``group.com.apple.configurator`` or a
+# ``<TEAMID>.group.com.apple.configurator`` form). Only exact *.ipsw leaves may
+# escape the group.com.apple blanket guard; every other container entry stays
+# protected. Matched case-insensitively against path parts.
+CONFIGURATOR_FIRMWARE_CONTAINER_MARKER = "group.com.apple.configurator"
+
 
 # Executable names and app-bundle labels; these authorize protection, never deletion.
 APP_PROCESS_ALIASES: dict[str, tuple[str, ...]] = {

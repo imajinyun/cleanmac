@@ -250,6 +250,23 @@ CATEGORIES: tuple[Category, ...] = (
         default_older_than_days=30,
     ),
     Category(
+        "ipswFirmware",
+        "Cached device firmware installers (IPSW)",
+        (
+            "~/Library/iTunes/iPhone Software Updates/*.ipsw",
+            "~/Library/iTunes/iPad Software Updates/*.ipsw",
+            "~/Library/iTunes/iPod Software Updates/*.ipsw",
+            "~/Library/Group Containers/group.com.apple.configurator/**/*.ipsw",
+            "~/Library/Group Containers/*.group.com.apple.configurator/**/*.ipsw",
+        ),
+        "Deletes cached iPhone/iPad/iPod firmware installers (*.ipsw, typically 5-8 GB each) downloaded "
+        "by Finder/iTunes and Apple Configurator 2. macOS re-downloads firmware on demand; local device "
+        "backups under MobileSync are never touched.",
+        risk="high",
+        advanced=True,
+        delete_target=True,
+    ),
+    Category(
         "bash",
         "Bash history and sessions",
         ("~/.bash_sessions/", "~/.bash_history"),
