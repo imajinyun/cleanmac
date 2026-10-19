@@ -138,6 +138,7 @@ from cleancli.review import (
 from cleancli.software_uninstall import execute_software_uninstall
 from cleancli.software_uninstall import render_software as render_software_report
 from cleancli.startup import disable_startup_items, render_startup
+from cleancli.time_machine import render_time_machine
 from cleancli.tool_adapters import TOOL_ADAPTER_CHOICES, execute_tool
 from cleancli.tool_adapters import render_tool_plan as render_tool_adapter_plan
 from cleancli.xcode_ios import enumerate_ios_backups, render_xcode_ios_candidates
@@ -2247,6 +2248,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     xcode_ios_candidates_cmd.add_argument("--limit", type=int, default=100)
     xcode_ios_candidates_cmd.add_argument("--max-scan-entries", type=int, default=1000)
     xcode_ios_candidates_cmd.add_argument("--summary-only", action="store_true")
+    time_machine_cmd = subparsers.add_parser(
+        "time-machine",
+        help="Emit read-only Time Machine local snapshot evidence for manual review.",
+    )
+    time_machine_cmd.add_argument("--mount", default="/", help="Mount point to inspect (default: /).")
     subparsers.add_parser("profiles", help="List built-in safe cleanup profiles.")
     subparsers.add_parser("doctor", help="Run non-destructive environment and permission diagnostics.")
 
@@ -3046,6 +3052,7 @@ def normalize_grouped_argv(argv: Sequence[str]) -> tuple[list[str], dict[str, st
         "software-discovery-governance",
         "xcode-ios-governance",
         "xcode-ios-candidates",
+        "time-machine",
         "auto",
         "mcp-surface-audit",
         "mcp-destructive-tool-governance",
@@ -3674,6 +3681,7 @@ def render_capabilities() -> dict[str, Any]:
             "software-discovery-governance",
             "xcode-ios-governance",
             "xcode-ios-candidates",
+            "time-machine",
             "release-readiness",
             "ai-schema-registry",
             "ai-eval-pack",
@@ -9706,6 +9714,16 @@ def _main_impl(argv: Sequence[str]) -> int:
             ),
             args=args,
             command="xcode-ios-candidates",
+            root=root,
+            home=home,
+            argv=actual_argv,
+        )
+        return 0
+    if args.command == "time-machine":
+        emit_report(
+            render_time_machine(mount=args.mount, host_tools_enabled=root == Path("/")),
+            args=args,
+            command="time-machine",
             root=root,
             home=home,
             argv=actual_argv,

@@ -548,6 +548,7 @@ python3 cleanmac.py clean run \
 | `review` | 审查归一化 | 🧾 可审查条目、selection、HTML 审计输出 |
 | `optimize` | `list`, `plan`, `run` | ⚙️ 维护任务（仅 dry-run） |
 | `system-logs` | `inspect`, `erase` | 🪵 统一日志容量检查与受治理的永久 `log erase` |
+| `time-machine` | 本地快照检查 | 🕰️ 只读的 Time Machine 本地快照证据，供人工审查 |
 | `analyze` | `categories`, `tree`, `scan` | 📊 空间分析 |
 | `status` | `snapshot` | 🩺 系统健康 |
 
@@ -682,6 +683,17 @@ python3 cleanmac.py --json system-logs erase \
 - 清除默认为 dry-run，只能在实时根目录（`/`）上运行（沙箱 `--root` 会被拒绝），必须提供 `--execute --yes --confirm-permanent-erase`，先通过非交互 `sudo -n true` 预检，不走废纸篓，永久且不可恢复；任何失败都不会回退为文件删除。
 - 执行时会向操作日志（`--operation-log`，默认 `~/.cleanmac/operations.jsonl`）追加审计记录；预检失败会在清除前中止。
 - 该命令有意不通过 MCP/AI Host 工具暴露。
+
+### `time-machine`
+
+以只读证据的形式枚举某个挂载点上的 Time Machine 本地快照。本地快照是 Time Machine 的恢复点：删除它们会破坏备份连续性，因此该命令永不执行 `tmutil thinlocalsnapshots`（或任何等价操作），`deletion_supported` 始终为 `false`。
+
+```bash
+python3 cleanmac.py --json time-machine            # 检查 "/"
+python3 cleanmac.py --json time-machine --mount /Volumes/Backup
+```
+
+返回 schema `cleanmac.time-machine.v1`。枚举遵循保守的宿主要求预检：`tmutil` 必须存在，`defaults read /Library/Preferences/com.apple.TimeMachine AutoBackup` 必须返回已配置的 0/1 值，且 `tmutil status` 必须报告备份引擎空闲（`Running = 0;`）。备份进行中或状态无法解析时，枚举 fail-closed（`skipped-backup-in-progress`、`skipped-status-unknown`）。在沙箱 `--root` 下宿主工具保持禁用（`skipped-host-tools-disabled`）；在 test/no-auth 模式下不会调用任何宿主命令。每个快照携带 `name`、`date_token` 与 ISO `timestamp`，`manual_review_command` 回显操作者可自行运行的命令。
 
 ### `status`
 

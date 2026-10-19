@@ -556,6 +556,7 @@ python3 cleanmac.py clean run \
 | `review` | review normalization | 🧾 Reviewable items, selections, HTML audit output |
 | `optimize` | `list`, `plan`, `run` | ⚙️ Maintenance tasks (dry-run only) |
 | `system-logs` | `inspect`, `erase` | 🪵 Unified-log size inspection and governed permanent `log erase` |
+| `time-machine` | local snapshot inspection | 🕰️ Read-only Time Machine local snapshot evidence for manual review |
 | `purge` | scan project roots | 🗑️ Project build artifact purge (node_modules, target, venv, etc.) |
 | `analyze` | `categories`, `tree`, `scan` | 📊 Space analysis |
 | `status` | `snapshot` | 🩺 System health |
@@ -693,6 +694,17 @@ python3 cleanmac.py --json system-logs erase \
 - Erasure defaults to dry-run, runs only on the live root (`/`; sandbox `--root` is refused), requires `--execute --yes --confirm-permanent-erase`, passes a non-interactive `sudo -n true` preflight, never routes through Trash, and is permanent and irreversible. No fallback to file deletion ever occurs.
 - Execute runs append an audit record to the operation log (`--operation-log`, default `~/.cleanmac/operations.jsonl`); preflight failure aborts before erasure.
 - This command is intentionally not exposed as an MCP/AI Host tool.
+
+### `time-machine`
+
+Enumerate local Time Machine snapshots on a mount point as review-only evidence. Local snapshots are Time Machine recovery points: deleting them breaks backup continuity, so this command never runs `tmutil thinlocalsnapshots` (or any equivalent) and `deletion_supported` is always `false`.
+
+```bash
+python3 cleanmac.py --json time-machine            # inspects "/"
+python3 cleanmac.py --json time-machine --mount /Volumes/Backup
+```
+
+Returns schema `cleanmac.time-machine.v1`. Enumeration mirrors conservative host pre-checks: `tmutil` must exist, `defaults read /Library/Preferences/com.apple.TimeMachine AutoBackup` must report a configured 0/1 value, and `tmutil status` must report the backup engine idle (`Running = 0;`). While a backup is running, or when status cannot be parsed, enumeration fails closed (`skipped-backup-in-progress`, `skipped-status-unknown`). Under a sandbox `--root`, host tools stay disabled (`skipped-host-tools-disabled`); in test/no-auth mode no host command is ever invoked. Each snapshot carries `name`, `date_token`, and ISO `timestamp`, and `manual_review_command` echoes the command an operator can run themselves.
 
 ### `status`
 
