@@ -513,7 +513,7 @@ CATEGORIES: tuple[Category, ...] = (
         "pythonPackageCaches",
         APP_CLEANUP_RULES["pythonPackageCaches"]["title"],
         APP_CLEANUP_RULES["pythonPackageCaches"]["paths"],
-        "Deletes pip, Poetry, and PDM package download caches while preserving publishing credentials.",
+        "Deletes pip, Poetry, PDM, and uv package download caches while preserving publishing credentials.",
         risk="medium",
         advanced=True,
     ),
@@ -598,6 +598,33 @@ CATEGORIES: tuple[Category, ...] = (
         advanced=True,
     ),
     Category(
+        "otherLanguageCaches",
+        APP_CLEANUP_RULES["otherLanguageCaches"]["title"],
+        APP_CLEANUP_RULES["otherLanguageCaches"]["paths"],
+        "Deletes PHP Composer, Bazel, Zig, Hex (Elixir/Erlang), and opam (OCaml) download caches "
+        "while preserving credentials, switches, and tool configuration.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "ciCdCaches",
+        APP_CLEANUP_RULES["ciCdCaches"]["title"],
+        APP_CLEANUP_RULES["ciCdCaches"]["paths"],
+        "Deletes Terraform, Grafana, GitLab Runner, GitHub Actions, CircleCI, and SonarQube caches "
+        "while preserving credentials and configuration. Jenkins workspaces are never touched.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "devUtilityCaches",
+        APP_CLEANUP_RULES["devUtilityCaches"]["title"],
+        APP_CLEANUP_RULES["devUtilityCaches"]["paths"],
+        "Deletes regenerable Prisma engine, Oh My Zsh, curl, and wget cache leaves "
+        "while preserving shell configuration.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
         "postman",
         APP_CLEANUP_RULES["postman"]["title"],
         APP_CLEANUP_RULES["postman"]["paths"],
@@ -619,7 +646,7 @@ CATEGORIES: tuple[Category, ...] = (
         "aiToolCaches",
         APP_CLEANUP_RULES["aiToolCaches"]["title"],
         APP_CLEANUP_RULES["aiToolCaches"]["paths"],
-        "Deletes regenerable Claude, Codex, Cursor, ChatGPT, and Ollama caches (including AI CLI cache and temp leaves) while preserving AI tool runtime state, conversations, and credentials.",
+        "Deletes regenerable Claude, Codex, Cursor, ChatGPT, OpenCode, and Ollama caches (including AI CLI cache and temp leaves) while preserving AI tool runtime state, conversations, and credentials.",
         risk="medium",
         advanced=True,
     ),

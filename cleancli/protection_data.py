@@ -834,7 +834,14 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     },
     "pythonPackageCaches": {
         "title": "Python package manager caches",
-        "paths": ("~/Library/Caches/pip/", "~/Library/Caches/pypoetry/", "~/Library/Caches/pdm/"),
+        "paths": (
+            "~/Library/Caches/pip/",
+            "~/Library/Caches/pypoetry/",
+            "~/Library/Caches/pdm/",
+            # uv defaults to the macOS cache location but honors XDG_CACHE_HOME.
+            "~/Library/Caches/uv/",
+            "~/.cache/uv/",
+        ),
         "protected_patterns": ("~/.pypirc", "~/Library/Application Support/pypoetry/auth.toml"),
     },
     "goBuildCaches": {
@@ -927,6 +934,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "~/Library/Application Support/Windsurf/Service Worker/CacheStorage/",
             "~/Library/Application Support/ChatGPT/Cache/",
             "~/Library/Caches/com.openai.chat/",
+            "~/.cache/opencode/",
             "~/.ollama/models/.cache/",
         ),
         "protected_patterns": (
@@ -957,7 +965,63 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Application Support/Windsurf/*/IndexedDB/*",
             "*/Application Support/ChatGPT/Local Storage/*",
             "*/Application Support/ChatGPT/IndexedDB/*",
+            # OpenCode keeps sessions/auth/storage under XDG dirs; only the
+            # exact ~/.cache/opencode leaf is reachable.
+            "~/.local/share/opencode/*",
+            "~/.config/opencode/*",
         ),
+    },
+    "otherLanguageCaches": {
+        # Mole clean_dev_other_langs / clean_dev_elixir / clean_dev_ocaml.
+        "title": "Other language and build tool caches",
+        "paths": (
+            "~/.composer/cache/",
+            "~/Library/Caches/composer/",
+            "~/.cache/bazel/",
+            "~/.cache/zig/",
+            "~/.hex/cache/",
+            "~/.opam/download-cache/",
+        ),
+        "protected_patterns": (
+            # ~/.composer holds auth.json beside cache/; opam switches are
+            # siblings of download-cache/ and stay outside the exact leaf.
+            "~/.composer/auth.json",
+            "~/.config/composer/auth.json",
+            "~/.opam/config",
+        ),
+    },
+    "ciCdCaches": {
+        # Mole clean_dev_cicd, minus ~/.jenkins/workspace targets (active CI
+        # checkouts are project-artifact data, not a redundant cache copy).
+        "title": "CI/CD and DevOps tool caches",
+        "paths": (
+            "~/.cache/terraform/",
+            "~/.grafana/cache/",
+            "~/.cache/gitlab-runner/",
+            "~/.github/cache/",
+            "~/.circleci/cache/",
+            "~/.sonar/cache/",
+        ),
+        "protected_patterns": (
+            "~/.terraformrc",
+            "~/.terraform.d/credentials.tfrc.json",
+            "~/.circleci/cli.yml",
+            "~/.grafana/grafana.ini",
+        ),
+    },
+    "devUtilityCaches": {
+        # Mole clean_dev_misc (Prisma/OpenCode leaves), clean_dev_shell, and
+        # clean_dev_network. OpenCode lives with the other AI tool caches.
+        "title": "Shell, network, and developer utility caches",
+        "paths": (
+            "~/.cache/prisma/",
+            "~/.oh-my-zsh/cache/",
+            "~/.cache/curl/",
+            "~/.cache/wget/",
+            "~/Library/Caches/curl/",
+            "~/Library/Caches/wget/",
+        ),
+        "protected_patterns": ("~/.zshrc", "~/.zshenv"),
     },
     "windsurf": {
         "title": "Windsurf caches",
