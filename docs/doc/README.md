@@ -721,14 +721,14 @@ Scan project directories for build artifacts (node_modules, target, venv, dist, 
 ```bash
 python3 cleanmac.py --json purge
 python3 cleanmac.py --json purge --recent-days 14
-python3 cleanmac.py --json purge --roots ~/Projects,~/code
+python3 cleanmac.py --json purge --paths ~/Projects,~/code
 ```
 
-Returns schema `cleanmac.project-purge.v1`.
+Returns schema `cleanmac.project-purge.v1`. The built-in scan roots are `~/Projects`, `~/GitHub`, `~/dev`, `~/code`, `~/work`, `~/www`, `~/Code`, `~/Workspace`, `~/Repos`, and `~/Development`; the walk descends at most six levels and never follows symlinks. `~/Library/CloudStorage` and AI worktree containers (`~/.codex/worktrees`, `~/.claude/worktrees`) are intentionally excluded — name them explicitly with `--paths` when the tree is fully downloaded.
 
 ### `projectArtifacts` with `--project-roots`
 
-`purge` is read-only; the governed clean flow can remove the same build artifacts through the `projectArtifacts` category. Its built-in roots are `~/Projects`, `~/GitHub`, `~/dev`, `~/code`, and `~/work`. Pass `--project-roots` to name project directories explicitly — custom roots **replace** the built-in roots and are accepted by `inspect`, `analyze`, `plan`, and `clean`:
+`purge` is read-only; the governed clean flow can remove the same build artifacts through the `projectArtifacts` category. It shares the same built-in roots and the same depth-6 bounded discovery. Pass `--project-roots` to name project directories explicitly — custom roots **replace** the built-in roots and are accepted by `inspect`, `analyze`, `plan`, and `clean`:
 
 ```bash
 # Preview artifacts discovered under the named project roots
@@ -744,7 +744,7 @@ python3 cleanmac.py --json clean plan \
   > /tmp/plan.json
 ```
 
-Roots must be absolute or `~`-relative, must live inside the active home, and cannot be the home/root itself (name project directories explicitly). Discovery is depth-bounded, matches exact artifact names (`node_modules`, `target`, `venv`, `.venv`, `dist`, `build`, ...), never follows symlinks, and never descends into a matched artifact directory. Plans persist `project_roots` at the top level, so plan replay with `--require-plan-context` keeps the identical scope; dry-run defaults, age filters, Trash routing, deletion budgets, and review-selection gates all still apply.
+Roots must be absolute or `~`-relative, must live inside the active home, and cannot be the home/root itself (name project directories explicitly). Discovery is depth-bounded (six levels), matches exact artifact names (`node_modules`, `target`, `venv`, `.venv`, `dist`, `build`, `.tox`, `.gradle`, `.next`, `.dart_tool`, ...), never follows symlinks, and never descends into a matched artifact directory. Ambiguous names require project-context evidence and otherwise appear as policy skips: `vendor` only beside a PHP `composer.json` (Rails/Go/unknown vendor stays protected), `obj` only beside a `.csproj`/`.fsproj`/`.vbproj`, and `bin` additionally requires a `Debug`/`Release` child; the global `~/Library/Developer/Xcode/DerivedData` belongs to the xcode category and is never a project-artifact candidate. Plans persist `project_roots` at the top level, so plan replay with `--require-plan-context` keeps the identical scope; dry-run defaults, age filters, Trash routing, deletion budgets, and review-selection gates all still apply.
 
 ### `software`
 

@@ -13,6 +13,10 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+# Canonical rebuildable project artifact directory names. Mirrors Mole's
+# MOLE_PURGE_TARGETS (lib/clean/purge_shared.sh) plus cleanmac's existing
+# CMake/Bazel/Buck/Elixir entries. Names in CONTEXT_GUARDED_ARTIFACT_DIRS
+# additionally require project-context evidence before matching.
 PROJECT_ARTIFACT_DIRS: tuple[str, ...] = (
     "node_modules",
     "target",
@@ -25,13 +29,32 @@ PROJECT_ARTIFACT_DIRS: tuple[str, ...] = (
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
+    ".tox",
+    ".nox",
     ".gradle",
+    ".terragrunt-cache",
     ".next",
     ".nuxt",
+    ".output",
     ".cache",
+    ".turbo",
+    ".parcel-cache",
+    # PHP Composer vendor only (parent composer.json); Rails/Go/unknown stay out.
+    "vendor",
+    # .NET build output only (parent project file; bin also needs Debug/Release).
+    "bin",
+    "obj",
+    ".zig-cache",
+    "zig-out",
+    ".angular",
+    ".svelte-kit",
+    ".astro",
+    "coverage",
     "Pods",
     "DerivedData",
     ".dart_tool",
+    ".cxx",
+    ".expo",
     "CMakeFiles",
     "bazel-out",
     "buck-out",
@@ -39,16 +62,71 @@ PROJECT_ARTIFACT_DIRS: tuple[str, ...] = (
     "deps",
 )
 
+# Artifact names whose rebuildability cannot be proven by the name alone;
+# artifact_context_allows() must confirm the surrounding project context.
+CONTEXT_GUARDED_ARTIFACT_DIRS: frozenset[str] = frozenset({"vendor", "bin", "obj"})
+
+_DOTNET_PROJECT_SUFFIXES = (".csproj", ".fsproj", ".vbproj")
+
+
+def artifact_context_allows(name: str, artifact: Path) -> bool:
+    """Project-context guard for ambiguous artifact names.
+
+    Mirrors Mole's ``is_protected_purge_artifact``: ``vendor`` is only a
+    rebuildable Composer artifact beside ``composer.json``; ``bin``/``obj``
+    are only .NET build output beside a project file (and ``bin`` must carry
+    ``Debug``/``Release`` children); the global Xcode ``DerivedData`` is
+    owned by the xcode category, not project-artifact discovery.
+    """
+    parent = artifact.parent
+    if name == "vendor":
+        return (parent / "composer.json").is_file()
+    if name == "bin":
+        return _parent_has_dotnet_project(parent) and ((artifact / "Debug").is_dir() or (artifact / "Release").is_dir())
+    if name == "obj":
+        return _parent_has_dotnet_project(parent)
+    if name == "DerivedData":
+        return "/library/developer/xcode/deriveddata" not in str(artifact).lower()
+    return True
+
+
+def _parent_has_dotnet_project(parent: Path) -> bool:
+    try:
+        entries = list(os.scandir(parent))
+    except (OSError, PermissionError):
+        return False
+    return any(
+        entry.is_file(follow_symlinks=False) and entry.name.endswith(_DOTNET_PROJECT_SUFFIXES) for entry in entries
+    )
+
+
 DEFAULT_SCAN_ROOTS: tuple[str, ...] = (
     "~/Projects",
     "~/GitHub",
     "~/dev",
     "~/code",
     "~/work",
+    "~/www",
+    "~/Code",
+    "~/Workspace",
+    "~/Repos",
+    "~/Development",
+    # ~/Library/CloudStorage is intentionally absent: listing dataless
+    # File-Provider directories can trigger network materialization (Mole
+    # prunes +dataless via find). Name cloud-synced roots explicitly with
+    # --roots/--project-roots when the tree is fully downloaded.
+    #
+    # AI agent worktree containers (~/.codex/worktrees, ~/.claude/worktrees)
+    # are likewise absent: discovery never crosses hidden directories, and a
+    # container root can be passed explicitly with --roots/--project-roots.
 )
 
 DEFAULT_RECENT_DAYS = 7
-MAX_SCAN_DEPTH = 4
+MAX_SCAN_DEPTH = 6
+
+# Dotted artifacts the walk is allowed to recognize as direct children;
+# every other dot directory is skipped without descending.
+_DOT_ARTIFACT_DIRS: frozenset[str] = frozenset(name for name in PROJECT_ARTIFACT_DIRS if name.startswith("."))
 
 
 def _human_size(size: int | None) -> str:
@@ -110,24 +188,19 @@ def _find_artifact_dirs(root: Path, *, max_depth: int = MAX_SCAN_DEPTH) -> Itera
         return
     for entry in entries:
         try:
-            if entry.name.startswith(".") and entry.name not in {
-                ".venv",
-                ".build",
-                ".pytest_cache",
-                ".mypy_cache",
-                ".ruff_cache",
-                ".gradle",
-                ".next",
-                ".nuxt",
-                ".cache",
-                ".dart_tool",
-            }:
+            if entry.name.startswith(".") and entry.name not in _DOT_ARTIFACT_DIRS:
                 continue
             if entry.is_dir(follow_symlinks=False):
+                artifact = Path(entry.path)
                 if entry.name in PROJECT_ARTIFACT_DIRS:
-                    yield Path(entry.path)
+                    # Matched artifact dirs are always pruned (never descended
+                    # into), mirroring Mole's pruned find/fd scan. Names in
+                    # CONTEXT_GUARDED_ARTIFACT_DIRS additionally need project
+                    # evidence before they count as candidates.
+                    if artifact_context_allows(entry.name, artifact):
+                        yield artifact
                 else:
-                    yield from _find_artifact_dirs(Path(entry.path), max_depth=max_depth - 1)
+                    yield from _find_artifact_dirs(artifact, max_depth=max_depth - 1)
         except (OSError, PermissionError):
             continue
 

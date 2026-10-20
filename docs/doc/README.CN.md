@@ -708,14 +708,14 @@ python3 cleanmac.py --json status snapshot
 ```bash
 python3 cleanmac.py --json purge
 python3 cleanmac.py --json purge --recent-days 14
-python3 cleanmac.py --json purge --roots ~/Projects,~/code
+python3 cleanmac.py --json purge --paths ~/Projects,~/code
 ```
 
-返回 schema `cleanmac.project-purge.v1`。
+返回 schema `cleanmac.project-purge.v1`。内置扫描根为 `~/Projects`、`~/GitHub`、`~/dev`、`~/code`、`~/work`、`~/www`、`~/Code`、`~/Workspace`、`~/Repos`、`~/Development`；遍历深度上限为 6 层且不跟随符号链接。`~/Library/CloudStorage` 与 AI worktree 容器（`~/.codex/worktrees`、`~/.claude/worktrees`）有意不纳入默认根——目录已完整下载时可用 `--paths` 显式指定。
 
 ### `projectArtifacts` 与 `--project-roots`
 
-`purge` 是只读的；受治理的清理链路可以通过 `projectArtifacts` 分类删除同一批构建产物。其内置根目录为 `~/Projects`、`~/GitHub`、`~/dev`、`~/code`、`~/work`。传入 `--project-roots` 可显式指定项目目录——自定义根会**替换**内置根，`inspect`、`analyze`、`plan`、`clean` 均支持：
+`purge` 是只读的；受治理的清理链路可以通过 `projectArtifacts` 分类删除同一批构建产物。它共享相同的内置根与深度 6 层的有界发现。传入 `--project-roots` 可显式指定项目目录——自定义根会**替换**内置根，`inspect`、`analyze`、`plan`、`clean` 均支持：
 
 ```bash
 # 预览指定项目根下发现的产物
@@ -731,7 +731,7 @@ python3 cleanmac.py --json clean plan \
   > /tmp/plan.json
 ```
 
-根目录必须是绝对路径或 `~` 相对路径、必须位于当前 home 之内，且不能是 home/根本身（请显式指定具体项目目录）。发现过程有深度上限，只精确匹配产物名（`node_modules`、`target`、`venv`、`.venv`、`dist`、`build` 等），不跟随符号链接，也不会下钻进入已命中的产物目录。plan 顶层会持久化 `project_roots`，因此带 `--require-plan-context` 回放时作用域完全一致；dry-run 默认、时间过滤、Trash 路由、删除预算与 review-selection 门禁仍然全部生效。
+根目录必须是绝对路径或 `~` 相对路径、必须位于当前 home 之内，且不能是 home/根本身（请显式指定具体项目目录）。发现过程深度上限为 6 层，只精确匹配产物名（`node_modules`、`target`、`venv`、`.venv`、`dist`、`build`、`.tox`、`.gradle`、`.next`、`.dart_tool` 等），不跟随符号链接，也不会下钻进入已命中的产物目录。名称有歧义的产物需要项目上下文证据，否则会作为策略跳过项出现：`vendor` 仅在紧邻 PHP `composer.json` 时匹配（Rails/Go/未知 vendor 保持保护），`obj` 仅在同目录存在 `.csproj`/`.fsproj`/`.vbproj` 时匹配，`bin` 还额外要求含 `Debug`/`Release` 子目录；全局 `~/Library/Developer/Xcode/DerivedData` 归 xcode 分类所有，不会成为 project-artifact 候选。plan 顶层会持久化 `project_roots`，因此带 `--require-plan-context` 回放时作用域完全一致；dry-run 默认、时间过滤、Trash 路由、删除预算与 review-selection 门禁仍然全部生效。
 
 ### `software`
 

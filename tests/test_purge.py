@@ -8,12 +8,15 @@ import pytest
 
 from cleancli.purge import (
     DEFAULT_RECENT_DAYS,
+    DEFAULT_SCAN_ROOTS,
+    MAX_SCAN_DEPTH,
     PROJECT_ARTIFACT_DIRS,
     _dir_size,
     _display_path,
     _find_artifact_dirs,
     _human_size,
     _resolve_roots,
+    artifact_context_allows,
     find_project_artifacts,
     render_purge_human,
 )
@@ -263,7 +266,10 @@ def test_render_purge_human_truncates_long_list(tmp_path: Path):
 
 
 def test_project_artifact_dirs_count():
-    assert len(PROJECT_ARTIFACT_DIRS) == 23
+    # Mole-aligned catalog (MOLE_PURGE_TARGETS) plus cleanmac extras
+    # (.cache, CMakeFiles, bazel-out, buck-out, _build, deps, bin, obj).
+    assert len(PROJECT_ARTIFACT_DIRS) == 40
+    assert len(set(PROJECT_ARTIFACT_DIRS)) == len(PROJECT_ARTIFACT_DIRS)
 
 
 def test_find_project_artifacts_multiple_artifact_types(tmp_path: Path):
@@ -305,3 +311,134 @@ def test_find_artifact_dirs_handles_symlinks(tmp_path: Path):
 
     found = list(_find_artifact_dirs(tmp_path))
     assert symlink_target not in found
+
+
+# ---------------------------------------------------------------------------
+# Mole-aligned catalog: default roots, depth, and context guards
+# ---------------------------------------------------------------------------
+
+
+def test_default_scan_roots_match_mole_aligned_set():
+    assert DEFAULT_SCAN_ROOTS == (
+        "~/Projects",
+        "~/GitHub",
+        "~/dev",
+        "~/code",
+        "~/work",
+        "~/www",
+        "~/Code",
+        "~/Workspace",
+        "~/Repos",
+        "~/Development",
+    )
+    assert not any("CloudStorage" in root for root in DEFAULT_SCAN_ROOTS)
+    assert not any(".codex" in root or ".claude" in root for root in DEFAULT_SCAN_ROOTS)
+
+
+def test_max_scan_depth_is_six():
+    assert MAX_SCAN_DEPTH == 6
+
+
+def test_find_artifact_dirs_reaches_depth_six(tmp_path: Path):
+    reachable = tmp_path / "a" / "b" / "c" / "d" / "e" / "node_modules"
+    too_deep = tmp_path / "a" / "b" / "c" / "d" / "e" / "f" / "node_modules"
+    reachable.mkdir(parents=True)
+    too_deep.mkdir(parents=True)
+
+    found = set(_find_artifact_dirs(tmp_path))
+    assert reachable in found
+    assert too_deep not in found
+
+
+def test_find_artifact_dirs_recognizes_new_dotted_artifacts(tmp_path: Path):
+    for name in (".tox", ".nox", ".terragrunt-cache", ".turbo", ".zig-cache", ".angular"):
+        (tmp_path / f"proj-{name.lstrip('.')}" / name).mkdir(parents=True)
+
+    found = {p.name for p in _find_artifact_dirs(tmp_path)}
+    assert {".tox", ".nox", ".terragrunt-cache", ".turbo", ".zig-cache", ".angular"} <= found
+
+
+def test_vendor_requires_composer_context(tmp_path: Path):
+    php = tmp_path / "php-app"
+    (php / "vendor").mkdir(parents=True)
+    (php / "composer.json").write_text("{}")
+
+    rails = tmp_path / "rails-app"
+    (rails / "vendor").mkdir(parents=True)
+    (rails / "Gemfile").write_text("")
+    (rails / "config").mkdir()
+    (rails / "config" / "application.rb").write_text("")
+
+    go_app = tmp_path / "go-app"
+    (go_app / "vendor").mkdir(parents=True)
+    (go_app / "go.mod").write_text("module x")
+
+    plain = tmp_path / "plain"
+    (plain / "vendor").mkdir(parents=True)
+
+    found = set(_find_artifact_dirs(tmp_path))
+    assert php / "vendor" in found
+    assert rails / "vendor" not in found
+    assert go_app / "vendor" not in found
+    assert plain / "vendor" not in found
+
+
+def test_protected_vendor_is_pruned(tmp_path: Path):
+    # A nested rebuildable artifact inside a protected vendor tree must not
+    # surface: matched artifact names prune the walk whether or not the
+    # context guard accepts them.
+    go_app = tmp_path / "go-app"
+    nested = go_app / "vendor" / "example.com" / "pkg" / "node_modules"
+    nested.mkdir(parents=True)
+    (go_app / "go.mod").write_text("module x")
+
+    found = set(_find_artifact_dirs(tmp_path))
+    assert not any(path.name == "node_modules" for path in found)
+
+
+def test_bin_and_obj_require_dotnet_context(tmp_path: Path):
+    dotnet = tmp_path / "dotnet-app"
+    (dotnet / "bin" / "Debug" / "net8.0").mkdir(parents=True)
+    (dotnet / "obj").mkdir(parents=True)
+    (dotnet / "App.csproj").write_text("<Project/>")
+
+    dotnet_release = tmp_path / "dotnet-rel"
+    (dotnet_release / "bin" / "Release").mkdir(parents=True)
+    (dotnet_release / "Lib.fsproj").write_text("<Project/>")
+
+    bin_without_config = tmp_path / "half-dotnet"
+    (bin_without_config / "bin" / "stuff").mkdir(parents=True)
+    (bin_without_config / "Half.vbproj").write_text("<Project/>")
+
+    plain = tmp_path / "plain"
+    (plain / "bin").mkdir(parents=True)
+    (plain / "obj").mkdir(parents=True)
+
+    found = set(_find_artifact_dirs(tmp_path))
+    assert dotnet / "bin" in found
+    assert dotnet / "obj" in found
+    assert dotnet_release / "bin" in found
+    assert bin_without_config / "bin" not in found
+    assert plain / "bin" not in found
+    assert plain / "obj" not in found
+
+
+def test_derived_data_guard(tmp_path: Path):
+    project_local = tmp_path / "MyApp" / "DerivedData"
+    project_local.mkdir(parents=True)
+    global_dd = tmp_path / "Library" / "Developer" / "Xcode" / "DerivedData"
+    global_dd.mkdir(parents=True)
+
+    assert artifact_context_allows("DerivedData", project_local) is True
+    assert artifact_context_allows("DerivedData", global_dd) is False
+
+    found = set(_find_artifact_dirs(tmp_path))
+    assert project_local in found
+    assert global_dd not in found
+
+
+def test_unguarded_names_still_match_without_context(tmp_path: Path):
+    plain = tmp_path / "plain" / "node_modules"
+    plain.mkdir(parents=True)
+    assert artifact_context_allows("node_modules", plain) is True
+    assert artifact_context_allows("vendor", plain) is False

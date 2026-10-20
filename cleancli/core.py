@@ -108,7 +108,13 @@ from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_pri
 from cleancli.profiles import PROFILES, profile_names, render_profiles
 from cleancli.progress import make_execute_progress, make_scan_progress
 from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
-from cleancli.purge import find_project_artifacts, render_purge_human
+from cleancli.purge import (
+    CONTEXT_GUARDED_ARTIFACT_DIRS,
+    PROJECT_ARTIFACT_DIRS,
+    artifact_context_allows,
+    find_project_artifacts,
+    render_purge_human,
+)
 from cleancli.release_artifacts import (
     HOMEBREW_TAP,
     REQUIRED_RELEASE_ASSET_NAMES,
@@ -1944,36 +1950,23 @@ CATEGORIES: tuple[Category, ...] = (
             "~/dev/",
             "~/code/",
             "~/work/",
+            "~/www/",
+            "~/Code/",
+            "~/Workspace/",
+            "~/Repos/",
+            "~/Development/",
         ),
-        "Cleans build artifacts and dependency caches from common project directories: node_modules, target, dist, build, .build, venv, __pycache__, and more.",
+        "Cleans build artifacts and dependency caches from common project directories: node_modules, target, dist, build, .build, venv, __pycache__, and more. Ambiguous names (vendor, bin, obj) require PHP/.NET project context.",
         risk="medium",
         advanced=True,
         default_older_than_days=7,
+        # Exact names are shared with the read-only purge report
+        # (purge.PROJECT_ARTIFACT_DIRS); the two prefix patterns stay
+        # cleanmac-only CMake/Bazel convenience matches.
         default_include_patterns=(
-            "node_modules",
-            "target",
-            "dist",
-            "build",
-            ".build",
-            "venv",
-            ".venv",
-            "__pycache__",
-            ".pytest_cache",
-            ".mypy_cache",
-            ".ruff_cache",
-            ".gradle",
-            ".next",
-            ".nuxt",
-            ".cache",
-            "Pods",
-            "DerivedData",
-            ".dart_tool",
-            "CMakeFiles",
+            *PROJECT_ARTIFACT_DIRS,
             "cmake-build-",
             "bazel-",
-            "buck-out",
-            "_build",
-            "deps",
         ),
         default_exclude_patterns=("*.env", "*.env.*", ".git", ".svn"),
     ),
@@ -2589,7 +2582,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     purge_cmd.add_argument(
         "--paths",
-        help="Comma-separated list of directories to scan. Defaults to ~/Projects, ~/GitHub, ~/dev, ~/code, ~/work.",
+        help=(
+            "Comma-separated list of directories to scan. Defaults to ~/Projects, ~/GitHub, ~/dev, ~/code, "
+            "~/work, ~/www, ~/Code, ~/Workspace, ~/Repos, ~/Development."
+        ),
     )
     purge_cmd.add_argument(
         "--recent-days",
@@ -3438,7 +3434,11 @@ PROJECT_ARTIFACTS_CATEGORY_KEY = "projectArtifacts"
 
 # Keep bounded discovery aligned with purge.MAX_SCAN_DEPTH: artifact dirs can
 # sit a few levels below a caller-named project root (root/org/repo/target).
-PROJECT_ARTIFACT_MAX_SCAN_DEPTH = 4
+PROJECT_ARTIFACT_MAX_SCAN_DEPTH = 6
+
+# Names whose include-pattern match must additionally satisfy the same
+# project-context evidence as purge's read-only report.
+PROJECT_ARTIFACT_CONTEXT_GUARDED_NAMES = frozenset(CONTEXT_GUARDED_ARTIFACT_DIRS) | {"DerivedData"}
 
 
 def project_root_logical_path(path: Path, *, root: Path) -> str:
@@ -3512,6 +3512,10 @@ def discover_project_artifact_targets(
             except OSError:
                 continue
             if matches_include(child, patterns):
+                # Context evidence for ambiguous names (vendor/bin/obj and the
+                # global DerivedData) is enforced by filter_reason during
+                # inspect/plan/clean so protected matches stay visible as
+                # policy skips; discovery itself stays name-based.
                 discovered.append(ResolvedTarget(category.key, str(directory), child, True, False, True))
                 continue
             if child.name.startswith("."):
@@ -4834,6 +4838,12 @@ def filter_reason(
     effective_age = effective_older_than_days(category, older_than_days)
     if effective_include and not matches_include(path, effective_include):
         return "not-included"
+    if (
+        category.key == PROJECT_ARTIFACTS_CATEGORY_KEY
+        and path.name in PROJECT_ARTIFACT_CONTEXT_GUARDED_NAMES
+        and not artifact_context_allows(path.name, path)
+    ):
+        return "artifact-context-mismatch"
     if not matches_name_regex(path, name_regex):
         return "name-regex-mismatch"
     if effective_exclude and matches_exclude(path, effective_exclude):
