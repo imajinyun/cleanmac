@@ -107,7 +107,12 @@ from cleancli.mcp_tools import render_mcp_destructive_tool_governance
 from cleancli.privacy import PRIVACY_SCOPES, execute_privacy_cleanup, render_privacy
 from cleancli.profiles import PROFILES, profile_names, render_profiles
 from cleancli.progress import make_execute_progress, make_scan_progress
-from cleancli.protection_data import APP_CLEANUP_RULES, DEFAULT_PROTECTED_BUNDLE_IDS, OFFICIAL_UNINSTALLER_RULES
+from cleancli.protection_data import (
+    APP_CLEANUP_RULES,
+    APPLE_DAEMON_CONTAINER_CACHE_LEAVES,
+    DEFAULT_PROTECTED_BUNDLE_IDS,
+    OFFICIAL_UNINSTALLER_RULES,
+)
 from cleancli.purge import (
     CONTEXT_GUARDED_ARTIFACT_DIRS,
     PROJECT_ARTIFACT_DIRS,
@@ -1718,10 +1723,91 @@ CATEGORIES: tuple[Category, ...] = (
     Category(
         "userLogs",
         "User logs",
-        ("~/Library/Logs/", "~/Library/logs/"),
-        "Deletes user-level logs.",
+        ("~/Library/Logs/", "~/Library/logs/", "~/Library/DiagnosticReports/"),
+        "Deletes user-level logs and user diagnostic reports. The DiagnosticReports directory itself is preserved.",
         risk="medium",
         advanced=True,
+    ),
+    Category(
+        "recentItems",
+        "Recent applications, documents, and servers lists",
+        (
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentApplications.sfl2",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentDocuments.sfl2",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentServers.sfl2",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentHosts.sfl2",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentApplications.sfl",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentDocuments.sfl",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentServers.sfl",
+            "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.RecentHosts.sfl",
+            "~/Library/Preferences/com.apple.recentitems.plist",
+        ),
+        "Deletes LaunchServices recent applications, documents, servers, and hosts lists (privacy cleanup). macOS rebuilds these lists.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "savedAppState",
+        "Saved application window state",
+        ("~/Library/Saved Application State/*",),
+        "Deletes per-application saved window restore state. Apps reopen with default windows afterward.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "identityCaches",
+        "Identity services caches",
+        ("~/Library/IdentityCaches/*",),
+        "Deletes transient identity-services lookup caches; macOS rebuilds them as needed.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "siriSuggestions",
+        "Siri Suggestions caches",
+        ("~/Library/Suggestions/*",),
+        "Deletes Siri Suggestions learned-cache data; suggestions rebuild over time.",
+        risk="low",
+        advanced=True,
+    ),
+    Category(
+        "crashReporter",
+        "CrashReporter reports",
+        ("~/Library/Application Support/CrashReporter/*",),
+        "Deletes user CrashReporter crash and hang reports older than 30 days; report files only.",
+        risk="low",
+        advanced=True,
+        default_older_than_days=30,
+    ),
+    Category(
+        "messageCaches",
+        "Messages sticker and preview caches",
+        (
+            "~/Library/Messages/StickerCache/*",
+            "~/Library/Messages/Caches/Previews/Attachments/*",
+            "~/Library/Messages/Caches/Previews/StickerCache/*",
+        ),
+        "Deletes regenerable Messages sticker and attachment-preview caches. Received message attachments under ~/Library/Messages/Attachments are never touched (use imessage).",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "finderMetadata",
+        "Finder .DS_Store metadata",
+        (),
+        "Deletes .DS_Store Finder metadata files within the home directory (bounded depth, excluding Developer, Caches, Trash, backups, node_modules, and git data). Folder view settings reset.",
+        risk="low",
+        advanced=True,
+        provider="finder-metadata",
+    ),
+    Category(
+        "appleDaemonContainerCaches",
+        "Apple daemon sandboxed container caches",
+        (),
+        "Deletes regenerable caches and tmp scratch files from a curated allowlist of Apple daemon sandboxed containers (wallpaper, media analysis, App Store, geod, stocks, artwork, CoreDevice, and related services). Only the exact Data/Library/Caches and Data/tmp leaves are touched; documents and other container data stay protected.",
+        risk="medium",
+        advanced=True,
+        provider="apple-daemon-container-caches",
     ),
     Category(
         "systemLogs",
@@ -3427,6 +3513,83 @@ def is_safe_darwin_runtime_dir(path: Path, *, kind: str, root: Path) -> bool:
     return uid is None or owner is None or owner == uid
 
 
+# Directories pruned from the bounded Finder metadata walk; mirrors Mole
+# clean_ds_store_tree exclusions so backups, developer trees, caches, Trash,
+# dependency trees, and git data never pay traversal cost.
+FINDER_METADATA_PRUNE_BASENAMES = frozenset({".Trash", "node_modules", ".git"})
+FINDER_METADATA_PRUNE_SUFFIXES: tuple[tuple[str, ...], ...] = (
+    ("library", "developer"),
+    ("library", "caches"),
+    ("library", "application support", "mobilesync"),
+)
+FINDER_METADATA_MAX_DEPTH = 5
+
+
+def finder_metadata_files(home_root: Path) -> list[Path]:
+    """Bounded discovery of ``.DS_Store`` files within the home directory.
+
+    Walk is limited to FINDER_METADATA_MAX_DEPTH, never follows symlinks,
+    prunes backup/developer/dependency/cache trees, and skips files protected
+    by data policy so plans never over-promise undeletable metadata.
+    """
+    if not home_root.is_dir() or home_root.is_symlink():
+        return []
+    found: list[Path] = []
+    for current_root, dirnames, filenames in os.walk(home_root, followlinks=False):
+        current = Path(current_root)
+        try:
+            rel_parts = current.relative_to(home_root).parts
+        except ValueError:
+            dirnames[:] = []
+            continue
+        depth = len(rel_parts)
+        if depth >= FINDER_METADATA_MAX_DEPTH:
+            dirnames[:] = []
+            continue
+        kept_dirs: list[str] = []
+        for dirname in dirnames:
+            if dirname in FINDER_METADATA_PRUNE_BASENAMES:
+                continue
+            child_rel = tuple(part.lower() for part in (*rel_parts, dirname))
+            if any(
+                child_rel[-len(suffix) :] == suffix
+                for suffix in FINDER_METADATA_PRUNE_SUFFIXES
+                if len(child_rel) >= len(suffix)
+            ):
+                continue
+            if (current / dirname).is_symlink():
+                continue
+            kept_dirs.append(dirname)
+        dirnames[:] = kept_dirs
+        for filename in filenames:
+            if filename != ".DS_Store":
+                continue
+            candidate = current / filename
+            if candidate.is_symlink():
+                continue
+            try:
+                if protection.should_protect_data(candidate) or protection.is_critical_system_component(candidate):
+                    continue
+            except OSError:
+                continue
+            found.append(candidate)
+    return found
+
+
+def apple_daemon_container_cache_dirs(home_root: Path) -> list[Path]:
+    """Curated Apple daemon ``Data/Library/Caches`` and ``Data/tmp`` leaves."""
+    containers_root = home_root / "Library" / "Containers"
+    if not containers_root.is_dir() or containers_root.is_symlink():
+        return []
+    leaves: list[Path] = []
+    for bundle, relative_dirs in APPLE_DAEMON_CONTAINER_CACHE_LEAVES.items():
+        for relative in relative_dirs:
+            candidate = containers_root / bundle / "Data" / Path(relative)
+            if candidate.is_dir() and not candidate.is_symlink():
+                leaves.append(candidate)
+    return leaves
+
+
 def provider_targets(category: Category, *, root: Path, home: Path) -> list[ResolvedTarget]:
     provider = category.provider
     if provider is None:
@@ -3435,6 +3598,10 @@ def provider_targets(category: Category, *, root: Path, home: Path) -> list[Reso
     paths: list[Path] = []
     if provider == "app-support-cache":
         paths = cache_discovery.app_support_cache_directories(remap_home(root=root, home=home))
+    elif provider == "finder-metadata":
+        paths = finder_metadata_files(remap_home(root=root, home=home))
+    elif provider == "apple-daemon-container-caches":
+        paths = apple_daemon_container_cache_dirs(remap_home(root=root, home=home))
     elif provider == "ai-tool-old-versions":
         paths = version_prune.old_version_targets(remap_home(root=root, home=home))
     elif provider in {"darwin-user-temp", "darwin-user-cache"}:
@@ -4812,6 +4979,19 @@ def category_policy_reason(
             return "outside-provider-allowlist"
         home_root = activity.home_root if activity is not None else version_prune.home_root_for_candidate(path)
         if home_root is None or not version_prune.is_prunable_version_dir(path, home_root):
+            return "outside-provider-allowlist"
+    if category.key == "recentItems" and not protection.is_recent_items_file(path):
+        return "outside-provider-allowlist"
+    if category.key == "messageCaches" and not protection.is_messages_regenerable_cache(path):
+        return "outside-provider-allowlist"
+    if category.key == "appleDaemonContainerCaches" and not protection.is_allowed_apple_daemon_container_cache(path):
+        return "outside-provider-allowlist"
+    if category.key == "finderMetadata":
+        if path.name != ".DS_Store" or path.is_symlink() or not path.is_file():
+            return "outside-provider-allowlist"
+    if category.key == "crashReporter":
+        parent = normalize_policy_path(path.parent).lower()
+        if not path.is_file() or not parent.endswith("/library/application support/crashreporter"):
             return "outside-provider-allowlist"
     container_reason = protection.container_policy_reason(category.key, path)
     if container_reason:

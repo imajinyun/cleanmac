@@ -452,6 +452,52 @@ APPLE_CONTAINER_CACHE_EXCEPTIONS = (
     "/Data/Library/Mail Downloads/",
 )
 
+# Curated Apple daemon sandboxed containers whose Data/Library/Caches or
+# Data/tmp leaves hold only regenerable system caches and scratch files. These
+# exact leaves are reachable only through the appleDaemonContainerCaches
+# category/provider; they do NOT loosen the generic com.apple container
+# protection applied to userAppCache. Documents, databases, preferences, and
+# every other Data subtree stay protected. Mirrors Mole's explicit Apple
+# container cache allowlist in clean_app_caches.
+APPLE_DAEMON_CONTAINER_CACHE_LEAVES: dict[str, tuple[str, ...]] = {
+    "com.apple.wallpaper.agent": ("Library/Caches",),
+    "com.apple.mediaanalysisd": ("Library/Caches", "tmp"),
+    "com.apple.AppStore": ("Library/Caches",),
+    "com.apple.configurator.xpc.InternetService": ("tmp",),
+    "com.apple.wallpaper.extension.aerials": ("tmp",),
+    "com.apple.geod": ("tmp",),
+    "com.apple.stocks": ("Library/Caches",),
+    "com.apple.AvatarUI.AvatarPickerMemojiPicker": ("Library/Caches",),
+    "com.apple.AMPArtworkAgent": ("Library/Caches",),
+    "com.apple.CoreDevice.CoreDeviceService": ("Library/Caches",),
+    "com.apple.NeptuneOneExtension": ("Library/Caches",),
+    "com.apple.AppleMediaServicesUI.UtilityExtension": ("tmp",),
+}
+
+# Exact regenerable cache leaves inside ~/Library/Messages. Only preview and
+# sticker caches may escape the blanket Messages guard; received attachments
+# under ~/Library/Messages/Attachments stay protected and belong to imessage.
+MESSAGES_REGENERABLE_CACHE_LEAVES: tuple[str, ...] = (
+    "/library/messages/stickercache/",
+    "/library/messages/caches/previews/attachments/",
+    "/library/messages/caches/previews/stickercache/",
+)
+
+# Exact recent-items list files (LaunchServices shared file lists and the
+# recent-items preferences plist). These are regenerable privacy lists; no
+# other com.apple.sharedfilelist content may escape its protection guard.
+RECENT_ITEMS_FILE_RELPATHS: tuple[str, ...] = (
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recentapplications.sfl2",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recentdocuments.sfl2",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recentservers.sfl2",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recenthosts.sfl2",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recentapplications.sfl",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recentdocuments.sfl",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recentservers.sfl",
+    "/library/application support/com.apple.sharedfilelist/com.apple.lssharedfilelist.recenthosts.sfl",
+    "/library/preferences/com.apple.recentitems.plist",
+)
+
 # Apple Configurator 2 keeps downloaded device firmware (*.ipsw) inside its
 # group container (bare ``group.com.apple.configurator`` or a
 # ``<TEAMID>.group.com.apple.configurator`` form). Only exact *.ipsw leaves may

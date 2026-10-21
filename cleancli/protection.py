@@ -13,6 +13,7 @@ from cleancli.protection_data import (
     APP_CACHE_PROTECTED_PATTERNS,
     APP_CLEANUP_RULES,
     APPLE_CONTAINER_CACHE_EXCEPTIONS,
+    APPLE_DAEMON_CONTAINER_CACHE_LEAVES,
     APPLE_UNINSTALLABLE_BUNDLE_PATTERNS,
     CONFIGURATOR_FIRMWARE_CONTAINER_MARKER,
     CRITICAL_SYSTEM_PATH_PREFIXES,
@@ -20,13 +21,21 @@ from cleancli.protection_data import (
     DATA_PROTECTED_BUNDLE_PATTERNS,
     DEFAULT_PROTECTED_BUNDLE_IDS,
     DOTDIR_REGENERABLE_CACHE_PATHS,
+    MESSAGES_REGENERABLE_CACHE_LEAVES,
     OFFICIAL_UNINSTALLER_RULES,
     PROTECTED_BUNDLE_PREFIXES,
+    RECENT_ITEMS_FILE_RELPATHS,
     SENSITIVE_USER_DATA_FRAGMENTS,
     SYSTEM_CRITICAL_BUNDLE_PATTERNS,
 )
 
 from . import app_activity, cache_discovery
+
+# bundle-id -> allowed Data-relative cache leaves, all lowercased path parts.
+_APPLE_DAEMON_CACHE_LEAVES: dict[str, tuple[tuple[str, ...], ...]] = {
+    bundle.lower(): tuple(Path(rel.lower()).parts for rel in rels)
+    for bundle, rels in APPLE_DAEMON_CONTAINER_CACHE_LEAVES.items()
+}
 
 
 def matches_pattern(path: Path, patterns: Sequence[str]) -> bool:
@@ -155,11 +164,51 @@ def is_configurator_firmware_installer(path: Path) -> bool:
     return False
 
 
+def is_messages_regenerable_cache(path: Path) -> bool:
+    """Exact preview/sticker cache leaves inside Messages (never Attachments)."""
+    lowered = str(path).lower()
+    # Substring match on the slash-delimited leaf so sandbox-rooted paths
+    # (``<root>/Users/...``) and real homes are handled identically.
+    return any(leaf in lowered for leaf in MESSAGES_REGENERABLE_CACHE_LEAVES)
+
+
+def is_recent_items_file(path: Path) -> bool:
+    """Exact LaunchServices recent-items list files and recent-items plist."""
+    lowered = str(path).lower()
+    return any(lowered.endswith(relpath) for relpath in RECENT_ITEMS_FILE_RELPATHS)
+
+
+def is_allowed_apple_daemon_container_cache(path: Path) -> bool:
+    """Exact curated Data/Library/Caches or Data/tmp leaves of Apple daemons.
+
+    Only the bundles/leaves in APPLE_DAEMON_CONTAINER_CACHE_LEAVES match;
+    Documents, preferences, and other container Data subtrees never do.
+    """
+    parts = tuple(part.lower() for part in path.parts)
+    for index, part in enumerate(parts):
+        if part != "containers" or index + 3 >= len(parts):
+            continue
+        bundle = parts[index + 1]
+        if parts[index + 2] != "data" or bundle not in _APPLE_DAEMON_CACHE_LEAVES:
+            continue
+        rest = parts[index + 3 :]
+        if any(rest[: len(rel)] == rel for rel in _APPLE_DAEMON_CACHE_LEAVES[bundle]):
+            return True
+    return False
+
+
 def should_protect_data(path: Path) -> bool:
     text = str(path)
     lowered = text.lower()
     for fragment in SENSITIVE_USER_DATA_FRAGMENTS:
         if not _contains_sensitive_fragment(lowered, fragment):
+            continue
+        # Exact Messages preview/sticker cache leaves escape only via the
+        # dedicated messageCaches category; attachments stay protected.
+        if fragment == "/library/messages/" and is_messages_regenerable_cache(path):
+            continue
+        # Exact recent-items list files escape only via recentItems.
+        if fragment == "/library/application support/com.apple.sharedfilelist" and is_recent_items_file(path):
             continue
         # Only exact cache subtrees of recognized apps escape a blanket app-root
         # rule. Credential and session fragments still take precedence.
