@@ -569,7 +569,9 @@ APP_SUPPORT_CACHE_DIRECTORIES = (
     "extensions_crx_cache",
     "Shared Dictionary/cache",
     "Service Worker/CacheStorage",
-    "Service Worker/ScriptCache",
+    # ScriptCache holds MV3 extension service-worker bytecode; removing it
+    # breaks registered workers and triggers security warnings even while the
+    # browser is closed (Mole #785, #964, #968). Never a generic cache target.
 )
 AMBIGUOUS_APP_CACHE_DIRECTORIES = ("Cache", "CachedData")
 KNOWN_ELECTRON_CACHE_APPS = (
@@ -594,6 +596,45 @@ KNOWN_ELECTRON_CACHE_APPS = (
     "Perplexity",
     "Poe",
 )
+# Service Worker CacheStorage origins that must survive a browser cache
+# cleanup: offline web editors, Google Workspace offline mode, and PWA/code
+# platforms. Chromium names origin directories with hashes, so this match is
+# best effort like Mole's; it protects every origin whose on-disk name embeds
+# the domain. Enumerated per origin by browserServiceWorkerCaches.
+PROTECTED_SERVICE_WORKER_DOMAINS: tuple[str, ...] = (
+    "capcut.com",
+    "photopea.com",
+    "pixlr.com",
+    "docs.google.com",
+    "sheets.google.com",
+    "slides.google.com",
+    "drive.google.com",
+    "mail.google.com",
+    "github.com",
+    "gitlab.com",
+    "codepen.io",
+    "codesandbox.io",
+    "replit.com",
+    "stackblitz.com",
+    "notion.so",
+    "figma.com",
+    "linear.app",
+    "excalidraw.com",
+)
+
+# Profile-root globs (relative to home) whose Service Worker/CacheStorage
+# stores are enumerated per origin by browserServiceWorkerCaches.
+BROWSER_SERVICE_WORKER_ROOTS: tuple[str, ...] = (
+    "Library/Application Support/Google/Chrome/*",
+    "Library/Application Support/Microsoft Edge/*",
+    "Library/Application Support/BraveSoftware/Brave-Browser/*",
+    "Library/Application Support/Arc/*",
+    "Library/Application Support/Arc/User Data/*",
+    "Library/Application Support/Vivaldi/*",
+    "Library/Application Support/Dia/User Data/*",
+    "Library/Application Support/com.operasoftware.Opera",
+)
+
 APP_CACHE_PROTECTED_PATTERNS = (
     "Cookies*",
     "History*",
@@ -701,15 +742,34 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "Chrome browser caches",
         "paths": (
             "~/Library/Caches/Google/Chrome/*/Cache/",
+            "~/Library/Caches/Google/Chrome/*/Code Cache/",
+            "~/Library/Caches/Google/Chrome/*/GPUCache/",
+            "~/Library/Caches/Google/Chrome/*/Media Cache/",
             "~/Library/Application Support/Google/Chrome/*/Cache/",
+            "~/Library/Application Support/Google/Chrome/*/Application Cache/",
             "~/Library/Application Support/Google/Chrome/*/Code Cache/",
             "~/Library/Application Support/Google/Chrome/*/GPUCache/",
             "~/Library/Application Support/Google/Chrome/*/Service Worker/CacheStorage/",
-            "~/Library/Application Support/Google/Chrome/*/Service Worker/ScriptCache/",
+            "~/Library/Application Support/Google/Chrome/*/DawnCache/",
+            "~/Library/Application Support/Google/Chrome/*/GrShaderCache/",
+            "~/Library/Application Support/Google/Chrome/*/GraphiteDawnCache/",
+            "~/Library/Application Support/Google/Chrome/ShaderCache/",
+            "~/Library/Application Support/Google/Chrome/GrShaderCache/",
+            "~/Library/Application Support/Google/Chrome/GraphiteDawnCache/",
             "~/Library/Application Support/Google/Chrome/component_crx_cache/",
             "~/Library/Application Support/Google/Chrome/extensions_crx_cache/",
             "~/Library/Application Support/Google/Chrome/Crashpad/completed/",
+            # On-device AI/model stores managed by Chrome's component updater;
+            # re-downloaded on demand and often multiple GB.
+            "~/Library/Application Support/Google/Chrome/OptGuideOnDeviceModel/",
+            "~/Library/Application Support/Google/Chrome/OptGuideOnDeviceClassifierModel/",
+            "~/Library/Application Support/Google/Chrome/optimization_guide_model_store/",
+            "~/Library/Application Support/Google/GoogleUpdater/crx_cache/",
+            "~/Library/Application Support/Google/GoogleUpdater/*.old",
         ),
+        # Service Worker CacheStorage stays visible but locked in the generic
+        # browser category; per-origin cleanup is the advanced
+        # browserServiceWorkerCaches provider. ScriptCache is never discovered.
         "protected_patterns": (
             "*/Bookmarks*",
             "*/Cookies*",
@@ -718,18 +778,34 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Preferences",
             "*/Local State",
             "*/Extensions/*",
+            "*/Service Worker/CacheStorage/*",
         ),
     },
     "edge": {
         "title": "Microsoft Edge browser caches",
         "paths": (
+            "~/Library/Caches/Microsoft Edge/",
+            "~/Library/Caches/com.microsoft.edgemac/",
             "~/Library/Application Support/Microsoft Edge/*/Cache/",
+            "~/Library/Application Support/Microsoft Edge/*/Application Cache/",
             "~/Library/Application Support/Microsoft Edge/*/Code Cache/",
             "~/Library/Application Support/Microsoft Edge/*/GPUCache/",
             "~/Library/Application Support/Microsoft Edge/*/Service Worker/CacheStorage/",
-            "~/Library/Application Support/Microsoft Edge/*/Service Worker/ScriptCache/",
-            "~/Library/Caches/Microsoft Edge/",
+            "~/Library/Application Support/Microsoft Edge/*/DawnCache/",
+            "~/Library/Application Support/Microsoft Edge/*/GrShaderCache/",
+            "~/Library/Application Support/Microsoft Edge/*/GraphiteDawnCache/",
+            "~/Library/Application Support/Microsoft Edge/ShaderCache/",
+            "~/Library/Application Support/Microsoft Edge/GrShaderCache/",
+            "~/Library/Application Support/Microsoft Edge/GraphiteDawnCache/",
+            "~/Library/Application Support/Microsoft Edge/component_crx_cache/",
+            "~/Library/Application Support/Microsoft Edge/Crashpad/completed/",
+            "~/Library/Application Support/Microsoft Edge/OptGuideOnDeviceModel/",
+            "~/Library/Application Support/Microsoft Edge/OptGuideOnDeviceClassifierModel/",
+            "~/Library/Application Support/Microsoft Edge/optimization_guide_model_store/",
         ),
+        # Service Worker CacheStorage stays visible but locked in the generic
+        # browser category; per-origin cleanup is the advanced
+        # browserServiceWorkerCaches provider. ScriptCache is never discovered.
         "protected_patterns": (
             "*/Bookmarks*",
             "*/Cookies*",
@@ -740,17 +816,30 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Extensions/*",
             "*/Local Storage/*",
             "*/IndexedDB/*",
+            "*/Service Worker/CacheStorage/*",
         ),
     },
     "brave": {
         "title": "Brave browser caches",
         "paths": (
+            "~/Library/Caches/BraveSoftware/",
             "~/Library/Application Support/BraveSoftware/Brave-Browser/*/Cache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/*/Application Cache/",
             "~/Library/Application Support/BraveSoftware/Brave-Browser/*/Code Cache/",
             "~/Library/Application Support/BraveSoftware/Brave-Browser/*/GPUCache/",
             "~/Library/Application Support/BraveSoftware/Brave-Browser/*/Service Worker/CacheStorage/",
-            "~/Library/Caches/BraveSoftware/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/*/DawnCache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/*/GrShaderCache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/*/GraphiteDawnCache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/ShaderCache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/GrShaderCache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/GraphiteDawnCache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/component_crx_cache/",
+            "~/Library/Application Support/BraveSoftware/Brave-Browser/Crashpad/completed/",
         ),
+        # Service Worker CacheStorage stays visible but locked in the generic
+        # browser category; per-origin cleanup is the advanced
+        # browserServiceWorkerCaches provider. ScriptCache is never discovered.
         "protected_patterns": (
             "*/Bookmarks*",
             "*/Cookies*",
@@ -761,17 +850,44 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Extensions/*",
             "*/Local Storage/*",
             "*/IndexedDB/*",
+            "*/Service Worker/CacheStorage/*",
         ),
     },
     "arc": {
         "title": "Arc browser caches",
         "paths": (
+            "~/Library/Caches/company.thebrowser.Browser/",
+            "~/Library/Application Support/Arc/*/Cache/",
+            "~/Library/Application Support/Arc/*/Code Cache/",
+            "~/Library/Application Support/Arc/*/GPUCache/",
+            "~/Library/Application Support/Arc/*/Service Worker/CacheStorage/",
+            "~/Library/Application Support/Arc/*/DawnCache/",
+            "~/Library/Application Support/Arc/*/GrShaderCache/",
+            "~/Library/Application Support/Arc/*/GraphiteDawnCache/",
+            "~/Library/Application Support/Arc/ShaderCache/",
+            "~/Library/Application Support/Arc/GrShaderCache/",
+            "~/Library/Application Support/Arc/GraphiteDawnCache/",
+            "~/Library/Application Support/Arc/component_crx_cache/",
+            "~/Library/Application Support/Arc/extensions_crx_cache/",
+            "~/Library/Application Support/Arc/Crashpad/completed/",
             "~/Library/Application Support/Arc/User Data/*/Cache/",
             "~/Library/Application Support/Arc/User Data/*/Code Cache/",
             "~/Library/Application Support/Arc/User Data/*/GPUCache/",
             "~/Library/Application Support/Arc/User Data/*/Service Worker/CacheStorage/",
-            "~/Library/Caches/company.thebrowser.Browser/",
+            "~/Library/Application Support/Arc/User Data/*/DawnCache/",
+            "~/Library/Application Support/Arc/User Data/*/GrShaderCache/",
+            "~/Library/Application Support/Arc/User Data/*/GraphiteDawnCache/",
+            "~/Library/Application Support/Arc/User Data/ShaderCache/",
+            "~/Library/Application Support/Arc/User Data/GrShaderCache/",
+            "~/Library/Application Support/Arc/User Data/GraphiteDawnCache/",
+            "~/Library/Application Support/Arc/User Data/component_crx_cache/",
+            "~/Library/Application Support/Arc/User Data/extensions_crx_cache/",
+            "~/Library/Application Support/Arc/User Data/Crashpad/completed/",
         ),
+        # Service Worker CacheStorage (both Arc layouts) stays visible but
+        # locked in the generic browser category; per-origin cleanup is the
+        # advanced browserServiceWorkerCaches provider. ScriptCache is never
+        # discovered.
         "protected_patterns": (
             "*/Bookmarks*",
             "*/Cookies*",
@@ -782,13 +898,17 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Extensions/*",
             "*/Local Storage/*",
             "*/IndexedDB/*",
+            "*/Service Worker/CacheStorage/*",
         ),
     },
     "firefox": {
         "title": "Firefox browser caches",
         "paths": (
             "~/Library/Caches/Firefox/Profiles/*/cache2/entries/",
+            "~/Library/Caches/Firefox/Profiles/*/shader-cache/",
+            "~/Library/Caches/Firefox/Profiles/*/startupCache/",
             "~/Library/Application Support/Firefox/Profiles/*/cache2/entries/",
+            "~/Library/Application Support/Firefox/Profiles/*/shader-cache/",
             "~/Library/Application Support/Firefox/Profiles/*/startupCache/",
         ),
         "protected_patterns": (
@@ -1173,8 +1293,15 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     "microsoftOffice": {
         "title": "Microsoft Office caches",
         "paths": (
+            "~/Library/Caches/com.microsoft.Word/",
+            "~/Library/Caches/com.microsoft.Excel/",
+            "~/Library/Caches/com.microsoft.Powerpoint/",
             "~/Library/Containers/com.microsoft.Word/Data/Library/Caches/",
+            "~/Library/Containers/com.microsoft.Word/Data/tmp/",
+            "~/Library/Containers/com.microsoft.Word/Data/Library/Logs/",
             "~/Library/Containers/com.microsoft.Excel/Data/Library/Caches/",
+            "~/Library/Containers/com.microsoft.Excel/Data/tmp/",
+            "~/Library/Containers/com.microsoft.Excel/Data/Library/Logs/",
             "~/Library/Containers/com.microsoft.Powerpoint/Data/Library/Caches/",
             "~/Library/Containers/com.microsoft.Outlook/Data/Library/Caches/",
             "~/Library/Caches/com.microsoft.office/",
@@ -1184,6 +1311,36 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Data/Documents/*",
             "*/Data/Library/Preferences/*",
             "*/Group Containers/UBF8T346G9.Office/*",
+        ),
+    },
+    "iwork": {
+        "title": "Apple iWork caches",
+        "paths": ("~/Library/Caches/com.apple.iWork.*/",),
+        "protected_patterns": ("*/Containers/*/Data/Documents/*", "*/Group Containers/*iWork*"),
+    },
+    "wps": {
+        "title": "WPS Office caches",
+        "paths": ("~/Library/Caches/com.kingsoft.wpsoffice.mac/",),
+        "protected_patterns": ("*/Application Support/Kingsoft/*",),
+    },
+    "thunderbird": {
+        "title": "Mozilla Thunderbird caches",
+        "paths": ("~/Library/Caches/org.mozilla.thunderbird/",),
+        "protected_patterns": (
+            "*/Thunderbird/Profiles/*",
+            "*/key4.db",
+            "*/logins.json",
+            "*/Mail/*",
+            "*/ImapMail/*",
+        ),
+    },
+    "mailCache": {
+        "title": "Apple Mail cache",
+        "paths": ("~/Library/Caches/com.apple.mail/",),
+        "protected_patterns": (
+            "*/Containers/com.apple.mail/Data/Documents/*",
+            "*/Library/Mail/*",
+            "*/Mail Downloads/*",
         ),
     },
     "onenote": {
@@ -1238,8 +1395,182 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "~/Library/Application Support/com.operasoftware.Opera/Cache/",
             "~/Library/Application Support/com.operasoftware.Opera/Code Cache/",
             "~/Library/Application Support/com.operasoftware.Opera/GPUCache/",
-            "~/Library/Application Support/com.operasoftware.Opera/Service Worker/CacheStorage/",
             "~/Library/Caches/com.operasoftware.Opera/",
+        ),
+        # Service Worker CacheStorage is enumerated per origin by the
+        # browserServiceWorkerCaches provider; ScriptCache is never deleted.
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/Preferences",
+            "*/Local State",
+            "*/Extensions/*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+        ),
+    },
+    "safari": {
+        "title": "Safari browser caches",
+        "paths": ("~/Library/Caches/com.apple.Safari/",),
+        "protected_patterns": (
+            "*/History*",
+            "*/Cookies*",
+            "*/Downloads*",
+            "*/Databases/*",
+            "*/LocalStorage/*",
+        ),
+    },
+    "chromium": {
+        "title": "Chromium browser caches",
+        "paths": ("~/Library/Caches/Chromium/",),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+        ),
+    },
+    "dia": {
+        "title": "Dia browser caches",
+        "paths": (
+            "~/Library/Caches/company.thebrowser.dia/",
+            "~/Library/Caches/Dia/User Data/*/Cache/",
+            "~/Library/Caches/Dia/User Data/*/Code Cache/",
+            "~/Library/Application Support/Dia/User Data/GraphiteDawnCache/",
+            "~/Library/Application Support/Dia/User Data/GPUPersistentCache/",
+            "~/Library/Application Support/Dia/User Data/component_crx_cache/",
+            "~/Library/Application Support/Dia/User Data/extensions_crx_cache/",
+            "~/Library/Application Support/Dia/User Data/*/DawnGraphiteCache/",
+            "~/Library/Application Support/Dia/User Data/*/DawnWebGPUCache/",
+            "~/Library/Application Support/Dia/User Data/*/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/Preferences",
+            "*/Local State",
+            "*/Extensions/*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+        ),
+    },
+    "helium": {
+        "title": "Helium browser caches",
+        "paths": (
+            "~/Library/Caches/net.imput.helium/",
+            "~/Library/Application Support/net.imput.helium/*/GPUCache/",
+            "~/Library/Application Support/net.imput.helium/*/Application Cache/",
+            "~/Library/Application Support/net.imput.helium/component_crx_cache/",
+            "~/Library/Application Support/net.imput.helium/extensions_crx_cache/",
+            "~/Library/Application Support/net.imput.helium/GrShaderCache/",
+            "~/Library/Application Support/net.imput.helium/GraphiteDawnCache/",
+            "~/Library/Application Support/net.imput.helium/ShaderCache/",
+        ),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/Preferences",
+            "*/Local State",
+            "*/Extensions/*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+        ),
+    },
+    "yandex": {
+        "title": "Yandex browser caches",
+        "paths": (
+            "~/Library/Caches/Yandex/YandexBrowser/",
+            "~/Library/Application Support/Yandex/YandexBrowser/ShaderCache/",
+            "~/Library/Application Support/Yandex/YandexBrowser/GrShaderCache/",
+            "~/Library/Application Support/Yandex/YandexBrowser/GraphiteDawnCache/",
+            "~/Library/Application Support/Yandex/YandexBrowser/*/GPUCache/",
+        ),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/Preferences",
+            "*/Local State",
+            "*/Extensions/*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+        ),
+    },
+    "vivaldi": {
+        "title": "Vivaldi browser caches",
+        "paths": (
+            "~/Library/Caches/com.vivaldi.Vivaldi/",
+            "~/Library/Application Support/Vivaldi/*/Code Cache/",
+            "~/Library/Application Support/Vivaldi/*/GPUCache/",
+            "~/Library/Application Support/Vivaldi/*/DawnCache/",
+            "~/Library/Application Support/Vivaldi/*/GrShaderCache/",
+            "~/Library/Application Support/Vivaldi/*/GraphiteDawnCache/",
+            "~/Library/Application Support/Vivaldi/ShaderCache/",
+            "~/Library/Application Support/Vivaldi/GrShaderCache/",
+            "~/Library/Application Support/Vivaldi/GraphiteDawnCache/",
+            "~/Library/Application Support/Vivaldi/Crashpad/completed/",
+        ),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/Preferences",
+            "*/Local State",
+            "*/Extensions/*",
+            "*/Local Storage/*",
+            "*/IndexedDB/*",
+        ),
+    },
+    "comet": {
+        "title": "Comet browser caches",
+        "paths": ("~/Library/Caches/Comet/",),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+        ),
+    },
+    "orion": {
+        "title": "Orion browser caches",
+        "paths": ("~/Library/Caches/com.kagi.kagimacOS/",),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+        ),
+    },
+    "zen": {
+        "title": "Zen browser caches",
+        "paths": ("~/Library/Caches/zen/",),
+        "protected_patterns": (
+            "*/Bookmarks*",
+            "*/Cookies*",
+            "*/History*",
+            "*/Login Data*",
+            "*/places.sqlite",
+        ),
+    },
+    "qqBrowser3": {
+        "title": "QQ Browser caches",
+        "paths": (
+            "~/Library/Caches/com.tencent.QQBrowser3/",
+            "~/Library/Application Support/QQBrowser3/*/Code Cache/",
+            "~/Library/Application Support/QQBrowser3/*/GPUCache/",
+            "~/Library/Application Support/QQBrowser3/ShaderCache/",
+            "~/Library/Application Support/QQBrowser3/GrShaderCache/",
+            "~/Library/Application Support/QQBrowser3/GraphiteDawnCache/",
+            "~/Library/Application Support/QQBrowser3/component_crx_cache/",
+            "~/Library/Application Support/QQBrowser3/Crashpad/completed/",
         ),
         "protected_patterns": (
             "*/Bookmarks*",
@@ -1256,7 +1587,8 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     "dropbox": {
         "title": "Dropbox caches",
         "paths": (
-            "~/Library/Caches/com.dropbox.Dropbox/",
+            "~/Library/Caches/com.getdropbox.dropbox/",
+            "~/Library/Caches/com.dropbox.*/",
             "~/Library/Application Support/Dropbox/Cache/",
         ),
         "protected_patterns": (
@@ -1384,6 +1716,21 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Application Support/Google/DriveFS/*.db",
             "*/Application Support/Google/DriveFS/settings*",
         ),
+    },
+    "baiduNetdisk": {
+        "title": "Baidu Netdisk caches",
+        "paths": ("~/Library/Caches/com.baidu.netdisk/",),
+        "protected_patterns": ("*/Application Support/*/config*",),
+    },
+    "teambitionDisk": {
+        "title": "Teambition Cloud Drive caches",
+        "paths": ("~/Library/Caches/com.alibaba.teambitiondisk/",),
+        "protected_patterns": ("*/Application Support/teambitiondisk/*",),
+    },
+    "box": {
+        "title": "Box Drive caches",
+        "paths": ("~/Library/Caches/com.box.desktop/",),
+        "protected_patterns": ("~/Box/*", "*/Application Support/Box/*"),
     },
     "onedrive": {
         "title": "OneDrive caches",
@@ -2426,6 +2773,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     "microsoftOutlook": {
         "title": "Microsoft Outlook caches",
         "paths": (
+            "~/Library/Caches/com.microsoft.Outlook/",
             "~/Library/Containers/com.microsoft.Outlook/Data/Library/Caches/",
             "~/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles/Cache/",
         ),

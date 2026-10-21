@@ -110,6 +110,7 @@ from cleancli.progress import make_execute_progress, make_scan_progress
 from cleancli.protection_data import (
     APP_CLEANUP_RULES,
     APPLE_DAEMON_CONTAINER_CACHE_LEAVES,
+    BROWSER_SERVICE_WORKER_ROOTS,
     DEFAULT_PROTECTED_BUNDLE_IDS,
     OFFICIAL_UNINSTALLER_RULES,
 )
@@ -468,6 +469,15 @@ CATEGORIES: tuple[Category, ...] = (
         process_guard="Firefox",
     ),
     Category(
+        "browserServiceWorkerCaches",
+        "Browser Service Worker origin caches",
+        (),
+        "Deletes per-origin Service Worker CacheStorage caches in Chrome, Edge, Brave, Arc, Opera, Vivaldi, and Dia profiles. Offline web editors and PWA origins (Google Workspace, GitHub, Figma, Notion, and similar) are preserved. ScriptCache is never deleted.",
+        risk="medium",
+        advanced=True,
+        provider="browser-service-worker-caches",
+    ),
+    Category(
         "discord",
         APP_CLEANUP_RULES["discord"]["title"],
         APP_CLEANUP_RULES["discord"]["paths"],
@@ -738,9 +748,44 @@ CATEGORIES: tuple[Category, ...] = (
         "microsoftOffice",
         APP_CLEANUP_RULES["microsoftOffice"]["title"],
         APP_CLEANUP_RULES["microsoftOffice"]["paths"],
-        "Deletes Microsoft Office regenerable caches while preserving documents, preferences, and shared group data.",
+        "Deletes Microsoft Office regenerable caches and Word/Excel container scratch and logs while preserving documents, preferences, and shared group data.",
         risk="medium",
         advanced=True,
+    ),
+    Category(
+        "iwork",
+        APP_CLEANUP_RULES["iwork"]["title"],
+        APP_CLEANUP_RULES["iwork"]["paths"],
+        "Deletes Pages, Keynote, and Numbers regenerable caches while preserving documents, templates, and preferences.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "wps",
+        APP_CLEANUP_RULES["wps"]["title"],
+        APP_CLEANUP_RULES["wps"]["paths"],
+        "Deletes WPS Office regenerable caches while preserving documents and account data.",
+        risk="medium",
+        advanced=True,
+        process_guard="wpsoffice",
+    ),
+    Category(
+        "thunderbird",
+        APP_CLEANUP_RULES["thunderbird"]["title"],
+        APP_CLEANUP_RULES["thunderbird"]["paths"],
+        "Deletes Thunderbird regenerable caches while preserving mail stores, profiles, passwords, and account configuration.",
+        risk="medium",
+        advanced=True,
+        process_guard="Thunderbird",
+    ),
+    Category(
+        "mailCache",
+        APP_CLEANUP_RULES["mailCache"]["title"],
+        APP_CLEANUP_RULES["mailCache"]["paths"],
+        "Deletes the Apple Mail regenerable message cache while preserving mailboxes, attachments, and account data. Downloaded attachments remain managed by the mails category.",
+        risk="medium",
+        advanced=True,
+        process_guard="Mail",
     ),
     Category(
         "onenote",
@@ -779,6 +824,96 @@ CATEGORIES: tuple[Category, ...] = (
         process_guard="Opera",
     ),
     Category(
+        "safari",
+        APP_CLEANUP_RULES["safari"]["title"],
+        APP_CLEANUP_RULES["safari"]["paths"],
+        "Deletes the Safari regenerable HTTP cache while preserving history, cookies, website data, downloads, and autofill.",
+        risk="medium",
+        advanced=True,
+        process_guard="Safari",
+    ),
+    Category(
+        "chromium",
+        APP_CLEANUP_RULES["chromium"]["title"],
+        APP_CLEANUP_RULES["chromium"]["paths"],
+        "Deletes Chromium regenerable browser caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Chromium",
+    ),
+    Category(
+        "dia",
+        APP_CLEANUP_RULES["dia"]["title"],
+        APP_CLEANUP_RULES["dia"]["paths"],
+        "Deletes Dia browser regenerable caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Dia",
+    ),
+    Category(
+        "helium",
+        APP_CLEANUP_RULES["helium"]["title"],
+        APP_CLEANUP_RULES["helium"]["paths"],
+        "Deletes Helium browser regenerable caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Helium",
+    ),
+    Category(
+        "yandex",
+        APP_CLEANUP_RULES["yandex"]["title"],
+        APP_CLEANUP_RULES["yandex"]["paths"],
+        "Deletes Yandex browser regenerable caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Yandex",
+    ),
+    Category(
+        "vivaldi",
+        APP_CLEANUP_RULES["vivaldi"]["title"],
+        APP_CLEANUP_RULES["vivaldi"]["paths"],
+        "Deletes Vivaldi regenerable browser caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Vivaldi",
+    ),
+    Category(
+        "comet",
+        APP_CLEANUP_RULES["comet"]["title"],
+        APP_CLEANUP_RULES["comet"]["paths"],
+        "Deletes Comet browser regenerable caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Comet",
+    ),
+    Category(
+        "orion",
+        APP_CLEANUP_RULES["orion"]["title"],
+        APP_CLEANUP_RULES["orion"]["paths"],
+        "Deletes Orion browser regenerable caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="Orion",
+    ),
+    Category(
+        "zen",
+        APP_CLEANUP_RULES["zen"]["title"],
+        APP_CLEANUP_RULES["zen"]["paths"],
+        "Deletes Zen browser regenerable caches while preserving Firefox profile data, cookies, history, passwords, and preferences.",
+        risk="medium",
+        advanced=True,
+        process_guard="Zen",
+    ),
+    Category(
+        "qqBrowser3",
+        APP_CLEANUP_RULES["qqBrowser3"]["title"],
+        APP_CLEANUP_RULES["qqBrowser3"]["paths"],
+        "Deletes QQ Browser regenerable caches while preserving profile data, cookies, history, passwords, and extensions.",
+        risk="medium",
+        advanced=True,
+        process_guard="QQBrowser",
+    ),
+    Category(
         "dropbox",
         APP_CLEANUP_RULES["dropbox"]["title"],
         APP_CLEANUP_RULES["dropbox"]["paths"],
@@ -786,6 +921,30 @@ CATEGORIES: tuple[Category, ...] = (
         risk="medium",
         advanced=True,
         process_guard="Dropbox",
+    ),
+    Category(
+        "baiduNetdisk",
+        APP_CLEANUP_RULES["baiduNetdisk"]["title"],
+        APP_CLEANUP_RULES["baiduNetdisk"]["paths"],
+        "Deletes Baidu Netdisk regenerable caches while preserving synced files, configuration, and account data.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "teambitionDisk",
+        APP_CLEANUP_RULES["teambitionDisk"]["title"],
+        APP_CLEANUP_RULES["teambitionDisk"]["paths"],
+        "Deletes Teambition Cloud Drive regenerable caches while preserving synced files and account data.",
+        risk="medium",
+        advanced=True,
+    ),
+    Category(
+        "box",
+        APP_CLEANUP_RULES["box"]["title"],
+        APP_CLEANUP_RULES["box"]["paths"],
+        "Deletes Box Drive regenerable caches while preserving synced files, configuration, and authentication data.",
+        risk="medium",
+        advanced=True,
     ),
     Category(
         "linear",
@@ -3576,6 +3735,36 @@ def finder_metadata_files(home_root: Path) -> list[Path]:
     return found
 
 
+def browser_service_worker_cache_dirs(home_root: Path) -> list[Path]:
+    """Per-origin Service Worker CacheStorage dirs for known browser profiles.
+
+    Mirrors Mole's clean_service_worker_cache: enumerate Chromium's depth-2
+    ``<origin>/<cache>`` dirs instead of wiping CacheStorage wholesale, refuse
+    symlinks, and keep offline web editors / PWA origins on the protected
+    domain list. ScriptCache is intentionally never enumerated.
+    """
+    leaves: list[Path] = []
+    seen: set[Path] = set()
+    for relative_glob in BROWSER_SERVICE_WORKER_ROOTS:
+        pattern = str(home_root / relative_glob / "Service Worker" / "CacheStorage" / "*" / "*")
+        for match in glob.glob(pattern):
+            candidate = Path(match)
+            origin = candidate.parent
+            storage = origin.parent
+            if candidate.is_symlink() or origin.is_symlink() or storage.is_symlink():
+                continue
+            if not candidate.is_dir():
+                continue
+            if protection.is_protected_service_worker_origin(candidate):
+                continue
+            identity = candidate.resolve(strict=False)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            leaves.append(candidate)
+    return leaves
+
+
 def apple_daemon_container_cache_dirs(home_root: Path) -> list[Path]:
     """Curated Apple daemon ``Data/Library/Caches`` and ``Data/tmp`` leaves."""
     containers_root = home_root / "Library" / "Containers"
@@ -3602,6 +3791,8 @@ def provider_targets(category: Category, *, root: Path, home: Path) -> list[Reso
         paths = finder_metadata_files(remap_home(root=root, home=home))
     elif provider == "apple-daemon-container-caches":
         paths = apple_daemon_container_cache_dirs(remap_home(root=root, home=home))
+    elif provider == "browser-service-worker-caches":
+        paths = browser_service_worker_cache_dirs(remap_home(root=root, home=home))
     elif provider == "ai-tool-old-versions":
         paths = version_prune.old_version_targets(remap_home(root=root, home=home))
     elif provider in {"darwin-user-temp", "darwin-user-cache"}:
@@ -4985,6 +5176,10 @@ def category_policy_reason(
     if category.key == "messageCaches" and not protection.is_messages_regenerable_cache(path):
         return "outside-provider-allowlist"
     if category.key == "appleDaemonContainerCaches" and not protection.is_allowed_apple_daemon_container_cache(path):
+        return "outside-provider-allowlist"
+    if category.key == "browserServiceWorkerCaches" and (
+        not protection.is_browser_service_worker_cache(path) or protection.is_protected_service_worker_origin(path)
+    ):
         return "outside-provider-allowlist"
     if category.key == "finderMetadata":
         if path.name != ".DS_Store" or path.is_symlink() or not path.is_file():

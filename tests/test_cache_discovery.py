@@ -31,8 +31,6 @@ def cache_file(root: Path, relative: str) -> Path:
         "Library/Application Support/LarkShell-PRIVATE-BOE/ShaderCache",
         "Library/Application Support/Code/GPUCache",
         "Library/Application Support/DBW/Service Worker/CacheStorage",
-        "Library/Application Support/Google/Chrome/Profile 1/Service Worker/ScriptCache",
-        "Library/Application Support/Microsoft Edge/Default/Service Worker/ScriptCache",
         "Library/Application Support/Google/Chrome/component_crx_cache",
         "Library/Application Support/Google/Chrome/Crashpad/completed",
         ".cache/puppeteer",
@@ -42,6 +40,24 @@ def test_screenshot_cache_variants_are_discovered(tmp_path: Path, relative: str)
     cache = cache_file(tmp_path, relative)
     report = core.inspect_items(list(core.CATEGORIES), root=tmp_path, home=Path("/Users/tester"), limit=-1)
     assert any(Path(row["path"]).resolve() in (cache.resolve(), *cache.resolve().parents) for row in report["items"])
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "Library/Application Support/Google/Chrome/Profile 1/Service Worker/ScriptCache",
+        "Library/Application Support/Microsoft Edge/Default/Service Worker/ScriptCache",
+        "Library/Application Support/Code/Service Worker/ScriptCache",
+    ],
+)
+def test_service_worker_scriptcache_is_never_a_cache_target(tmp_path: Path, relative: str) -> None:
+    # MV3 extension service-worker bytecode: removing it breaks registered
+    # workers even while the browser is closed (Mole #785, #964, #968).
+    cache = cache_file(tmp_path, relative)
+    report = core.inspect_items(list(core.CATEGORIES), root=tmp_path, home=Path("/Users/tester"), limit=-1)
+    paths = {Path(row["path"]).resolve() for row in report["items"]}
+    assert cache.resolve() not in paths
+    assert cache.resolve().parent not in paths
 
 
 def test_generic_ambiguous_cache_requires_a_regenerable_marker(tmp_path: Path) -> None:

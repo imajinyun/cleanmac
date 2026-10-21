@@ -15,6 +15,7 @@ from cleancli.protection_data import (
     APPLE_CONTAINER_CACHE_EXCEPTIONS,
     APPLE_DAEMON_CONTAINER_CACHE_LEAVES,
     APPLE_UNINSTALLABLE_BUNDLE_PATTERNS,
+    BROWSER_SERVICE_WORKER_ROOTS,
     CONFIGURATOR_FIRMWARE_CONTAINER_MARKER,
     CRITICAL_SYSTEM_PATH_PREFIXES,
     CRITICAL_SYSTEM_PATHS_EXACT,
@@ -24,6 +25,7 @@ from cleancli.protection_data import (
     MESSAGES_REGENERABLE_CACHE_LEAVES,
     OFFICIAL_UNINSTALLER_RULES,
     PROTECTED_BUNDLE_PREFIXES,
+    PROTECTED_SERVICE_WORKER_DOMAINS,
     RECENT_ITEMS_FILE_RELPATHS,
     SENSITIVE_USER_DATA_FRAGMENTS,
     SYSTEM_CRITICAL_BUNDLE_PATTERNS,
@@ -195,6 +197,66 @@ def is_allowed_apple_daemon_container_cache(path: Path) -> bool:
         if any(rest[: len(rel)] == rel for rel in _APPLE_DAEMON_CACHE_LEAVES[bundle]):
             return True
     return False
+
+
+# Profile roots (lowered, anchored at a segment boundary). Entries ending in
+# ``/*`` expect exactly one profile segment ("Default", "Profile 1", ...)
+# between the root and "Service Worker/CacheStorage"; others sit directly under
+# the application data directory.
+_BROWSER_SW_ROOTS: tuple[tuple[str, bool], ...] = tuple(
+    (f"/{rel[:-2].lower()}", True) if rel.endswith("/*") else (f"/{rel.lower()}", False)
+    for rel in BROWSER_SERVICE_WORKER_ROOTS
+)
+_SW_CACHESTORAGE_MARKER = "/service worker/cachestorage/"
+
+
+def _service_worker_cache_tail(lowered: str) -> tuple[str, list[str]] | None:
+    """Return the path before CacheStorage and its origin/cache tail.
+
+    The tail starts with the depth-2 ``<origin>/<cache>`` pair. Discovery only
+    enumerates that pair, but execution rows are its immediate children, so
+    descendants (``<origin>/<cache>/body`` and similar) are recognized too.
+    The CacheStorage root and a bare origin directory never match.
+    """
+    index = lowered.find(_SW_CACHESTORAGE_MARKER)
+    if index < 0:
+        return None
+    tail = lowered[index + len(_SW_CACHESTORAGE_MARKER) :].strip("/").split("/")
+    if len(tail) < 2 or not all(tail[:2]):
+        return None
+    return lowered[:index], tail
+
+
+def is_browser_service_worker_cache(path: Path) -> bool:
+    """Depth-2 origin cache dir under a known browser profile CacheStorage."""
+    found = _service_worker_cache_tail(str(path).lower())
+    if found is None:
+        return False
+    before, _tail = found
+    for base, expects_profile in _BROWSER_SW_ROOTS:
+        pos = before.find(base)
+        if pos < 0:
+            continue
+        remainder = before[pos + len(base) :]
+        if expects_profile:
+            # Exactly one non-empty profile segment, e.g. "/Default" or
+            # "/Profile 1"; nested or missing profile segments do not match.
+            if not remainder.startswith("/") or not remainder[1:] or "/" in remainder[1:]:
+                continue
+            return True
+        if remainder == "":
+            return True
+    return False
+
+
+def is_protected_service_worker_origin(path: Path) -> bool:
+    """Whether a CacheStorage origin/cache name embeds a protected web app."""
+    found = _service_worker_cache_tail(str(path).lower())
+    if found is None:
+        return False
+    _before, tail = found
+    name = " ".join(tail[:2])
+    return any(domain in name for domain in PROTECTED_SERVICE_WORKER_DOMAINS)
 
 
 def should_protect_data(path: Path) -> bool:
