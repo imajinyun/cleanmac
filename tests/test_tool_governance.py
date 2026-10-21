@@ -231,6 +231,114 @@ def test_package_manager_tool_execute_dry_run_uses_only_readonly_commands() -> N
     assert report["failed_count"] == 0
 
 
+def test_tart_tool_plan_scopes_prune_to_oci_caches() -> None:
+    result = run_cli("--json", "tool-plan", "--tool", "tart")
+    report = json.loads(result.stdout)
+    adapter = report["adapters"][0]
+
+    assert report["schema"] == "cleanmac.tool-plan.v1"
+    assert report["adapter_count"] == 1
+    assert report["selected_tool"] == "tart"
+    assert report["safe_to_auto_execute"] is False
+    assert adapter["key"] == "tart"
+    # Tart owns its OCI layer layout: detection is version-only and no path
+    # category may delete ~/.tart/cache directly.
+    assert adapter["dry_run_commands"] == [["tart", "--version"]]
+    assert adapter["manual_execute_commands"] == [["tart", "prune", "--entries", "caches", "--older-than", "30"]]
+    assert adapter["path_categories"] == []
+    assert ["tart", "prune"] in adapter["excluded_destructive_commands"]
+    assert ["tart", "prune", "--entries", "local"] in adapter["excluded_destructive_commands"]
+    assert ["tart", "delete"] in adapter["excluded_destructive_commands"]
+    assert adapter["auto_execute_allowed"] is False
+    assert any("~/.tart/cache" in note for note in adapter["notes"])
+    assert validate_contract_payload("cleanmac.tool-plan.v1", report)["valid"] is True
+
+
+def test_tart_is_part_of_all_tool_plan() -> None:
+    result = run_cli("--json", "tool-plan", "--tool", "all")
+    report = json.loads(result.stdout)
+    assert {adapter["key"] for adapter in report["adapters"]} >= {"tart", "docker", "homebrew", "xcode"}
+
+
+def test_tart_tool_execute_dry_run_detects_binary_only() -> None:
+    calls: list[list[str]] = []
+
+    def fake_runner(argv: Any, timeout: float) -> subprocess.CompletedProcess[str]:
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(list(argv), 0, stdout="tart 2.0", stderr="")
+
+    with mock.patch.object(tool_adapters.shutil, "which", return_value="/opt/homebrew/bin/tart"):
+        report = tool_adapters.execute_tool(
+            "tart",
+            execute=False,
+            yes=False,
+            root=Path("/tmp/cleanmac-sandbox"),
+            home=Path("/Users/tester"),
+            runner=fake_runner,
+        )
+
+    assert calls == [["tart", "--version"]]
+    assert report["failed_count"] == 0
+    assert report["succeeded_count"] == 1
+    assert [entry["action"] for entry in report["operation_log_entries"]] == ["tool-dry-run"]
+
+
+def test_tart_tool_execute_blocks_prune_without_yes() -> None:
+    runner = mock.Mock()
+    with mock.patch.object(tool_adapters.shutil, "which", return_value="/opt/homebrew/bin/tart"):
+        report = tool_adapters.execute_tool(
+            "tart",
+            execute=True,
+            yes=False,
+            root=Path("/tmp/root"),
+            home=Path("/Users/tester"),
+            runner=runner,
+        )
+
+    assert report["blocked_reasons"] == ["explicit-yes-required"]
+    assert report["results"][0]["status"] == "blocked"
+    assert report["results"][0]["argv"] == ["tart", "prune", "--entries", "caches", "--older-than", "30"]
+    runner.assert_not_called()
+
+
+def test_tart_tool_execute_runs_only_cache_scoped_prune_with_yes() -> None:
+    calls: list[list[str]] = []
+
+    def fake_runner(argv: Any, timeout: float) -> subprocess.CompletedProcess[str]:
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(list(argv), 0, stdout="", stderr="")
+
+    with mock.patch.object(tool_adapters.shutil, "which", return_value="/opt/homebrew/bin/tart"):
+        report = tool_adapters.execute_tool(
+            "tart",
+            execute=True,
+            yes=True,
+            root=Path("/tmp/root"),
+            home=Path("/Users/tester"),
+            runner=fake_runner,
+        )
+
+    assert calls == [["tart", "prune", "--entries", "caches", "--older-than", "30"]]
+    assert report["succeeded_count"] == 1
+    assert report["failed_count"] == 0
+    assert all(entry["status"] == "succeeded" for entry in report["operation_log_entries"])
+
+
+def test_tart_tool_execute_reports_missing_binary() -> None:
+    with mock.patch.object(tool_adapters.shutil, "which", return_value=None):
+        report = tool_adapters.execute_tool(
+            "tart",
+            execute=False,
+            yes=False,
+            root=Path("/tmp/root"),
+            home=Path("/Users/tester"),
+        )
+
+    assert report["results"][0]["status"] == "missing-binary"
+    assert report["failed_count"] == 1
+    assert report["succeeded_count"] == 0
+
+
 def test_tool_execute_blocks_destructive_without_yes() -> None:
     runner = mock.Mock()
     with mock.patch.object(tool_adapters.shutil, "which", return_value="/usr/local/bin/docker"):

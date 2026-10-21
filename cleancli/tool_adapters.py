@@ -17,7 +17,7 @@ from typing import Any
 Runner = Callable[[Sequence[str], float], subprocess.CompletedProcess[str]]
 
 PACKAGE_MANAGER_ADAPTER_KEYS = ("npm", "pnpm", "yarn", "pip", "uv", "poetry", "cargo")
-TOOL_ADAPTER_CHOICES = ("all", "docker", "homebrew", "xcode", "package-managers", *PACKAGE_MANAGER_ADAPTER_KEYS)
+TOOL_ADAPTER_CHOICES = ("all", "docker", "tart", "homebrew", "xcode", "package-managers", *PACKAGE_MANAGER_ADAPTER_KEYS)
 
 
 def _run_command(argv: Sequence[str], timeout: float) -> subprocess.CompletedProcess[str]:
@@ -73,6 +73,34 @@ def tool_adapters() -> dict[str, dict[str, Any]]:
             "notes": [
                 "Volume pruning is intentionally excluded because volumes often contain persistent database or application state.",
                 "Use docker system df --verbose output to identify the largest reclaimable image/build-cache groups before running manual prune commands.",
+            ],
+        },
+        "tart": {
+            "title": "Tart OCI virtual machine cache prune plan",
+            "risk": "medium",
+            "risk_explanation": (
+                "Tart cache pruning removes only stale pulled OCI VM image layers older than 30 days; local VMs in ~/.tart/vms "
+                "are never touched because the command is scoped with --entries caches."
+            ),
+            "cleanup_scope": [
+                "tart installation detection",
+                "age-gated OCI pull cache pruning via tart prune --entries caches --older-than 30",
+                "local Tart VMs and cache entries newer than 30 days preserved",
+            ],
+            "path_categories": [],
+            "detect_commands": [["tart", "--version"]],
+            "dry_run_commands": [["tart", "--version"]],
+            "execute_commands": [["tart", "prune", "--entries", "caches", "--older-than", "30"]],
+            "manual_execute_commands": [["tart", "prune", "--entries", "caches", "--older-than", "30"]],
+            "excluded_destructive_commands": [
+                ["tart", "prune"],
+                ["tart", "prune", "--entries", "local"],
+                ["tart", "delete"],
+            ],
+            "preserve": ["local Tart VMs (~/.tart/vms)", "recent OCI cache entries", "running VMs"],
+            "notes": [
+                "Only OCI pull cache entries older than 30 days are pruned; --entries caches must stay present because a bare tart prune can also remove local VMs.",
+                "Never delete ~/.tart/cache by path: Tart owns its OCI layer layout and must prune it itself.",
             ],
         },
         "homebrew": {

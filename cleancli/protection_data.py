@@ -1662,6 +1662,60 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Application Support/VMware Fusion/preferences",
         ),
     },
+    "utm": {
+        "title": "UTM virtual machine caches",
+        # Mole parity (clean_utm_caches): app cache, sandboxed container cache,
+        # and container tmp. VM bundles (*.utm, disk images) never live in scope.
+        "paths": (
+            "~/Library/Caches/com.utmapp.UTM/",
+            "~/Library/Containers/com.utmapp.UTM/Data/Library/Caches/",
+            "~/Library/Containers/com.utmapp.UTM/Data/tmp/",
+        ),
+        "protected_patterns": (
+            "*.utm",
+            "*.qcow2",
+            "*.img",
+            "*.iso",
+            "*.ipsw",
+            "*/Containers/com.utmapp.UTM/Data/Documents/*",
+        ),
+    },
+    "virtualbox": {
+        "title": "VirtualBox cache",
+        # Mole parity: only the hidden .cache leaf beside the VM folder.
+        "paths": ("~/VirtualBox VMs/.cache/",),
+        "protected_patterns": (
+            "*.vdi",
+            "*.vmdk",
+            "*.vhd",
+            "*.vbox",
+            "*.vbox-prev",
+            "*.ova",
+            "*.ovf",
+            "*.iso",
+        ),
+    },
+    "lima": {
+        "title": "Lima downloaded image cache",
+        # Mole parity: downloaded OS image blobs keyed by URL hash.
+        "paths": ("~/Library/Caches/lima/download/by-url-sha256/",),
+        "protected_patterns": (
+            "*/Caches/lima/instances/*",
+            "*/Caches/lima/_config/*",
+            "*.yaml",
+        ),
+    },
+    "vagrant": {
+        "title": "Vagrant temporary files",
+        # Mole parity: package extraction tempdir only; boxes/data stay out.
+        "paths": ("~/.vagrant.d/tmp/",),
+        "protected_patterns": (
+            "*/.vagrant.d/boxes/*",
+            "*/.vagrant.d/data/*",
+            "*/.vagrant.d/Vagrantfile",
+            "*.box",
+        ),
+    },
     "canva": {
         "title": "Canva caches",
         "paths": (

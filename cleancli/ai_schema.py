@@ -489,7 +489,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema(
             {
                 "tool": string_schema(
-                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, yarn, pip, uv, poetry, cargo."
+                    "Tool adapter: all, docker, tart, homebrew, xcode, package-managers, npm, pnpm, yarn, pip, uv, poetry, cargo."
                 )
             }
         ),
@@ -504,7 +504,7 @@ AI_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "parameters": object_schema(
             {
                 "tool": string_schema(
-                    "Tool adapter: all, docker, homebrew, xcode, package-managers, npm, pnpm, yarn, pip, uv, poetry, cargo."
+                    "Tool adapter: all, docker, tart, homebrew, xcode, package-managers, npm, pnpm, yarn, pip, uv, poetry, cargo."
                 ),
                 "operation_log": string_schema("JSONL operation log path."),
             }
