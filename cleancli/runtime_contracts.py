@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 DEPENDENCY_GOVERNANCE_SCHEMA = "cleanmac.dependency-governance.v1"
 DEPENDENCY_GOVERNANCE_URI = "cleanmac://release/dependency-governance"
@@ -66,9 +67,7 @@ def validate_dependency_governance(payload: dict[str, Any]) -> dict[str, Any]:
     if ["make", "dependency-audit-smoke"] not in release_gates:
         violations.append({"code": "DEPENDENCY_AUDIT_SMOKE_REQUIRED", "path": "$.release_gate_commands"})
     audit = payload.get("audit", {}) if isinstance(payload.get("audit"), dict) else {}
-    if ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"] not in audit.get(
-        "commands", []
-    ):
+    if ["python3", "-m", "pip_audit", "--skip-editable", "--progress-spinner", "off"] not in audit.get("commands", []):
         violations.append({"code": "PIP_AUDIT_COMMAND_REQUIRED", "path": "$.audit.commands"})
     if ["python3", "scripts/generate_sbom.py", "--output", "SBOM.json"] not in audit.get("commands", []):
         violations.append({"code": "SBOM_GENERATION_COMMAND_REQUIRED", "path": "$.audit.commands"})
@@ -82,7 +81,10 @@ def validate_dependency_governance(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append(
             {"code": "PRODUCT_SURFACE_DEPENDENCY_POLICY_REQUIRED", "path": "$.product_surface_dependency_policy"}
         )
-    if payload.get("network_required_at_runtime") is not False or payload.get("installs_background_services") is not False:
+    if (
+        payload.get("network_required_at_runtime") is not False
+        or payload.get("installs_background_services") is not False
+    ):
         violations.append({"code": "RUNTIME_DEPENDENCY_SIDE_EFFECTS_FORBIDDEN", "path": "$"})
     return {
         "schema": "cleanmac.dependency-governance-validation.v1",

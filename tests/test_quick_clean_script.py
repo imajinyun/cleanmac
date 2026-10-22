@@ -4,150 +4,91 @@ import json
 import os
 import subprocess
 import textwrap
-import unittest
 from pathlib import Path
 
+from tests.helpers import PROJECT_ROOT
 
-class QuickCleanScriptTests(unittest.TestCase):
-    def test_quick_clean_passes_profile_args_to_budget_probe(self) -> None:
-        import tempfile
+_FAKE_PYTHON = textwrap.dedent(
+    """\
+    #!/usr/bin/env python3
+    from __future__ import annotations
 
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            fake_python = tmp_path / "fake_python.py"
-            call_log = tmp_path / "calls.jsonl"
-            fake_python.write_text(
-                textwrap.dedent(
-                    f"""\
-                    #!/usr/bin/env python3
-                    from __future__ import annotations
+    import json
+    import sys
+    from pathlib import Path
 
-                    import json
-                    import sys
-                    from pathlib import Path
+    call_log = Path({call_log!r})
+    argv = sys.argv[1:]
+    with call_log.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(argv) + "\\n")
 
-                    call_log = Path({str(call_log)!r})
-                    argv = sys.argv[1:]
-                    with call_log.open("a", encoding="utf-8") as fh:
-                        fh.write(json.dumps(argv) + "\\n")
+    if argv and argv[0] == "-c":
+        print("120")
+        print("100")
+        raise SystemExit(0)
 
-                    if argv and argv[0] == "-c":
-                        print("120")
-                        print("100")
-                        raise SystemExit(0)
-
-                    if argv[:3] == ["cleanmac.py", "clean", "--profile"]:
-                        print("DRY-RUN: fake preview")
-                        raise SystemExit(0)
-
-                    raise SystemExit(f"unexpected argv: {{argv!r}}")
-                    """
-                ),
-                encoding="utf-8",
+    if argv[:3] == ["cleanmac.py", "clean", "--profile"]:
+        if "--execute" in argv and argv[3] == "developer":
+            print(
+                "Refusing to execute cleanup because candidate bytes exceed --max-delete-mb budget. "
+                "Candidates: 150.00 MB; budget: 120.00 MB",
+                file=sys.stderr,
             )
-            fake_python.chmod(0o755)
+            raise SystemExit(1)
+        print("DRY-RUN: fake preview")
+        raise SystemExit(0)
 
-            env = {
-                **os.environ,
-                "PYTHON": str(fake_python),
-            }
-            result = subprocess.run(
-                ["bash", "scripts/quick_clean.sh", "safe"],
-                input="y\n",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-            )
-            self.assertEqual(
-                result.returncode,
-                0,
-                f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}",
-            )
-
-            self.assertIn("Safety budget: 120 MB", result.stdout)
-            self.assertIn("Estimated candidates: 100 MB", result.stdout)
-            calls = [json.loads(line) for line in call_log.read_text(encoding="utf-8").splitlines()]
-
-            budget_call = calls[0]
-            self.assertEqual(budget_call[0], "-c")
-            self.assertEqual(budget_call[2:5], ["cleanmac.py", "--json", "clean"])
-            self.assertIn("--profile", budget_call)
-            self.assertIn("safe", budget_call)
-            self.assertNotIn("p", budget_call)
-            self.assertNotIn("r", budget_call)
-
-            execute_call = calls[-1]
-            budget_flag_index = execute_call.index("--max-delete-mb")
-            self.assertEqual(execute_call[budget_flag_index + 1], "120")
-            self.assertIn("--delete-mode", execute_call)
-            self.assertIn("trash", execute_call)
-
-    def test_quick_clean_budget_failure_prints_actionable_guidance(self) -> None:
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            fake_python = tmp_path / "fake_python.py"
-            call_log = tmp_path / "calls.jsonl"
-            fake_python.write_text(
-                textwrap.dedent(
-                    f"""\
-                    #!/usr/bin/env python3
-                    from __future__ import annotations
-
-                    import json
-                    import sys
-                    from pathlib import Path
-
-                    call_log = Path({str(call_log)!r})
-                    argv = sys.argv[1:]
-                    with call_log.open("a", encoding="utf-8") as fh:
-                        fh.write(json.dumps(argv) + "\\n")
-
-                    if argv and argv[0] == "-c":
-                        print("120")
-                        print("100")
-                        raise SystemExit(0)
-
-                    if argv[:3] == ["cleanmac.py", "clean", "--profile"] and "--execute" not in argv:
-                        print("DRY-RUN: fake preview")
-                        raise SystemExit(0)
-
-                    if argv[:3] == ["cleanmac.py", "clean", "--profile"] and "--execute" in argv:
-                        print(
-                            "Refusing to execute cleanup because candidate bytes exceed --max-delete-mb budget. "
-                            "Candidates: 150.00 MB; budget: 120.00 MB",
-                            file=sys.stderr,
-                        )
-                        raise SystemExit(1)
-
-                    raise SystemExit(f"unexpected argv: {{argv!r}}")
-                    """
-                ),
-                encoding="utf-8",
-            )
-            fake_python.chmod(0o755)
-
-            env = {
-                **os.environ,
-                "PYTHON": str(fake_python),
-            }
-            result = subprocess.run(
-                ["bash", "scripts/quick_clean.sh", "developer"],
-                input="y\n",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-            )
-
-            self.assertEqual(result.returncode, 1)
-            self.assertIn("Budget guidance:", result.stdout)
-            self.assertIn("Estimated candidates : 100 MB", result.stdout)
-            self.assertIn("Current budget       : 120 MB", result.stdout)
-            self.assertIn("raise --max-delete-mb only after reviewing", result.stdout)
+    raise SystemExit(f"unexpected argv: {{argv!r}}")
+    """
+)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def _run_quick_clean(tmp_path: Path, profile: str) -> tuple[subprocess.CompletedProcess[str], Path]:
+    fake_python = tmp_path / "fake_python.py"
+    call_log = tmp_path / "calls.jsonl"
+    fake_python.write_text(_FAKE_PYTHON.format(call_log=str(call_log)), encoding="utf-8")
+    fake_python.chmod(0o755)
+
+    env = {**os.environ, "PYTHON": str(fake_python)}
+    result = subprocess.run(
+        ["bash", "scripts/quick_clean.sh", profile],
+        input="y\n",
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=PROJECT_ROOT,
+    )
+    return result, call_log
+
+
+def test_quick_clean_passes_profile_args_to_budget_probe(tmp_path: Path) -> None:
+    result, call_log = _run_quick_clean(tmp_path, "safe")
+
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
+    assert "Safety budget: 120 MB" in result.stdout
+    assert "Estimated candidates: 100 MB" in result.stdout
+    calls = [json.loads(line) for line in call_log.read_text(encoding="utf-8").splitlines()]
+
+    budget_call = calls[0]
+    assert budget_call[0] == "-c"
+    assert budget_call[2:5] == ["cleanmac.py", "--json", "clean"]
+    assert "--profile" in budget_call
+    assert "safe" in budget_call
+    assert "p" not in budget_call
+    assert "r" not in budget_call
+
+    execute_call = calls[-1]
+    budget_flag_index = execute_call.index("--max-delete-mb")
+    assert execute_call[budget_flag_index + 1] == "120"
+    assert "--delete-mode" in execute_call
+    assert "trash" in execute_call
+
+
+def test_quick_clean_budget_failure_prints_actionable_guidance(tmp_path: Path) -> None:
+    result, _call_log = _run_quick_clean(tmp_path, "developer")
+
+    assert result.returncode == 1
+    assert "Budget guidance:" in result.stdout
+    assert "Estimated candidates : 100 MB" in result.stdout
+    assert "Current budget       : 120 MB" in result.stdout
+    assert "raise --max-delete-mb only after reviewing" in result.stdout

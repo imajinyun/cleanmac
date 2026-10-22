@@ -40,7 +40,7 @@ lint:
 
 type-check:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[dev]'; \
@@ -49,7 +49,7 @@ type-check:
 coverage:
 	set -e; \
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -66,7 +66,7 @@ pytest-test: pytest-parity-test
 
 pytest-parity-test:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -74,7 +74,7 @@ pytest-parity-test:
 
 pytest-ai-host-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -88,13 +88,13 @@ pytest-governance-smoke: pytest-no-unittest-regression-smoke
 
 build-check:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m build --wheel --sdist --outdir "$$tmpdir/dist"; \
 	$(PYTHON) -m twine check "$$tmpdir"/dist/*
 
 package-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install -e .; \
 	"$$tmpdir/venv/bin/cleanmac" --json capabilities >"$$tmpdir/capabilities.json"; \
@@ -109,7 +109,7 @@ quick-clean-smoke:
 
 software-discovery-governance-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -117,7 +117,7 @@ software-discovery-governance-smoke:
 
 xcode-ios-governance-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -125,14 +125,14 @@ xcode-ios-governance-smoke:
 
 xcode-ios-candidates-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	mkdir -p "$$tmpdir/root/Users/tester/Library/Developer/Xcode/DerivedData/App-a"; \
 	printf fixture > "$$tmpdir/root/Users/tester/Library/Developer/Xcode/DerivedData/App-a/cache.db"; \
 	CLEANMAC_TEST_MODE=1 CLEANMAC_TEST_NO_AUTH=1 $(PYTHON) -c 'import json, subprocess, sys; root=sys.argv[1] + "/root"; report=json.loads(subprocess.check_output([sys.executable, "cleanmac.py", "--json", "--root", root, "--home", "/Users/tester", "xcode-ios-candidates", "--summary-only", "--max-scan-entries", "5"], text=True)); assert report["schema"] == "cleanmac.xcode-ios-candidates.v1"; assert report["destructive"] is False and report["dry_run"] is True; assert report["read_only"] is True; assert report["candidate_count_by_path_role"] == {"xcode_derived_data": 1}; assert report["shown_candidate_count"] == 0; print("xcode-ios-candidates-smoke passed")' "$$tmpdir"
 
 bundle-audit-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -149,7 +149,7 @@ macos-smoke:
 		test_cleanmac.CleanMacCLITests.test_trash_delete_mode_fails_closed_when_trash_root_is_symlink \
 		tests.test_sudo_guard -v
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -157,7 +157,7 @@ macos-smoke:
 
 real-macos-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -250,7 +250,7 @@ ai-host-smoke:
 
 ai-robustness-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/venv"; \
 	"$$tmpdir/venv/bin/python" -m pip install --upgrade pip; \
 	"$$tmpdir/venv/bin/python" -m pip install -e '.[test]'; \
@@ -258,7 +258,7 @@ ai-robustness-smoke:
 
 distribution-smoke:
 	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"; $(MAKE) clean-test-artifacts >/dev/null' EXIT; \
+	trap 'rm -rf "$$tmpdir"; $${MAKE:-make} clean-test-artifacts >/dev/null' EXIT; \
 	$(PYTHON) -m venv "$$tmpdir/build-venv"; \
 	"$$tmpdir/build-venv/bin/python" -m pip install --upgrade pip wheel build; \
 	"$$tmpdir/build-venv/bin/python" -m build --wheel --sdist --outdir "$$tmpdir/dist"; \

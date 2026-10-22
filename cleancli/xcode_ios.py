@@ -9,7 +9,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 XCODE_IOS_EVIDENCE_FIELDS: tuple[str, ...] = (
     "path_role",
     "tool_domain",
@@ -273,11 +272,7 @@ def enumerate_ios_backups(*, home: Path) -> list[dict[str, Any]]:
 
         backup_size = 0
         try:
-            backup_size = sum(
-                f.stat().st_size
-                for f in backup_dir.rglob("*")
-                if f.is_file() and not f.is_symlink()
-            )
+            backup_size = sum(f.stat().st_size for f in backup_dir.rglob("*") if f.is_file() and not f.is_symlink())
         except (OSError, PermissionError):
             pass
 
@@ -328,7 +323,7 @@ def _device_support_metadata(entry: Path, source: str) -> dict[str, Any]:
 def _candidate_id(path_role: str, path: Path) -> str:
     import hashlib
 
-    digest = hashlib.sha256(f"{path_role}:{display_path(path)}".encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha256(f"{path_role}:{display_path(path)}".encode()).hexdigest()[:16]
     return f"xcode-ios-{path_role}-{digest}"
 
 
@@ -398,8 +393,7 @@ def _candidate_from_ios_backup(backup: dict[str, Any]) -> dict[str, Any]:
             "last_backup_date": backup.get("last_backup_date"),
             "encrypted": backup.get("encrypted", False),
             "backup_metadata_present": any(
-                backup.get(field)
-                for field in ("device_name", "product_type", "product_version", "last_backup_date")
+                backup.get(field) for field in ("device_name", "product_type", "product_version", "last_backup_date")
             ),
         }
     )
@@ -477,9 +471,7 @@ def _unavailable_simulator_candidates(*, max_scan_entries: int | None, allow_hos
             return []
         rows = _parse_unavailable_simulator_lines(fallback.stdout)
     else:
-        rows = _parse_unavailable_simulator_json(result.stdout) or _parse_unavailable_simulator_lines(
-            result.stdout
-        )
+        rows = _parse_unavailable_simulator_json(result.stdout) or _parse_unavailable_simulator_lines(result.stdout)
     if max_scan_entries is not None:
         rows = rows[: max(max_scan_entries, 0)]
     policy = dict(_POLICY_BY_ROLE["unavailable_simulator_device"])
@@ -518,11 +510,7 @@ def _scan_path_candidates(*, root: Path, home: Path, max_scan_entries: int | Non
     truncated = False
     for path_role, pattern in _ROLE_ROOTS:
         root_path = remap_path(pattern, root=root, home=home)
-        entries = (
-            _iter_archive_entries(root_path)
-            if path_role == "xcode_archives"
-            else _iter_role_entries(root_path)
-        )
+        entries = _iter_archive_entries(root_path) if path_role == "xcode_archives" else _iter_role_entries(root_path)
         for entry in entries:
             if max_scan_entries is not None and scanned_entries >= max(max_scan_entries, 0):
                 truncated = True
@@ -607,9 +595,7 @@ def render_xcode_ios_candidates(
             "default_policy",
         ),
         "estimated_bytes_by_path_role": estimated_bytes_by_role,
-        "estimated_human_by_path_role": {
-            role: human_size(size) for role, size in estimated_bytes_by_role.items()
-        },
+        "estimated_human_by_path_role": {role: human_size(size) for role, size in estimated_bytes_by_role.items()},
         "evidence_fields": list(XCODE_IOS_EVIDENCE_FIELDS),
         "never_default_selected_path_roles": [
             "xcode_archives",

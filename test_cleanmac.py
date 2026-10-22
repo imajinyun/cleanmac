@@ -8311,11 +8311,13 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("os: [ubuntu-latest, macos-14, macos-15]", release)
         self.assertIn("needs: build", release)
         self.assertIn("needs: verify-release-artifacts", release)
-        self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", release)
-        self.assertIn(
-            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c "
-            "# pinned from actions/download-artifact@v8.0.1",
+        self.assertRegex(
             release,
+            r"actions/upload-artifact@[0-9a-f]{40}\s+# pinned from actions/upload-artifact@v7\.0\.2",
+        )
+        self.assertRegex(
+            release,
+            r"actions/download-artifact@[0-9a-f]{40}\s+# pinned from actions/download-artifact@v8\.0\.2",
         )
         self.assertIn("name: cleanmac-dist", release)
         self.assertIn("name: cleanmac-release-assets", release)
@@ -8324,13 +8326,17 @@ class CleanMacCLITests(unittest.TestCase):
         self.assertIn("Run real macOS smoke against release candidate", release)
         self.assertIn("make real-macos-smoke", release)
         self.assertIn("Verify governed release promotion decision", release)
-        self.assertIn(
-            "actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 "
-            "# pinned from actions/attest-build-provenance@v4.1.1",
+        self.assertRegex(
             release,
+            r"actions/attest-build-provenance@[0-9a-f]{40}\s+"
+            r"# pinned from actions/attest-build-provenance@v4\.1\.1",
+        )
+        self.assertRegex(
+            release,
+            r"pypa/gh-action-pypi-publish@[0-9a-f]{40}\s+"
+            r"# pinned from pypa/gh-action-pypi-publish@release/v1",
         )
         self.assertIn("pypa/gh-action-pypi-publish@release/v1", release)
-        self.assertIn("pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247", release)
         self.assertIn("PYTHON: .venv/bin/python", release)
         self.assertIn("Create venv and install build dependencies", release)
         self.assertIn("bundle-audit-smoke", release)

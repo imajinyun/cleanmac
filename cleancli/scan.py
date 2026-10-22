@@ -154,7 +154,13 @@ def clean_candidate_entries(target: ScanTargetLike) -> list[Path]:
 
 
 def path_identity(path: Path) -> Path:
-    return path.parent.resolve(strict=False) / path.name if path.is_symlink() else path.resolve(strict=False)
+    # Candidate roots are already resolved before enumeration, so ordinary
+    # physical entries are normalized lexically (no syscall per row). Only a
+    # leaf symlink needs its target resolved; this keeps accounting linear on
+    # large flat result sets while still collapsing symlink aliases.
+    if path.is_symlink():
+        return path.parent.resolve(strict=False) / path.name
+    return Path(os.path.normpath(str(path)))
 
 
 def disjoint_candidate_groups(
@@ -193,24 +199,32 @@ def disjoint_candidate_groups(
 def accounted_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Assign nested space once while retaining every row in hierarchy views."""
     by_path: dict[Path, int] = {}
+    identities: list[Path | None] = []
     for row in rows:
         if not row.get("path"):
+            identities.append(None)
             continue
         identity = path_identity(Path(str(row["path"])))
+        identities.append(identity)
         by_path.setdefault(identity, _row_bytes(row))
-    nested: dict[Path, int] = {}
+    # Resolve ancestor nesting on immutable ``parts`` tuples; tuple prefix
+    # lookups avoid the per-row ``Path`` construction/hashing cost while still
+    # allocating a parent's own size exactly once (deepest rows first).
+    parts_to_path = {path.parts: path for path in by_path}
+    nested: dict[tuple[str, ...], int] = {}
     allocated: dict[Path, int] = {}
-    for path in sorted(by_path, key=lambda item: len(item.parts), reverse=True):
-        size = max(by_path[path] - nested.get(path, 0), 0)
-        allocated[path] = size
-        for parent in path.parents:
-            if parent in by_path:
-                nested[parent] = nested.get(parent, 0) + size
+    for parts in sorted(parts_to_path, key=len, reverse=True):
+        size = max(by_path[parts_to_path[parts]] - nested.get(parts, 0), 0)
+        allocated[parts_to_path[parts]] = size
+        for depth in range(1, len(parts)):
+            prefix = parts[:depth]
+            if prefix in parts_to_path:
+                nested[prefix] = nested.get(prefix, 0) + size
     result = []
-    for row in rows:
+    for row, row_identity in zip(rows, identities, strict=True):
         item = dict(row)
-        if row.get("path"):
-            item["bytes"] = allocated.pop(path_identity(Path(str(row["path"]))), 0)
+        if row_identity is not None:
+            item["bytes"] = allocated.pop(row_identity, 0)
         result.append(item)
     return result
 

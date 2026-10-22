@@ -111,7 +111,9 @@ def test_row_aggregation_groups_by_category_file_type_and_parent() -> None:
         {"category": "downloads", "path": "/tmp/b.LOG", "parent": "/tmp", "bytes": 20},
         {"category": "trash", "path": "/trash/noext", "parent": "/trash", "bytes": 5},
     ]
-    human = lambda size: f"{size} B"
+
+    def human(size: int | None) -> str:
+        return f"{size} B"
 
     by_category = scan.rows_by_category(rows, human_size=human)
     by_type = scan.rows_by_file_type(rows, human_size=human)
@@ -203,9 +205,9 @@ def test_scan_inspect_items_builds_read_only_report(tmp_path: Path) -> None:
             "reason": reason,
             "bytes": scan.path_size_bytes(entry),
         },
-        filter_reason=lambda category, path, **kwargs: "excluded"
-        if scan.matches_exclude(path, category.default_exclude_patterns)
-        else None,
+        filter_reason=lambda category, path, **kwargs: (
+            "excluded" if scan.matches_exclude(path, category.default_exclude_patterns) else None
+        ),
         render_ai_summary=lambda categories, **kwargs: {"schema": "test.ai-summary", **kwargs},
     )
 
@@ -272,9 +274,9 @@ def test_clean_candidate_rows_applies_filters_and_review_selection(tmp_path: Pat
             "bytes": scan.path_size_bytes(entry),
             "human": f"{scan.path_size_bytes(entry)} B",
         },
-        filter_reason=lambda category, path, **kwargs: "excluded"
-        if scan.matches_exclude(path, category.default_exclude_patterns)
-        else None,
+        filter_reason=lambda category, path, **kwargs: (
+            "excluded" if scan.matches_exclude(path, category.default_exclude_patterns) else None
+        ),
         assert_safe_to_delete=lambda path: None,
         bundle_id_for_path=lambda path: "com.example.cache",
         progress_tick=tick,

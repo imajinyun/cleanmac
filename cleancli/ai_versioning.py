@@ -182,6 +182,7 @@ _REGISTRY: tuple[tuple[str, int, str, str], ...] = (
     ("cleanmac.ai-workflow.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.ai-workflow-validation.v1", 1, "cleancli.core", "stable"),
     ("cleanmac.workflow.v1", 1, "cleancli.core", "stable"),
+    ("cleanmac.auto.v1", 1, "cleancli.auto_clean", "stable"),
 )
 
 LATEST_PLAN_SCHEMA = "cleanmac.plan.v1"
@@ -3922,7 +3923,13 @@ def _sample_payload_for_schema(schema_name: str) -> dict[str, Any]:
                 "scan_truncated": False,
                 "truncated": False,
                 "summary_only": False,
-                "next_review_command": ["cleanmac", "--json", "review", "--input-file", "<software-orphans-report.json>"],
+                "next_review_command": [
+                    "cleanmac",
+                    "--json",
+                    "review",
+                    "--input-file",
+                    "<software-orphans-report.json>",
+                ],
             },
             "candidates": [
                 {

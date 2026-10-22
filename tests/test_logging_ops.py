@@ -27,10 +27,14 @@ def test_rotate_log_once_replaces_previous_rotation(tmp_path: Path) -> None:
     rotated.write_text("old", encoding="utf-8")
     removed: list[Path] = []
 
+    def remove_rotated(path: Path) -> None:
+        removed.append(path)
+        path.unlink(missing_ok=True)
+
     did_rotate = logging_ops.rotate_log_once(
         log_path,
         max_bytes=16,
-        remove_path=lambda path: (removed.append(path), path.unlink(missing_ok=True)),
+        remove_path=remove_rotated,
     )
 
     assert did_rotate is True

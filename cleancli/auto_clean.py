@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
 
 DEFAULT_AUTO_CATEGORIES = ("darwinUserTemp", "nodePackageCaches", "pythonPackageCaches", "goBuildCaches")
 
@@ -96,7 +97,9 @@ def render_auto_clean(
             "risk_level": final_report.get("ai_summary", {}).get("risk_level", "unknown"),
             "candidate_count": len(final_report.get("items", [])),
             "skipped_count": int(final_report.get("skipped_count", 0)),
-            "requires_confirmation": bool(final_report.get("ai_confirmation_summary", {}).get("requires_confirmation", True)),
+            "requires_confirmation": bool(
+                final_report.get("ai_confirmation_summary", {}).get("requires_confirmation", True)
+            ),
             "safe_to_auto_execute": False,
         },
         "plan": {

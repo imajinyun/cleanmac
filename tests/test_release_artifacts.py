@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,19 @@ from cleancli.release_artifacts import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def assert_action_pinned_to_tag(workflow: str, action: str, tag: str) -> None:
+    """Assert a third-party action is SHA-pinned with a documented tag.
+
+    Dependabot rotates the immutable commit SHA, so tests pin the auditable
+    contract (40-hex SHA plus a ``# pinned from <action>@<tag>`` comment)
+    rather than a SHA literal that would break on every bump.
+    """
+    pattern = re.compile(
+        rf"uses: {re.escape(action)}@[0-9a-f]{{40}}\s+# pinned from {re.escape(action)}@{re.escape(tag)}"
+    )
+    assert pattern.search(workflow), f"{action}@{tag} is not SHA-pinned with a tag comment"
 
 
 def test_manifest_hashes_dist_files_and_sbom(tmp_path: Path) -> None:
@@ -296,10 +310,9 @@ def test_release_workflow_supply_chain_contract() -> None:
     assert ".venv/bin/python -m pip install -e '.[dev,build]'" in release
     assert "name: cleanmac-dist" in release
     assert "name: cleanmac-release-assets" in release
-    assert "pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247" in release
-    assert "pypa/gh-action-pypi-publish@release/v1" in release
-    assert "actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373" in release
-    assert "softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228" in release
+    assert_action_pinned_to_tag(release, "pypa/gh-action-pypi-publish", "release/v1")
+    assert_action_pinned_to_tag(release, "actions/attest-build-provenance", "v4.1.1")
+    assert_action_pinned_to_tag(release, "softprops/action-gh-release", "v3.0.3")
     assert 'packages-dir: "release-assets"' not in release
 
     uses_lines = [line.strip() for line in release.splitlines() if line.strip().startswith("uses: ")]

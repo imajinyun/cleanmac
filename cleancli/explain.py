@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 
 def payload_candidates(payload: Mapping[str, Any]) -> list[dict[str, Any]]:

@@ -253,8 +253,12 @@ def test_inspect_applies_vendor_bin_obj_context_guards() -> None:
             "100",
         )
 
-        item_paths = {str(row["path"]) for row in report["items"]}
-        skipped = {str(row["path"]): str(row["reason"]) for row in report["skipped"]}
+        items = report["items"]
+        skipped_rows = report["skipped"]
+        assert isinstance(items, list)
+        assert isinstance(skipped_rows, list)
+        item_paths = {str(row["path"]) for row in items}
+        skipped = {str(row["path"]): str(row["reason"]) for row in skipped_rows}
 
         assert str(php_vendor) in item_paths
         assert str(codes / "dotnet-app/bin") in item_paths
