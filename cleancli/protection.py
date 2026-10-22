@@ -73,12 +73,62 @@ def bundle_matches_any(bundle_id: str | None, patterns: Sequence[str]) -> bool:
     return any(bundle_matches_pattern(bundle_id, pattern) for pattern in patterns)
 
 
+def _rule_root_contains_protected(root: Path, protected_patterns: Sequence[str]) -> bool:
+    if not protected_patterns or not root.is_dir() or root.is_symlink():
+        return False
+    # A cache bundle ID may itself end in a protected document suffix
+    # (com.danielhooper.principle). Only its contents establish this lock.
+    try:
+        return any(contains_protected_descendant(child, protected_patterns) for child in root.iterdir())
+    except OSError:
+        return True
+
+
+def _owning_rule_roots(category_key: str, path: Path) -> list[Path]:
+    """Concrete rule-path roots that equal or contain ``path``.
+
+    Rule templates are home-relative and may contain fnmatch glob parts
+    (``com.adobe.PremierePro.*``), so ownership is resolved by tail-matching
+    the template parts against absolute path parts.
+    """
+    parts = path.parts
+    roots: list[Path] = []
+    for template in APP_CLEANUP_RULES.get(category_key, {}).get("paths", ()):
+        if not template.startswith("~/"):
+            continue
+        target_is_dir = template.endswith("/")
+        template_parts = Path(template[2:]).parts
+        width = len(template_parts)
+        if width == 0 or len(parts) < width:
+            continue
+        for offset in range(0, len(parts) - width + 1):
+            if not all(
+                fnmatch.fnmatchcase(parts[offset + index].lower(), part.lower())
+                for index, part in enumerate(template_parts)
+            ):
+                continue
+            root = Path(*parts[: offset + width])
+            if not target_is_dir and offset + width != len(parts):
+                continue
+            if root == path or root in path.parents:
+                roots.append(root)
+            break
+    return roots
+
+
 def app_protected_data_reason(category_key: str, path: Path) -> str | None:
     protected_patterns = APP_CLEANUP_RULES.get(category_key, {}).get("protected_patterns", ())
     if category_key == "appSupportCaches":
         return cache_protected_data_reason(path)
     if protected_patterns and contains_protected_descendant(path, protected_patterns):
         return "app-protected-data"
+    # When a cache root contains protected user data, fail closed for every
+    # child row, not just the root summary row: candidate splitting can
+    # otherwise surface siblings of a protected file as independently
+    # cleanable (e.g. Spotify's offline blobs beside index.dat).
+    for root in _owning_rule_roots(category_key, path):
+        if _rule_root_contains_protected(root, protected_patterns):
+            return "app-protected-data"
     return None
 
 
@@ -90,17 +140,23 @@ def cache_protected_data_reason(path: Path, *, home_root: Path | None = None) ->
     if home_root is not None:
         home_root = home_root.resolve(strict=False)
         actual = path.resolve(strict=False)
-        for rule in APP_CLEANUP_RULES.values():
+        for category_key, rule in APP_CLEANUP_RULES.items():
             if not any(
                 app_activity.pattern_owns_path(str(home_root / template[2:]).rstrip("/"), actual)
                 for template in rule.get("paths", ())
                 if template.startswith("~/")
             ):
                 continue
-            patterns.extend(
+            rule_patterns = tuple(
                 str(home_root / pattern[2:]) if pattern.startswith("~/") else pattern
                 for pattern in rule.get("protected_patterns", ())
             )
+            if rule_patterns and any(
+                _rule_root_contains_protected(rule_root, rule_patterns)
+                for rule_root in _owning_rule_roots(category_key, actual)
+            ):
+                return "app-protected-data"
+            patterns.extend(rule_patterns)
     return "app-protected-data" if contains_protected_descendant(path, patterns) else None
 
 

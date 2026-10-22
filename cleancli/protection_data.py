@@ -526,6 +526,49 @@ APP_PROCESS_ALIASES: dict[str, tuple[str, ...]] = {
     "Qianwen": ("Qianwen", "Qianwen Helper", "千问"),
     "CorpLink": ("CorpLink", "CorpLink Helper"),
     "Puppeteer": ("chrome-headless-shell", "headless_shell", "Google Chrome for Testing", "Chromium", "chrome"),
+    # Long-tail GUI application family aliases. Names cover localized
+    # binaries, helpers, and versioned executables so a running app still
+    # pauses its cache category when the marketing name differs from ps comm.
+    "WeCom": ("WeCom", "WeCom Helper", "企业微信"),
+    "Tencent Meeting": ("TencentMeeting", "腾讯会议", "VooVMeeting"),
+    "Autodesk": (
+        "Autodesk",
+        "AcCoreConsole",
+        "ADPClientService",
+        "AdSSO",
+        "AdskLicensingService",
+        "Fusion360",
+        "fusion360",
+    ),
+    "Premiere Pro": (
+        "Adobe Premiere Pro 2024",
+        "Adobe Premiere Pro 2025",
+        "Adobe Premiere Pro 2026",
+        "Adobe Premiere Pro",
+    ),
+    "Steam": ("steam", "steam_osx", "Steam Helper"),
+    "EA app": ("EA app", "EADesktop", "EALauncher", "Origin"),
+    "Riot Games": ("Riot Client", "RiotClientServices", "VALORANT", "League of Legends"),
+    "RPCS3": ("RPCS3", "rpcs3"),
+    "Downie": ("Downie 4", "Downie 3", "Downie"),
+    "Sunlogin": ("SunloginClient", "SunloginClient_Desktop", "Sunlogin"),
+    "TeamViewer": ("TeamViewer", "TeamViewer_Service", "TeamViewer Desktop"),
+    "Yinxiang Note": ("印象笔记", "Yinxiang Note"),
+    "Kuwo Music": ("kwmusic", "kuwo", "酷我音乐"),
+    "Kugou Music": ("KugouMusic", "kugou", "酷狗音乐"),
+    "NetEase Music": ("NeteaseMusic", "网易云音乐"),
+    "QQ Music": ("QQMusic", "QQMusicMac"),
+    "iQIYI": ("iQIYI", "iQiyiPlayer", "爱奇艺"),
+    "Tencent Video": ("TencentVideo", "tenvideo", "腾讯视频"),
+    "Bilibili": ("bilibili", "Bilibili", "哔哩哔哩"),
+    "Douyu": ("douyu", "Douyu", "斗鱼"),
+    "Huya": ("huya", "Huya", "虎牙直播"),
+    "Youdao Dict": ("YoudaoDict", "有道词典"),
+    "Eudic": ("Eudic", "eudic", "欧路词典"),
+    "LM Studio": ("LM Studio", "lm-studio"),
+    "Quark": ("Quark", "quark", "夸克"),
+    "flomo": ("flomo", "Flomo"),
+    "Any.do": ("Any.do", "Anydo"),
 }
 
 APP_CACHE_OWNER_PATHS: dict[str, tuple[str, ...]] = {
@@ -978,11 +1021,14 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
     "teams": {
         "title": "Microsoft Teams caches",
         "paths": (
+            "~/Library/Caches/com.microsoft.teams2/",
             "~/Library/Application Support/Microsoft/Teams/Cache/",
             "~/Library/Application Support/Microsoft/Teams/Code Cache/",
             "~/Library/Application Support/Microsoft/Teams/GPUCache/",
             "~/Library/Application Support/Microsoft/Teams/Service Worker/CacheStorage/",
             "~/Library/Application Support/Microsoft/Teams/Application Cache/",
+            "~/Library/Application Support/Microsoft/Teams/logs/",
+            "~/Library/Application Support/Microsoft/Teams/tmp/",
         ),
         "protected_patterns": ("*/Cookies*", "*/Local Storage/*", "*/IndexedDB/*", "*/storage/*"),
     },
@@ -1219,6 +1265,11 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
             "*/Application Support/Spotify/prefs",
             "*/Application Support/Spotify/Users/*",
             "*/Application Support/Spotify/local-files.bnk",
+            # Offline, encrypted track blobs: when present, Mole leaves the
+            # whole Spotify cache tree untouched to protect downloads.
+            "*/Application Support/Spotify/Storage/*.file",
+            "*/Application Support/Spotify/PersistentCache/Storage/*.file",
+            "*/Application Support/Spotify/PersistentCache/Storage/offline.bnk",
         ),
     },
     "telegram": {
@@ -1683,6 +1734,10 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "paths": (
             "~/Library/Caches/com.apple.podcasts/",
             "~/Library/Containers/com.apple.podcasts/Data/Library/Caches/",
+            "~/Library/Containers/com.apple.podcasts/Data/tmp/StreamedMedia/",
+            "~/Library/Containers/com.apple.podcasts/Data/tmp/*.heic",
+            "~/Library/Containers/com.apple.podcasts/Data/tmp/*.img",
+            "~/Library/Containers/com.apple.podcasts/Data/tmp/*CFNetworkDownload*.tmp",
         ),
         "protected_patterns": (
             "*/Containers/com.apple.podcasts/Data/Documents/*",
@@ -1801,7 +1856,11 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "DingTalk caches",
         "paths": (
             "~/Library/Caches/com.alibaba.DingTalkMac/",
+            "~/Library/Caches/dd.work.exclusive4aliding/",
+            "~/Library/Caches/com.alibaba.AliLang.osx/",
             "~/Library/Application Support/DingTalk/cache/",
+            "~/Library/Application Support/iDingTalk/log/",
+            "~/Library/Application Support/iDingTalk/holmeslogs/",
             "~/Library/Containers/com.alibaba.DingTalkMac/Data/Library/Caches/",
         ),
         "protected_patterns": (
@@ -1815,6 +1874,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "paths": (
             "~/Library/Caches/com.bytedance.lark/",
             "~/Library/Caches/com.bytedance.feishu/",
+            "~/Library/Caches/com.feishu.*/",
             "~/Library/Application Support/Lark/Cache/",
             "~/Library/Application Support/Lark/Code Cache/",
             "~/Library/Application Support/Lark/GPUCache/",
@@ -1831,6 +1891,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "Evernote caches",
         "paths": (
             "~/Library/Caches/com.evernote.Evernote/",
+            "~/Library/Caches/com.evernote.*/",
             "~/Library/Containers/com.evernote.Evernote/Data/Library/Caches/",
             "~/Library/Application Support/Evernote/Cache/",
         ),
@@ -1856,6 +1917,8 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "Warp caches",
         "paths": (
             "~/Library/Caches/dev.warp.Warp-Stable/",
+            "~/Library/Caches/SentryCrash/Warp/",
+            "~/Library/Logs/warp.log",
             "~/Library/Application Support/dev.warp.Warp-Stable/Cache/",
             "~/Library/Application Support/dev.warp.Warp-Stable/Code Cache/",
             "~/Library/Application Support/dev.warp.Warp-Stable/GPUCache/",
@@ -1934,6 +1997,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "Blender caches",
         "paths": (
             "~/Library/Caches/blenderfoundation/blender/",
+            "~/Library/Caches/org.blenderfoundation.blender/",
             "~/Library/Application Support/Blender/",
         ),
         "protected_patterns": (
@@ -2197,6 +2261,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "Bear caches",
         "paths": (
             "~/Library/Caches/net.shinyfrog.bear/",
+            "~/Library/Caches/com.bear-writer.*/",
             "~/Library/Containers/net.shinyfrog.bear/Data/Library/Caches/",
         ),
         "protected_patterns": (
@@ -2414,6 +2479,7 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "CleanShot X caches",
         "paths": (
             "~/Library/Caches/pl.maketheweb.cleanshotx/",
+            "~/Library/Caches/com.cleanshot.*/",
             "~/Library/Containers/pl.maketheweb.cleanshotx/Data/Library/Caches/",
         ),
         "protected_patterns": (
@@ -2454,7 +2520,9 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "DaVinci Resolve caches",
         "paths": (
             "~/Library/Caches/Blackmagic Design/DaVinci Resolve/",
+            "~/Library/Caches/com.blackmagic-design.DaVinciResolve/",
             "~/Library/Application Support/Blackmagic Design/DaVinci Resolve/CacheClip/",
+            "~/Movies/CacheClip/",
         ),
         "protected_patterns": (
             "*.drp",
@@ -2809,8 +2877,471 @@ APP_CLEANUP_RULES: dict[str, dict[str, Any]] = {
         "title": "Folx download manager caches",
         "paths": (
             "~/Library/Caches/com.eltima.Folx3/",
+            "~/Library/Caches/com.folx.*/",
             "~/Library/Application Support/Eltima/Folx3/Cache/",
         ),
         "protected_patterns": ("*/Folx3/Downloads/*", "*/Folx3/Tags/*"),
+    },
+    # Long-tail GUI application caches, aligned with Mole's
+    # ``clean_user_gui_applications`` (lib/clean/app_caches.sh). Each rule is
+    # scoped to regenerable cache/log/tmp leaves; accounts, documents,
+    # databases, preferences, and downloaded media stay protected.
+    "wecom": {
+        "title": "WeCom caches",
+        "paths": ("~/Library/Caches/com.tencent.WeWorkMac/",),
+        "protected_patterns": ("*/Containers/com.tencent.WeWorkMac/Data/Documents/*",),
+    },
+    "tencentMeeting": {
+        "title": "Tencent Meeting / VooV Meeting caches",
+        "paths": ("~/Library/Caches/com.tencent.meeting/",),
+        "protected_patterns": ("*/Tencent Meeting/*",),
+    },
+    "skype": {
+        "title": "Skype caches",
+        "paths": ("~/Library/Caches/com.skype.skype/",),
+    },
+    "legcord": {
+        "title": "Legcord caches",
+        "paths": ("~/Library/Application Support/legcord/Cache/",),
+        "protected_patterns": (
+            "*/legcord/Cookies*",
+            "*/legcord/Local Storage/*",
+            "*/legcord/IndexedDB/*",
+            "*/legcord/Preferences",
+        ),
+    },
+    "chatgpt": {
+        "title": "ChatGPT desktop caches",
+        "paths": ("~/Library/Caches/com.openai.chat/",),
+        "protected_patterns": ("*/Application Support/com.openai.chat/*",),
+    },
+    "claudeDesktop": {
+        "title": "Claude desktop caches and logs",
+        "paths": (
+            "~/Library/Caches/com.anthropic.claudefordesktop/",
+            "~/Library/Logs/Claude/",
+        ),
+        "protected_patterns": ("*/Application Support/Claude/*",),
+    },
+    "lmStudio": {
+        "title": "LM Studio caches",
+        "paths": ("~/Library/Caches/com.lmstudio.lmstudio/",),
+        # LM Studio <= 0.3.5 kept models, chats, and presets under
+        # ~/.cache/lm-studio; newer builds use ~/.lmstudio. Neither tree is a
+        # cleanup target; only the reverse-DNS cache directory is covered.
+        "protected_patterns": ("*/.cache/lm-studio/*", "*/.lmstudio/*"),
+    },
+    "premierePro": {
+        "title": "Adobe Premiere Pro caches and media cache files",
+        "paths": (
+            "~/Library/Caches/com.adobe.PremierePro.*/",
+            "~/Library/Application Support/Adobe/Common/Media Cache Files/",
+        ),
+        "protected_patterns": ("*.prproj", "*.prpreset"),
+    },
+    "cinema4d": {
+        "title": "Cinema 4D caches",
+        "paths": ("~/Library/Caches/com.maxon.cinema4d/",),
+        "protected_patterns": ("*.c4d",),
+    },
+    "autodeskCaches": {
+        "title": "Autodesk application caches",
+        "paths": ("~/Library/Caches/com.autodesk.*/",),
+        "protected_patterns": ("*.dwg", "*.dxf", "*.rvt", "*.iam", "*.ipt"),
+    },
+    "miaoYan": {
+        "title": "MiaoYan caches",
+        "paths": ("~/Library/Caches/com.tw93.MiaoYan/",),
+    },
+    "klee": {
+        "title": "Klee caches",
+        "paths": (
+            "~/Library/Caches/com.klee.desktop/",
+            "~/Library/Caches/klee_desktop/",
+        ),
+    },
+    "ora": {
+        "title": "Ora caches",
+        "paths": ("~/Library/Caches/com.orabrowser.app/",),
+    },
+    "filo": {
+        "title": "Filo caches",
+        "paths": ("~/Library/Caches/com.filo.client/",),
+    },
+    "flomo": {
+        "title": "flomo caches",
+        "paths": ("~/Library/Caches/com.flomoapp.mac/",),
+    },
+    "quark": {
+        "title": "Quark video cache",
+        "paths": ("~/Library/Application Support/Quark/Cache/videoCache/",),
+        "protected_patterns": ("*/Quark/Download/*", "*/Quark/Downloads/*"),
+    },
+    "netNewsWire": {
+        "title": "NetNewsWire caches",
+        "paths": ("~/Library/Containers/com.ranchero.NetNewsWire-Evergreen/Data/Library/Caches/",),
+        "protected_patterns": (
+            "*/Containers/com.ranchero.NetNewsWire-Evergreen/Data/Documents/*",
+            "*/Containers/com.ranchero.NetNewsWire-Evergreen/Data/Library/Preferences/*",
+        ),
+    },
+    "mindNode": {
+        "title": "MindNode caches",
+        "paths": ("~/Library/Containers/com.ideasoncanvas.mindnode/Data/Library/Caches/",),
+        "protected_patterns": (
+            "*/Containers/com.ideasoncanvas.mindnode/Data/Documents/*",
+            "*/Containers/com.ideasoncanvas.mindnode/Data/Library/Application Support/*",
+            "*/Containers/com.ideasoncanvas.mindnode/Data/Library/Preferences/*",
+        ),
+    },
+    "kaku": {
+        "title": "Kaku caches",
+        "paths": ("~/.cache/kaku/",),
+    },
+    "spacedrive": {
+        "title": "Spacedrive thumbnail caches",
+        "paths": ("~/Library/Application Support/spacedrive/thumbnails/",),
+        "protected_patterns": (
+            "*/spacedrive/library.db*",
+            "*/spacedrive/config/*",
+            "*/spacedrive/sd*/**",
+        ),
+    },
+    "folo": {
+        "title": "Folo caches",
+        "paths": ("~/Library/Containers/is.follow/Data/Library/Application Support/Folo/Cache/Cache_Data/",),
+        "protected_patterns": (
+            "*/Folo/Cookies*",
+            "*/Folo/Local Storage/*",
+            "*/Folo/IndexedDB/*",
+        ),
+    },
+    "neteaseMusic": {
+        "title": "NetEase Cloud Music caches",
+        "paths": ("~/Library/Caches/com.netease.163music/",),
+        "protected_patterns": ("*/Containers/com.netease.163music/Data/Documents/*",),
+    },
+    "qqMusic": {
+        "title": "QQ Music caches",
+        "paths": (
+            "~/Library/Caches/com.tencent.QQMusic/",
+            "~/Library/Caches/com.tencent.QQMusicMac/",
+            "~/Library/Containers/com.tencent.QQMusicMac/Data/Library/Caches/",
+            "~/Library/Containers/com.tencent.QQMusicMac/Data/Library/Application Support/QQMusicMac/iRRCache/",
+            "~/Library/Containers/com.tencent.QQMusicMac/Data/Library/Application Support/QQMusicMac/iLog/",
+            "~/Library/Containers/com.tencent.QQMusicMac/Data/Library/Application Support/QQMusicMac/iCache/",
+            "~/Library/Containers/com.tencent.QQMusicMac/Data/Library/Application Support/QQMusicMac/iTemp/",
+        ),
+        # iDownloadProxy holds offline downloads and must never be swept with
+        # the streaming/log cache leaves.
+        "protected_patterns": (
+            "*/QQMusicMac/iDownloadProxy/*",
+            "*/Containers/com.tencent.QQMusicMac/Data/Documents/*",
+        ),
+    },
+    "kugouMusic": {
+        "title": "Kugou Music caches",
+        "paths": ("~/Library/Caches/com.kugou.mac/",),
+        "protected_patterns": ("*/Containers/com.kugou.mac/Data/Documents/*",),
+    },
+    "kuwoMusic": {
+        "title": "Kuwo Music caches",
+        "paths": ("~/Library/Caches/com.kuwo.mac/",),
+        "protected_patterns": ("*/Containers/com.kuwo.mac/Data/Documents/*",),
+    },
+    "appleTV": {
+        "title": "Apple TV caches",
+        "paths": ("~/Library/Caches/com.apple.TV/",),
+        "protected_patterns": ("*.m4v", "*.mov", "*.mp4"),
+    },
+    "plex": {
+        "title": "Plex desktop caches",
+        "paths": ("~/Library/Caches/tv.plex.player.desktop/",),
+        "protected_patterns": ("*/Plex Media Server/*",),
+    },
+    "iina": {
+        "title": "IINA caches",
+        "paths": ("~/Library/Caches/com.colliderli.iina/",),
+    },
+    "mpv": {
+        "title": "mpv caches",
+        "paths": ("~/Library/Caches/io.mpv/",),
+        "protected_patterns": ("*/.config/mpv/*", "*/Application Support/mpv/watch_later/*"),
+    },
+    "iqiyi": {
+        "title": "iQIYI caches",
+        "paths": ("~/Library/Caches/com.iqiyi.player/",),
+        "protected_patterns": ("*/Containers/com.iqiyi.player/Data/Documents/*",),
+    },
+    "tencentVideo": {
+        "title": "Tencent Video caches",
+        "paths": (
+            "~/Library/Caches/com.tencent.tenvideo/",
+            "~/Library/Containers/com.tencent.tenvideo/Data/Library/Application Support/Upgrade/",
+            "~/Library/Containers/com.tencent.tenvideo/Data/Library/Application Support/VideoNative/",
+            "~/Library/Containers/com.tencent.tenvideo/Data/Library/Application Support/documentCache/",
+        ),
+        "protected_patterns": (
+            "*/Containers/com.tencent.tenvideo/Data/Documents/*",
+            "*/Containers/com.tencent.tenvideo/Data/Library/Preferences/*",
+        ),
+    },
+    "bilibili": {
+        "title": "Bilibili caches",
+        "paths": ("~/Library/Caches/tv.danmaku.bili/",),
+        "protected_patterns": ("*/Containers/tv.danmaku.bili/Data/Documents/*",),
+    },
+    "douyu": {
+        "title": "Douyu caches",
+        "paths": ("~/Library/Caches/com.douyu.*/",),
+    },
+    "huya": {
+        "title": "Huya caches",
+        "paths": ("~/Library/Caches/com.huya.*/",),
+    },
+    "senPlayer": {
+        "title": "SenPlayer video cache",
+        "paths": ("~/Library/Containers/com.wuziqi.SenPlayer/Data/tmp/videoCache/",),
+        "protected_patterns": ("*/Containers/com.wuziqi.SenPlayer/Data/Documents/*",),
+    },
+    "stremio": {
+        "title": "Stremio caches",
+        "paths": (
+            "~/Library/Caches/smart.stremio*/",
+            "~/Library/Application Support/stremio/stremio-server/stremio-cache/",
+        ),
+        "protected_patterns": ("*/stremio/stremio-server/stremio-server.sqlite*",),
+    },
+    "aria2gui": {
+        "title": "Aria2 GUI caches",
+        "paths": ("~/Library/Caches/net.xmac.aria2gui/",),
+        "protected_patterns": ("*.aria2",),
+    },
+    "transmission": {
+        "title": "Transmission caches",
+        "paths": ("~/Library/Caches/org.m0k.transmission/",),
+        "protected_patterns": ("*.torrent", "*/Application Support/Transmission/Resume/*"),
+    },
+    "qbittorrent": {
+        "title": "qBittorrent caches",
+        "paths": ("~/Library/Caches/com.qbittorrent.qBittorrent/",),
+        "protected_patterns": ("*.torrent", "*/qBittorrent/BT_backup/*"),
+    },
+    "downie": {
+        "title": "Downie caches",
+        "paths": ("~/Library/Caches/com.downie.Downie-*/",),
+        "protected_patterns": ("*/Downie*/Downloads/*", "*.downielink"),
+    },
+    "pacifist": {
+        "title": "Pacifist caches",
+        "paths": ("~/Library/Caches/com.charlessoft.pacifist/",),
+    },
+    "steam": {
+        "title": "Steam web, depot, and shader caches",
+        "paths": (
+            "~/Library/Caches/com.valvesoftware.steam/",
+            "~/Library/Application Support/Steam/htmlcache/",
+            "~/Library/Application Support/Steam/appcache/",
+            "~/Library/Application Support/Steam/depotcache/",
+            "~/Library/Application Support/Steam/steamapps/shadercache/",
+            "~/Library/Application Support/Steam/logs/",
+        ),
+        # Installed games (steamapps/common + manifests), account data, and
+        # config stay untouched; only regenerable web/depot/shader caches and
+        # logs are reachable.
+        "protected_patterns": (
+            "*/Steam/steamapps/common/*",
+            "*/Steam/steamapps/*.acf",
+            "*/Steam/steamapps/*.manifest",
+            "*/Steam/userdata/*",
+            "*/Steam/config/*",
+            "*/Steam/ssfn*",
+        ),
+    },
+    "epicGames": {
+        "title": "Epic Games Launcher caches",
+        "paths": ("~/Library/Caches/com.epicgames.EpicGamesLauncher/",),
+        "protected_patterns": ("*/Epic/EpicGamesLauncher/Saved/Config/*",),
+    },
+    "battleNet": {
+        "title": "Battle.net caches",
+        "paths": (
+            "~/Library/Caches/com.blizzard.Battle.net/",
+            "~/Library/Application Support/Battle.net/Cache/",
+        ),
+    },
+    "eaApp": {
+        "title": "EA app caches",
+        "paths": ("~/Library/Caches/com.ea.*/",),
+    },
+    "gogGalaxy": {
+        "title": "GOG Galaxy caches",
+        "paths": ("~/Library/Caches/com.gog.galaxy/",),
+    },
+    "riotGames": {
+        "title": "Riot Games caches",
+        "paths": ("~/Library/Caches/com.riotgames.*/",),
+    },
+    "minecraft": {
+        "title": "Minecraft logs and web caches",
+        "paths": (
+            "~/Library/Application Support/minecraft/logs/",
+            "~/Library/Application Support/minecraft/crash-reports/",
+            "~/Library/Application Support/minecraft/webcache/",
+            "~/Library/Application Support/minecraft/webcache2/",
+        ),
+        "protected_patterns": (
+            "*/minecraft/saves/*",
+            "*/minecraft/mods/*",
+            "*/minecraft/resourcepacks/*",
+            "*/minecraft/options.txt",
+            "*/minecraft/*.json",
+        ),
+    },
+    "lunarClient": {
+        "title": "Lunar Client game and launcher caches",
+        "paths": (
+            "~/.lunarclient/game-cache/",
+            "~/.lunarclient/launcher-cache/",
+            "~/.lunarclient/logs/",
+            "~/.lunarclient/offline/*/logs/",
+            "~/.lunarclient/offline/files/*/logs/",
+        ),
+        "protected_patterns": ("*/.lunarclient/settings*", "*/.lunarclient/launcher-profiles/*"),
+    },
+    "pcsx2": {
+        "title": "PCSX2 caches and logs",
+        "paths": (
+            "~/Library/Caches/net.pcsx2.PCSX2/",
+            "~/Library/Application Support/PCSX2/cache/",
+            "~/Library/Logs/PCSX2/",
+        ),
+        "protected_patterns": (
+            "*/PCSX2/memcards/*",
+            "*/PCSX2/saves/*",
+            "*/PCSX2/inis/*",
+            "*.iso",
+        ),
+    },
+    "rpcs3": {
+        "title": "RPCS3 caches and logs",
+        "paths": (
+            "~/Library/Caches/net.rpcs3.rpcs3/",
+            "~/Library/Application Support/rpcs3/logs/",
+        ),
+        "protected_patterns": ("*/rpcs3/dev_hdd0/home/*", "*/rpcs3/dev_flash/*", "*.ps3"),
+    },
+    "youdaoDict": {
+        "title": "Youdao Dictionary caches",
+        "paths": ("~/Library/Caches/com.youdao.YoudaoDict/",),
+    },
+    "eudict": {
+        "title": "Eudic dictionary caches",
+        "paths": ("~/Library/Caches/com.eudic.*/",),
+    },
+    "bobTranslate": {
+        "title": "Bob translation caches",
+        "paths": ("~/Library/Caches/com.bob-build.Bob/",),
+    },
+    "camo": {
+        "title": "Camo caches",
+        "paths": ("~/Library/Caches/com.reincubate.camo/",),
+    },
+    "xnip": {
+        "title": "Xnip caches",
+        "paths": ("~/Library/Caches/com.xnipapp.xnip/",),
+    },
+    "sparkMail": {
+        "title": "Spark Mail caches",
+        "paths": ("~/Library/Caches/com.readdle.smartemail-Mac/",),
+    },
+    "airmail": {
+        "title": "Airmail caches",
+        "paths": ("~/Library/Caches/com.airmail.*/",),
+    },
+    "anydo": {
+        "title": "Any.do caches",
+        "paths": ("~/Library/Caches/com.any.do.*/",),
+    },
+    "ghostty": {
+        "title": "Ghostty caches",
+        "paths": ("~/Library/Caches/com.mitchellh.ghostty/",),
+        "protected_patterns": ("*/.config/ghostty/*",),
+    },
+    "inputSourcePro": {
+        "title": "Input Source Pro caches",
+        "paths": ("~/Library/Caches/com.runjuu.Input-Source-Pro/",),
+    },
+    "wakatime": {
+        "title": "WakaTime caches",
+        "paths": ("~/Library/Caches/macos-wakatime.WakaTime/",),
+        "protected_patterns": ("*/.wakatime.cfg", "*/.wakatime/*"),
+    },
+    "weType": {
+        "title": "WeType image and dictionary update caches",
+        "paths": (
+            "~/Library/Application Support/WeType/com.onevcat.Kingfisher.ImageCache.WeType/",
+            "~/Library/Application Support/WeType/DictUpdate/",
+        ),
+        # Engine state and the user dictionary live beside these leaves and
+        # must be preserved.
+        "protected_patterns": ("*/WeType/UserDict/*", "*/WeType/*.db", "*/WeType/Config/*"),
+    },
+    "mihomoParty": {
+        "title": "mihomo-party caches and logs",
+        "paths": (
+            "~/Library/Application Support/mihomo-party/Cache/",
+            "~/Library/Application Support/mihomo-party/Code Cache/",
+            "~/Library/Application Support/mihomo-party/GPUCache/",
+            "~/Library/Application Support/mihomo-party/DawnGraphiteCache/",
+            "~/Library/Application Support/mihomo-party/DawnWebGPUCache/",
+            "~/Library/Application Support/mihomo-party/logs/",
+        ),
+        "protected_patterns": (
+            "*/mihomo-party/Cookies*",
+            "*/mihomo-party/Local Storage/*",
+            "*/mihomo-party/IndexedDB/*",
+            "*/mihomo-party/Preferences",
+            "*/mihomo-party/config/*",
+            "*/mihomo-party/profiles/*",
+        ),
+    },
+    "stash": {
+        "title": "Stash caches",
+        "paths": ("~/Library/Caches/ws.stash.app.mac/",),
+    },
+    "logseq": {
+        "title": "Logseq caches",
+        "paths": ("~/Library/Caches/com.logseq.*/",),
+        "protected_patterns": ("*/Logseq/*/graphs/*",),
+    },
+    "yinxiang": {
+        "title": "Yinxiang Note caches",
+        "paths": ("~/Library/Caches/com.yinxiang.*/",),
+        "protected_patterns": (
+            "*/Containers/com.yinxiang.*/Data/Documents/*",
+            "*/Application Support/Yinxiang*/Accounts/*",
+        ),
+    },
+    "theUnarchiver": {
+        "title": "The Unarchiver caches",
+        "paths": ("~/Library/Caches/cx.c3.theunarchiver/",),
+    },
+    "teamViewer": {
+        "title": "TeamViewer caches",
+        "paths": ("~/Library/Caches/com.teamviewer.*/",),
+    },
+    "anyDesk": {
+        "title": "AnyDesk caches",
+        "paths": ("~/Library/Caches/com.anydesk.*/",),
+        "protected_patterns": ("*/.anydesk/*",),
+    },
+    "toDesk": {
+        "title": "ToDesk caches",
+        "paths": ("~/Library/Caches/com.todesk.*/",),
+    },
+    "sunlogin": {
+        "title": "Sunlogin remote caches",
+        "paths": ("~/Library/Caches/com.sunlogin.*/",),
     },
 }
