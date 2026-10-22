@@ -29,6 +29,7 @@ from typing import Any, NoReturn
 from cleancli import (
     ai_schema,
     app_activity,
+    browser_versions,
     cache_discovery,
     delete_ops,
     duplicates,
@@ -476,6 +477,50 @@ CATEGORIES: tuple[Category, ...] = (
         risk="medium",
         advanced=True,
         provider="browser-service-worker-caches",
+    ),
+    Category(
+        "chromeOldVersions",
+        "Chrome old framework versions",
+        (),
+        "Deletes superseded Google Chrome framework versions from the bundle while keeping the Current symlink target and any newer staged auto-update. A missing or broken Current marker prunes nothing.",
+        risk="medium",
+        advanced=True,
+        provider="chrome-old-versions",
+        delete_target=True,
+        process_guard="Google Chrome",
+    ),
+    Category(
+        "edgeOldVersions",
+        "Edge old framework versions",
+        (),
+        "Deletes superseded Microsoft Edge framework versions from the bundle while keeping the Current symlink target and any newer staged auto-update. A missing or broken Current marker prunes nothing.",
+        risk="medium",
+        advanced=True,
+        provider="edge-old-versions",
+        delete_target=True,
+        process_guard="Microsoft Edge",
+    ),
+    Category(
+        "braveOldVersions",
+        "Brave old framework versions",
+        (),
+        "Deletes superseded Brave Browser framework versions from the bundle while keeping the Current symlink target and any newer staged auto-update. A missing or broken Current marker prunes nothing.",
+        risk="medium",
+        advanced=True,
+        provider="brave-old-versions",
+        delete_target=True,
+        process_guard="Brave Browser",
+    ),
+    Category(
+        "edgeUpdaterPayloads",
+        "EdgeUpdater staged update payloads",
+        (),
+        "Deletes Microsoft EdgeUpdater staged payloads older than the installed Edge version under msedge-stable. Equal or newer payloads are pending updates and stay; without a readable installed version only the newest payload is kept.",
+        risk="medium",
+        advanced=True,
+        provider="edge-updater-payloads",
+        delete_target=True,
+        process_guard="Microsoft Edge",
     ),
     Category(
         "discord",
@@ -3793,6 +3838,16 @@ def provider_targets(category: Category, *, root: Path, home: Path) -> list[Reso
         paths = apple_daemon_container_cache_dirs(remap_home(root=root, home=home))
     elif provider == "browser-service-worker-caches":
         paths = browser_service_worker_cache_dirs(remap_home(root=root, home=home))
+    elif provider in {"chrome-old-versions", "edge-old-versions", "brave-old-versions"}:
+        browser_key = {"chrome-old-versions": "chrome", "edge-old-versions": "edge", "brave-old-versions": "brave"}[
+            provider
+        ]
+        app_name, framework_name = browser_versions.FRAMEWORK_BROWSERS[browser_key]
+        paths = browser_versions.old_framework_version_dirs(
+            root, remap_home(root=root, home=home), app_name, framework_name
+        )
+    elif provider == "edge-updater-payloads":
+        paths = browser_versions.old_edge_updater_payloads(root, remap_home(root=root, home=home))
     elif provider == "ai-tool-old-versions":
         paths = version_prune.old_version_targets(remap_home(root=root, home=home))
     elif provider in {"darwin-user-temp", "darwin-user-cache"}:
@@ -5180,6 +5235,14 @@ def category_policy_reason(
     if category.key == "browserServiceWorkerCaches" and (
         not protection.is_browser_service_worker_cache(path) or protection.is_protected_service_worker_origin(path)
     ):
+        return "outside-provider-allowlist"
+    if category.key in browser_versions.FRAMEWORK_CATEGORY_BROWSERS:
+        framework_name = browser_versions.FRAMEWORK_BROWSERS[
+            browser_versions.FRAMEWORK_CATEGORY_BROWSERS[category.key]
+        ][1]
+        if not browser_versions.is_prunable_framework_version(path, framework_name):
+            return "outside-provider-allowlist"
+    if category.key == "edgeUpdaterPayloads" and not browser_versions.is_prunable_updater_payload(path, root=root):
         return "outside-provider-allowlist"
     if category.key == "finderMetadata":
         if path.name != ".DS_Store" or path.is_symlink() or not path.is_file():
