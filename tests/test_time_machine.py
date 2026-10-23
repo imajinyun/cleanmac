@@ -12,6 +12,13 @@ from cleancli.ai_versioning import validate_contract_payload
 from tests.helpers import make_sandbox, run_cli
 
 
+@pytest.fixture
+def tmutil_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    # These tests drive the full tmutil sequence through an injected FakeRunner,
+    # so the host need not provide tmutil (keeps the logic covered on Linux CI).
+    monkeypatch.setattr(time_machine.shutil, "which", lambda name: "/usr/bin/tmutil")
+
+
 class FakeRunner:
     """Scripted host command runner; records invocations."""
 
@@ -91,7 +98,7 @@ def test_missing_tmutil_is_reported_without_command_calls(monkeypatch: pytest.Mo
     assert runner.calls == []
 
 
-def test_unconfigured_time_machine_skips_tmutil_sequence() -> None:
+def test_unconfigured_time_machine_skips_tmutil_sequence(tmutil_available: None) -> None:
     runner = FakeRunner(
         {("defaults", "read", time_machine.AUTOBACKUP_DOMAIN, "AutoBackup"): _result(returncode=1)}
     )
@@ -104,7 +111,7 @@ def test_unconfigured_time_machine_skips_tmutil_sequence() -> None:
     assert all(call[0] == "defaults" for call in runner.calls)
 
 
-def test_backup_in_progress_blocks_enumeration() -> None:
+def test_backup_in_progress_blocks_enumeration(tmutil_available: None) -> None:
     runner = FakeRunner(
         {
             ("defaults", "read", time_machine.AUTOBACKUP_DOMAIN, "AutoBackup"): _result("1"),
@@ -122,7 +129,7 @@ def test_backup_in_progress_blocks_enumeration() -> None:
     assert not any(call[:2] == ("tmutil", "listlocalsnapshots") for call in runner.calls)
 
 
-def test_unknown_backup_state_fails_closed() -> None:
+def test_unknown_backup_state_fails_closed(tmutil_available: None) -> None:
     runner = FakeRunner(
         {
             ("defaults", "read", time_machine.AUTOBACKUP_DOMAIN, "AutoBackup"): _result("0"),
@@ -138,7 +145,7 @@ def test_unknown_backup_state_fails_closed() -> None:
     assert not any(call[:2] == ("tmutil", "listlocalsnapshots") for call in runner.calls)
 
 
-def test_idle_state_enumerates_snapshots() -> None:
+def test_idle_state_enumerates_snapshots(tmutil_available: None) -> None:
     listing = (
         "Snapshots for disk /:\n"
         "com.apple.TimeMachine.2026-10-19-080010.local\n"
@@ -164,7 +171,7 @@ def test_idle_state_enumerates_snapshots() -> None:
     assert validation["valid"] is True, validation
 
 
-def test_enumeration_command_failure_is_reported() -> None:
+def test_enumeration_command_failure_is_reported(tmutil_available: None) -> None:
     runner = FakeRunner(
         {
             ("defaults", "read", time_machine.AUTOBACKUP_DOMAIN, "AutoBackup"): _result("1"),
