@@ -10672,7 +10672,38 @@ def print_report(report: dict[str, Any], *, as_json: bool, command: str, quiet: 
                 print(f"  delete : {command_line}")
         return
     if command == "software":
-        print(f"Software {report['action']}: {report['status']}")
+        schema = str(report.get("schema", ""))
+        if schema == "cleanmac.software-orphans.v1":
+            print(
+                "Software leftovers: "
+                f"{report['candidate_count']} candidate(s), {human_size(report['estimated_bytes'])}, read-only"
+            )
+            for row in report.get("candidates", []):
+                kind = row.get("leftover_type", "unknown")
+                size = row.get("human") or human_size(row.get("bytes"))
+                print(f"  [{kind}] {row['path']} ({size})")
+            return
+        if schema == "cleanmac.software-inspect.v1":
+            print(f"Software inspect: {report['app']} found={report['found']}")
+            print(f"  {report['candidate_count']} candidate(s), {human_size(report['estimated_bytes'])}")
+            for row in report.get("candidates", []):
+                print(f"  [{row.get('leftover_type', 'unknown')}] {row['path']}")
+            return
+        if schema == "cleanmac.software-uninstall-plan.v1":
+            app = report.get("app")
+            if report.get("valid"):
+                plan = report["uninstall_plan"]
+                print(f"Software uninstall plan: {app} valid=True, {plan['candidate_count']} candidate(s)")
+            else:
+                reasons = ", ".join(report.get("blocked_reasons", [])) or "unknown"
+                print(f"Software uninstall plan: {app} blocked ({reasons})")
+            return
+        if schema == "cleanmac.software-ios-backups.v1":
+            print(f"Software iOS backups: {report['backup_count']} backup(s), {report['total_human']}")
+            for row in report.get("backups", []):
+                print(f"  {row.get('device_name', row.get('device', 'unknown'))} ({row.get('path', '')})")
+            return
+        print(f"Software {report.get('action', 'scan')}: {report.get('status', 'read-only')}")
         return
     if command == "optimize":
         print(f"Optimize {report['action']}: {len(report['tasks'])} task(s), dry-run only")

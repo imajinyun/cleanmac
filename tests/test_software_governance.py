@@ -461,6 +461,33 @@ def test_software_leftovers_is_alias_of_orphan_scan() -> None:
         assert validate_contract_payload("cleanmac.software-orphans.v1", leftovers)["valid"] is True
 
 
+def test_software_read_only_commands_render_human_output() -> None:
+    tmp, root, home = make_sandbox()
+    with tmp:
+        scripts_dir = root / "Users/tester/Library/Application Scripts/com.example.gone"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
+        scripts_dir.joinpath("script.scpt").write_text("orphan", encoding="utf-8")
+
+        base = ("--root", str(root), "--home", str(home), "software")
+        leftovers = run_cli(*base, "leftovers")
+        assert leftovers.returncode == 0
+        assert "leftovers" in leftovers.stdout.lower()
+        assert "com.example.gone" in leftovers.stdout
+        assert "read-only" in leftovers.stdout.lower()
+
+        inspect_report = run_cli(*base, "inspect", "--app", "Missing")
+        assert inspect_report.returncode == 0
+        assert inspect_report.stdout.strip()
+
+        plan_report = run_cli(*base, "uninstall-plan")
+        assert plan_report.returncode == 0
+        assert plan_report.stdout.strip()
+
+        backups = run_cli(*base, "ios-backups")
+        assert backups.returncode == 0
+        assert backups.stdout.startswith("Software iOS backups:")
+
+
 def test_software_uninstall_plan_blocks_official_uninstallers_with_structured_schema() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
