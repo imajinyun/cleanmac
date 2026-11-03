@@ -64,26 +64,106 @@ def test_append_deletion_log_writes_tab_separated_rows(tmp_path: Path) -> None:
     assert "\ttrash\t12\tdeleted\t/tmp/file\tdetail with-tab\n" in content
 
 
-def test_preflight_operation_log_rejects_symlinked_directory(tmp_path: Path) -> None:
-    root = tmp_path / "root"
-    log_parent = tmp_path / "logs-link"
-    target_parent = tmp_path / "logs-real"
-    target_parent.mkdir()
-    log_parent.symlink_to(target_parent, target_is_directory=True)
+def _preflight(log_file: Path, tmp_path: Path) -> dict[str, object]:
+    from cleancli import protection
 
-    report = logging_ops.preflight_operation_log(
-        str(log_parent / "operations.jsonl"),
-        root=root,
+    return logging_ops.preflight_operation_log(
+        str(log_file),
+        root=tmp_path / "root",
         home=Path("/Users/tester"),
         remap_path=lambda pattern: pattern,
         display_path=str,
         rotate_bytes=1024,
         remove_path=lambda path: path.unlink(missing_ok=True),
+        protected_path=protection.should_protect_path,
     )
 
+
+def test_preflight_operation_log_allows_benign_symlinked_directory(tmp_path: Path) -> None:
+    # Mirrors macOS convenience links such as /tmp -> /private/tmp.
+    log_parent = tmp_path / "logs-link"
+    target_parent = tmp_path / "logs-real"
+    target_parent.mkdir()
+    log_parent.symlink_to(target_parent, target_is_directory=True)
+    log_file = log_parent / "operations.jsonl"
+
+    report = _preflight(log_file, tmp_path)
+
     assert report["schema"] == "cleanmac.operation-log-status.v1"
+    assert report["status"] == "ready"
+    assert report["error"] is None
+    assert log_file.is_file()
+
+
+def test_preflight_operation_log_rejects_symlinked_directory_to_protected_target(
+    tmp_path: Path,
+) -> None:
+    # /etc exists on both Linux and macOS (where it resolves to /private/etc).
+    log_parent = tmp_path / "logs-link"
+    log_parent.symlink_to(Path("/etc"), target_is_directory=True)
+
+    report = _preflight(log_parent / "operations.jsonl", tmp_path)
+
     assert report["status"] == "failed"
-    assert "symlinked operation log directory" in report["error"]
+    assert "protected path" in str(report["error"])
+    assert not (Path("/etc") / "operations.jsonl").exists()
+
+
+def test_preflight_operation_log_rejects_protected_directory(tmp_path: Path) -> None:
+    report = _preflight(Path("/etc") / "cleanmac-operations.jsonl", tmp_path)
+
+    assert report["status"] == "failed"
+    assert "protected path" in str(report["error"])
+    assert not (Path("/etc") / "cleanmac-operations.jsonl").exists()
+
+
+def test_preflight_operation_log_rejects_dangling_symlinked_directory(tmp_path: Path) -> None:
+    log_parent = tmp_path / "logs-link"
+    log_parent.symlink_to(tmp_path / "missing", target_is_directory=True)
+
+    report = _preflight(log_parent / "operations.jsonl", tmp_path)
+
+    assert report["status"] == "failed"
+    assert "existing directory target" in str(report["error"])
+
+
+def test_preflight_operation_log_allows_benign_symlinked_file(tmp_path: Path) -> None:
+    real_log = tmp_path / "real" / "operations.jsonl"
+    real_log.parent.mkdir()
+    real_log.write_text("seed\n", encoding="utf-8")
+    log_file = tmp_path / "operations-link.jsonl"
+    log_file.symlink_to(real_log)
+
+    report = _preflight(log_file, tmp_path)
+
+    assert report["status"] == "ready"
+    assert real_log.read_text(encoding="utf-8") == "seed\n"
+
+
+def test_preflight_operation_log_rejects_symlinked_file_to_protected_target(
+    tmp_path: Path,
+) -> None:
+    log_file = tmp_path / "operations-link.jsonl"
+    log_file.symlink_to(Path("/etc") / "cleanmac-operation-log-target.jsonl")
+
+    report = _preflight(log_file, tmp_path)
+
+    assert report["status"] == "failed"
+    assert "protected path" in str(report["error"])
+
+
+def test_preflight_operation_log_rejects_symlinked_file_pointing_at_directory(
+    tmp_path: Path,
+) -> None:
+    target_dir = tmp_path / "a-directory"
+    target_dir.mkdir()
+    log_file = tmp_path / "operations-link.jsonl"
+    log_file.symlink_to(target_dir, target_is_directory=True)
+
+    report = _preflight(log_file, tmp_path)
+
+    assert report["status"] == "failed"
+    assert "directory as operation log file" in str(report["error"])
 
 
 def test_append_operation_log_writes_jsonl_with_enrichment(tmp_path: Path) -> None:

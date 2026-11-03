@@ -33,6 +33,41 @@ def operation_log_path_for_context(
     return Path(path).expanduser()
 
 
+def validate_log_directory(parent: Path, protected_path: Callable[[Path], bool]) -> Path:
+    """Resolve a log directory through symlinks and validate the real target.
+
+    Convenience links such as macOS ``/tmp -> /private/tmp`` are allowed, but
+    links (or plain paths) resolving to a protected system or user-data
+    location fail closed before any write or rotation reaches the target.
+    """
+
+    resolved = parent.resolve(strict=False)
+    if parent.is_symlink() and not resolved.is_dir():
+        raise RuntimeError(
+            f"Refusing to use operation log directory symlink without an existing directory target: {parent}"
+        )
+    if protected_path(resolved):
+        location = f"{parent} -> {resolved}" if parent != resolved else str(parent)
+        raise RuntimeError(f"Refusing to use operation log directory resolving to protected path: {location}")
+    return resolved
+
+
+def validate_log_file(log_path: Path, protected_path: Callable[[Path], bool]) -> None:
+    """Reject log files that are directories or symlinks to protected targets."""
+
+    if log_path.is_symlink():
+        resolved = log_path.resolve(strict=False)
+        if resolved.is_dir():
+            raise RuntimeError(f"Refusing to use directory as operation log file: {log_path} -> {resolved}")
+        if protected_path(resolved):
+            raise RuntimeError(
+                f"Refusing to use operation log file resolving to protected path: {log_path} -> {resolved}"
+            )
+        return
+    if log_path.exists() and log_path.is_dir():
+        raise RuntimeError(f"Refusing to use directory as operation log file: {log_path}")
+
+
 def rotate_log_once(path: Path, *, max_bytes: int, remove_path: Callable[[Path], None]) -> bool:
     if max_bytes <= 0 or not path.exists() or path.stat().st_size <= max_bytes:
         return False
@@ -121,18 +156,18 @@ def preflight_operation_log(
     display_path: Callable[[Path | str], str],
     rotate_bytes: int,
     remove_path: Callable[[Path], None],
+    protected_path: Callable[[Path], bool],
 ) -> dict[str, Any]:
     log_path = operation_log_path_for_context(path, root=root, home=home, remap_path=remap_path)
     try:
-        if log_path.parent.exists() and log_path.parent.is_symlink():
-            raise RuntimeError(f"Refusing to use symlinked operation log directory: {log_path.parent}")
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        if log_path.parent.is_symlink():
-            raise RuntimeError(f"Refusing to use symlinked operation log directory: {log_path.parent}")
-        if log_path.exists() and log_path.is_symlink():
-            raise RuntimeError(f"Refusing to use symlinked operation log file: {log_path}")
-        if log_path.exists() and log_path.is_dir():
-            raise RuntimeError(f"Refusing to use directory as operation log file: {log_path}")
+        parent = log_path.parent
+        if parent.exists() or parent.is_symlink():
+            validate_log_directory(parent, protected_path)
+        parent.mkdir(parents=True, exist_ok=True)
+        # Re-resolve after creation so a link swapped in during preflight
+        # cannot redirect writes or rotation to a protected location.
+        validate_log_directory(parent, protected_path)
+        validate_log_file(log_path, protected_path)
         rotated = rotate_log_once(log_path, max_bytes=rotate_bytes, remove_path=remove_path)
         with log_path.open("a", encoding="utf-8"):
             pass
@@ -179,6 +214,8 @@ def append_operation_log(
 __all__ = [
     "log_path_for_context",
     "operation_log_path_for_context",
+    "validate_log_directory",
+    "validate_log_file",
     "rotate_log_once",
     "deletion_log_path_for_context",
     "append_deletion_log",

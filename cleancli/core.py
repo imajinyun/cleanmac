@@ -6293,6 +6293,7 @@ def preflight_operation_log(path: str, *, root: Path, home: Path) -> dict[str, A
         display_path=display_path,
         rotate_bytes=OPERATIONS_LOG_ROTATE_BYTES,
         remove_path=delete_ops.remove_path_permanently,
+        protected_path=protection.should_protect_path,
     )
 
 
