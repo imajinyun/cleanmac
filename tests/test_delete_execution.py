@@ -29,6 +29,25 @@ class TestDeleteFailureReason:
     def test_maps_symlink_protected(self) -> None:
         assert cleancli.delete_failure_reason(RuntimeError("symlink target is protected")) == "symlink-protected"
 
+    def test_maps_protected_symlink_target_message(self) -> None:
+        exc = RuntimeError("Refusing to delete symlink pointing to protected path: /x/link -> /System/x")
+        assert cleancli.delete_failure_reason(exc) == "symlink-protected"
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "Refusing to move symlink to Trash: /Users/t/Library/Caches/launcher.lck",
+            "Refusing to sudo remove symlink: /Users/t/Downloads/link",
+            "Refusing to delete unreadable symlink: /Users/t/Caches/broken.lnk",
+        ],
+    )
+    def test_maps_benign_symlink_refusal_as_item_level_reason(self, message: str) -> None:
+        assert cleancli.delete_failure_reason(RuntimeError(message)) == "symlink-not-removable"
+
+    def test_maps_symlinked_trash_root_as_batch_aborting_reason(self) -> None:
+        exc = RuntimeError("Refusing to use symlinked Trash directory: /Users/t/.Trash")
+        assert cleancli.delete_failure_reason(exc) == "trash-root-symlink"
+
     def test_maps_protected_path(self) -> None:
         assert cleancli.delete_failure_reason(RuntimeError("Refusing to delete /System")) == "protected-path"
 
@@ -171,6 +190,103 @@ class TestDeleteExecutionBehavior:
             assert failed[0]["reason"] == "permission-denied"
             assert (root / "Users/tester/.Trash/old.tmp").exists()
             assert {record["status"] for record in records} & {"failed", "deleted"}
+
+    def test_trash_mode_skips_symlinked_cache_lock_and_completes_batch(self) -> None:
+        tmp, root, home = make_sandbox()
+        with tmp:
+            cache_dir = root / "Users/tester/Library/Containers/com.tencent.meeting/Data/Library/Caches"
+            cache_dir.mkdir(parents=True)
+            lock_target = root / "Users/tester/runtime/launcher.lock"
+            lock_target.parent.mkdir(parents=True)
+            lock_target.write_text("lock", encoding="utf-8")
+            lock_link = cache_dir / "launcher.lck"
+            lock_link.symlink_to(lock_target)
+            cache_file = cache_dir / "Cache.db"
+            cache_file.write_text("cache", encoding="utf-8")
+
+            dry_run = cleancli.clean(
+                [cleancli.CATEGORY_BY_KEY["userAppCache"]],
+                root=root,
+                home=home,
+                execute=False,
+                delete_mode="trash",
+            )
+            link_skips = [row for row in dry_run["skipped"] if str(row["path"]).endswith("launcher.lck")]
+            assert len(link_skips) == 1
+            assert link_skips[0]["reason"] == "symlink"
+            assert not link_skips[0]["selectable"]
+            assert all(not str(row["path"]).endswith("launcher.lck") for row in dry_run["items"])
+
+            report = cleancli.clean(
+                [cleancli.CATEGORY_BY_KEY["userAppCache"]],
+                root=root,
+                home=home,
+                execute=True,
+                delete_mode="trash",
+                operation_log=None,
+            )
+
+            assert report["failed_count"] == 0
+            assert lock_link.is_symlink(), "symlink lock must be preserved, not trashed"
+            assert lock_target.read_text(encoding="utf-8") == "lock"
+            assert not cache_file.exists(), "regular cache siblings must still be cleaned"
+            assert report["deleted_count"] >= 1
+            assert any(str(row["path"]).endswith("Cache.db") for row in report["items"])
+            assert all(
+                str(row["path"]).endswith("launcher.lck") and row["status"] == "skipped"
+                for row in report["skipped"]
+                if str(row["path"]).endswith("launcher.lck")
+            )
+
+    def test_permanent_mode_still_unlinks_benign_symlink_candidates(self) -> None:
+        tmp, root, home = make_sandbox()
+        with tmp:
+            cache_dir = root / "Users/tester/Library/Containers/com.example/Data/Library/Caches"
+            link_target = root / "Users/tester/runtime/target.bin"
+            link_target.parent.mkdir(parents=True)
+            link_target.write_text("cache", encoding="utf-8")
+            link = cache_dir / "link.lck"
+            link.symlink_to(link_target)
+
+            report = cleancli.clean(
+                [cleancli.CATEGORY_BY_KEY["userAppCache"]],
+                root=root,
+                home=home,
+                execute=True,
+                delete_mode="permanent",
+                operation_log=None,
+            )
+
+            assert report["failed_count"] == 0
+            assert not link.exists(), "permanent mode unlinks the symlink itself"
+            assert link_target.exists(), "permanent mode must never unlink through the symlink"
+
+    def test_low_level_symlink_refusal_fails_item_without_aborting_batch(self) -> None:
+        tmp, root, home = make_sandbox()
+        with tmp:
+            original_delete_path = delete_ops.delete_path
+
+            def symlink_refusing_delete(path: Path, **kwargs):
+                if path.name == "old.tmp":
+                    raise RuntimeError(f"Refusing to move symlink to Trash: {path}")
+                return original_delete_path(path, **kwargs)
+
+            with mock.patch.object(delete_ops, "delete_path", side_effect=symlink_refusing_delete):
+                report = cleancli.clean(
+                    [cleancli.CATEGORY_BY_KEY["trash"]],
+                    root=root,
+                    home=home,
+                    execute=True,
+                    risk_policy="default",
+                    delete_mode="trash",
+                    operation_log=None,
+                    command_argv=["clean", "--categories", "trash", "--execute"],
+                )
+
+            failed = [row for row in report["items"] if row.get("status") == "failed"]
+            assert failed and failed[0]["reason"] == "symlink-not-removable"
+            assert report["failed_count"] == 1
+            assert (root / "Users/tester/.Trash/old.tmp").exists()
 
     def test_execute_fail_fast_stops_on_item_failure(self) -> None:
         tmp, root, home = make_sandbox()

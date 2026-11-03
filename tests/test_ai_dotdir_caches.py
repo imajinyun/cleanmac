@@ -113,15 +113,19 @@ def test_dotdir_cache_symlink_cannot_escape_home(tmp_path: Path) -> None:
     outside.mkdir()
     (outside / "secret.bin").write_bytes(b"private")
     (home_dir / ".codex/cache").symlink_to(outside, target_is_directory=True)
-    with pytest.raises(RuntimeError, match="Refusing to move symlink"):
-        core.clean(
-            [core.CATEGORY_BY_KEY["aiToolCaches"]],
-            root=tmp_path,
-            home=HOME,
-            execute=True,
-            delete_mode="trash",
-            operation_log=None,
-        )
+    report = core.clean(
+        [core.CATEGORY_BY_KEY["aiToolCaches"]],
+        root=tmp_path,
+        home=HOME,
+        execute=True,
+        delete_mode="trash",
+        operation_log=None,
+    )
+    assert report["deleted_count"] == 0
+    symlink_skips = [
+        row for row in report["skipped"] if str(row["path"]).endswith(".codex/cache") and row["reason"] == "symlink"
+    ]
+    assert symlink_skips and all(not row["selectable"] for row in symlink_skips)
     assert (outside / "secret.bin").read_bytes() == b"private"
 
 

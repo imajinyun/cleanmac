@@ -163,6 +163,13 @@ def test_safe_sudo_remove_blocks_no_auth_and_symlinks() -> None:
         (PermissionError("Operation not permitted"), "permission-denied"),
         (RuntimeError("Lacking write permission for candidate"), "permission-denied"),
         (RuntimeError("symlink target is protected"), "symlink-protected"),
+        (
+            RuntimeError("Refusing to delete symlink pointing to protected path: /x/link -> /System/x"),
+            "symlink-protected",
+        ),
+        (RuntimeError("Refusing to move symlink to Trash: /x/link"), "symlink-not-removable"),
+        (RuntimeError("Refusing to sudo remove symlink: /x/link"), "symlink-not-removable"),
+        (RuntimeError("Refusing to use symlinked Trash directory: /x/.Trash"), "trash-root-symlink"),
         (RuntimeError("Refusing to delete /System"), "protected-path"),
         (RuntimeError("Trash routing failed"), "trash-routing-failed"),
         (RuntimeError("unexpected"), "delete-failed"),

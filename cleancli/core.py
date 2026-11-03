@@ -8102,8 +8102,18 @@ def delete_failure_reason(exc: Exception) -> str:
     text = str(exc)
     if isinstance(exc, PermissionError) or "Operation not permitted" in text or "Lacking write permission" in text:
         return "permission-denied"
+    if "symlinked trash directory" in text.lower():
+        # The Trash root itself being a symlink breaks the fail-closed Trash
+        # contract for every remaining item, so this aborts the whole batch.
+        return "trash-root-symlink"
     if "symlink" in text.lower():
-        return "symlink-protected"
+        # A symlink aimed at a protected target is a policy disagreement that
+        # keeps the historical fail-fast tripwire. A blanket Trash/sudo refusal
+        # of an otherwise validated symlink preserves the item on disk, so the
+        # failure stays item-level and the rest of the batch can continue.
+        if "protected" in text.lower():
+            return "symlink-protected"
+        return "symlink-not-removable"
     if "protected" in text.lower() or "Refusing to delete" in text:
         return "protected-path"
     if "Trash" in text or "trash" in text:
@@ -8416,6 +8426,12 @@ def clean(
                 reason = category_policy_reason(
                     CATEGORY_BY_KEY[row["category"]], path, root=root, activity=current_activity
                 )
+                if not reason and delete_mode in {"trash", "hardlink"} and path.is_symlink():
+                    # Last policy gate before the deletion primitive: Trash and
+                    # hardlink modes cannot handle symlinks, so preserve the
+                    # item as a locked skip even if it entered via an older
+                    # plan or appeared after the scan.
+                    reason = "symlink"
                 if reason:
                     current_skip = skipped_row(str(row["category"]), path.parent, path, reason)
                     current_skip.update(current_activity.metadata(path, CATEGORY_BY_KEY[row["category"]].process_guard))
@@ -8545,7 +8561,7 @@ def clean(
                         ai_operation_audit=ai_operation_audit,
                     )
                 )
-                if fail_fast or row["reason"] in {"protected-path", "symlink-protected"}:
+                if fail_fast or row["reason"] in {"protected-path", "symlink-protected", "trash-root-symlink"}:
                     raise
                 continue
             operation_log_entries.append(

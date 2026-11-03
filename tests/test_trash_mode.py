@@ -68,7 +68,7 @@ def test_trash_mode_failure_does_not_fallback_to_permanent_delete() -> None:
 
 
 @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlink unsupported")
-def test_trash_delete_mode_rejects_symlink_candidates() -> None:
+def test_trash_delete_mode_skips_symlink_candidates_without_aborting() -> None:
     tmp, root, home = make_sandbox()
     with tmp:
         target = root / "Users/tester/Downloads/target.txt"
@@ -94,7 +94,15 @@ def test_trash_delete_mode_rejects_symlink_candidates() -> None:
             check=False,
         )
 
-        assert result.returncode != 0
+        assert result.returncode == 0
+        report = json.loads(result.stdout)
+        assert report["deleted_count"] == 0
+        assert report["failed_count"] == 0
+        link_skips = [
+            row
+            for row in report["skipped"]
+            if str(row["path"]).endswith("Downloads/link.txt") and row["reason"] == "symlink"
+        ]
+        assert link_skips and all(not row["selectable"] for row in link_skips)
         assert link.is_symlink()
-        deletion_log = root / "Users/tester/.cleanmac/deletions.log"
-        assert "\tfailed\t" in deletion_log.read_text(encoding="utf-8")
+        assert target.read_text(encoding="utf-8") == "target"

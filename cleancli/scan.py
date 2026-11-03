@@ -603,6 +603,14 @@ def clean_candidate_rows(
         category = category_by_key[target.category]
         min_size_bytes = max(effective_min_size_mb(category, min_size_mb), 0) * 1024 * 1024
         for entry, _ in entries:
+            if delete_mode in {"trash", "hardlink"} and entry.is_symlink():
+                # delete_ops refuses to move symlinks to Trash (or hardlink
+                # through them); discovering them as selected candidates would
+                # make plans promise deletions execution must abort on. Keep
+                # them visible and locked in review. Permanent mode may still
+                # unlink validated symlinks, so it is not gated here.
+                skipped.append(skipped_row(target.category, target.path, entry, "symlink"))
+                continue
             try:
                 assert_safe_to_delete(entry)
             except delete_ops.ProtectedUserDataError:
